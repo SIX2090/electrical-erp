@@ -1,0 +1,331 @@
+{% extends "base.html" %}
+{% block title %}库存调拨{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h2 class="mb-0"><i class="bi bi-arrow-left-right"></i> 库存调拨</h2>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <form method="get" class="row g-2 align-items-end">
+            {% if request.args.get('embedded') == '1' %}
+            <input type="hidden" name="embedded" value="1">
+            {% endif %}
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">状态</label>
+                <select name="status" class="form-select form-select-sm">
+                    <option value="" {% if not filters.status %}selected{% endif %}>全部状态</option>
+                    <option value="pending" {% if filters.status == 'pending' %}selected{% endif %}>草稿/待处理</option>
+                    <option value="completed" {% if filters.status == 'completed' %}selected{% endif %}>已完成</option>
+                    <option value="cancelled" {% if filters.status == 'cancelled' %}selected{% endif %}>已取消</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">开始日期</label>
+                <input type="date" name="date_start" class="form-control form-control-sm" value="{{ filters.date_start }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">结束日期</label>
+                <input type="date" name="date_end" class="form-control form-control-sm" value="{{ filters.date_end }}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small text-muted mb-1">关键词</label>
+                <input type="text" name="search" class="form-control form-control-sm" placeholder="单号/仓库/物料/草稿/已完成" value="{{ filters.search }}">
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-primary btn-sm flex-fill"><i class="bi bi-search"></i> 筛选</button>
+                {% if filters.status or filters.search or filters.date_start or filters.date_end %}
+                <a href="/transfer{% if request.args.get('embedded') == '1' %}?embedded=1{% endif %}" class="btn btn-outline-secondary btn-sm">清除</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive-wrapper">
+        <table class="table table-bordered table-hover table-sm mb-0" id="transferTable">
+            <thead>
+                <tr>
+                    <th width="50">
+                        <input type="checkbox" id="selectAll"> 全选
+                    </th>
+                    <th data-sortable="transfer_no" class="sortable-header">调拨单号 {% if sort_by=='transfer_no' %}<i class="bi bi-caret-{{ 'up' if sort_order=='asc' else 'down' }}-fill small"></i>{% endif %}</th>
+                    <th data-sortable="date" class="sortable-header">日期 {% if sort_by=='date' %}<i class="bi bi-caret-{{ 'up' if sort_order=='asc' else 'down' }}-fill small"></i>{% endif %}</th>
+                    <th data-sortable="from_location" class="sortable-header">调出仓库 {% if sort_by=='from_location' %}<i class="bi bi-caret-{{ 'up' if sort_order=='asc' else 'down' }}-fill small"></i>{% endif %}</th>
+                    <th data-sortable="to_location" class="sortable-header">调入仓库 {% if sort_by=='to_location' %}<i class="bi bi-caret-{{ 'up' if sort_order=='asc' else 'down' }}-fill small"></i>{% endif %}</th>
+                    <th>备注</th>
+                    <th>操作人</th>
+                    <th data-sortable="status" class="sortable-header">状态 {% if sort_by=='status' %}<i class="bi bi-caret-{{ 'up' if sort_order=='asc' else 'down' }}-fill small"></i>{% endif %}</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for transfer in transfers %}
+                <tr data-id="{{ transfer.id }}">
+                    <td><input type="checkbox" class="itemCheck check-item" value="{{ transfer.id }}"></td>
+                    <td><a href="{{ url_for('transfer_detail', id=transfer.id) }}">{{ transfer.transfer_no }}</a></td>
+                    <td>{{ transfer.date }}</td>
+                    <td>{{ transfer.from_location or '-' }}</td>
+                    <td>{{ transfer.to_location or '-' }}</td>
+                    <td>{{ transfer.remark or '' }}</td>
+                    <td>{{ transfer.operator.username if transfer.operator else '-' }}</td>
+                    <td>
+                        {% if transfer.status == 'pending' %}
+                        <span class="badge bg-warning">草稿</span>
+                        {% elif transfer.status == 'completed' %}
+                        <span class="badge bg-success">已完成</span>
+                        {% else %}
+                        <span class="badge bg-secondary">{{ transfer.status or '未知' }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a class="btn btn-sm btn-outline-primary" href="{{ url_for('transfer_detail', id=transfer.id) }}" title="{{ '编辑' if transfer.status == 'pending' else '查看' }}">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <button class="btn btn-sm btn-outline-success copyBtn" data-id="{{ transfer.id }}" title="复制">
+                            <i class="bi bi-clipboard"></i>
+                        </button>
+                        {% if transfer.status == 'completed' %}
+                        <button class="btn btn-sm btn-outline-warning revertBtn" data-id="{{ transfer.id }}" title="反提交">
+                            <i class="bi bi-arrow-counterclockwise"></i>
+                        </button>
+                        {% endif %}
+                        <button class="btn btn-sm btn-outline-danger delBtn" data-id="{{ transfer.id }}" title="删除">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="9" class="text-center text-muted">暂无调拨记录</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div><!-- end table-responsive-wrapper -->
+    </div>
+</div>
+
+<!-- 新建调拨单弹窗 -->
+<div class="modal fade" id="addModal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-plus-circle"></i> 新建调拨单</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="addForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">调出仓库</label>
+                        <select class="form-select" name="from_location" required>
+                            <option value="">请选择调出仓库</option>
+                            {% for warehouse in warehouses %}
+                            <option value="{{ warehouse.name }}">{{ warehouse.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">调入仓库</label>
+                        <select class="form-select" name="to_location" required>
+                            <option value="">请选择调入仓库</option>
+                            {% for warehouse in warehouses %}
+                            <option value="{{ warehouse.name }}">{{ warehouse.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">备注（可选）</label>
+                        <textarea class="form-control" name="remark" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">创建</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 修改调拨单弹窗 -->
+<div class="modal fade" id="editModal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil"></i> 修改调拨单</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editForm">
+                <div class="modal-body">
+                    <input type="hidden" id="editId">
+                    <div class="mb-3">
+                        <label class="form-label">备注</label>
+                        <textarea class="form-control" id="editRemark" name="remark" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    document.querySelectorAll('.sortable-header').forEach(function(th) {
+        th.addEventListener('click', function() {
+            var sortField = this.dataset.sortable;
+            var url = new URL(window.location.href);
+            var currentSort = url.searchParams.get('sort');
+            var currentOrder = url.searchParams.get('order') || 'desc';
+            url.searchParams.set('sort', sortField);
+            url.searchParams.set('order', currentSort === sortField && currentOrder === 'asc' ? 'desc' : 'asc');
+            window.location.href = url.toString();
+        });
+    });
+
+    // 全选
+    $('#selectAll').change(function() {
+        $('.itemCheck').prop('checked', $(this).prop('checked'));
+    });
+
+    // 新建调拨单
+    $('#addForm').submit(function(e) {
+        e.preventDefault();
+        $.ajax({
+            url: '/transfer/add',
+            type: 'POST',
+            data: $(this).serialize(),
+            success: function(res) {
+                if (res.status === 'success') {
+                    location.reload();
+                } else {
+                    alert(res.msg || '操作失败');
+                }
+            },
+            error: function() {
+                alert('请求失败');
+            }
+        });
+    });
+
+    // 删除
+    $('.delBtn').click(function() {
+        if (!confirm('确定要删除该调拨单吗？')) return;
+        var id = $(this).data('id');
+        $.post('/transfer/' + id + '/delete', function(res) {
+            if (res.status === 'success') {
+                location.reload();
+            } else {
+                alert(res.msg || '操作失败');
+            }
+        });
+    });
+
+    // 修改
+    $('.editBtn').click(function() {
+        var id = $(this).data('id');
+        var tr = $(this).closest('tr');
+        var remark = tr.find('td:eq(5)').text().trim();
+        $('#editId').val(id);
+        $('#editRemark').val(remark === '-' ? '' : remark);
+        new bootstrap.Modal(document.getElementById('editModal')).show();
+    });
+
+    $('#editForm').submit(function(e) {
+        e.preventDefault();
+        var id = $('#editId').val();
+        $.ajax({
+            url: '/transfer/' + id + '/update',
+            type: 'POST',
+            data: $(this).serialize(),
+            success: function(res) {
+                if (res.status === 'success') {
+                    bootstrap.Modal.getInstance(document.getElementById('editModal')).hide();
+                    showToast('调拨单已更新，正在刷新列表…', 'success');
+                    setTimeout(function(){ location.reload(); }, 650);
+                } else {
+                    showToast(res.msg || '修改失败', 'danger', 3600);
+                }
+            },
+            error: function() {
+                showToast('请求失败', 'danger', 3600);
+            }
+        });
+    });
+
+    // 复制
+    $('.copyBtn').click(async function() {
+        var id = $(this).data('id');
+        const confirmed = await showConfirm('确认复制该调拨单？', { title: '复制调拨单' });
+        if (!confirmed) return;
+        fetch('/transfers/' + id + '/copy', {
+            method: 'POST',
+            headers: {'X-CSRFToken': (document.querySelector('meta[name="csrf-token"]') || {}).content || ''}
+        })
+        .then(response => response.json())
+        .then(res => {
+            if (res.status === 'success') {
+                showToast('调拨单已复制，正在刷新列表…', 'success');
+                setTimeout(function(){ location.reload(); }, 650);
+            } else {
+                showToast(res.msg || '复制失败', 'danger', 3600);
+            }
+        })
+        .catch(error => {
+            showToast('复制失败：' + error.message, 'danger', 3600);
+        });
+    });
+
+    // 批量删除
+    $('.revertBtn').click(function() {
+        var id = $(this).data('id');
+        if (!confirm('确认反提交该调拨单？反提交后库存将恢复到调拨前。')) return;
+        $.ajax({
+            url: '/transfers/' + id + '/revert',
+            type: 'POST',
+            beforeSend: function(xhr) { xhr.setRequestHeader('X-CSRFToken', (document.querySelector('meta[name="csrf-token"]') || {}).content || ''); },
+            success: function(res) {
+                if (res.status === 'success') {
+                    showToast(res.msg || '反提交成功', 'success');
+                    setTimeout(function(){ location.reload(); }, 650);
+                } else {
+                    showToast(res.msg || '反提交失败', 'danger', 3600);
+                }
+            }
+        });
+    });
+
+    $('#batchDeleteBtn').click(function() {
+        var ids = [];
+        $('.itemCheck:checked').each(function() {
+            ids.push($(this).val());
+        });
+        if (ids.length === 0) {
+            alert('请选择要删除的记录');
+            return;
+        }
+        if (!confirm('确定要删除选中的 ' + ids.length + ' 条记录吗？')) return;
+        $.ajax({
+            url: '/transfers/batch_delete',
+            type: 'POST',
+            data: {ids: ids},
+            beforeSend: function(xhr) { xhr.setRequestHeader('X-CSRFToken', (document.querySelector('meta[name="csrf-token"]') || {}).content || ''); },
+            success: function(res) {
+                if (res.status === 'success') {
+                    location.reload();
+                } else {
+                    alert(res.msg || '操作失败');
+                }
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

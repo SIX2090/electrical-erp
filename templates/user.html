@@ -1,0 +1,290 @@
+{% extends "base.html" %}
+{% from '_list_macros.html' import sort_th %}
+{% block title %}用户管理{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <h2><i class="bi bi-people-fill"></i> 用户管理</h2>
+    <div>
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addModal">
+            <i class="bi bi-plus-circle"></i> 新增用户
+        </button>
+        <button type="button" class="btn btn-danger" onclick="batchDelete('{{ url_for("delete_user") }}', 'userTable')">
+            <i class="bi bi-trash"></i> 批量删除
+        </button>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="get" class="row g-2 align-items-end mb-3">
+            {% if request.args.get('embedded') == '1' %}
+            <input type="hidden" name="embedded" value="1">
+            {% endif %}
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">角色</label>
+                <select name="role" class="form-select form-select-sm">
+                    <option value="" {% if not filters.role %}selected{% endif %}>全部角色</option>
+                    <option value="admin" {% if filters.role == 'admin' %}selected{% endif %}>系统管理员</option>
+                    <option value="warehouse" {% if filters.role == 'warehouse' %}selected{% endif %}>仓库</option>
+                    <option value="purchase" {% if filters.role == 'purchase' %}selected{% endif %}>采购/委外</option>
+                    <option value="production" {% if filters.role == 'production' %}selected{% endif %}>生产</option>
+                    <option value="user" {% if filters.role == 'user' %}selected{% endif %}>普通用户</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">状态</label>
+                <select name="status" class="form-select form-select-sm">
+                    <option value="" {% if not filters.status %}selected{% endif %}>全部状态</option>
+                    <option value="normal" {% if filters.status == 'normal' %}selected{% endif %}>正常/启用</option>
+                    <option value="disabled" {% if filters.status == 'disabled' %}selected{% endif %}>禁用</option>
+                    <option value="inactive" {% if filters.status == 'inactive' %}selected{% endif %}>停用</option>
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label small text-muted mb-1">关键词</label>
+                <input type="text" name="search" class="form-control form-control-sm" placeholder="搜索用户名、角色、状态" value="{{ filters.search }}">
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-primary btn-sm flex-fill">筛选</button>
+                {% if filters.search or filters.status or filters.role %}
+                <a href="/users{% if request.args.get('embedded') == '1' %}?embedded=1{% endif %}" class="btn btn-outline-secondary btn-sm">清除</a>
+                {% endif %}
+            </div>
+        </form>
+        <table class="table table-bordered table-hover" id="userTable">
+            <thead>
+                <tr>
+                    <th width="50"><input type="checkbox" id="checkAll"></th>
+                    {{ sort_th('ID', 'id', sort_by, sort_order) }}
+                    {{ sort_th('用户名', 'username', sort_by, sort_order) }}
+                    {{ sort_th('角色', 'role', sort_by, sort_order) }}
+                    {{ sort_th('状态', 'status', sort_by, sort_order) }}
+                    {{ sort_th('创建时间', 'created_at', sort_by, sort_order) }}
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                {% set user_status = user.status or 'normal' %}
+                <tr>
+                    <td><input type="checkbox" class="check-item" value="{{ user.id }}" {% if user.id == current_user.id or user_status not in ['disabled', 'inactive'] %}disabled{% endif %}></td>
+                    <td>{{ user.id }}</td>
+                    <td>{{ user.username }}</td>
+                    <td>
+                        {% if user.role == 'admin' %}
+                        <span class="badge bg-danger">系统管理员</span>
+                        {% elif user.role == 'warehouse' %}
+                        <span class="badge bg-success">仓库</span>
+                        {% elif user.role == 'purchase' %}
+                        <span class="badge bg-primary">采购/委外</span>
+                        {% elif user.role == 'production' %}
+                        <span class="badge bg-warning text-dark">生产</span>
+                        {% else %}
+                        <span class="badge bg-info text-dark">普通用户</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if user_status == 'disabled' %}
+                        <span class="badge bg-secondary">禁用</span>
+                        {% elif user_status == 'inactive' %}
+                        <span class="badge bg-dark">停用</span>
+                        {% else %}
+                        <span class="badge bg-success">正常/启用</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ user.created_at.strftime('%Y-%m-%d %H:%M') if user.created_at else '-' }}</td>
+                    <td>
+                        <button type="button" class="btn btn-sm btn-outline-warning" onclick='resetPassword({{ user.id }}, {{ user.username|tojson }})'>
+                            <i class="bi bi-key"></i> 重置密码
+                        </button>
+                        {% if user.id == current_user.id %}
+                        <button type="button" class="btn btn-sm btn-outline-secondary" disabled title="不能禁用当前登录账号">
+                            <i class="bi bi-slash-circle"></i> 禁用
+                        </button>
+                        {% elif user_status in ['disabled', 'inactive'] %}
+                        <button type="button" class="btn btn-sm btn-outline-success" onclick='toggleUserStatus({{ user.id }}, {{ user.username|tojson }}, "normal")'>
+                            <i class="bi bi-check-circle"></i> 启用
+                        </button>
+                        {% else %}
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick='toggleUserStatus({{ user.id }}, {{ user.username|tojson }}, "disabled")'>
+                            <i class="bi bi-slash-circle"></i> 禁用
+                        </button>
+                        {% endif %}
+                        {% if user.id == current_user.id %}
+                        <button type="button" class="btn btn-sm btn-outline-danger" disabled title="不能删除当前登录账号">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                        {% elif user_status in ['disabled', 'inactive'] %}
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteItem('{{ url_for("delete_user") }}', {{ user.id }})">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                        {% else %}
+                        <button type="button" class="btn btn-sm btn-outline-danger" disabled title="请先禁用用户后再删除">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="7" class="text-center text-muted">暂无用户数据</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 新增用户弹窗 -->
+<div class="modal fade" id="addModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">新增用户</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="addForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">用户名 *</label>
+                        <input type="text" class="form-control" name="username" required placeholder="请输入用户名">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">密码 *</label>
+                        <input type="password" class="form-control" name="password" required placeholder="请输入密码">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">角色</label>
+                        <select class="form-select" name="role">
+                            <option value="user">普通用户</option>
+                            <option value="warehouse">仓库</option>
+                            <option value="purchase">采购/委外</option>
+                            <option value="production">生产</option>
+                            <option value="admin">系统管理员</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 重置密码弹窗 -->
+<div class="modal fade" id="resetModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">重置密码</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="resetForm">
+                <div class="modal-body">
+                    <input type="hidden" name="user_id" id="resetUserId">
+                    <div class="mb-3">
+                        <label class="form-label">用户名</label>
+                        <input type="text" class="form-control" id="resetUsername" disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">新密码 *</label>
+                        <input type="password" class="form-control" name="new_password" required placeholder="请输入新密码">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">确认重置</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    initCheckAll('userTable');
+
+    // 新增用户
+    var addForm = document.getElementById('addForm');
+    if (addForm) {
+        addForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            var formData = new FormData(this);
+            var csrf = document.querySelector('meta[name="csrf-token"]');
+            if (csrf) formData.append('csrf_token', csrf.getAttribute('content'));
+            fetch('{{ url_for("add_user") }}', { method: 'POST', body: formData })
+            .then(function(r){ return r.json(); })
+            .then(function(res) {
+                if (res.status === 'success') {
+                    showToast('用户已创建，正在刷新列表…', 'success');
+                    setTimeout(function(){ location.reload(); }, 650);
+                }
+                else showToast(res.msg || '保存失败', 'danger', 3600);
+            })
+            .catch(function(err){ showToast('保存失败：' + err.message, 'danger', 3600); });
+        });
+    }
+
+    // 重置密码
+    window.resetPassword = function(userId, username) {
+        document.getElementById('resetUserId').value = userId;
+        document.getElementById('resetUsername').value = username;
+        new bootstrap.Modal(document.getElementById('resetModal')).show();
+    };
+
+    // 禁用/启用用户
+    window.toggleUserStatus = async function(userId, username, status) {
+        var isEnable = status === 'normal';
+        var actionText = isEnable ? '启用' : '禁用';
+        var message = isEnable
+            ? '确定要启用用户“' + username + '”吗？'
+            : '确定要禁用用户“' + username + '”吗？禁用后该账号不能登录。';
+        var confirmed = await showConfirm(message, { title: actionText + '确认' });
+        if (!confirmed) return;
+
+        fetch('{{ url_for("update_user_status") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': (document.querySelector('meta[name="csrf-token"]') || {}).getAttribute ? document.querySelector('meta[name="csrf-token"]').getAttribute('content') : ''
+            },
+            body: JSON.stringify({ user_id: userId, status: status })
+        })
+        .then(function(r){ return r.json(); })
+        .then(function(res) {
+            if (res.status === 'success') {
+                showToast(res.msg || ('用户已' + actionText), 'success');
+                setTimeout(function(){ location.reload(); }, 650);
+            } else {
+                showToast(res.msg || (actionText + '失败'), 'danger', 3600);
+            }
+        })
+        .catch(function(err){ showToast(actionText + '失败：' + err.message, 'danger', 3600); });
+    };
+
+    // 重置密码表单提交
+    var resetForm = document.getElementById('resetForm');
+    if (resetForm) {
+        resetForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            var formData = new FormData(this);
+            var csrf = document.querySelector('meta[name="csrf-token"]');
+            if (csrf) formData.append('csrf_token', csrf.getAttribute('content'));
+            fetch('{{ url_for("reset_user_password") }}', { method: 'POST', body: formData })
+            .then(function(r){ return r.json(); })
+            .then(function(res) {
+                if (res.status === 'success') {
+                    showToast('密码已重置，正在刷新列表…', 'success');
+                    setTimeout(function(){ location.reload(); }, 650);
+                }
+                else showToast(res.msg || '重置失败', 'danger', 3600);
+            })
+            .catch(function(err){ showToast('重置失败：' + err.message, 'danger', 3600); });
+        });
+    }
+});
+</script>
+{% endblock %}

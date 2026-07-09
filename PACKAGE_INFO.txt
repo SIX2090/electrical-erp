@@ -1,0 +1,14 @@
+WMS ERP offline installer package
+built_at=2026-06-22 14:17:59
+package_name=WMS_ERP_Offline_Installer_20260622_141759.zip
+runtime=Windows offline one-click installer
+includes_python_runtime=yes
+includes_postgresql_runtime=yes
+includes_offline_wheels=yes
+includes_database_snapshot=yes
+includes_runtime_local_secrets=no
+operator_url=http://127.0.0.1:5000
+installer_audit=installer_package_audit=ok
+source_integrity=ok
+prelaunch_audit=core_pages=34 errors=0 warnings=0
+crud_audit=erp_crud_targets=46 ok=46 warnings=0 errors=0

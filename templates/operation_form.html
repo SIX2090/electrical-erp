@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="mb-3">
+    <a class="btn btn-outline-secondary btn-sm" href="{{ back_url or '/' }}">返回</a>
+</div>
+
+<div class="page-heading">
+    <h1>{{ title }}</h1>
+    <p>{{ subtitle }}</p>
+</div>
+
+<form method="post" action="{{ action_url }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% for section in sections %}
+    <div class="page-card mb-3">
+        <div class="section-title">
+            <div>
+                <h2>{{ section.title }}</h2>
+                {% if section.hint %}<span>{{ section.hint }}</span>{% endif %}
+            </div>
+        </div>
+        <div class="row g-3">
+            {% for field in section.fields %}
+            <div class="{% if field.type == 'textarea' %}col-12{% else %}col-md-6 col-xl-4{% endif %}">
+                <label class="form-label" for="{{ field.name }}">
+                    {{ field.label }}{% if field.required %}<span class="text-danger"> *</span>{% endif %}
+                </label>
+                {% if field.type == 'textarea' %}
+                <textarea class="form-control" id="{{ field.name }}" name="{{ field.name }}" rows="3" {% if field.required %}required{% endif %}>{{ field.value or '' }}</textarea>
+                {% elif field.type == 'select' %}
+                <select class="form-select" id="{{ field.name }}" name="{{ field.name }}" {% if field.required %}required{% endif %}>
+                    <option value="">请选择</option>
+                    {% for option in field.options or [] %}
+                    <option value="{{ option.id }}" {% if field.value|string == option.id|string %}selected{% endif %}>{{ option.name }}</option>
+                    {% endfor %}
+                </select>
+                {% else %}
+                <input
+                    class="form-control"
+                    id="{{ field.name }}"
+                    name="{{ field.name }}"
+                    type="{{ field.type or 'text' }}"
+                    value="{{ field.value if field.value is not none else '' }}"
+                    {% if field.step %}step="{{ field.step }}"{% endif %}
+                    {% if field.required %}required{% endif %}
+                >
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+
+    <div class="d-flex flex-wrap gap-2 justify-content-end">
+        <a class="btn btn-outline-secondary" href="{{ back_url or '/' }}">取消</a>
+        <button class="btn btn-primary" type="submit"><i class="bi bi-check2"></i> 保存</button>
+    </div>
+</form>
+{% endblock %}

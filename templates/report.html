@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}报表中心{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2 class="mb-0"><i class="bi bi-graph-up"></i> 报表中心</h2>
+</div>
+
+<section class="card border-0 shadow-sm mb-4 report-hero">
+    <div class="card-body p-4">
+        <div class="row align-items-center g-4">
+            <div class="col-lg-8">
+                <span class="hero-kicker">&#25253;&#34920;&#20013;&#24515;</span>
+                <h3 class="mt-2 mb-2">统一查看库存、出入库、盘点和台账</h3>
+                <p class="mb-0 text-muted">支持在线预览、条件筛选、分页查看和 Excel 导出，适合日常核对和管理复盘。</p>
+            </div>
+            <div class="col-lg-4 text-lg-end">
+                <a href="{{ url_for('report_dashboard') }}" class="btn btn-primary btn-lg hero-btn">
+                    <i class="bi bi-bar-chart-line"></i> 打开数据仪表盘
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<div class="row g-4">
+    {% for card in report_cards %}
+    <div class="col-md-6 col-xl-4">
+        <div class="card h-100 report-card border-0 shadow-sm accent-{{ card.accent }}">
+            <div class="card-body d-flex flex-column">
+                <div class="report-card-icon">
+                    <i class="bi {{ card.icon }}"></i>
+                </div>
+                <h4 class="mt-3 mb-2">{{ card.title }}</h4>
+                <p class="text-muted flex-grow-1 mb-4">{{ card.description }}</p>
+                <div class="d-flex gap-2">
+                    <a href="{{ url_for('report_view', report_type=card.report_type) }}" class="btn btn-outline-primary flex-fill">
+                        <i class="bi bi-search"></i> 预览
+                    </a>
+                    <a href="{{ url_for('report_api_query', report_type=card.report_type, export='excel') }}" class="btn btn-primary flex-fill">
+                        <i class="bi bi-download"></i> 导出
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<section class="card border-0 shadow-sm mt-4">
+    <div class="card-header bg-white">
+        <h5 class="mb-0"><i class="bi bi-info-circle"></i> 使用说明</h5>
+    </div>
+    <div class="card-body">
+        <div class="row g-4">
+            <div class="col-md-3">
+                <h6>在线预览</h6>
+                <p class="text-muted small mb-0">进入报表页后可直接查询、分页、排序和打印当前结果。</p>
+            </div>
+            <div class="col-md-3">
+                <h6>筛选条件</h6>
+                <p class="text-muted small mb-0">按日期、物料、供应商、部门和状态筛选，不同报表会显示对应字段。</p>
+            </div>
+            <div class="col-md-3">
+                <h6>Excel 导出</h6>
+                <p class="text-muted small mb-0">导出会带上当前筛选和排序条件，方便二次核对。</p>
+            </div>
+            <div class="col-md-3">
+                <h6>数据仪表盘</h6>
+                <p class="text-muted small mb-0">适合查看月度趋势、分类分布和库存金额等汇总指标。</p>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.report-hero {
+    overflow: hidden;
+    background:
+        radial-gradient(circle at top right, rgba(102, 126, 234, 0.22), transparent 34%),
+        linear-gradient(135deg, #f7fbff 0%, #eef3ff 46%, #ffffff 100%);
+}
+
+.hero-kicker {
+    display: inline-block;
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    background: rgba(102, 126, 234, 0.12);
+    color: #4f5db9;
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.hero-btn {
+    min-width: 220px;
+}
+
+.report-card {
+    position: relative;
+    overflow: hidden;
+}
+
+.report-card::after {
+    content: "";
+    position: absolute;
+    inset: auto -25% -25% auto;
+    width: 130px;
+    height: 130px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.32);
+    pointer-events: none;
+}
+
+.report-card-icon {
+    width: 64px;
+    height: 64px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 18px;
+    font-size: 1.7rem;
+    background: rgba(255, 255, 255, 0.7);
+}
+
+.accent-primary { background: linear-gradient(180deg, #ffffff 0%, #eef4ff 100%); }
+.accent-success { background: linear-gradient(180deg, #ffffff 0%, #effaf4 100%); }
+.accent-info { background: linear-gradient(180deg, #ffffff 0%, #eff8fb 100%); }
+.accent-warning { background: linear-gradient(180deg, #ffffff 0%, #fff8ea 100%); }
+.accent-danger { background: linear-gradient(180deg, #ffffff 0%, #fff1f1 100%); }
+.accent-secondary { background: linear-gradient(180deg, #ffffff 0%, #f3f1fb 100%); }
+</style>
+{% endblock %}

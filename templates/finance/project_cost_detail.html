@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+
+{% block title %}项目成本明细{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>{{ title }}</h2>
+        <div class="d-none">
+            <a class="btn btn-sm btn-outline-secondary" href="javascript:history.back()" title="返回上一页"><i class="bi bi-arrow-left"></i> 返回</a>
+            <button class="btn btn-sm btn-primary" onclick="exportReportTable()"><i class="bi bi-download"></i> 导出Excel</button>
+            <button class="btn btn-sm btn-secondary" onclick="window.print()"><i class="bi bi-printer"></i> 打印</button>
+        </div>
+    </div>
+    <div class="page-header">
+        <h1>项目成本明细报表</h1>
+        <p class="text-muted">查询项目成本明细流水</p>
+    </div>
+
+    <!-- 筛选条件 -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-filter"></i> 筛选条件
+            </h5>
+        </div>
+        <div class="card-body">
+            <form method="get" action="/finance/project-cost/detail">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="form-group">
+                            <label>项目号</label>
+                            <select name="project_code" class="form-control">
+                                <option value="">全部项目</option>
+                                {% for p in projects %}
+                                <option value="{{ p.project_code }}" {% if filters.project_code == p.project_code %}selected{% endif %}>
+                                    {{ p.project_code }}{% if p.project_name %} - {{ p.project_name }}{% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group">
+                            <label>开始日期</label>
+                            <input type="date" name="start_date" class="form-control" value="{{ filters.start_date or '' }}">
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group">
+                            <label>结束日期</label>
+                            <input type="date" name="end_date" class="form-control" value="{{ filters.end_date or '' }}">
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group">
+                            <label>成本类型</label>
+                            <select name="cost_type" class="form-control">
+                                <option value="">全部类型</option>
+                                {% for ct in cost_types %}
+                                <option value="{{ ct }}" {% if filters.cost_type == ct %}selected{% endif %}>{{ ct }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group">
+                            <label>来源类型</label>
+                            <select name="source_type" class="form-control">
+                                <option value="">全部来源</option>
+                                {% for st in source_types %}
+                                <option value="{{ st.source_type }}" {% if filters.source_type == st.source_type %}selected{% endif %}>
+                                    {{ st.source_type }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-1">
+                        <div class="form-group">
+                            <label>&nbsp;</label>
+                            <button type="submit" class="btn btn-primary btn-block">
+                                <i class="fas fa-search"></i> 查询
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 成本明细 -->
+    <div class="card">
+        <div class="card-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-list"></i> 成本明细记录
+                </h5>
+                <div>
+                    <strong>合计金额：</strong>
+                    <span class="badge badge-primary" style="font-size: 1.1rem;">
+                        {{ "%.2f"|format(total_amount) }}
+                    </span>
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            {% if rows %}
+            <div class="table-responsive">
+                <table class="table table-hover table-sm">
+                    <thead class="thead-light">
+                        <tr>
+                            <th>序号</th>
+                            <th>成本日期</th>
+                            <th>项目号</th>
+                            <th>项目名称</th>
+                            <th>成本类型</th>
+                            <th>描述</th>
+                            <th>来源类型</th>
+                            <th>来源单号</th>
+                            <th class="text-right">数量</th>
+                            <th class="text-right">单位成本</th>
+                            <th class="text-right">成本金额</th>
+                            <th>记录人</th>
+                            <th>备注</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in rows %}
+                        <tr>
+                            <td>{{ loop.index }}</td>
+                            <td>{{ row.cost_date }}</td>
+                            <td>
+                                <span class="badge badge-info">{{ row.project_code }}</span>
+                            </td>
+                            <td>{{ row.project_name or '-' }}</td>
+                            <td>
+                                <span class="badge badge-secondary">{{ row.cost_type }}</span>
+                            </td>
+                            <td>{{ row.description or '-' }}</td>
+                            <td>
+                                <small class="text-muted">{{ row.source_type or '-' }}</small>
+                            </td>
+                            <td>
+                                <small>{{ row.source_no or '-' }}</small>
+                            </td>
+                            <td class="text-right">
+                                {% if row.quantity %}
+                                    {{ "%.2f"|format(row.quantity) }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td class="text-right">
+                                {% if row.unit_cost %}
+                                    {{ "%.2f"|format(row.unit_cost) }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td class="text-right">
+                                <strong>{{ "%.2f"|format(row.cost_amount) }}</strong>
+                            </td>
+                            <td>
+                                <small>{{ row.recorded_by_name or '-' }}</small>
+                            </td>
+                            <td>
+                                <small class="text-muted">{{ row.remark or '-' }}</small>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="thead-light">
+                        <tr>
+                            <th colspan="10" class="text-right">合计：</th>
+                            <th class="text-right">
+                                <strong>{{ "%.2f"|format(total_amount) }}</strong>
+                            </th>
+                            <th colspan="2"></th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <div class="mt-3">
+                <small class="text-muted">
+                    共 {{ rows|length }} 条记录
+                </small>
+            </div>
+            {% else %}
+            <div class="alert alert-info mb-0">
+                <i class="fas fa-info-circle"></i> 没有符合条件的成本记录
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+
+<style>
+.badge {
+    font-size: 0.85rem;
+}
+
+.table td, .table th {
+    vertical-align: middle;
+}
+</style>
+
+<script>
+function exportReportTable() {
+    var table = document.querySelector('.table');
+    if (!table) return;
+    var html = table.outerHTML;
+    var url = 'data:application/vnd.ms-excel,' + encodeURIComponent(html);
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = '{{ title }}_' + new Date().toISOString().substr(0,10) + '.xls';
+    link.click();
+}
+</script>
+{% endblock %}

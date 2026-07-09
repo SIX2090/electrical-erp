@@ -1,0 +1,296 @@
+{% extends "base.html" %}
+
+{% block title %}红冲发票 - {{ '销售' if kind == 'sales' else '采购' }}发票{% endblock %}
+
+{% block extra_css %}
+<style>
+    .invoice-info-card {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    .invoice-info-card h5 {
+        color: #495057;
+        border-bottom: 2px solid #0d6efd;
+        padding-bottom: 10px;
+        margin-bottom: 15px;
+    }
+    .info-row {
+        display: flex;
+        margin-bottom: 10px;
+    }
+    .info-label {
+        font-weight: 600;
+        width: 120px;
+        color: #6c757d;
+    }
+    .info-value {
+        flex: 1;
+        color: #212529;
+    }
+    .amount-highlight {
+        font-size: 1.2em;
+        font-weight: bold;
+        color: #dc3545;
+    }
+    .items-table {
+        margin-top: 20px;
+    }
+    .items-table th {
+        background: #e9ecef;
+        font-weight: 600;
+    }
+    .red-flush-form {
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 25px;
+        margin-top: 20px;
+    }
+    .red-flush-form h5 {
+        color: #dc3545;
+        margin-bottom: 20px;
+    }
+    .alert-warning {
+        border-left: 4px solid #ffc107;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>
+            <i class="bi bi-arrow-counterclockwise text-danger"></i>
+            红冲{{ '销售' if kind == 'sales' else '采购' }}发票
+        </h2>
+        <a href="{{ request.referrer or url_for('finance.' + kind + '_invoices') }}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> 返回
+        </a>
+    </div>
+
+    <div class="alert alert-warning" role="alert">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+        <strong>注意：</strong>红冲操作将创建一张负数金额的红字发票，用于冲销原发票。此操作不可撤销，请谨慎操作。
+    </div>
+
+    <!-- 原发票信息 -->
+    <div class="invoice-info-card">
+        <h5><i class="bi bi-file-text"></i> 原发票信息</h5>
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="info-row">
+                    <div class="info-label">发票号：</div>
+                    <div class="info-value">{{ invoice.invoice_no }}</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">发票日期：</div>
+                    <div class="info-value">{{ invoice.invoice_date }}</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">{{ '客户' if kind == 'sales' else '供应商' }}：</div>
+                    <div class="info-value">
+                        {{ invoice.customer_name if kind == 'sales' else invoice.supplier_name }}
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="info-row">
+                    <div class="info-label">不含税金额：</div>
+                    <div class="info-value">¥{{ "{:,.2f}".format(invoice.amount_without_tax) }}</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">税额：</div>
+                    <div class="info-value">¥{{ "{:,.2f}".format(invoice.tax_amount) }}</div>
+                </div>
+                <div class="info-row">
+                    <div class="info-label">价税合计：</div>
+                    <div class="info-value amount-highlight">
+                        ¥{{ "{:,.2f}".format(invoice.amount_with_tax) }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if invoice.project_code or invoice.serial_no %}
+        <div class="row mt-2">
+            <div class="col-md-6">
+                {% if invoice.project_code %}
+                <div class="info-row">
+                    <div class="info-label">项目号：</div>
+                    <div class="info-value">{{ invoice.project_code }}</div>
+                </div>
+                {% endif %}
+            </div>
+            <div class="col-md-6">
+                {% if invoice.serial_no %}
+                <div class="info-row">
+                    <div class="info-label">机号：</div>
+                    <div class="info-value">{{ invoice.serial_no }}</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if invoice.remark %}
+        <div class="info-row mt-2">
+            <div class="info-label">备注：</div>
+            <div class="info-value">{{ invoice.remark }}</div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- 发票明细 -->
+    <div class="invoice-info-card">
+        <h5><i class="bi bi-list-ul"></i> 发票明细</h5>
+        <table class="table table-bordered table-hover items-table">
+            <thead>
+                <tr>
+                    <th style="width: 50px;">行号</th>
+                    <th>物料编码</th>
+                    <th>物料名称</th>
+                    <th>规格型号</th>
+                    <th style="width: 80px;">单位</th>
+                    <th style="width: 100px;" class="text-end">数量</th>
+                    <th style="width: 120px;" class="text-end">单价</th>
+                    <th style="width: 120px;" class="text-end">不含税金额</th>
+                    <th style="width: 100px;" class="text-end">税额</th>
+                    <th style="width: 120px;" class="text-end">价税合计</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td class="text-center">{{ item.line_number }}</td>
+                    <td>{{ item.item_code }}</td>
+                    <td>{{ item.item_name }}</td>
+                    <td>{{ item.specification or '-' }}</td>
+                    <td>{{ item.unit }}</td>
+                    <td class="text-end">{{ "{:,.2f}".format(item.quantity) }}</td>
+                    <td class="text-end">¥{{ "{:,.2f}".format(item.unit_price) }}</td>
+                    <td class="text-end">¥{{ "{:,.2f}".format(item.amount_without_tax) }}</td>
+                    <td class="text-end">¥{{ "{:,.2f}".format(item.tax_amount) }}</td>
+                    <td class="text-end">¥{{ "{:,.2f}".format(item.amount_with_tax) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr class="table-secondary">
+                    <td colspan="7" class="text-end"><strong>合计：</strong></td>
+                    <td class="text-end"><strong>¥{{ "{:,.2f}".format(invoice.amount_without_tax) }}</strong></td>
+                    <td class="text-end"><strong>¥{{ "{:,.2f}".format(invoice.tax_amount) }}</strong></td>
+                    <td class="text-end"><strong>¥{{ "{:,.2f}".format(invoice.amount_with_tax) }}</strong></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    <!-- 红冲表单 -->
+    <div class="red-flush-form">
+        <h5><i class="bi bi-file-earmark-minus"></i> 红字发票信息</h5>
+
+        <form id="redFlushForm" method="POST" action="{{ url_for('invoice_red_flush_submit', kind=kind, invoice_id=invoice.id) }}">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="red_invoice_date" class="form-label">
+                            红字发票日期 <span class="text-danger">*</span>
+                        </label>
+                        <input type="date" class="form-control" id="red_invoice_date" name="red_invoice_date"
+                               value="{{ today }}" required>
+                        <div class="form-text">红字发票的开具日期</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label for="red_reason" class="form-label">
+                    红冲原因 <span class="text-danger">*</span>
+                </label>
+                <textarea class="form-control" id="red_reason" name="red_reason" rows="3" required
+                          placeholder="请输入红冲原因，例如：发票开具错误、客户要求重开、金额错误等">红冲发票</textarea>
+                <div class="form-text">请详细说明红冲原因，此信息将记录在红字发票的备注中</div>
+            </div>
+
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle-fill"></i>
+                <strong>红冲说明：</strong>
+                <ul class="mb-0 mt-2">
+                    <li>红字发票的金额将为负数：<strong class="text-danger">-¥{{ "{:,.2f}".format(invoice.amount_with_tax) }}</strong></li>
+                    <li>原发票状态将更新为"已红冲"</li>
+                    <li>系统将自动生成对应的负数应{{ '收' if kind == 'sales' else '付' }}单</li>
+                    <li>红字发票号格式：{{ invoice.invoice_no }}-R001</li>
+                </ul>
+            </div>
+
+            <div class="d-flex justify-content-end gap-2">
+                <a href="{{ request.referrer or url_for('finance.' + kind + '_invoices') }}" class="btn btn-secondary">
+                    <i class="bi bi-x-circle"></i> 取消
+                </a>
+                <button type="submit" class="btn btn-danger" id="submitBtn">
+                    <i class="bi bi-arrow-counterclockwise"></i> 确认红冲
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.getElementById('redFlushForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+
+    // 二次确认
+    if (!confirm('确认要红冲此发票吗？此操作不可撤销！')) {
+        return;
+    }
+
+    const submitBtn = document.getElementById('submitBtn');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>处理中...';
+
+    const formData = new FormData(this);
+
+    fetch(this.action, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content || ''
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            if (data.redirect_url) {
+                window.location.href = data.redirect_url;
+            } else {
+                window.location.href = "{{ url_for('finance.' + kind + '_invoices') }}";
+            }
+        } else {
+            alert('红冲失败：' + data.message);
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bi bi-arrow-counterclockwise"></i> 确认红冲';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('操作失败，请重试');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="bi bi-arrow-counterclockwise"></i> 确认红冲';
+    });
+});
+
+// 设置今天的日期为默认值
+document.addEventListener('DOMContentLoaded', function() {
+    const dateInput = document.getElementById('red_invoice_date');
+    if (!dateInput.value) {
+        const today = new Date().toISOString().split('T')[0];
+        dateInput.value = today;
+    }
+});
+</script>
+{% endblock %}

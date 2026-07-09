@@ -1,0 +1,379 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+{% set form_state = form_state or {} %}
+{% set is_edit = mode == 'edit' %}
+<div class="erp-document-entry erp-simple-document-entry">
+<div class="page-header d-flex justify-content-between align-items-center compact-document-title">
+    <div>
+        <h1 class="h4 mb-1">{{ title }}</h1>
+        <div class="text-muted small">
+            {% if kind in ['sales_invoice', 'purchase_invoice'] %}
+            发票登记仅用于应收应付核对；不做税控、纳税申报、自动凭证或总账过账。
+            {% else %}
+            {{ '安全状态下修改单据；已审核、已过账、已关闭或作废后只能查看追溯。' if is_edit else '独立单据入口；保存后进入列表或详情继续状态处理。' }}
+            {% endif %}
+        </div>
+    </div>
+    <a class="btn btn-outline-secondary btn-sm" href="{{ list_url }}">返回列表</a>
+</div>
+
+<form method="post" action="{{ post_url }}" id="simpleDocumentEntryForm" class="card compact-document-form" data-main-document-form>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="card-body">
+        <div class="erp-inline-header compact-document-header">
+            <div class="erp-inline-field erp-inline-field-date">
+                <label>{{ '发票日期' if kind in ['sales_invoice', 'purchase_invoice'] else '单据日期' }}</label>
+                <input class="form-control form-control-sm" type="date" name="doc_date" value="{{ form_state.doc_date or today }}">
+            </div>
+            {% if kind in ['quotation', 'sales_return', 'sales_invoice'] %}
+            <div class="erp-inline-field erp-inline-field-partner">
+                <label>客户</label>
+                <select class="form-select form-select-sm" name="customer_id" required>
+                    <option value="">请选择</option>
+                    {% for item in customers %}<option value="{{ item.id }}" {% if form_state.customer_id|string == item.id|string %}selected{% endif %}>{{ item.name }}</option>{% endfor %}
+                </select>
+            </div>
+            {% endif %}
+            {% if kind in ['purchase_return', 'purchase_invoice', 'supplier_quote'] %}
+            <div class="erp-inline-field erp-inline-field-partner">
+                <label>供应商</label>
+                <select class="form-select form-select-sm" name="supplier_id" required {% if kind == 'purchase_return' %}data-purchase-return-supplier{% endif %}>
+                    <option value="">请选择</option>
+                    {% for item in suppliers %}<option value="{{ item.id }}" {% if form_state.supplier_id|string == item.id|string %}selected{% endif %}>{{ item.name }}</option>{% endfor %}
+                </select>
+            </div>
+            {% endif %}
+            {% if kind in ['sales_invoice', 'purchase_invoice'] %}
+            <div class="erp-inline-field">
+                <label>发票号</label>
+                <input class="form-control" name="invoice_no" value="{{ form_state.invoice_no or '' }}" placeholder="留空自动生成">
+            </div>
+            <div class="erp-inline-field">
+                <label>来源单据</label>
+                <input class="form-control" name="source_type" value="{{ form_state.source_type or '' }}" placeholder="销售订单 / 采购订单">
+            </div>
+            {% endif %}
+            <div class="erp-inline-field">
+                <label>来源单号</label>
+                <input class="form-control form-control-sm" name="source_no" value="{{ form_state.source_no or '' }}" {% if kind == 'sales_return' %}list="salesReturnSourceNoOptions" data-sales-return-source{% elif kind == 'purchase_return' %}list="purchaseReturnSourceNoOptions" data-purchase-return-source{% endif %}>
+                {% if kind == 'sales_return' %}
+                <datalist id="salesReturnSourceNoOptions">
+                    {% for source in sales_return_sources %}
+                    <option value="{{ source.source_no }}" label="{{ source.source_no }} / {{ source.customer_name or '-' }} / {{ source.project_code or '-' }} / {{ source.serial_no or '-' }}"></option>
+                    {% endfor %}
+                </datalist>
+                {% elif kind == 'purchase_return' %}
+                <datalist id="purchaseReturnSourceNoOptions"></datalist>
+                {% endif %}
+            </div>
+            {% if kind in ['sales_return', 'purchase_return'] %}
+            <div class="erp-inline-field">
+                <label>来源订单号</label>
+                <input class="form-control form-control-sm" name="source_order_no" value="{{ form_state.source_order_no or '' }}" {% if kind == 'sales_return' %}list="salesReturnOrderNoOptions" data-sales-return-order{% elif kind == 'purchase_return' %}list="purchaseReturnOrderNoOptions" data-purchase-return-order{% endif %}>
+                {% if kind == 'sales_return' %}
+                <datalist id="salesReturnOrderNoOptions">
+                    {% for source in sales_return_orders %}
+                    <option value="{{ source.source_order_no }}" label="{{ source.source_order_no }} / {{ source.customer_name or '-' }} / {{ source.project_code or '-' }} / {{ source.serial_no or '-' }}"></option>
+                    {% endfor %}
+                </datalist>
+                {% elif kind == 'purchase_return' %}
+                <datalist id="purchaseReturnOrderNoOptions"></datalist>
+                {% endif %}
+            </div>
+            {% endif %}
+            <div class="erp-inline-field">
+                <label>项目号</label>
+                <input class="form-control form-control-sm" name="project_code" value="{{ form_state.project_code or '' }}" placeholder="推荐追溯字段">
+            </div>
+            <div class="erp-inline-field">
+                <label>机号</label>
+                <input class="form-control form-control-sm" name="serial_no" value="{{ form_state.serial_no or '' }}" placeholder="推荐追溯字段">
+            </div>
+            {% if kind in ['quotation', 'supplier_quote'] %}
+            <div class="erp-inline-field erp-inline-field-date">
+                <label>有效期</label>
+                <input class="form-control" type="date" name="valid_until" value="{{ form_state.valid_until or '' }}">
+            </div>
+            {% endif %}
+            {% if kind == 'quotation' %}
+            <div class="erp-inline-field">
+                <label>机型</label>
+                <input class="form-control" name="machine_type" value="{{ form_state.machine_type or '' }}">
+            </div>
+            {% endif %}
+        </div>
+
+        {% if kind in ['quotation', 'sales_return', 'purchase_return', 'supplier_quote', 'quality'] %}
+        <div class="table-responsive document-grid-scroll mt-3">
+            <table class="table table-bordered table-hover table-sm align-middle" data-simple-document-grid>
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 54px;">序号</th>
+                        <th>物料名称</th>
+                        {% if kind in ['sales_return', 'purchase_return'] %}<th>规格</th><th>单位</th>{% endif %}
+                        <th style="width: 120px;">数量</th>
+                        {% if kind != 'quality' %}<th style="width: 120px;">单价/成本</th><th style="width: 100px;">税率%</th>{% endif %}
+                        {% if kind in ['sales_return', 'purchase_return'] %}<th style="width: 140px;">含税金额</th><th>仓库</th>{% if location_management_enabled %}<th>库位</th>{% endif %}<th>批号</th>{% endif %}
+                        {% if kind == 'quality' %}<th>合格数量</th><th>不合格数量</th><th>检验类型</th>{% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="text-center text-muted">1</td>
+                        <td>
+                            <input type="hidden" name="product_id" id="productId" value="{{ form_state.product_id or '' }}">
+                            <input class="form-control form-control-sm" list="productOptions" id="productName" value="{{ form_state.product_name or '' }}" placeholder="从物料名称选择" required>
+                            <datalist id="productOptions">
+                                {% for p in products %}
+                                <option data-id="{{ p.id }}" data-spec="{{ p.specification or '' }}" data-unit="{{ p.unit or '' }}" data-price="{{ p.standard_price or 0 }}" data-tax="{{ p.default_tax_rate or 13 }}" value="{{ p.name }}">{{ p.code }} {{ p.specification or '' }} {{ p.unit or '' }}</option>
+                                {% endfor %}
+                            </datalist>
+                        </td>
+                        {% if kind in ['sales_return', 'purchase_return'] %}
+                        <td><input class="form-control form-control-sm" id="materialSpec" value="{{ form_state.specification or '' }}" readonly tabindex="-1"></td>
+                        <td><input class="form-control form-control-sm" id="materialUnit" value="{{ form_state.unit or '' }}" readonly tabindex="-1"></td>
+                        {% endif %}
+                        <td><input class="form-control form-control-sm text-end" name="{{ 'sample_size' if kind == 'quality' else 'quantity' }}" value="{{ form_state.sample_size if kind == 'quality' and form_state.sample_size is not none else form_state.quantity or 1 }}"></td>
+                        {% if kind != 'quality' %}
+                        <td><input class="form-control form-control-sm text-end" id="unitCost" name="{{ 'unit_cost' if kind in ['sales_return', 'purchase_return'] else 'unit_price' }}" value="{{ form_state.unit_cost if kind in ['sales_return', 'purchase_return'] else (form_state.unit_price or 0) }}"></td>
+                        <td><input class="form-control form-control-sm text-end" id="taxRate" name="tax_rate" value="{{ form_state.tax_rate or 13 }}"></td>
+                        {% endif %}
+                        {% if kind in ['sales_return', 'purchase_return'] %}
+                        <td><input class="form-control form-control-sm text-end" id="amountWithTax" value="" readonly tabindex="-1"></td>
+                        {% endif %}
+                        {% if kind in ['sales_return', 'purchase_return'] %}
+                        <td><select class="form-select form-select-sm" name="warehouse_id"><option value="">请选择</option>{% for w in warehouses %}<option value="{{ w.id }}" {% if form_state.warehouse_id|string == w.id|string %}selected{% endif %}>{{ w.name }}</option>{% endfor %}</select></td>
+                        {% if location_management_enabled %}<td><select class="form-select form-select-sm" name="location_id"><option value="">请选择</option>{% for l in locations %}<option value="{{ l.id }}" {% if form_state.location_id|string == l.id|string %}selected{% endif %}>{{ l.code }} {{ l.name }}</option>{% endfor %}</select></td>{% endif %}
+                        <td><input class="form-control form-control-sm" name="lot_no" value="{{ form_state.lot_no or '' }}"></td>
+                        {% endif %}
+                        {% if kind == 'quality' %}
+                        <td><input class="form-control form-control-sm text-end" name="passed_quantity" value="{{ form_state.passed_quantity if form_state.passed_quantity is not none else 1 }}"></td>
+                        <td><input class="form-control form-control-sm text-end" name="failed_quantity" value="{{ form_state.failed_quantity if form_state.failed_quantity is not none else 0 }}"></td>
+                        <td>
+                            <select class="form-select form-select-sm" name="inspection_type">
+                                {% for value,label in [('final','终检'),('in_process','过程检验'),('key_control','关键控制点'),('debug','调试')] %}
+                                <option value="{{ value }}" {% if form_state.inspection_type == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% for i in range(2, 16) %}
+                    <tr class="simple-document-blank-row">
+                        <td class="text-center text-muted">{{ i }}</td>
+                        <td><input class="form-control form-control-sm" tabindex="-1" readonly></td>
+                        {% if kind in ['sales_return', 'purchase_return'] %}
+                        <td><input class="form-control form-control-sm" tabindex="-1" readonly></td>
+                        <td><input class="form-control form-control-sm" tabindex="-1" readonly></td>
+                        {% endif %}
+                        <td><input class="form-control form-control-sm text-end" tabindex="-1" readonly></td>
+                        {% if kind != 'quality' %}
+                        <td><input class="form-control form-control-sm text-end" tabindex="-1" readonly></td>
+                        <td><input class="form-control form-control-sm text-end" tabindex="-1" readonly></td>
+                        {% endif %}
+                        {% if kind in ['sales_return', 'purchase_return'] %}
+                        <td><input class="form-control form-control-sm text-end" tabindex="-1" readonly></td>
+                        <td><input class="form-control form-control-sm" tabindex="-1" readonly></td>
+                        <td><input class="form-control form-control-sm" tabindex="-1" readonly></td>
+                        <td><input class="form-control form-control-sm" tabindex="-1" readonly></td>
+                        {% endif %}
+                        {% if kind == 'quality' %}
+                        <td><input class="form-control form-control-sm text-end" tabindex="-1" readonly></td>
+                        <td><input class="form-control form-control-sm text-end" tabindex="-1" readonly></td>
+                        <td><input class="form-control form-control-sm" tabindex="-1" readonly></td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        {% if kind in ['sales_invoice', 'purchase_invoice'] %}
+        <div class="row g-3 mt-1">
+            <div class="col-md-3"><label class="form-label">未税金额</label><input class="form-control text-end" name="amount" value="{{ form_state.amount or 0 }}"></div>
+            <div class="col-md-3"><label class="form-label">税额</label><input class="form-control text-end" name="tax_amount" value="{{ form_state.tax_amount or 0 }}"></div>
+            <div class="col-md-3"><label class="form-label">含税金额</label><input class="form-control text-end" name="amount_with_tax" value="{{ form_state.amount_with_tax or 0 }}"></div>
+            <div class="col-md-3"><label class="form-label">状态</label><input class="form-control" value="{{ form_state.status or '已登记' }}" readonly tabindex="-1"><input type="hidden" name="status" value="{{ form_state.status or '已登记' }}"></div>
+        </div>
+        {% endif %}
+
+        {% if kind == 'quality' %}
+        <div class="row g-3 mt-1">
+            <div class="col-md-3"><label class="form-label">检验结果</label><select class="form-select" name="inspection_result">{% for value,label in [('pass','合格'),('fail','不合格'),('conditional_pass','让步放行')] %}<option value="{{ value }}" {% if form_state.inspection_result == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+            <div class="col-md-3"><label class="form-label">来源类型</label><select class="form-select" name="source_type">{% for value,label in [('work_order','生产工单'),('purchase_receipt','采购入库'),('subcontract_receive','委外收货')] %}<option value="{{ value }}" {% if form_state.source_type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+            <div class="col-md-3"><label class="form-label">来源ID</label><input class="form-control" name="source_id" value="{{ form_state.source_id or '' }}"></div>
+        </div>
+        <div class="mt-3"><label class="form-label">缺陷描述/阻断原因</label><input class="form-control" name="defect_description" value="{{ form_state.defect_description or '' }}" placeholder="不合格或未放行时填写"></div>
+        <div class="mt-3"><label class="form-label">处理措施/下一步</label><input class="form-control" name="corrective_action" value="{{ form_state.corrective_action or '' }}" placeholder="返工、报废、让步评审或复检要求"></div>
+        {% endif %}
+
+        <div class="mt-3">
+            <label class="form-label">备注</label>
+            <input class="form-control" name="remark" value="{{ form_state.remark or '' }}">
+        </div>
+    </div>
+</form>
+</div>
+
+<script>
+const productNameInput = document.getElementById('productName');
+const productIdInput = document.getElementById('productId');
+const materialSpecInput = document.getElementById('materialSpec');
+const materialUnitInput = document.getElementById('materialUnit');
+const quantityInput = document.querySelector('input[name="quantity"]');
+const unitCostInput = document.getElementById('unitCost');
+const taxRateInput = document.getElementById('taxRate');
+const amountWithTaxInput = document.getElementById('amountWithTax');
+
+function currentProductOption() {
+    const value = productNameInput ? productNameInput.value : '';
+    return Array.from(document.querySelectorAll('#productOptions option')).find(item => item.value === value);
+}
+
+function updateReturnAmount() {
+    if (!amountWithTaxInput) return;
+    const quantity = Number(quantityInput?.value || 0);
+    const unitCost = Number(unitCostInput?.value || 0);
+    const taxRate = Number(taxRateInput?.value || 0);
+    const amount = quantity * unitCost * (1 + taxRate / 100);
+    amountWithTaxInput.value = Number.isFinite(amount) ? amount.toFixed(2) : '0.00';
+}
+
+productNameInput?.addEventListener('input', function () {
+    const option = currentProductOption();
+    if (productIdInput) productIdInput.value = option ? option.dataset.id : '';
+    if (materialSpecInput) materialSpecInput.value = option ? (option.dataset.spec || '') : '';
+    if (materialUnitInput) materialUnitInput.value = option ? (option.dataset.unit || '') : '';
+    if (option && unitCostInput && (!unitCostInput.value || Number(unitCostInput.value) === 0)) {
+        unitCostInput.value = option.dataset.price || '0';
+    }
+    if (option && taxRateInput && (!taxRateInput.value || Number(taxRateInput.value) === 0)) {
+        taxRateInput.value = option.dataset.tax || '13';
+    }
+    updateReturnAmount();
+});
+
+quantityInput?.addEventListener('input', updateReturnAmount);
+unitCostInput?.addEventListener('input', updateReturnAmount);
+taxRateInput?.addEventListener('input', updateReturnAmount);
+updateReturnAmount();
+</script>
+{% if kind == 'sales_return' %}
+<script>
+const salesReturnSources = {{ sales_return_sources|tojson }};
+const salesReturnOrders = {{ sales_return_orders|tojson }};
+function applySalesReturnSource(row) {
+    if (!row) return;
+    const customer = document.querySelector('select[name="customer_id"]');
+    const sourceOrder = document.querySelector('[name="source_order_no"]');
+    const project = document.querySelector('[name="project_code"]');
+    const serial = document.querySelector('[name="serial_no"]');
+    if (customer && row.customer_id) customer.value = String(row.customer_id);
+    if (sourceOrder && row.source_order_no) sourceOrder.value = row.source_order_no;
+    if (project && row.project_code) project.value = row.project_code;
+    if (serial && row.serial_no) serial.value = row.serial_no;
+}
+document.querySelector('[data-sales-return-source]')?.addEventListener('change', function () {
+    const value = this.value.trim();
+    applySalesReturnSource(salesReturnSources.find(row => String(row.source_no || '') === value));
+});
+document.querySelector('[data-sales-return-order]')?.addEventListener('change', function () {
+    const value = this.value.trim();
+    applySalesReturnSource(salesReturnOrders.find(row => String(row.source_order_no || '') === value));
+});
+window.erpToolbarHandlers = window.erpToolbarHandlers || {};
+window.erpToolbarHandlers['sales-return-entry-unaudit'] = function (event) {
+    event.preventDefault();
+    window.alert('新单据尚未过账，不能反审。请先打开已过账的销售退货单详情页执行反审。');
+};
+</script>
+{% endif %}
+{% if kind == 'purchase_return' %}
+<script>
+const purchaseReturnSources = {{ purchase_return_sources|tojson }};
+const purchaseReturnOrders = {{ purchase_return_orders|tojson }};
+const purchaseReturnSupplier = document.querySelector('[data-purchase-return-supplier]');
+const purchaseReturnSourceList = document.getElementById('purchaseReturnSourceNoOptions');
+const purchaseReturnOrderList = document.getElementById('purchaseReturnOrderNoOptions');
+
+function purchaseReturnSelectedSupplierId() {
+    return String(purchaseReturnSupplier?.value || '');
+}
+
+function setPurchaseReturnOptions(list, rows, valueField) {
+    if (!list) return;
+    list.innerHTML = '';
+    const supplierId = purchaseReturnSelectedSupplierId();
+    rows.filter(function (row) {
+        return !supplierId || String(row.supplier_id || '') === supplierId;
+    }).forEach(function (row) {
+        const value = String(row[valueField] || '');
+        if (!value) return;
+        const option = document.createElement('option');
+        option.value = value;
+        option.label = [
+            value,
+            row.supplier_name || '-',
+            row.source_order_no || row.source_no || '-',
+            row.project_code || '-',
+            row.serial_no || '-'
+        ].join(' / ');
+        list.appendChild(option);
+    });
+}
+
+function refreshPurchaseReturnSources() {
+    setPurchaseReturnOptions(purchaseReturnSourceList, purchaseReturnSources, 'source_no');
+    setPurchaseReturnOptions(purchaseReturnOrderList, purchaseReturnOrders, 'source_order_no');
+}
+
+function applyPurchaseReturnSource(row) {
+    if (!row) return;
+    const supplier = document.querySelector('select[name="supplier_id"]');
+    const sourceNo = document.querySelector('[name="source_no"]');
+    const sourceOrder = document.querySelector('[name="source_order_no"]');
+    const project = document.querySelector('[name="project_code"]');
+    const serial = document.querySelector('[name="serial_no"]');
+    const warehouse = document.querySelector('select[name="warehouse_id"]');
+    const location = document.querySelector('select[name="location_id"]');
+    const lot = document.querySelector('[name="lot_no"]');
+    if (supplier && row.supplier_id) supplier.value = String(row.supplier_id);
+    if (sourceNo && row.source_no) sourceNo.value = row.source_no;
+    if (sourceOrder && row.source_order_no) sourceOrder.value = row.source_order_no;
+    if (project) project.value = row.project_code || '';
+    if (serial) serial.value = row.serial_no || '';
+    if (productIdInput) productIdInput.value = row.product_id || '';
+    if (productNameInput) productNameInput.value = row.product_name || '';
+    if (materialSpecInput) materialSpecInput.value = row.specification || '';
+    if (materialUnitInput) materialUnitInput.value = row.unit || '';
+    if (quantityInput && row.quantity != null) quantityInput.value = row.quantity || 1;
+    if (unitCostInput && row.unit_cost != null) unitCostInput.value = row.unit_cost || 0;
+    if (taxRateInput && row.tax_rate != null) taxRateInput.value = row.tax_rate || 13;
+    if (warehouse && row.warehouse_id) warehouse.value = String(row.warehouse_id);
+    if (window.filterWarehouseLocations) window.filterWarehouseLocations(document);
+    if (location && row.location_id) location.value = String(row.location_id);
+    if (lot) lot.value = row.lot_no || '';
+    refreshPurchaseReturnSources();
+    updateReturnAmount();
+}
+
+purchaseReturnSupplier?.addEventListener('change', function () {
+    refreshPurchaseReturnSources();
+});
+
+document.querySelector('[data-purchase-return-source]')?.addEventListener('change', function () {
+    const value = this.value.trim();
+    applyPurchaseReturnSource(purchaseReturnSources.find(row => String(row.source_no || '') === value));
+});
+
+document.querySelector('[data-purchase-return-order]')?.addEventListener('change', function () {
+    const value = this.value.trim();
+    applyPurchaseReturnSource(purchaseReturnOrders.find(row => String(row.source_order_no || '') === value));
+});
+
+refreshPurchaseReturnSources();
+</script>
+{% endif %}
+{% endblock %}

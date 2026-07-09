@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="page-card mb-3">
+    <div class="d-flex justify-content-between align-items-center gap-2">
+        <div>
+            <h1 class="h4 mb-1">{{ '生产退料单列表' if meta.detail_prefix == '/production-returns' else '生产领料单列表' }}</h1>
+            <div class="text-muted">正式生产领退料单列表；过账后写入库存流水并回写工单用料。</div>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-outline-secondary btn-sm" href="/work-orders">生产工单列表</a>
+            <a class="btn btn-outline-secondary btn-sm" href="/requisition">工单领料查询</a>
+            <a class="btn btn-outline-secondary btn-sm" href="/engineering/kitting">齐套查询</a>
+            <a class="btn btn-outline-secondary btn-sm" href="/production-enhance/mrp-requirements">MRP缺料查询</a>
+        </div>
+    </div>
+</div>
+<div class="page-card mb-3">
+    <form class="row g-2" method="get" data-list-filter-form>
+        <div class="col-md-10">
+            <input class="form-control form-control-sm" name="keyword" value="{{ keyword|clean_text }}" placeholder="单号 / 工单 / 项目号 / 机号">
+        </div>
+        <div class="col-md-2 d-grid">
+            <button class="btn btn-outline-primary btn-sm" type="submit">查询</button>
+        </div>
+    </form>
+</div>
+<div class="page-card">
+    <div class="table-responsive">
+        <table class="table table-sm align-middle client-paginate">
+            <thead>
+                <tr>
+                    <th>单号</th>
+                    <th>日期</th>
+                    <th>工单</th>
+                    <th>项目号</th>
+                    <th>机号</th>
+                    <th>仓库</th>
+                    <th class="text-end">行数</th>
+                    <th class="text-end">数量</th>
+                    <th>状态</th>
+                    <th class="text-end">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for row in rows %}
+            <tr>
+                <td><a href="{{ meta.detail_prefix }}/{{ row.id }}">{{ row.doc_no|clean_text or row.pick_no|clean_text or row.id }}</a></td>
+                <td>{{ row.doc_date or '-' }}</td>
+                <td>{% if row.work_order_id %}<a href="/work-orders/{{ row.work_order_id }}">{{ row.wo_no|clean_text or row.work_order_id }}</a>{% else %}-{% endif %}</td>
+                <td>{{ row.project_code|clean_text or '-' }}</td>
+                <td>{{ row.serial_no|clean_text or '-' }}</td>
+                <td>{{ row.warehouse_name|clean_text or '-' }}</td>
+                <td class="text-end">{{ row.line_count or 0 }}</td>
+                <td class="text-end">{{ row.total_quantity|qty }}</td>
+                <td>{{ status_label(row.status) }}</td>
+                <td class="text-end">
+                    {% if row.status in ['草稿', 'draft', None, ''] %}
+                    <a class="btn btn-outline-secondary btn-sm" href="{{ meta.detail_prefix }}/{{ row.id }}/edit">编辑</a>
+                    {% endif %}
+                    <a class="btn btn-outline-primary btn-sm" href="{{ meta.detail_prefix }}/{{ row.id }}">查看</a>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="10" class="text-muted">暂无单据。</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

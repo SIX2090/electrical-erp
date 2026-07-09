@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <div>
+        <h1>{{ title }}</h1>
+        <p>{{ subtitle }}</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-outline-secondary btn-sm" href="/bom/ecn">工程变更单</a>
+        <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('bom_import_template') }}">导入模板</a>
+    </div>
+</div>
+
+<div class="alert alert-info py-2">
+    BOM/工程页是技术主数据：维护产品结构、版本有效期、替代标识和复制升版入口；领料、采购、库存和成本在对应业务单据处理。
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>查询条件</h2>
+            <span>按BOM、产品、规格、类型、状态和版本筛选；大批量导出请先缩小条件。</span>
+        </div>
+        {% if active_filter_count %}
+        <a class="btn btn-outline-secondary btn-sm" href="/bom">清除条件</a>
+        {% endif %}
+    </div>
+    <form method="get" class="row g-2 align-items-end" data-list-filter-form>
+        <div class="col-md-3">
+            <label class="form-label">综合关键词</label>
+            <input class="form-control form-control-sm" name="keyword" value="{{ filters.keyword }}" placeholder="BOM/产品/规格/状态">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">BOM编号</label>
+            <input class="form-control form-control-sm" name="bom_no" value="{{ filters.bom_no }}">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">产品编码</label>
+            <input class="form-control form-control-sm" name="product_code" value="{{ filters.product_code }}">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">产品名称</label>
+            <input class="form-control form-control-sm" name="product_name" value="{{ filters.product_name }}">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">规格</label>
+            <input class="form-control form-control-sm" name="specification" value="{{ filters.specification }}">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">BOM类型</label>
+            <select class="form-select form-select-sm" name="bom_type">
+                {% for value, label in bom_type_options %}
+                <option value="{{ value }}" {% if filters.bom_type == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">状态</label>
+            <select class="form-select form-select-sm" name="status">
+                {% for value, label in status_options %}
+                <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2 d-grid">
+            <button class="btn btn-primary btn-sm" type="submit"><i class="bi bi-search"></i> 查询</button>
+        </div>
+    </form>
+</div>
+
+<div class="page-card">
+    <div class="section-title">
+        <div>
+            <h2>BOM清单</h2>
+            <span>当前显示 {{ rows|length }} 条；列表只负责查询和追溯，新增/修改进入独立BOM单据页。</span>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle client-paginate">
+            <thead>
+            <tr>
+                <th>BOM编号</th>
+                <th>适用产品</th>
+                <th>规格</th>
+                <th>类型</th>
+                <th>版本</th>
+                <th>状态</th>
+                <th>生效日期</th>
+                <th>失效日期</th>
+                <th class="text-end">子项数</th>
+                <th class="text-end">操作</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for row in rows %}
+            <tr>
+                <td><a href="/bom/{{ row.bom_no|urlencode }}">{{ row.bom_no|clean_text }}</a></td>
+                <td>{{ row.product_code|clean_text or '物料档案缺失' }} {{ row.product_name|clean_text or '' }}</td>
+                <td>{{ row.product_specification|clean_text or '-' }}</td>
+                <td>{{ row.bom_type_label|clean_text }}</td>
+                <td>{{ row.version|clean_text }}</td>
+                <td><span class="badge bg-light text-dark border">{{ row.status_label|clean_text }}</span></td>
+                <td>{{ row.effective_date or '-' }}</td>
+                <td>{{ row.expiry_date or '-' }}</td>
+                <td class="text-end">{{ row.item_count }}</td>
+                <td class="text-end">
+                    <div class="btn-group btn-group-sm">
+                        <a class="btn btn-outline-primary" href="/bom/{{ row.bom_no|urlencode }}">详情</a>
+                        <a class="btn btn-outline-secondary" href="/bom/{{ row.bom_no|urlencode }}/copy?upgrade=1">复制升版</a>
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="10" class="text-muted">暂无BOM数据。</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}{{ '编辑' if edit_mode else '新增' }}完工入库单{% endblock %}
+{% block content %}
+{% if edit_mode and doc and doc.id %}
+<form data-doc-action="void" method="post" action="{{ '/production-completions/' ~ doc.id ~ '/void' }}" style="display:none"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+{% endif %}
+<div class="page-card mb-3">
+    <div class="d-flex justify-content-between align-items-start gap-2">
+        <div>
+            <h1 class="h4 mb-1">{{ '编辑' if edit_mode else '新增' }}完工入库单</h1>
+            <div class="text-muted">来源：生产工单；下游：库存流水、库存余额、工单成本核对。</div>
+        </div>
+        <a class="btn btn-outline-secondary btn-sm d-none" href="/production-completions">返回列表</a>
+    </div>
+</div>
+
+{% if not edit_mode %}
+<div class="page-card mb-3">
+    <form class="row g-2 align-items-end" method="get">
+        <div class="col-lg-9">
+            <label class="form-label">来源生产工单</label>
+            <select class="form-select" name="work_order_id" required onchange="this.form.submit()">
+                <option value="">请选择生产工单</option>
+                {% for wo in work_orders %}
+                <option value="{{ wo.id }}" {% if work_order_id|string == wo.id|string %}selected{% endif %}>
+                    {{ wo.wo_no|clean_text }} / {{ wo.product_name|clean_text or '-' }} / {{ wo.specification|clean_text or '-' }} / {{ wo.product_unit|clean_text or '-' }} / 项目 {{ wo.project_code|clean_text or '-' }} / 机号 {{ wo.serial_no|clean_text or '-' }} / 待完工 {{ wo.remaining_qty|qty }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-lg-3 d-grid">
+            <button class="btn btn-outline-primary" type="submit">载入工单</button>
+        </div>
+    </form>
+</div>
+{% endif %}
+
+{% if order %}
+<form method="post" action="{{ form_action or '' }}" id="completionForm" data-main-document-form>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="work_order_id" value="{{ order.id }}">
+
+    <div class="page-card mb-3">
+        <div class="row g-3">
+            <div class="col-md-3"><strong>工单：</strong>{{ order.wo_no|clean_text }}</div>
+            <div class="col-md-3"><strong>产品：</strong>{{ order.product_code|clean_text or order.product_id }} / {{ order.product_name|clean_text or '-' }} / {{ order.specification|clean_text or '-' }} / {{ order.product_unit|clean_text or '-' }}</div>
+            <div class="col-md-3"><strong>项目号：</strong>{{ order.project_code|clean_text or '-' }}</div>
+            <div class="col-md-3"><strong>机号：</strong>{{ order.serial_no|clean_text or '-' }}</div>
+            <div class="col-md-3"><strong>计划数量：</strong>{{ order.quantity|qty }}</div>
+            <div class="col-md-3"><strong>已完工：</strong>{{ completed_qty|qty }}</div>
+            <div class="col-md-3"><strong>待完工：</strong>{{ remaining_qty|qty }}</div>
+            <div class="col-md-3"><strong>工单状态：</strong>{{ order.status|clean_text or '-' }}</div>
+        </div>
+    </div>
+
+    {% if gate %}
+    <div class="alert {% if gate.can_complete %}alert-success{% else %}alert-warning{% endif %}">
+        <div><strong>完工入库门禁：</strong>{{ gate.status_label }}；责任：{{ gate.owner }}；下一步：{{ gate.next_action }}</div>
+        <div class="small mt-1">下游影响：{{ gate.downstream_impact }}</div>
+        {% if gate.blockers %}
+        <ul class="mb-0 mt-2">{% for reason in gate.blockers %}<li>{{ reason }}</li>{% endfor %}</ul>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="page-card">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">完工单号</label>
+                <input class="form-control" type="text" value="{{ doc.completion_no if doc else '' }}" placeholder="保存时自动生成" readonly>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">完工日期</label>
+                <input class="form-control" type="date" name="completion_date" value="{{ doc.completion_date if doc else '' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">合格入库数量</label>
+                <input class="form-control text-end" type="number" step="0.0001" min="0" name="quantity" value="{{ doc.quantity if doc else remaining_qty|qty }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">不合格数量</label>
+                <input class="form-control text-end" type="number" step="0.0001" min="0" name="failed_quantity" value="{{ doc.failed_quantity if doc else 0 }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">单位成本</label>
+                <input class="form-control text-end" type="number" step="0.0001" min="0" name="unit_cost" value="{{ doc.unit_cost if doc else order.unit_cost or 0 }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">入库仓库</label>
+                <select class="form-select" name="warehouse_id">
+                    <option value="">按工单默认仓库</option>
+                    {% for warehouse in warehouses %}
+                    <option value="{{ warehouse.id }}" {% if warehouse.id == (doc.warehouse_id if doc else order.warehouse_id) %}selected{% endif %}>{{ warehouse.name|clean_text or warehouse.code|clean_text }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% if location_management_enabled %}<div class="col-md-3">
+                <label class="form-label">入库库位 <span class="text-danger">*</span></label>
+                <select class="form-select" name="location_id" required>
+                    <option value="">请选择库位</option>
+                    {% for loc in locations %}
+                    <option value="{{ loc.id }}" data-warehouse-id="{{ loc.warehouse_id or '' }}" {% if loc.id == (doc.location_id if doc else order.location_id) %}selected{% endif %}>{{ loc.code|clean_text or loc.name|clean_text }}</option>
+                    {% endfor %}
+                </select>
+            </div>{% endif %}
+            <div class="col-md-3">
+                <label class="form-label">批号</label>
+                <input class="form-control" name="lot_no" value="{{ (doc.lot_no if doc else order.lot_no)|clean_text if (doc and doc.lot_no) or (order and order.lot_no) else '' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">机号</label>
+                <input class="form-control" name="serial_no" value="{{ (doc.serial_no if doc else order.serial_no)|clean_text if (doc and doc.serial_no) or (order and order.serial_no) else '' }}">
+            </div>
+            <div class="col-12">
+                <label class="form-label">备注</label>
+                <input class="form-control" name="remark" value="{{ doc.remark|clean_text if doc else '完工入库' }}">
+            </div>
+        </div>
+    </div>
+</form>
+{% else %}
+<div class="page-card text-muted">请选择来源生产工单后录入完工入库单。</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('click', function(event) {
+    var item = event.target.closest('[data-menu-event]');
+    if (!item || item.disabled) return;
+    var action = item.dataset.menuEvent;
+    if (action === 'toolbar-save-new') {
+        event.preventDefault();
+        var form = document.getElementById('completionForm') || document.querySelector('.content form[data-main-document-form]');
+        if (form) {
+            var input = form.querySelector('input[name="save_action"]');
+            if (!input) { input = document.createElement('input'); input.type='hidden'; input.name='save_action'; form.appendChild(input); }
+            input.value = 'save_new';
+            if (form.requestSubmit) form.requestSubmit(); else form.submit();
+        }
+    }
+    if (action === 'toolbar-save') {
+        event.preventDefault();
+        var form = document.getElementById('completionForm') || document.querySelector('.content form[data-main-document-form]');
+        if (form) { if (form.requestSubmit) form.requestSubmit(); else form.submit(); }
+    }
+});
+</script>
+{% include "partials/location_filter_script.html" %}
+{% endblock %}

@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block title %}MRP 运行 {{ header.run_no }}{% endblock %}
+{% block content %}
+<div class="page-heading erp-list-heading">
+    <div>
+        <h1>MRP 运行 {{ header.run_no }}</h1>
+        <p>来源：{{ header.source_type }} {{ header.source_no or '' }} | 项目 {{ header.project_code or '-' }} / 机号 {{ header.serial_no or '-' }} | 状态 {{ header.status }}</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-outline-secondary btn-sm" href="/mrp/runs"><i class="bi bi-arrow-left"></i> 返回列表</a>
+        <a class="btn btn-outline-secondary btn-sm" href="/mrp/suggestions"><i class="bi bi-lightbulb"></i> 查看建议</a>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-3">
+        <div class="metric h-100">
+            <div class="label">毛需求合计</div>
+            <div class="value">{{ qty(header.total_gross_qty) }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="metric h-100">
+            <div class="label">净需求合计</div>
+            <div class="value">{{ qty(header.total_net_qty) }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="metric h-100">
+            <div class="label">缺料行数</div>
+            <div class="value">{{ header.shortage_line_count }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="metric h-100">
+            <div class="label">齐套率</div>
+            <div class="value">{{ percent(header.kitting_rate) }}%</div>
+        </div>
+    </div>
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>运行明细</h2>
+            <span>共 {{ items|length }} 行 BOM 展开，按层级与物料显示毛需求、可用库存、在途/在制扣减与净需求。</span>
+        </div>
+    </div>
+    {% if items %}
+    <div class="table-responsive">
+        <table class="table table-sm align-middle erp-list-table">
+            <thead>
+            <tr>
+                <th>层级</th>
+                <th>物料编码</th>
+                <th>物料名称</th>
+                <th>规格</th>
+                <th>单位</th>
+                <th class="text-end">毛需求</th>
+                <th class="text-end">可用库存</th>
+                <th class="text-end">锁定</th>
+                <th class="text-end">采购在途</th>
+                <th class="text-end">采购申请</th>
+                <th class="text-end">委外在途</th>
+                <th class="text-end">在制工单</th>
+                <th class="text-end">净需求</th>
+                <th>建议</th>
+                <th>替代料</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for it in items %}
+            <tr>
+                <td>{{ it.bom_level }}</td>
+                <td>{{ it.material_code or '-' }}</td>
+                <td>{{ it.material_name or '-' }}</td>
+                <td>{{ it.material_spec or '-' }}</td>
+                <td>{{ it.material_unit or '-' }}</td>
+                <td class="text-end">{{ qty(it.gross_qty) }}</td>
+                <td class="text-end">{{ qty(it.available_qty) }}</td>
+                <td class="text-end">{{ qty(it.locked_qty) }}</td>
+                <td class="text-end">{{ qty(it.purchase_on_order_qty) }}</td>
+                <td class="text-end">{{ qty(it.purchase_requisition_qty if it.purchase_requisition_qty is defined else 0) }}</td>
+                <td class="text-end">{{ qty(it.outsource_on_order_qty) }}</td>
+                <td class="text-end">{{ qty(it.production_on_order_qty) }}</td>
+                <td class="text-end">
+                    {% if it.net_qty and it.net_qty|float > 0 %}<strong class="text-danger">{{ qty(it.net_qty) }}</strong>{% else %}0{% endif %}
+                </td>
+                <td>
+                    {% if it.suggestion_type == 'covered' %}<span class="badge bg-success">已覆盖</span>
+                    {% elif it.suggestion_type == 'purchase' %}<span class="badge bg-warning text-dark">建议采购</span>
+                    {% elif it.suggestion_type == 'production' %}<span class="badge bg-primary">建议生产</span>
+                    {% elif it.suggestion_type == 'transfer' %}<span class="badge bg-info text-dark">建议调拨</span>
+                    {% elif it.suggestion_type == 'outsource' %}<span class="badge bg-secondary">建议委外</span>
+                    {% else %}<span class="badge bg-light text-dark">{{ it.suggestion_label or it.suggestion_type }}</span>{% endif %}
+                </td>
+                <td>
+                    {% if it.substitute_for %}
+                        <span class="badge bg-info text-dark" title="替代料ID: {{ it.substitute_for }}">已用替代</span>
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="erp-empty-line">本次运行未生成明细行。</div>
+    {% endif %}
+</div>
+
+<div class="page-card">
+    <div class="section-title">
+        <div>
+            <h2>建议清单</h2>
+            <span>共 {{ suggestions|length }} 条建议，可逐条转换为采购申请、工单或委外订单。</span>
+        </div>
+    </div>
+    {% if suggestions %}
+    <div class="table-responsive">
+        <table class="table table-sm align-middle erp-list-table">
+            <thead>
+            <tr>
+                <th>建议类型</th>
+                <th>物料编码</th>
+                <th>物料名称</th>
+                <th class="text-end">数量</th>
+                <th>项目/机号</th>
+                <th>状态</th>
+                <th>已转单据</th>
+                <th class="text-end">操作</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for s in suggestions %}
+            <tr>
+                <td><span class="badge bg-info text-dark">{{ s.suggestion_label }}</span></td>
+                <td>{{ s.material_code or '-' }}</td>
+                <td>{{ s.material_name or '-' }}</td>
+                <td class="text-end">{{ qty(s.qty) }}</td>
+                <td>{{ s.project_code or '-' }} / {{ s.serial_no or '-' }}</td>
+                <td>
+                    {% if s.status == 'open' %}<span class="badge bg-warning text-dark">待处理</span>
+                    {% elif s.status == 'converted' %}<span class="badge bg-success">已转换</span>
+                    {% else %}<span class="badge bg-secondary">{{ s.status }}</span>{% endif %}
+                </td>
+                <td>{{ s.converted_doc_no or '-' }}</td>
+                <td class="text-end">
+                    {% if s.status == 'open' %}
+                    <form method="post" action="/mrp/suggestions/{{ s.id }}/convert" class="d-inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="action" value="auto">
+                        <input type="hidden" name="return_url" value="/mrp/runs/{{ header.id }}">
+                        <button class="btn btn-outline-primary btn-sm" type="submit">转换</button>
+                    </form>
+                    {% else %}
+                    <span class="text-muted small">已处理</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="erp-empty-line">本次运行没有需要处理的建议。</div>
+    {% endif %}
+</div>
+{% endblock %}

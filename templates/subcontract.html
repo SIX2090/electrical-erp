@@ -1,0 +1,350 @@
+{% extends 'base.html' %}
+
+{% block title %}委外加工单{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="h3 mb-3 text-gray-800">委外加工单</h1>
+
+    <div class="card mb-3">
+        <div class="card-body py-2">
+            <form method="get" class="row g-2 align-items-end">
+                {% if request.args.get('embedded') == '1' %}
+                <input type="hidden" name="embedded" value="1">
+                {% endif %}
+                <div class="col-md-2">
+                    <label class="form-label small text-muted mb-1">状态</label>
+                    <select name="status" class="form-select form-select-sm">
+                        <option value="" {% if not filters.status %}selected{% endif %}>全部状态</option>
+                        <option value="pending" {% if filters.status == 'pending' %}selected{% endif %}>待处理</option>
+                        <option value="processing" {% if filters.status == 'processing' %}selected{% endif %}>加工中</option>
+                        <option value="completed" {% if filters.status == 'completed' %}selected{% endif %}>已完成</option>
+                        <option value="cancelled" {% if filters.status == 'cancelled' %}selected{% endif %}>已取消</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small text-muted mb-1">开始日期</label>
+                    <input type="date" name="date_start" class="form-control form-control-sm" value="{{ filters.date_start }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small text-muted mb-1">结束日期</label>
+                    <input type="date" name="date_end" class="form-control form-control-sm" value="{{ filters.date_end }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small text-muted mb-1">交期开始</label>
+                    <input type="date" name="deadline_start" class="form-control form-control-sm" value="{{ filters.deadline_start }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small text-muted mb-1">关键词</label>
+                    <input type="text" name="search" class="form-control form-control-sm" placeholder="单号/厂商/物料/待处理" value="{{ filters.search }}">
+                </div>
+                <div class="col-md-2 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary btn-sm flex-fill"><i class="bi bi-search"></i> 筛选</button>
+                    {% if filters.status or filters.search or filters.date_start or filters.date_end or filters.deadline_start or filters.deadline_end %}
+                    <a href="/subcontract{% if request.args.get('embedded') == '1' %}?embedded=1{% endif %}" class="btn btn-outline-secondary btn-sm">清除</a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6 class="m-0 font-weight-bold text-primary">委外加工单列表</h6>
+                </div>
+                <div class="col-md-6 text-right">
+                    <div class="btn-group btn-group-sm mr-2" role="group">
+                        <button type="button" class="btn btn-outline-primary" onclick="batchAction('processing')">
+                            <i class="bi bi-play"></i> 批量开始
+                        </button>
+                        <button type="button" class="btn btn-outline-success" onclick="batchAction('completed')">
+                            <i class="bi bi-check-lg"></i> 批量完成
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="batchAction('cancelled')">
+                            <i class="bi bi-x-lg"></i> 批量取消
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th><input type="checkbox" id="selectAll"></th>
+                            <th>序号</th>
+                            <th data-sortable="order_no" class="sortable-header">委外加工单号 {% if sort_by=='order_no' %}<i class="bi bi-caret-{{ 'up' if sort_order=='asc' else 'down' }}-fill small"></i>{% endif %}</th>
+                            <th data-sortable="date" class="sortable-header">日期 {% if sort_by=='date' %}<i class="bi bi-caret-{{ 'up' if sort_order=='asc' else 'down' }}-fill small"></i>{% endif %}</th>
+                            <th data-sortable="supplier_id" class="sortable-header">加工厂商 {% if sort_by=='supplier_id' %}<i class="bi bi-caret-{{ 'up' if sort_order=='asc' else 'down' }}-fill small"></i>{% endif %}</th>
+                            <th>联系人</th>
+                            <th>联系电话</th>
+                            <th data-sortable="deadline" class="sortable-header">交货期限 {% if sort_by=='deadline' %}<i class="bi bi-caret-{{ 'up' if sort_order=='asc' else 'down' }}-fill small"></i>{% endif %}</th>
+                            <th data-sortable="status" class="sortable-header">状态 {% if sort_by=='status' %}<i class="bi bi-caret-{{ 'up' if sort_order=='asc' else 'down' }}-fill small"></i>{% endif %}</th>
+                            <th data-sortable="total_amount" class="sortable-header">总金额 {% if sort_by=='total_amount' %}<i class="bi bi-caret-{{ 'up' if sort_order=='asc' else 'down' }}-fill small"></i>{% endif %}</th>
+                            <th>操作人</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for order in orders %}
+                        <tr>
+                            <td><input type="checkbox" class="itemCheck check-item" value="{{ order.id }}"></td>
+                            <td>{{ loop.index }}</td>
+                            <td>{{ order.order_no }}</td>
+                            <td>{{ order.date }}</td>
+                            <td>{{ order.supplier.name if order.supplier else '' }}</td>
+                            <td>{{ order.contact }}</td>
+                            <td>{{ order.phone }}</td>
+                            <td>{{ order.deadline }}</td>
+                            <td>
+                                {% if order.status == 'pending' %}
+                                <span class="badge badge-secondary">待处理</span>
+                                {% elif order.status == 'processing' %}
+                                <span class="badge badge-warning">加工中</span>
+                                {% elif order.status == 'completed' %}
+                                <span class="badge badge-success">已完成</span>
+                                {% elif order.status == 'cancelled' %}
+                                <span class="badge badge-danger">已取消</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ order.total_amount }}</td>
+                            <td>{{ order.operator.username if order.operator else '' }}</td>
+                            <td>
+                                <a href="{{ url_for('subcontract_detail', id=order.id) }}" class="btn btn-info btn-sm">详情</a>
+                                {% if order.status == 'completed' %}
+                                <button class="btn btn-warning btn-sm revert-btn" data-id="{{ order.id }}">反提交</button>
+                                {% endif %}
+                                <button class="btn btn-danger btn-sm delete-btn" data-id="{{ order.id }}">删除</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 新增委外加工单模态框 -->
+<div class="modal fade" id="addModal" tabindex="-1" role="dialog" aria-labelledby="addModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addModalLabel">新增委外加工单</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="&#20851;&#38381;"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addForm">
+                    <div class="form-group">
+                        <label for="supplier_id">加工厂商</label>
+                        <select class="form-control" id="supplier_id" name="supplier_id">
+                            <option value="">请选择</option>
+                            {% for supplier in suppliers %}
+                            <option value="{{ supplier.id }}">{{ supplier.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="contact">联系人</label>
+                        <input type="text" class="form-control" id="contact" name="contact">
+                    </div>
+                    <div class="form-group">
+                        <label for="phone">联系电话</label>
+                        <input type="text" class="form-control" id="phone" name="phone">
+                    </div>
+                    <div class="form-group">
+                        <label for="deadline">交货期限</label>
+                        <input type="date" class="form-control" id="deadline" name="deadline">
+                    </div>
+                    <div class="form-group">
+                        <label for="remark">备注</label>
+                        <textarea class="form-control" id="remark" name="remark" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="submitAdd">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// （已移除 DataTable 初始化：项目未引入 DataTables 库）
+
+document.querySelectorAll('.sortable-header').forEach(function(th) {
+    th.addEventListener('click', function() {
+        var sortField = this.dataset.sortable;
+        var url = new URL(window.location.href);
+        var currentSort = url.searchParams.get('sort');
+        var currentOrder = url.searchParams.get('order') || 'desc';
+        url.searchParams.set('sort', sortField);
+        url.searchParams.set('order', currentSort === sortField && currentOrder === 'asc' ? 'desc' : 'asc');
+        window.location.href = url.toString();
+    });
+});
+
+// 全选/取消全选
+document.getElementById('selectAll').addEventListener('click', function() {
+    var checkboxes = document.querySelectorAll('.itemCheck');
+    checkboxes.forEach(function(checkbox) {
+        checkbox.checked = document.getElementById('selectAll').checked;
+    });
+});
+
+// 单个复选框点击
+var checkboxes = document.querySelectorAll('.itemCheck');
+checkboxes.forEach(function(checkbox) {
+    checkbox.addEventListener('click', function() {
+        var allChecked = document.querySelectorAll('.itemCheck:checked').length === checkboxes.length;
+        document.getElementById('selectAll').checked = allChecked;
+    });
+});
+
+// 批量删除
+var batchDeleteBtn = document.getElementById('batchDeleteBtn');
+if (batchDeleteBtn) {
+batchDeleteBtn.addEventListener('click', function() {
+    var checkedItems = document.querySelectorAll('.itemCheck:checked');
+    if (checkedItems.length === 0) {
+        alert('请选择要删除的委外加工单');
+        return;
+    }
+
+    if (confirm('确定要删除选中的 ' + checkedItems.length + ' 个委外加工单吗？')) {
+        var ids = [];
+        checkedItems.forEach(function(item) {
+            ids.push(item.value);
+        });
+
+        fetch('/subcontract/batch_delete', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': (document.querySelector('meta[name="csrf-token"]') || {}).content || ''
+            },
+            body: JSON.stringify({ids: ids})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                alert('删除成功');
+                location.reload();
+            } else {
+                alert('删除失败: ' + data.msg);
+            }
+        });
+    }
+});
+}
+
+// 新增委外加工单
+document.getElementById('submitAdd').addEventListener('click', function() {
+    var form = document.getElementById('addForm');
+    var formData = new FormData(form);
+
+    fetch('/subcontract/new', {
+        method: 'POST',
+        body: formData,
+        headers: {'X-CSRFToken': (document.querySelector('meta[name="csrf-token"]') || {}).content || ''}
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            alert('新增成功');
+            location.reload();
+        } else {
+            alert('新增失败: ' + data.msg);
+        }
+    });
+});
+
+// 删除委外加工单
+var deleteButtons = document.querySelectorAll('.delete-btn');
+deleteButtons.forEach(function(button) {
+    button.addEventListener('click', function() {
+        if (confirm('确定要删除吗？')) {
+            var id = this.getAttribute('data-id');
+            fetch('/subcontract/' + id + '/delete', {
+                method: 'POST',
+                headers: {'X-CSRFToken': (document.querySelector('meta[name="csrf-token"]') || {}).content || ''}
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('删除成功');
+                    location.reload();
+                } else {
+                    alert('删除失败: ' + data.msg);
+                }
+            });
+        }
+    });
+});
+
+var revertButtons = document.querySelectorAll('.revert-btn');
+revertButtons.forEach(function(button) {
+    button.addEventListener('click', function() {
+        if (!confirm('确认反提交该委外加工单？')) return;
+        var id = this.getAttribute('data-id');
+        fetch('/subcontract/' + id + '/revert', {
+            method: 'POST',
+            headers: {'X-CSRFToken': (document.querySelector('meta[name="csrf-token"]') || {}).content || ''}
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                alert(data.msg || '反提交成功');
+                location.reload();
+            } else {
+                alert('反提交失败: ' + data.msg);
+            }
+        });
+    });
+});
+
+// 批量操作（开始/完成/取消）
+function batchAction(action) {
+    var checkedItems = document.querySelectorAll('.itemCheck:checked');
+    if (checkedItems.length === 0) {
+        alert('请选择要操作的记录');
+        return;
+    }
+
+    var actionText = action === 'processing' ? '开始加工' : action === 'completed' ? '完成' : '取消';
+    if (!confirm('确定要批量' + actionText + '选中的 ' + checkedItems.length + ' 条记录吗？')) {
+        return;
+    }
+
+    var ids = [];
+    checkedItems.forEach(function(item) {
+        ids.push(item.value);
+    });
+
+    var formData = new FormData();
+    ids.forEach(function(id) {
+        formData.append('ids', id);
+    });
+    formData.append('action', action);
+
+    fetch('/subcontract/batch_update_status', {
+        method: 'POST',
+        body: formData,
+        headers: {'X-CSRFToken': (document.querySelector('meta[name="csrf-token"]') || {}).content || ''}
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            alert('操作成功，共处理 ' + data.count + ' 条记录');
+            location.reload();
+        } else {
+            alert('操作失败: ' + data.msg);
+        }
+    });
+}
+</script>
+{% endblock %}

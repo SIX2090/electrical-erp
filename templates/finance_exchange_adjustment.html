@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <div>
+        <h1>{{ title }}</h1>
+        <p>{{ subtitle }}</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a class="btn btn-outline-primary btn-sm" href="/finance/exchange-adjustments"><i class="bi bi-search"></i> 调汇单查询</a>
+        <a class="btn btn-outline-secondary btn-sm" href="/finance/period-close?year={{ year }}&month={{ month }}"><i class="bi bi-calendar-check"></i> 期间结账</a>
+    </div>
+</div>
+
+<div class="page-card mb-3">
+    <div class="period-steps">
+        <div class="period-step active"><span>1</span>调汇前检查</div>
+        <div class="period-step {% if rows %}active{% endif %}"><span>2</span>期末调汇</div>
+        <div class="period-step {% if current_doc and current_doc.status == 'audited' %}active{% endif %}"><span>3</span>调汇结果</div>
+    </div>
+</div>
+
+<div class="page-card mb-3">
+    <form method="get" class="row g-2 align-items-end">
+        <div class="col-md-2">
+            <label class="form-label">年度</label>
+            <input class="form-control" type="number" name="year" value="{{ year }}" min="2000" max="2100">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">月份</label>
+            <input class="form-control" type="number" name="month" value="{{ month }}" min="1" max="12">
+        </div>
+        <div class="col-md-2 d-grid">
+            <button class="btn btn-outline-primary" type="submit"><i class="bi bi-search"></i> 查询</button>
+        </div>
+        <div class="col-md-6 text-md-end text-muted">
+            当前期间：{{ period_label }}
+        </div>
+    </form>
+</div>
+
+<div class="metric-grid mb-3">
+    <div class="metric-card"><span>外币账户</span><strong>{{ totals.account_count }}</strong><small>启用且币别非 CNY</small></div>
+    <div class="metric-card"><span>币别数</span><strong>{{ totals.currency_count }}</strong><small>按账户币别统计</small></div>
+    <div class="metric-card"><span>汇兑收益</span><strong>{{ totals.total_gain|money }}</strong><small>期末折算高于账面</small></div>
+    <div class="metric-card"><span>汇兑损失</span><strong>{{ totals.total_loss|money }}</strong><small>期末折算低于账面</small></div>
+</div>
+
+{% if current_doc %}
+<div class="alert alert-info py-2">
+    最近调汇单：{{ current_doc.doc_no }}，状态：{{ current_doc.status_label }}，净调汇金额：{{ current_doc.net_adjustment|money }}{% if current_doc.voucher_no %}，凭证号：{{ current_doc.voucher_no }}{% endif %}。
+</div>
+{% endif %}
+
+<form method="post" class="page-card mb-3">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="year" value="{{ year }}">
+    <input type="hidden" name="month" value="{{ month }}">
+    <div class="section-title">
+        <div>
+            <h2>外币账户调汇明细</h2>
+            <span>维护账面汇率和期末汇率后生成调汇单</span>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-primary btn-sm" type="submit" name="action" value="check"><i class="bi bi-shield-check"></i> 调汇前检查</button>
+            <button class="btn btn-primary btn-sm" type="submit" name="action" value="generate"><i class="bi bi-plus-lg"></i> 生成调汇单</button>
+            <button class="btn btn-outline-success btn-sm" type="submit" name="action" value="audit"><i class="bi bi-check2-circle"></i> 生成并审核</button>
+        </div>
+    </div>
+    <div class="row g-2 mb-3">
+        <div class="col-md-2">
+            <label class="form-label">调汇日期</label>
+            <input class="form-control" type="date" name="doc_date">
+        </div>
+        <div class="col-md-10">
+            <label class="form-label">备注</label>
+            <input class="form-control" name="remark" placeholder="例如：按月末中国外汇交易中心中间价完成外币资金账户调汇">
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+            <tr>
+                <th>账户编码</th>
+                <th>账户名称</th>
+                <th>币别</th>
+                <th class="text-end">外币余额</th>
+                <th class="text-end">账面汇率</th>
+                <th class="text-end">期末汇率</th>
+                <th class="text-end">账面本位币</th>
+                <th class="text-end">期末本位币</th>
+                <th class="text-end">调汇金额</th>
+                <th>方向</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for row in rows %}
+            <tr>
+                <td>{{ row.account_code }}</td>
+                <td>{{ row.account_name }}</td>
+                <td>{{ row.currency }}</td>
+                <td class="text-end">{{ row.foreign_balance|money }}</td>
+                <td><input class="form-control form-control-sm text-end" name="book_rate_{{ row.id }}" value="{{ row.book_rate }}"></td>
+                <td><input class="form-control form-control-sm text-end" name="closing_rate_{{ row.currency }}" value="{{ row.closing_rate }}"></td>
+                <td class="text-end">{{ row.book_base_amount|money }}</td>
+                <td class="text-end">{{ row.closing_base_amount|money }}</td>
+                <td class="text-end">{{ row.adjustment_amount|money }}</td>
+                <td>{{ row.direction_label }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="10" class="text-center text-muted py-5">暂无需要调汇的外币资金账户。</td></tr>
+            {% endfor %}
+            </tbody>
+            <tfoot>
+            <tr>
+                <th colspan="8">合计</th>
+                <th class="text-end">{{ totals.net_adjustment|money }}</th>
+                <th></th>
+            </tr>
+            </tfoot>
+        </table>
+    </div>
+</form>
+
+<div class="page-card">
+    <div class="section-title">
+        <div>
+            <h2>调汇历史</h2>
+            <span>最近 12 张调汇单</span>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead><tr><th>单据编号</th><th>期间</th><th>日期</th><th>状态</th><th class="text-end">收益</th><th class="text-end">损失</th><th class="text-end">净调汇</th><th>凭证号</th></tr></thead>
+            <tbody>
+            {% for row in history %}
+            <tr>
+                <td>{{ row.doc_no }}</td>
+                <td>{{ row.period_label }}</td>
+                <td>{{ row.doc_date }}</td>
+                <td>{{ row.status_label }}</td>
+                <td class="text-end">{{ row.total_gain|money }}</td>
+                <td class="text-end">{{ row.total_loss|money }}</td>
+                <td class="text-end">{{ row.net_adjustment|money }}</td>
+                <td>{{ row.voucher_no or '-' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="8" class="text-center text-muted py-4">暂无调汇历史。</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+.period-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.period-step{display:flex;align-items:center;gap:8px;color:#6b7280;border-bottom:1px dashed #cbd5e1;padding:8px 0}
+.period-step span{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;border:1px solid #cbd5e1}
+.period-step.active{color:#2563eb}
+.period-step.active span{background:#2563eb;color:#fff;border-color:#2563eb}
+@media (max-width:768px){.period-steps{grid-template-columns:1fr}}
+</style>
+{% endblock %}

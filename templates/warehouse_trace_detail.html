@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}仓库详情 - {{ warehouse.name or warehouse.code or warehouse.id }}{% endblock %}
+{% block content %}
+<div id="doc-nav-config" data-nav-table="warehouses" data-nav-base="/warehouse/" data-doc-id="{{ warehouse.id }}" style="display:none"></div>
+<div class="mb-3">
+    <a class="btn btn-outline-secondary btn-sm" href="{{ back_url or '/warehouse' }}">返回仓库档案</a>
+    <a class="btn btn-outline-primary btn-sm ms-2" href="/inventory/detail?warehouse_id={{ warehouse.id }}">查看库存余额</a>
+    <a class="btn btn-outline-primary btn-sm ms-2" href="/transactions?warehouse_id={{ warehouse.id }}">查看库存流水</a>
+    <a class="btn btn-outline-secondary btn-sm ms-2" href="/warehouse/{{ warehouse.id }}/edit">编辑仓库</a>
+    {% if delete_url %}
+    <form class="d-inline ms-2" method="post" action="{{ delete_url }}" onsubmit="return confirm('确认删除这个仓库？已被业务引用的数据会被系统拦截。');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-outline-danger btn-sm" type="submit">删除</button>
+    </form>
+    {% endif %}
+</div>
+
+<div class="page-card mb-3">
+    <div class="d-flex justify-content-between align-items-start gap-3">
+        <div>
+            <h1 class="h4 mb-1">{{ warehouse.code or warehouse.id }} / {{ warehouse.name or '-' }}</h1>
+            <div class="text-muted">仓库基础资料、分类、类型、默认库位和业务引用</div>
+        </div>
+        <span class="badge text-bg-primary">{{ warehouse.status or '启用' }}</span>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    {% for metric in metrics %}
+    <div class="col-md-6 col-xl-3">
+        <div class="metric h-100">
+            <div class="label">{{ metric.label }}</div>
+            <div class="value">{{ metric.value }}</div>
+            <div class="text-muted small mt-1">{{ metric.hint }}</div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="page-card mb-3">
+    <h2 class="h5 mb-3">基础信息</h2>
+    <div class="row g-2 small">
+        <div class="col-md-3"><span class="text-muted">编码：</span>{{ warehouse.code or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">名称：</span>{{ warehouse.name or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">分类：</span>{{ warehouse.category_name or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">类型：</span>{{ warehouse.warehouse_type or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">状态：</span>{{ warehouse.status or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">默认库位：</span>{{ warehouse.default_location_name or '-' }}</div>
+        <div class="col-md-6"><span class="text-muted">备注：</span>{{ warehouse.remark or '-' }}</div>
+    </div>
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>库位配置</h2>
+            <span>{{ locations|length }} 条记录</span>
+        </div>
+        <a class="btn btn-primary btn-sm" href="/location/new"><i class="bi bi-plus-lg"></i> 新增库位</a>
+    </div>
+    {% if locations %}
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead><tr><th>编码</th><th>名称</th><th>类型</th><th>状态</th><th>备注</th><th>操作</th></tr></thead>
+            <tbody>
+            {% for row in locations %}
+            <tr>
+                <td>{{ row.code or '-' }}</td>
+                <td>{{ row.name or '-' }}</td>
+                <td>{{ row.location_type or '-' }}</td>
+                <td>{{ row.status_label or ('启用' if row.is_active else '停用') }}</td>
+                <td>{{ row.remark or '-' }}</td>
+                <td><a class="btn btn-outline-primary btn-sm" href="/locations/{{ row.id }}">详情</a></td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-muted">暂无库位。</div>
+    {% endif %}
+</div>
+
+<div class="page-card">
+    <div class="section-title">
+        <div>
+            <h2>库存查询入口</h2>
+            <span>库存余额、金额和流水属于库存查询，不在仓库档案中混排。</span>
+        </div>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-outline-primary btn-sm" href="/inventory/detail?warehouse_id={{ warehouse.id }}">库存余额</a>
+        <a class="btn btn-outline-primary btn-sm" href="/inventory/detail?warehouse_id={{ warehouse.id }}">库存明细</a>
+        <a class="btn btn-outline-primary btn-sm" href="/transactions?warehouse_id={{ warehouse.id }}">库存流水</a>
+    </div>
+</div>
+{% endblock %}

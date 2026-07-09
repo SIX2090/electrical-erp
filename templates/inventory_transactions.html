@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}{{ title|clean_text }}{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <h1>{{ title|clean_text }}</h1>
+    <p>{{ subtitle|clean_text }}</p>
+</div>
+
+<div class="alert alert-info d-flex align-items-start gap-2">
+    <i class="bi bi-info-circle"></i>
+    <div>
+        库存流水是只读追溯页。需要按物料、仓库、期间汇总时，请进入
+        <a href="/inventory/reports/inout-summary">出入库汇总</a>、
+        <a href="/inventory/reports/ledger">库存台账</a>
+        或 <a href="/finance/inventory-cost/summary">库存成本总账</a>。
+    </div>
+</div>
+
+<div class="page-card mb-3">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+        <div>
+            <h2 class="h5 mb-1">流水查询</h2>
+            <div class="text-muted small">按来源单号、物料、项目号、批号、机号追溯库存影响；本页不新建业务单据。</div>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-outline-primary btn-sm" href="/inventory/detail"><i class="bi bi-box-seam"></i> 库存明细</a>
+            <a class="btn btn-outline-primary btn-sm" href="/inventory/reports/inout-summary"><i class="bi bi-table"></i> 出入库汇总</a>
+        </div>
+    </div>
+    <form class="row g-2" method="get" action="/transactions">
+        <div class="col-lg-5">
+            <input class="form-control" name="keyword" value="{{ filters.keyword }}" placeholder="物料、来源单号、项目号、批号、机号">
+        </div>
+        <div class="col-lg-2">
+            <input class="form-control" name="project_code" value="{{ filters.project_code }}" placeholder="项目号">
+        </div>
+        <div class="col-lg-3">
+            <select class="form-select" name="transaction_type">
+                <option value="">全部类型</option>
+                {% for row in types %}
+                <option value="{{ row.transaction_type }}" {% if filters.transaction_type == row.transaction_type %}selected{% endif %}>{{ row.transaction_type|clean_text }} ({{ row.count }})</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-lg-1"><input class="form-control" type="date" name="date_from" value="{{ filters.date_from or '' }}" title="开始日期"></div>
+        <div class="col-lg-1"><input class="form-control" type="date" name="date_to" value="{{ filters.date_to or '' }}" title="结束日期"></div>
+        <div class="col-lg-2 d-grid">
+            <button class="btn btn-primary" type="submit"><i class="bi bi-search"></i> 查询</button>
+        </div>
+    </form>
+</div>
+
+<div class="page-card">
+    <div class="section-title">
+        <div>
+            <h2>库存流水明细</h2>
+            {% if rows %}<span>{{ rows|length }} 条记录；大数据量请先筛选再导出</span>{% endif %}
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle client-paginate">
+            <thead>
+            <tr>
+                <th>日期</th>
+                <th>类型</th>
+                <th>物料编码</th>
+                <th>物料名称</th>
+                <th>产品分类/BOM</th>
+                <th>仓库</th>
+                <th>库位</th>
+                <th class="text-end">数量</th>
+                <th class="text-end">成本</th>
+                <th>来源</th>
+                <th>来源类型</th>
+                <th>项目号</th>
+                <th>批号</th>
+                <th>机号</th>
+                <th>备注</th>
+                <th>下一步</th>
+                <th>操作</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for row in rows %}
+            <tr>
+                <td>{{ row.transaction_date or '-' }}</td>
+                <td>{{ row.transaction_type|clean_text }}</td>
+                <td>{{ row.product_code|clean_text }}</td>
+                <td>{{ row.product_name|clean_text }}</td>
+                <td>
+                    <div>{{ row.product_family|clean_text if row.product_family else '-' }}</div>
+                    {% set row_bom_text = [row.default_bom_no, row.default_bom_version]|select|join(' / ') %}
+                    <div class="text-muted small">{{ row_bom_text|clean_text if row_bom_text else '-' }}</div>
+                </td>
+                <td>{{ row.warehouse_name|clean_text }}</td>
+                <td>{{ row.location_code|clean_text }}</td>
+                <td class="text-end">{{ row.quantity|qty }}</td>
+                <td class="text-end">{{ row.unit_cost|money }}</td>
+                <td>{{ row.reference_no|clean_text }}</td>
+                <td>{{ row.source_type|clean_text }}</td>
+                <td>{{ row.project_code|clean_text }}</td>
+                <td>{{ row.lot_no|clean_text }}</td>
+                <td>{{ row.serial_no|clean_text }}</td>
+                <td>{{ row.remark|clean_text }}</td>
+                <td>
+                    {% if (row.quantity or 0) < 0 %}
+                    核对出库去向、领料对象和结存。
+                    {% elif (row.quantity or 0) > 0 %}
+                    核对入库来源、批号和成本。
+                    {% else %}
+                    查看来源单据和库存影响。
+                    {% endif %}
+                </td>
+                <td><a class="btn btn-outline-primary btn-sm" href="/transactions/{{ row.id }}">详情</a></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="16" class="text-center text-muted">没有匹配库存流水。</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

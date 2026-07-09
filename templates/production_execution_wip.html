@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-card">
+    <div class="section-title">
+        <div>
+            <h2>生产执行在制</h2>
+            <span>按工序跟踪在制、返工、报废、堵点、责任和下一步。</span>
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary btn-sm" href="/production-schedules">生产排程</a>
+            <a class="btn btn-outline-secondary btn-sm" href="/production/operation-reports">工序报工</a>
+            <a class="btn btn-outline-primary btn-sm" href="/production/capacity-load">产能负荷</a>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+                <tr>
+                    <th>工单</th>
+                    <th>项目号</th>
+                    <th>机号</th>
+                    <th>工序</th>
+                    <th>工作中心</th>
+                    <th class="text-end">计划</th>
+                    <th class="text-end">合格</th>
+                    <th class="text-end">返工</th>
+                    <th class="text-end">报废</th>
+                    <th class="text-end">在制</th>
+                    <th>状态</th>
+                    <th>堵点</th>
+                    <th>下一步</th>
+                    <th>下游影响</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                <tr>
+                    <td><a href="/work-orders/{{ row.work_order_id }}">{{ row.wo_no|clean_text or row.work_order_id }}</a></td>
+                    <td>{{ row.project_code|clean_text or '-' }}</td>
+                    <td>{{ row.serial_no|clean_text or '-' }}</td>
+                    <td>{{ row.operation_no|clean_text }} {{ row.operation_name|clean_text }}</td>
+                    <td>{{ row.work_center_code|clean_text }} {{ row.work_center_name|clean_text }}</td>
+                    <td class="text-end">{{ row.planned_quantity|qty }}</td>
+                    <td class="text-end">{{ row.good_quantity|qty }}</td>
+                    <td class="text-end">{{ row.rework_quantity|qty }}</td>
+                    <td class="text-end">{{ row.scrap_quantity|qty }}</td>
+                    <td class="text-end">{{ row.open_wip_qty|qty }}</td>
+                    <td>{{ process_status_label(row.status) }}</td>
+                    <td>{{ row.blocked_reason|clean_text or '-' }}</td>
+                    <td>{{ row.next_action|clean_text or '-' }}</td>
+                    <td>{{ row.downstream_impact|clean_text or '-' }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="14" class="text-muted text-center py-4">暂无工序在制或异常。</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

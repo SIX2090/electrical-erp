@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}技术确认单详情{% endblock %}
+{% block content %}
+{{ document_menu_bar(actions=[
+    {'type': 'nav', 'items': [
+        {'label': '首张', 'event': 'doc-nav-first', 'icon': 'bi-chevron-double-left'},
+        {'label': '上一张', 'event': 'doc-nav-prev', 'icon': 'bi-chevron-left'},
+        {'label': '下一张', 'event': 'doc-nav-next', 'icon': 'bi-chevron-right'},
+        {'label': '末张', 'event': 'doc-nav-last', 'icon': 'bi-chevron-double-right'}
+    ]}
+], aria_label='技术确认单操作菜单') }}
+{% if confirmation %}
+<div id="doc-nav-config" data-nav-table="engineering_technical_confirmations" data-nav-base="/engineering/technical-confirmations/" data-doc-id="{{ confirmation.id }}" style="display:none"></div>
+{% endif %}
+<div class="page-heading d-flex justify-content-between align-items-start gap-3">
+    <div>
+        <h1>{{ confirmation.confirm_no|clean_text }}</h1>
+        <p>{{ confirmation.project_code|clean_text or '-' }} / {{ confirmation.serial_no|clean_text or '-' }}</p>
+    </div>
+    <div class="d-flex gap-2">
+        {% if confirmation.ledger_url %}
+        <a class="btn btn-outline-primary btn-sm" href="{{ confirmation.ledger_url }}">项目/机号台账</a>
+        {% endif %}
+        <a class="btn btn-outline-secondary btn-sm" href="/engineering/technical-confirmations">返回列表</a>
+        {% if confirmation.status != '已确认' %}
+        <form method="post" action="/engineering/technical-confirmations/{{ confirmation.id }}/confirm">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-primary btn-sm" type="submit"><i class="bi bi-check2-circle"></i> 确认技术资料</button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-md-3"><div class="metric"><div class="label">状态</div><div class="value h5">{{ confirmation.status|erp_value|clean_text }}</div></div></div>
+    <div class="col-md-3"><div class="metric"><div class="label">确认日期</div><div class="value h5">{{ confirmation.confirm_date or '-' }}</div></div></div>
+    <div class="col-md-3"><div class="metric"><div class="label">负责人</div><div class="value h5">{{ confirmation.owner|clean_text or '-' }}</div></div></div>
+    <div class="col-md-3"><div class="metric"><div class="label">销售订单</div><div class="value h5">{{ confirmation.sales_order_no|clean_text or '-' }}</div></div></div>
+</div>
+<div class="row g-3 mt-1">
+    <div class="col-md-3">
+        <div class="metric {% if not confirmation.execution_readiness.ready %}is-danger{% endif %}">
+            <div class="label">下游执行状态</div>
+            <div class="value h5">{{ confirmation.execution_readiness.status }}</div>
+            <div class="metric-hint">{{ confirmation.execution_readiness.next_action }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="metric {% if not confirmation.bom_item_count %}is-danger{% endif %}">
+            <div class="label">BOM明细</div>
+            <div class="value h5">{{ confirmation.bom_item_count or 0 }} 行</div>
+            <div class="metric-hint">MRP和齐套的用料基础</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="metric {% if not confirmation.released_drawing_id %}is-danger{% endif %}">
+            <div class="label">图纸有效性</div>
+            <div class="value h5">{% if confirmation.released_drawing_id %}有效{% else %}无效{% endif %}</div>
+            <div class="metric-hint">必须为已发布且未失效版本</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="metric {% if confirmation.execution_readiness.blocked_reason %}is-alert{% endif %}">
+            <div class="label">责任归口</div>
+            <div class="value h5">{{ confirmation.execution_readiness.owner_role }}</div>
+            <div class="metric-hint">{{ confirmation.execution_readiness.blocked_reason or '资料已锁定' }}</div>
+        </div>
+    </div>
+</div>
+<div class="row g-3 mt-1">
+    <div class="col-md-3">
+        <div class="metric {% if not confirmation.process_program_no %}is-alert{% endif %}">
+            <div class="label">加工程序</div>
+            <div class="value h5">{{ confirmation.process_program_no|clean_text or '未填写' }}</div>
+            <div class="metric-hint">登记受控编号或不适用说明</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="metric {% if not confirmation.tooling_requirement %}is-alert{% endif %}">
+            <div class="label">工装夹具</div>
+            <div class="value h5">{{ confirmation.tooling_requirement|clean_text or '未填写' }}</div>
+            <div class="metric-hint">用于采购、委外、生产准备</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="metric {% if not confirmation.inspection_standard %}is-danger{% endif %}">
+            <div class="label">检验标准</div>
+            <div class="value h5">{{ '已填写' if confirmation.inspection_standard else '未填写' }}</div>
+            <div class="metric-hint">用于质检和完工放行</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="metric {% if confirmation.open_ecn_count %}is-danger{% endif %}">
+            <div class="label">ECN影响</div>
+            <div class="value h5">{{ confirmation.open_ecn_count or 0 }} 项未关闭</div>
+            <div class="metric-hint">{{ confirmation.ecn_impact_summary|clean_text or '未记录影响摘要' }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="page-card mt-3">
+    <div class="section-title">
+        <div>
+            <h2>锁定资料</h2>
+            <span>下游 MRP、齐套、工单应使用这些版本。</span>
+        </div>
+    </div>
+    <div class="row g-3">
+        <div class="col-md-4">
+            <div class="text-muted small">确认单号</div>
+            <div class="fw-semibold">{{ confirmation.confirm_no|clean_text or '-' }}</div>
+            <div class="text-muted">技术确认单唯一编号</div>
+        </div>
+        <div class="col-md-4">
+            <div class="text-muted small">产品/机型</div>
+            <div class="fw-semibold">{{ confirmation.product_code|clean_text or '-' }} {{ confirmation.product_name|clean_text or '' }}</div>
+            <div class="text-muted">{{ confirmation.machine_model|clean_text or confirmation.product_specification|clean_text or '-' }}</div>
+        </div>
+        <div class="col-md-4">
+            <div class="text-muted small">BOM版本</div>
+            <div class="fw-semibold">{{ confirmation.bom_no|clean_text or '-' }} / {{ confirmation.bom_version|clean_text or '-' }}</div>
+            <div class="text-muted">{{ confirmation.bom_status|erp_value|clean_text or '-' }}</div>
+        </div>
+        <div class="col-md-4">
+            <div class="text-muted small">图纸版本</div>
+            <div class="fw-semibold">{{ confirmation.drawing_no|clean_text or '-' }} / {{ confirmation.drawing_version|clean_text or '-' }}</div>
+        </div>
+        <div class="col-md-4">
+            <div class="text-muted small">工艺路线</div>
+            <div class="fw-semibold">{{ confirmation.routing_no|clean_text or '-' }}</div>
+        </div>
+        <div class="col-md-4">
+            <div class="text-muted small">工作中心</div>
+            <div class="fw-semibold">{{ confirmation.work_center_code|clean_text or '-' }} {{ confirmation.work_center_name|clean_text or '' }}</div>
+        </div>
+        <div class="col-md-4">
+            <div class="text-muted small">下一步</div>
+            <div class="fw-semibold">{{ confirmation.next_action|clean_text }}</div>
+            {% if confirmation.blocked_reason %}
+            <div class="text-danger small">缺少：{{ confirmation.blocked_reason|clean_text }}</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="page-card mt-3">
+    <div class="section-title">
+        <div>
+            <h2>关键控制点</h2>
+            <span>用于后续质检、调试、验收和售后追溯。</span>
+        </div>
+    </div>
+    <div class="mb-3">{{ confirmation.key_control_points|clean_text or '未填写' }}</div>
+    {% if confirmation.remark %}
+    <div class="text-muted border-top pt-3">{{ confirmation.remark|clean_text }}</div>
+    {% endif %}
+</div>
+
+<div class="page-card mt-3">
+    <div class="section-title">
+        <div>
+            <h2>工艺准备与下游影响</h2>
+            <span>本页只锁定工程依据，不生成采购、委外、工单、库存或财务单据。</span>
+        </div>
+    </div>
+    <dl class="row mb-0">
+        <dt class="col-sm-2">加工程序</dt>
+        <dd class="col-sm-4">{{ confirmation.process_program_no|clean_text or '-' }}</dd>
+        <dt class="col-sm-2">工装夹具</dt>
+        <dd class="col-sm-4">{{ confirmation.tooling_requirement|clean_text or '-' }}</dd>
+        <dt class="col-sm-2">检验标准</dt>
+        <dd class="col-sm-10">{{ confirmation.inspection_standard|clean_text or '-' }}</dd>
+        <dt class="col-sm-2">ECN影响摘要</dt>
+        <dd class="col-sm-10">{{ confirmation.ecn_impact_summary|clean_text or '-' }}</dd>
+        <dt class="col-sm-2">下游影响</dt>
+        <dd class="col-sm-10">MRP缺料、齐套检查、工单用料与工艺、采购/委外准备、质检放行、发货准备、服务机号追踪、项目/机号成本追踪。</dd>
+    </dl>
+</div>
+{% endblock %}

@@ -1,0 +1,397 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}新增物料{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-plus-circle"></i> 新增物料</h2>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form id="addMaterialForm">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label class="form-label">物料编码 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="code" required>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label class="form-label">物料名称 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="name" required>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label class="form-label">规格型号</label>
+                        <input type="text" class="form-control" name="spec">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label class="form-label">分类</label>
+                        <select class="form-select" name="category_id">
+                            <option value="">请选择分类</option>
+                            {% for category in categories %}
+                            <option value="{{ category.id }}">{{ category.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label class="form-label">单位</label>
+                        <div class="input-group">
+                            <div style="position:relative;flex:1;">
+                                <input type="text" class="form-control" id="unitSearch" placeholder="输入单位名称搜索..." autocomplete="off">
+                                <input type="hidden" name="unit_id" id="unitIdHidden">
+                                <div id="unitDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;max-height:200px;overflow-y:auto;background:white;border:1px solid #d9d9d9;border-radius:4px;z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,0.15);margin-top:2px;"></div>
+                            </div>
+                            <button type="button" class="btn btn-outline-primary" onclick="showAddUnitModal()" title="新增单位">
+                                <i class="bi bi-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label class="form-label">供应商</label>
+                        <div style="position:relative;">
+                            <input type="text" class="form-control" id="supplierSearch" placeholder="输入供应商名称搜索..." autocomplete="off">
+                            <input type="hidden" name="supplier_id" id="supplierIdHidden">
+                            <div id="supplierDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;max-height:200px;overflow-y:auto;background:white;border:1px solid #d9d9d9;border-radius:4px;z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,0.15);margin-top:2px;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label class="form-label">初始库存</label>
+                        <input type="number" class="form-control" name="stock" value="0" min="0" step="0.01">
+                    </div>
+                </div>
+                {% if inventory_alert_enabled %}
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">最低库存</label>
+                            <input type="number" class="form-control" name="min_stock" value="0" min="0" step="0.01">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">安全库存</label>
+                            <input type="number" class="form-control" name="safety_stock" value="0" min="0" step="0.01">
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">参考单价</label>
+                        <input type="number" class="form-control" name="price" value="0" min="0" step="0.01">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">备注</label>
+                        <textarea class="form-control" name="remark" rows="2"></textarea>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-3">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-save"></i> 保存
+                </button>
+                <a href="/material" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> 返回
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const units = {{ units|tojson }};
+const suppliers = {{ suppliers|tojson }};
+
+document.getElementById('addMaterialForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    fetch('/material/new', {
+        method: 'POST',
+        headers: {'X-CSRFToken': (document.querySelector('meta[name="csrf-token"]') || {}).content || ''},
+        body: formData
+    }).then(res => res.json()).then(res => {
+        if (res.status === 'success') {
+            alert('物料添加成功！');
+            window.location.href = '/material';
+        } else {
+            alert('添加失败：' + (res.msg || '未知错误'));
+        }
+    }).catch(err => {
+        alert('请求失败：' + err.message);
+    });
+});
+
+// ==================== 单位搜索下拉 ====================
+const unitSearch = document.getElementById('unitSearch');
+const unitDropdown = document.getElementById('unitDropdown');
+const unitIdHidden = document.getElementById('unitIdHidden');
+
+function showUnitDropdown(list) {
+    if (!list.length) {
+        unitDropdown.style.display = 'none';
+        return;
+    }
+    unitDropdown.innerHTML = list.map(u => {
+        var safeName = String(u.name || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        var safeCode = String(u.code || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        return '<div class="dropdown-item" data-id="' + u.id + '" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #f0f0f0;font-size:13px;">' +
+        '<span style="font-weight:bold;">' + safeName + '</span>' +
+        (u.code ? ' <span style="color:#999;">(' + safeCode + ')</span>' : '') +
+        '</div>';
+    }).join('');
+    unitDropdown.style.display = 'block';
+
+    unitDropdown.querySelectorAll('.dropdown-item').forEach(item => {
+        item.addEventListener('click', function() {
+            unitSearch.value = this.querySelector('span:first-child').textContent;
+            unitIdHidden.value = this.dataset.id;
+            unitDropdown.style.display = 'none';
+        });
+        item.addEventListener('mouseenter', function() {
+            unitDropdown.querySelectorAll('.dropdown-item').forEach(el => el.style.backgroundColor = '');
+            this.style.backgroundColor = '#e6f7ff';
+        });
+    });
+}
+
+unitSearch.addEventListener('input', function() {
+    const keyword = this.value.trim().toLowerCase();
+    if (!keyword) {
+        unitIdHidden.value = '';
+        unitDropdown.style.display = 'none';
+        return;
+    }
+    const filtered = units.filter(u =>
+        (u.name || '').toLowerCase().includes(keyword) ||
+        (u.code || '').toLowerCase().includes(keyword)
+    );
+    showUnitDropdown(filtered);
+});
+
+unitSearch.addEventListener('focus', function() {
+    if (this.value.trim()) {
+        this.dispatchEvent(new Event('input'));
+    } else {
+        showUnitDropdown(units);
+    }
+});
+
+unitSearch.addEventListener('keydown', function(e) {
+    const items = unitDropdown.querySelectorAll('.dropdown-item');
+    if (!items.length) return;
+
+    let activeIndex = -1;
+    items.forEach((el, i) => {
+        if (el.style.backgroundColor === 'rgb(230, 247, 255)') activeIndex = i;
+    });
+
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        activeIndex = Math.min(activeIndex + 1, items.length - 1);
+        items.forEach((el, i) => el.style.backgroundColor = i === activeIndex ? '#e6f7ff' : '');
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        activeIndex = Math.max(activeIndex - 1, 0);
+        items.forEach((el, i) => el.style.backgroundColor = i === activeIndex ? '#e6f7ff' : '');
+    } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (activeIndex >= 0 && items[activeIndex]) {
+            items[activeIndex].click();
+        }
+    } else if (e.key === 'Escape') {
+        unitDropdown.style.display = 'none';
+    }
+});
+
+// ==================== 供应商搜索下拉 ====================
+const supplierSearch = document.getElementById('supplierSearch');
+const supplierDropdown = document.getElementById('supplierDropdown');
+const supplierIdHidden = document.getElementById('supplierIdHidden');
+
+function showSupplierDropdown(list) {
+    if (!list.length) {
+        supplierDropdown.style.display = 'none';
+        return;
+    }
+    supplierDropdown.innerHTML = list.map(s => {
+        var safeName = String(s.name || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        var safeContact = String(s.contact || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        var safePhone = String(s.phone || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        return '<div class="dropdown-item" data-id="' + s.id + '" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #f0f0f0;font-size:13px;">' +
+        '<span style="font-weight:bold;">' + safeName + '</span>' +
+        (s.contact ? ' <span style="color:#999;">| ' + safeContact + '</span>' : '') +
+        (s.phone ? ' <span style="color:#999;">| ' + safePhone + '</span>' : '') +
+        '</div>';
+    }).join('');
+    supplierDropdown.style.display = 'block';
+
+    supplierDropdown.querySelectorAll('.dropdown-item').forEach(item => {
+        item.addEventListener('click', function() {
+            supplierSearch.value = this.querySelector('span:first-child').textContent;
+            supplierIdHidden.value = this.dataset.id;
+            supplierDropdown.style.display = 'none';
+        });
+        item.addEventListener('mouseenter', function() {
+            supplierDropdown.querySelectorAll('.dropdown-item').forEach(el => el.style.backgroundColor = '');
+            this.style.backgroundColor = '#e6f7ff';
+        });
+    });
+}
+
+supplierSearch.addEventListener('input', function() {
+    const keyword = this.value.trim().toLowerCase();
+    if (!keyword) {
+        supplierIdHidden.value = '';
+        supplierDropdown.style.display = 'none';
+        return;
+    }
+    const filtered = suppliers.filter(s =>
+        (s.name || '').toLowerCase().includes(keyword) ||
+        (s.contact || '').toLowerCase().includes(keyword) ||
+        (s.phone || '').toLowerCase().includes(keyword)
+    );
+    showSupplierDropdown(filtered);
+});
+
+supplierSearch.addEventListener('focus', function() {
+    if (this.value.trim()) {
+        this.dispatchEvent(new Event('input'));
+    } else {
+        showSupplierDropdown(suppliers);
+    }
+});
+
+supplierSearch.addEventListener('keydown', function(e) {
+    const items = supplierDropdown.querySelectorAll('.dropdown-item');
+    if (!items.length) return;
+
+    let activeIndex = -1;
+    items.forEach((el, i) => {
+        if (el.style.backgroundColor === 'rgb(230, 247, 255)') activeIndex = i;
+    });
+
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        activeIndex = Math.min(activeIndex + 1, items.length - 1);
+        items.forEach((el, i) => el.style.backgroundColor = i === activeIndex ? '#e6f7ff' : '');
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        activeIndex = Math.max(activeIndex - 1, 0);
+        items.forEach((el, i) => el.style.backgroundColor = i === activeIndex ? '#e6f7ff' : '');
+    } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (activeIndex >= 0 && items[activeIndex]) {
+            items[activeIndex].click();
+        }
+    } else if (e.key === 'Escape') {
+        supplierDropdown.style.display = 'none';
+    }
+});
+
+// 点击外部关闭下拉框
+document.addEventListener('click', function(event) {
+    var item = event.target.closest('[data-menu-event]');
+    if (item && !item.disabled) {
+        var action = item.dataset.menuEvent;
+        if (action === 'toolbar-save-new') {
+            event.preventDefault();
+            var form = document.getElementById('addMaterialForm');
+            if (form) {
+                var input = form.querySelector('input[name="save_action"]');
+                if (!input) { input = document.createElement('input'); input.type='hidden'; input.name='save_action'; form.appendChild(input); }
+                input.value = 'save_new';
+                if (form.requestSubmit) form.requestSubmit(); else form.submit();
+            }
+        }
+        if (action === 'toolbar-save') {
+            event.preventDefault();
+            var form = document.getElementById('addMaterialForm');
+            if (form) { if (form.requestSubmit) form.requestSubmit(); else form.submit(); }
+        }
+    }
+    if (!event.target.closest('#unitSearch') && !event.target.closest('#unitDropdown')) {
+        unitDropdown.style.display = 'none';
+    }
+    if (!event.target.closest('#supplierSearch') && !event.target.closest('#supplierDropdown')) {
+        supplierDropdown.style.display = 'none';
+    }
+});
+
+// 新增单位弹窗
+function showAddUnitModal() {
+    const modal = document.createElement('div');
+    modal.id = 'addUnitModal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML = `
+        <div style="background:white;border-radius:8px;padding:24px;width:400px;max-width:90%;">
+            <h5 style="margin:0 0 16px 0;font-size:16px;font-weight:600;">新增计量单位</h5>
+            <form id="addUnitForm">
+                <div class="mb-3">
+                    <label class="form-label">单位编号 <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" name="code" required placeholder="如：PCS、KG">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">单位名称 <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" name="name" required placeholder="如：个、千克">
+                </div>
+                <div style="display:flex;justify-content:flex-end;gap:8px;">
+                    <button type="button" class="btn btn-secondary" onclick="document.getElementById('addUnitModal').remove()">取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    document.getElementById('addUnitForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        fetch('/unit/add', {
+            method: 'POST',
+            headers: {'X-CSRFToken': (document.querySelector('meta[name="csrf-token"]') || {}).content || ''},
+            body: formData
+        }).then(res => res.json()).then(res => {
+            if (res.status === 'success') {
+                alert('单位添加成功！');
+                // 添加到单位列表
+                units.push({ id: res.id, name: res.name, code: formData.get('code') });
+                // 设置为当前选中
+                unitSearch.value = res.name;
+                unitIdHidden.value = res.id;
+                // 关闭弹窗
+                document.getElementById('addUnitModal').remove();
+            } else {
+                alert('添加失败：' + (res.msg || '未知错误'));
+            }
+        }).catch(err => {
+            alert('请求失败：' + err.message);
+        });
+    });
+}
+</script>
+{% endblock %}

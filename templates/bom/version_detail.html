@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}BOM版本详情{% endblock %}
+{% block content %}
+{% if not version %}
+<div class="page-card">未找到BOM版本。</div>
+{% else %}
+{% set status = version.status %}
+{{ document_menu_bar(actions=[
+    {'label': '版本列表', 'type': 'link', 'href': url_for('bom_version_list')},
+    {'label': '新增版本', 'type': 'link', 'href': url_for('bom_version_new', bom_id=version.bom_id)},
+    {'label': '审核', 'type': 'button', 'button_type': 'submit', 'form': 'versionApproveForm', 'disabled': status != 'draft'},
+    {'label': '发布', 'type': 'button', 'button_type': 'submit', 'form': 'versionReleaseForm', 'disabled': status not in ['draft', 'approved']},
+    {'label': 'BOM详情', 'type': 'link', 'href': url_for('bom_detail', bom_key=version.bom_no) if version.bom_no else '#'}
+]) }}
+<form id="versionApproveForm" method="post" action="{{ url_for('bom_version_approve', version_id=version.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+<form id="versionReleaseForm" method="post" action="{{ url_for('bom_version_release', version_id=version.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+<form id="versionObsoleteForm" method="post" action="{{ url_for('bom_version_obsolete', version_id=version.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+
+<div id="doc-nav-config" data-nav-table="bom_versions" data-nav-base="/bom/versions/" data-doc-id="{{ version.id }}" style="display:none"></div>
+
+<div class="page-card mb-3">
+    <div class="d-flex justify-content-between align-items-start gap-3">
+        <div>
+            <h1 class="h4 mb-1">{{ version.bom_no|clean_text }} / {{ version.version_no|clean_text }}</h1>
+            <div class="text-muted">{{ version.product_code|clean_text }} {{ version.product_name|clean_text }} {{ version.product_specification|clean_text }}</div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            {% if version.is_active %}<span class="badge bg-success">当前发布版本</span>{% endif %}
+            {% if status == 'released' %}<span class="badge bg-success">{{ version.status_label }}</span>
+            {% elif status == 'approved' %}<span class="badge bg-primary">{{ version.status_label }}</span>
+            {% elif status == 'obsolete' %}<span class="badge bg-secondary">{{ version.status_label }}</span>
+            {% else %}<span class="badge bg-light text-dark border">{{ version.status_label }}</span>{% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="alert alert-info py-2">
+    边界：本页只读展示BOM版本信息；BOM明细维护在BOM单据页，发布后工单按发布时快照执行。
+</div>
+
+<div class="page-card mb-3">
+    <h2 class="h5 mb-3">版本信息</h2>
+    <dl class="row mb-0">
+        <dt class="col-sm-2">BOM编号</dt><dd class="col-sm-4">{% if version.bom_no %}<a href="{{ url_for('bom_detail', bom_key=version.bom_no) }}">{{ version.bom_no }}</a>{% else %}-{% endif %}</dd>
+        <dt class="col-sm-2">版本号</dt><dd class="col-sm-4">{{ version.version_no|clean_text }}</dd>
+        <dt class="col-sm-2">状态</dt><dd class="col-sm-4">{{ version.status_label }}</dd>
+        <dt class="col-sm-2">生效日期</dt><dd class="col-sm-4">{{ version.effective_date or '-' }}</dd>
+        <dt class="col-sm-2">失效日期</dt><dd class="col-sm-4">{{ version.expire_date or '-' }}</dd>
+        <dt class="col-sm-2">审核人</dt><dd class="col-sm-4">{{ version.approver_name|clean_text or '-' }}</dd>
+        <dt class="col-sm-2">审核时间</dt><dd class="col-sm-4">{{ version.approved_at or '-' }}</dd>
+        <dt class="col-sm-2">创建人</dt><dd class="col-sm-4">{{ version.creator_name|clean_text or '-' }}</dd>
+        <dt class="col-sm-2">创建时间</dt><dd class="col-sm-4">{{ version.created_at or '-' }}</dd>
+        <dt class="col-sm-2">变更说明</dt><dd class="col-sm-10">{{ version.change_note|clean_text or '-' }}</dd>
+    </dl>
+</div>
+
+<div class="page-card">
+    <div class="section-title">
+        <div><h2>BOM子项快照</h2><span>本版本关联BOM的当前明细；版本发布后BOM修改不会影响已发布的工单快照。</span></div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+                <tr>
+                    <th>物料编码</th>
+                    <th>物料名称</th>
+                    <th>规格</th>
+                    <th class="text-end">用量</th>
+                    <th>单位</th>
+                    <th class="text-end">损耗率%</th>
+                    <th>替代</th>
+                    <th>备注</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for item in items %}
+            <tr>
+                <td>{{ item.material_code|clean_text or '-' }}</td>
+                <td>{{ item.material_name|clean_text or '-' }}</td>
+                <td>{{ item.material_spec|clean_text or '-' }}</td>
+                <td class="text-end">{{ item.base_qty|qty }}</td>
+                <td>{{ item.material_unit|clean_text or '-' }}</td>
+                <td class="text-end">{{ item.loss_rate|qty }}</td>
+                <td>{{ '替代' if item.is_optional else '-' }}</td>
+                <td>{{ item.remark|clean_text or '-' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="8" class="text-muted">BOM暂无子项。</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

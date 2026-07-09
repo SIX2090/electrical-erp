@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}打印模板{% endblock %}
+{% block extra_css %}
+<style>
+.print-template-shell{display:grid;grid-template-columns:220px minmax(0,1fr);gap:12px;align-items:start}
+.print-template-tree,.print-template-panel{background:#fff;border:1px solid #d8dee8;border-radius:6px}
+.print-template-tree{padding:10px;min-height:520px}
+.print-template-tree h2,.print-template-panel h2{font-size:15px;margin:0;color:#1f2937}
+.print-template-tree a{display:flex;justify-content:space-between;gap:8px;padding:7px 8px;margin-top:4px;border-radius:4px;color:#334155;text-decoration:none;font-size:13px}
+.print-template-tree a.active,.print-template-tree a:hover{background:#eaf2ff;color:#0f4c9a}
+.print-template-panel{min-width:0}
+.print-template-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px;border-bottom:1px solid #e5e7eb}
+.print-template-toolbar form{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.print-template-toolbar .form-control,.print-template-toolbar .form-select{height:31px;font-size:13px}
+.print-template-table{margin:0;font-size:13px}
+.print-template-table th{white-space:nowrap;background:#f8fafc;color:#475569;border-bottom:1px solid #d8dee8}
+.print-template-table td{vertical-align:middle}
+.status-pill{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:12px;border:1px solid #d8dee8;background:#f8fafc;color:#475569}
+.status-pill.enabled{border-color:#b7dfc2;background:#eefaf1;color:#17633a}
+.status-pill.disabled{border-color:#e5e7eb;background:#f1f5f9;color:#64748b}
+.default-mark{color:#b45309;font-weight:600}
+.template-actions{display:flex;gap:6px;justify-content:flex-end;white-space:nowrap}
+@media (max-width: 900px){.print-template-shell{grid-template-columns:1fr}.print-template-tree{min-height:auto}.print-template-toolbar{align-items:flex-start;flex-direction:column}}
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <h1>打印模板</h1>
+    <p>维护系统单据模板、默认模板和套打设计，不改变现有业务单据状态。</p>
+</div>
+
+<div class="print-template-shell">
+    <aside class="print-template-tree">
+        <h2>模板分类</h2>
+        <a class="{{ '' if filters.category else 'active' }}" href="{{ url_for('print_template_list') }}">
+            <span>全部模板</span><strong>{{ rows|length }}</strong>
+        </a>
+        {% for item in categories %}
+        <a class="{{ 'active' if filters.category == item.category else '' }}" href="{{ url_for('print_template_list', category=item.category) }}">
+            <span>{{ item.category }}</span><strong>{{ item.count }}</strong>
+        </a>
+        {% endfor %}
+    </aside>
+
+    <section class="print-template-panel">
+        <div class="print-template-toolbar">
+            <form method="get">
+                <input class="form-control" name="keyword" value="{{ filters.keyword }}" placeholder="模板编码 / 名称 / 单据">
+                <select class="form-select" name="status">
+                    <option value="">全部状态</option>
+                    <option value="enabled" {% if filters.status == 'enabled' %}selected{% endif %}>启用</option>
+                    <option value="disabled" {% if filters.status == 'disabled' %}selected{% endif %}>停用</option>
+                </select>
+                {% if filters.category %}<input type="hidden" name="category" value="{{ filters.category }}">{% endif %}
+                <button class="btn btn-outline-primary btn-sm" type="submit"><i class="bi bi-search"></i> 查询</button>
+            </form>
+            <a class="btn btn-primary btn-sm" href="{{ url_for('print_template_new') }}"><i class="bi bi-plus-lg"></i> 新增模板</a>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle print-template-table">
+                <thead>
+                    <tr>
+                        <th>模板编码</th>
+                        <th>模板名称</th>
+                        <th>单据名称</th>
+                        <th>分类</th>
+                        <th>默认模板</th>
+                        <th>状态</th>
+                        <th>打印类型</th>
+                        <th>修改时间</th>
+                        <th class="text-end">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                    <tr>
+                        <td>{{ row.template_code }}</td>
+                        <td><a href="{{ url_for('print_template_edit', template_id=row.id) }}">{{ row.template_name }}</a></td>
+                        <td>{{ row.document_label }}</td>
+                        <td>{{ row.category or '未分类' }}</td>
+                        <td>{% if row.is_default %}<span class="default-mark">默认</span>{% else %}<span class="text-muted">否</span>{% endif %}</td>
+                        <td><span class="status-pill {{ row.status }}">{{ '启用' if row.status == 'enabled' else '停用' }}</span></td>
+                        <td>{{ row.print_type }}</td>
+                        <td>{{ row.updated_at|clean_text }}</td>
+                        <td>
+                            <div class="template-actions">
+                                <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('print_template_preview', template_id=row.id) }}" target="_blank"><i class="bi bi-eye"></i> 预览</a>
+                                <a class="btn btn-outline-primary btn-sm" href="{{ url_for('print_template_edit', template_id=row.id) }}"><i class="bi bi-pencil-square"></i> 设计</a>
+                                <form method="post" action="{{ url_for('print_template_copy', template_id=row.id) }}">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button class="btn btn-outline-primary btn-sm" type="submit"><i class="bi bi-files"></i> 复制</button>
+                                </form>
+                                {% if not row.is_default %}
+                                <form method="post" action="{{ url_for('print_template_set_default', template_id=row.id) }}">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button class="btn btn-outline-warning btn-sm" type="submit">设默认</button>
+                                </form>
+                                {% endif %}
+                                <form method="post" action="{{ url_for('print_template_toggle', template_id=row.id) }}">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button class="btn btn-outline-secondary btn-sm" type="submit">{{ '停用' if row.status == 'enabled' else '启用' }}</button>
+                                </form>
+                                {% if not row.is_default and not row.template_code.endswith('-STD') %}
+                                <form method="post" action="{{ url_for('print_template_delete', template_id=row.id) }}" onsubmit="return confirm('确认删除这个打印模板？');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button class="btn btn-outline-danger btn-sm" type="submit"><i class="bi bi-trash"></i> 删除</button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="9" class="text-muted">暂无打印模板。</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+{% endblock %}

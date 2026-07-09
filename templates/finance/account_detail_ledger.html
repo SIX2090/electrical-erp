@@ -1,0 +1,308 @@
+{% extends "base.html" %}
+
+{% block title %}科目明细账{% endblock %}
+
+{% block extra_css %}
+<style>
+    .filter-section {
+        background: #f8f9fa;
+        padding: 1rem;
+        border-radius: 0.25rem;
+        margin-bottom: 1.5rem;
+    }
+    .filter-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        align-items: end;
+    }
+    .filter-field {
+        flex: 1;
+        min-width: 150px;
+    }
+    .account-info {
+        background: #e9ecef;
+        padding: 1rem;
+        border-radius: 0.25rem;
+        margin-bottom: 1.5rem;
+    }
+    .account-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .account-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+    }
+    .account-code {
+        font-family: 'Courier New', monospace;
+        color: #6c757d;
+    }
+    .balance-direction {
+        padding: 0.25rem 0.75rem;
+        border-radius: 0.25rem;
+        background: #007bff;
+        color: white;
+        font-size: 0.9rem;
+    }
+    .ledger-table {
+        font-size: 0.9rem;
+    }
+    .ledger-table th {
+        background: #e9ecef;
+        font-weight: 600;
+        text-align: center;
+    }
+    .amount-debit {
+        color: #dc3545;
+    }
+    .amount-credit {
+        color: #28a745;
+    }
+    .balance-value {
+        font-weight: 600;
+        color: #495057;
+    }
+    .opening-row {
+        background: #fff3cd;
+        font-weight: 600;
+    }
+    .total-row {
+        background: #f8f9fa;
+        font-weight: 700;
+        border-top: 2px solid #495057;
+    }
+    .voucher-link {
+        color: #007bff;
+        text-decoration: none;
+    }
+    .voucher-link:hover {
+        text-decoration: underline;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>科目明细账</h2>
+        <div class="d-none">
+            <a href="javascript:history.back()" class="btn btn-outline-secondary" title="返回上一页">
+                <i class="bi bi-arrow-left"></i> 返回
+            </a>
+            <button onclick="exportReportTable()" class="btn btn-outline-success">
+                <i class="bi bi-file-earmark-excel"></i> 导出Excel
+            </button>
+            <button onclick="window.print()" class="btn btn-outline-primary">
+                <i class="bi bi-printer"></i> 打印
+            </button>
+        </div>
+    </div>
+
+    <!-- 筛选条件 -->
+    <div class="filter-section">
+        <form method="get" action="/finance/reports/account-detail-ledger">
+            <div class="filter-row">
+                <div class="filter-field" style="flex: 2;">
+                    <label class="form-label">会计科目 <span class="text-danger">*</span></label>
+                    <select name="account_id" class="form-select" required>
+                        <option value="">请选择科目</option>
+                        {% for acc in accounts %}
+                        <option value="{{ acc.id }}"
+                                {% if filters.account_id == acc.id|string %}selected{% endif %}>
+                            {{ acc.code }} - {{ acc.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-field">
+                    <label class="form-label">开始日期</label>
+                    <input type="date" name="start_date" class="form-control"
+                           value="{{ filters.start_date or '' }}">
+                </div>
+                <div class="filter-field">
+                    <label class="form-label">结束日期</label>
+                    <input type="date" name="end_date" class="form-control"
+                           value="{{ filters.end_date or '' }}">
+                </div>
+            </div>
+            <div class="filter-row mt-2">
+                <div class="filter-field">
+                    <label class="form-label">项目号</label>
+                    <input type="text" name="project_code" class="form-control"
+                           value="{{ filters.project_code or '' }}" placeholder="项目号">
+                </div>
+                <div class="filter-field">
+                    <label class="form-label">机号</label>
+                    <input type="text" name="serial_no" class="form-control"
+                           value="{{ filters.serial_no or '' }}" placeholder="机号">
+                </div>
+                <div class="filter-field">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-search"></i> 查询
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    {% if account %}
+    <!-- 科目信息 -->
+    <div class="account-info">
+        <div class="account-header">
+            <div>
+                <div class="account-title">
+                    {{ account.name }}
+                    <span class="account-code">({{ account.code }})</span>
+                </div>
+            </div>
+            <div>
+                <span class="balance-direction">
+                    余额方向：{{ account.balance_direction }}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 明细账表格 -->
+    <div class="card">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-bordered ledger-table mb-0">
+                    <thead>
+                        <tr>
+                            <th style="width: 8%;">凭证日期</th>
+                            <th style="width: 10%;">凭证号</th>
+                            <th style="width: 25%;">摘要</th>
+                            <th style="width: 10%;">借方金额</th>
+                            <th style="width: 10%;">贷方金额</th>
+                            <th style="width: 8%;">余额方向</th>
+                            <th style="width: 10%;">余额</th>
+                            <th style="width: 8%;">项目号</th>
+                            <th style="width: 8%;">机号</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if rows %}
+                            <!-- 期初余额行 -->
+                            {% if rows[0].is_opening %}
+                            <tr class="opening-row">
+                                <td colspan="3" class="text-center">期初余额</td>
+                                <td class="text-end">
+                                    {% if rows[0].balance_direction == '借' %}
+                                        <span class="amount-debit">{{ '%.2f'|format(rows[0].balance) }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    {% if rows[0].balance_direction == '贷' %}
+                                        <span class="amount-credit">{{ '%.2f'|format(rows[0].balance) }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">{{ rows[0].balance_direction }}</td>
+                                <td class="text-end balance-value">{{ '%.2f'|format(rows[0].balance) }}</td>
+                                <td colspan="2"></td>
+                            </tr>
+                            {% endif %}
+
+                            <!-- 明细行 -->
+                            {% for row in rows %}
+                                {% if not row.is_opening %}
+                                <tr>
+                                    <td>{{ row.entry_date }}</td>
+                                    <td>
+                                        <a href="/finance/vouchers/{{ row.voucher_id }}" class="voucher-link">
+                                            {{ row.voucher_no }}
+                                        </a>
+                                    </td>
+                                    <td>{{ row.summary }}</td>
+                                    <td class="text-end amount-debit">
+                                        {% if row.debit_amount > 0 %}
+                                            {{ '%.2f'|format(row.debit_amount) }}
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end amount-credit">
+                                        {% if row.credit_amount > 0 %}
+                                            {{ '%.2f'|format(row.credit_amount) }}
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">{{ row.balance_direction }}</td>
+                                    <td class="text-end balance-value">{{ '%.2f'|format(row.balance) }}</td>
+                                    <td>{{ row.project_code or '' }}</td>
+                                    <td>{{ row.serial_no or '' }}</td>
+                                </tr>
+                                {% endif %}
+                            {% endfor %}
+
+                            <!-- 本期合计行 -->
+                            {% set total_debit = rows|sum(attribute='debit_amount') %}
+                            {% set total_credit = rows|sum(attribute='credit_amount') %}
+                            {% set ending_balance = rows[-1].balance if rows else 0 %}
+                            {% set ending_direction = rows[-1].balance_direction if rows else '' %}
+                            <tr class="total-row">
+                                <td colspan="3" class="text-end">本期合计：</td>
+                                <td class="text-end amount-debit">{{ '%.2f'|format(total_debit) }}</td>
+                                <td class="text-end amount-credit">{{ '%.2f'|format(total_credit) }}</td>
+                                <td class="text-center">{{ ending_direction }}</td>
+                                <td class="text-end balance-value">{{ '%.2f'|format(ending_balance) }}</td>
+                                <td colspan="2"></td>
+                            </tr>
+                        {% else %}
+                            <tr>
+                                <td colspan="9" class="text-center text-muted py-4">
+                                    该科目在所选期间内暂无发生额
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 统计信息 -->
+    {% if rows %}
+    <div class="alert alert-info mt-3">
+        <strong>统计信息：</strong>
+        共 {{ rows|length - 1 if rows[0].is_opening else rows|length }} 笔业务，
+        借方发生额：{{ '%.2f'|format(rows|sum(attribute='debit_amount')) }} 元，
+        贷方发生额：{{ '%.2f'|format(rows|sum(attribute='credit_amount')) }} 元
+    </div>
+    {% endif %}
+
+    {% else %}
+    <!-- 未选择科目的提示 -->
+    <div class="alert alert-warning">
+        <i class="bi bi-info-circle"></i>
+        请在上方筛选条件中选择要查询的会计科目。
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function exportReportTable() {
+    var table = document.querySelector('.table');
+    if (!table) return;
+    var html = table.outerHTML;
+    var url = 'data:application/vnd.ms-excel,' + encodeURIComponent(html);
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = '{{ title }}_' + new Date().toISOString().substr(0,10) + '.xls';
+    link.click();
+}
+</script>
+{% endblock %}
+
+{% block extra_js %}
+<style type="text/css" media="print">
+    .filter-section, .btn, nav, footer {
+        display: none !important;
+    }
+    .card {
+        border: none;
+    }
+    .ledger-table {
+        font-size: 0.8rem;
+    }
+</style>
+{% endblock %}

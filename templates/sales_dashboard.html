@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+{% block title %}{{ title|clean_text }}{% endblock %}
+{% block content %}
+<div class="page-heading erp-list-heading">
+    <div>
+        <h1>{{ title|clean_text }}</h1>
+        {% if subtitle %}<p>{{ subtitle|clean_text }}</p>{% endif %}
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-outline-primary btn-sm" href="/sales-orders"><i class="bi bi-list-check"></i> 销售订单列表</a>
+    </div>
+</div>
+
+<div class="erp-queue-grid mb-3">
+    {% for card in queue_cards %}
+    <div class="erp-queue-card {{ card.variant|default('primary') }}">
+        <div class="erp-queue-top">
+            <div>
+                <div class="erp-queue-role">{{ card.role|clean_text }}</div>
+                <div class="erp-queue-title">{{ card.label|clean_text }}</div>
+            </div>
+            <a class="btn btn-outline-primary btn-sm" href="{{ card.url }}">进入</a>
+        </div>
+        <div class="erp-queue-count">{{ card.count }}</div>
+        <dl class="erp-queue-lines">
+            <div><dt>下一步</dt><dd>{{ card.next_action|clean_text }}</dd></div>
+            <div><dt>条件</dt><dd>{{ card.condition|clean_text }}</dd></div>
+            <div><dt>影响</dt><dd>{{ card.impact|clean_text }}</dd></div>
+        </dl>
+    </div>
+    {% endfor %}
+</div>
+
+{% if credit_alerts %}
+<div class="page-card erp-list-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>信用预警</h2>
+            <span>只显示超过信用额度的客户，供销售主管和财务确认放行风险。</span>
+        </div>
+        <a class="btn btn-outline-secondary btn-sm" href="/customer">客户档案</a>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle erp-list-table">
+            <thead><tr><th>客户</th><th class="text-end">信用额度</th><th class="text-end">未清应收</th><th class="text-end">未结订单</th><th class="text-end">风险敞口</th><th>下一步</th></tr></thead>
+            <tbody>
+            {% for row in credit_alerts %}
+            <tr>
+                <td class="fw-semibold">{{ row.customer_name|clean_text }}</td>
+                <td class="text-end">{{ row.credit_limit|money }}</td>
+                <td class="text-end">{{ row.open_balance|money }}</td>
+                <td class="text-end">{{ row.open_order_amount|money }}</td>
+                <td class="text-end text-danger fw-semibold">{{ row.exposure|money }}</td>
+                <td>确认额度、账期或暂停新增发货</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<div class="page-card erp-list-card mb-3">
+    <form class="row g-2" method="get" action="{{ back_url }}">
+        <div class="col-lg-3">
+            <input class="form-control" name="keyword" value="{{ filters.keyword }}" placeholder="销售订单、客户、项目号、机号">
+        </div>
+        <div class="col-lg-2">
+            <select class="form-select" name="customer_id">
+                <option value="">全部客户</option>
+                {% for row in customers %}
+                <option value="{{ row.id }}" {% if filters.customer_id|string == row.id|string %}selected{% endif %}>{{ row.name|clean_text }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-lg-2">
+            <select class="form-select" name="product_family">
+                <option value="">全部产品分类</option>
+                {% for row in product_families %}
+                <option value="{{ row.name }}" {% if filters.product_family == row.name %}selected{% endif %}>{{ row.name|clean_text }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-lg-2">
+            <select class="form-select" name="risk">
+                <option value="">全部队列</option>
+                <option value="pending_ship" {% if filters.risk == 'pending_ship' %}selected{% endif %}>待发货</option>
+                <option value="receivable" {% if filters.risk == 'receivable' %}selected{% endif %}>待回款</option>
+                <option value="overdue" {% if filters.risk == 'overdue' %}selected{% endif %}>逾期交付</option>
+            </select>
+        </div>
+        <div class="col-lg-2">
+            <select class="form-select" name="status">
+                <option value="">全部状态</option>
+                {% for row in status_rows %}
+                <option value="{{ row.status }}" {% if filters.status == row.status %}selected{% endif %}>{{ (row.display_status or row.status)|clean_text }} ({{ row.count }})</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-lg-1 d-grid">
+            <button class="btn btn-primary" type="submit"><i class="bi bi-search"></i> 查询</button>
+        </div>
+    </form>
+</div>
+
+<div class="page-card erp-list-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>项目/机号交付焦点</h2>
+            <span>按堵点、逾期和待发货优先排序</span>
+        </div>
+        <a class="btn btn-outline-secondary btn-sm" href="/sales-orders">打开列表页</a>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle erp-list-table">
+            <thead>
+            <tr>
+                <th>项目号 / 机号</th>
+                <th>销售订单</th>
+                <th>客户</th>
+                <th>交期</th>
+                <th>队列</th>
+                <th>下一步</th>
+                <th>责任角色</th>
+                <th>堵点/条件</th>
+                <th>下游影响</th>
+                <th class="text-end">追踪</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% if project_focus %}
+            {% for row in project_focus %}
+            <tr>
+                <td class="fw-semibold">{{ row.project_code|clean_text }} / {{ row.serial_no|clean_text }}</td>
+                <td><a href="/sales/{{ row.id }}">{{ row.order_no|clean_text }}</a><div class="text-muted small">{{ (row.display_status or row.status)|clean_text }}</div></td>
+                <td>{{ row.customer_name|clean_text }}</td>
+                <td>{{ row.delivery_date or '-' }}</td>
+                <td>{{ row.risk_label|clean_text }}</td>
+                <td>{{ row.next_action|clean_text }}</td>
+                <td>{{ row.owner_role|clean_text }}</td>
+                <td>{{ (row.blocked_reason or row.condition_label)|clean_text }}</td>
+                <td>{{ row.downstream_impact|clean_text }}</td>
+                <td class="text-end text-nowrap">
+                    <a class="btn btn-outline-primary btn-sm" href="/sales/{{ row.id }}">详情</a>
+                    <a class="btn btn-outline-secondary btn-sm" href="/projects/{{ row.id }}">台账</a>
+                </td>
+            </tr>
+            {% endfor %}
+            {% else %}
+            <tr><td class="text-muted text-center" colspan="10">当前没有需要销售工作台处理的项目/机号。</td></tr>
+            {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-xl-7">
+        <div class="page-card erp-list-card h-100">
+            <div class="section-title"><div><h2>待发货明细</h2><span>销售跟单确认条件，仓库在发货单据中执行出库</span></div></div>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle erp-list-table">
+                    <thead><tr><th>销售订单</th><th>项目/机号</th><th>物料名称</th><th>规格</th><th>单位</th><th class="text-end">待发</th><th>交期</th></tr></thead>
+                    <tbody>
+                    {% for row in pending_items[:12] %}
+                    <tr>
+                        <td><a href="/sales/{{ row.order_id }}">{{ row.order_no|clean_text }}</a><div class="text-muted small">{{ row.customer_name|clean_text }}</div></td>
+                        <td>{{ row.project_code|clean_text }} / {{ row.serial_no|clean_text }}</td>
+                        <td>{{ row.product_code|clean_text }} / {{ row.product_name|clean_text }}</td>
+                        <td>{{ row.specification|clean_text or '-' }}</td>
+                        <td>{{ row.unit|clean_text or '-' }}</td>
+                        <td class="text-end fw-semibold">{{ row.pending_ship_qty|qty }}</td>
+                        <td>{{ row.delivery_date or '-' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td class="text-muted text-center" colspan="7">暂无待发货明细。</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-5">
+        <div class="page-card erp-list-card h-100">
+            <div class="section-title"><div><h2>应收跟进</h2><span>回款堵点会影响项目结算和期间关闭</span></div></div>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle erp-list-table">
+                    <thead><tr><th>来源</th><th>客户</th><th>到期日</th><th class="text-end">余额</th></tr></thead>
+                    <tbody>
+                    {% for row in receivables[:10] %}
+                    <tr>
+                        <td><a href="/receivables/{{ row.id }}">{{ row.source_no|clean_text or row.id }}</a></td>
+                        <td>{{ row.customer_name|clean_text }}</td>
+                        <td>{{ row.due_date or '-' }}</td>
+                        <td class="text-end fw-semibold">{{ row.balance|money }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td class="text-muted text-center" colspan="4">暂无待回款。</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

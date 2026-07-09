@@ -1,0 +1,312 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% from "partials/document_line_toolbar.html" import line_toolbar %}
+{% block title %}新增采购入库单{% endblock %}
+{% block content %}
+<div class="erp-document-entry">
+<div class="page-heading order-form-heading">
+    <div>
+        <h1>新增采购入库单</h1>
+        <p>选择已审核且有未收数量的采购订单，按明细核对实收数量、批号和库位后保存入库。</p>
+    </div>
+    <a class="btn btn-outline-secondary btn-sm d-none" href="/purchase_receipts">返回列表</a>
+</div>
+
+<form method="post" action="/purchase_receipts/new" id="purchaseReceiptForm" data-main-document-form>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="page-card order-form-card document-entry-header-card mb-3">
+        <div class="section-title">
+            <div>
+                <h2>单据信息</h2>
+                <span>来源采购订单、收货日期和备注。</span>
+            </div>
+        </div>
+        <div class="row g-2">
+            <div class="col-md-6 col-xl-3">
+                <label class="form-label">单据编号</label>
+                <input class="form-control form-control-sm" type="text" name="receipt_no" value="{{ receipt_no or '' }}" readonly>
+            </div>
+            <div class="col-md-6 col-xl-4">
+                <label class="form-label">来源采购订单 <span class="text-danger">*</span></label>
+                <select class="form-select form-select-sm" name="purchase_order_id" id="purchaseOrderSelect" required>
+                    <option value="">请选择</option>
+                    {% for order in orders %}
+                    <option value="{{ order.id }}" {% if selected_order and selected_order.id == order.id %}selected{% endif %}>
+                        {{ order.order_no }} / {{ order.partner_name or '-' }} / 待处理 {{ order.pending_qty }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-6 col-xl-2">
+                <label class="form-label">收货日期</label>
+                <input class="form-control form-control-sm" type="date" name="receipt_date" value="{{ today().isoformat() }}">
+            </div>
+            <div class="col-md-6 col-xl-3">
+                <label class="form-label">备注</label>
+                <input class="form-control form-control-sm" name="remark" value="{% if selected_order %}由采购订单 {{ selected_order.order_no }} 生成入库{% endif %}">
+            </div>
+        </div>
+    </div>
+
+    <div class="page-card order-form-card document-entry-lines-card mb-3">
+        <div class="section-title">
+            <div>
+                <h2>物料明细</h2>
+                <span>实收数量默认等于订单未收数量，可按实际到货修改；数量为 0 的行不会入库。</span>
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+                {{ line_toolbar('增行', allow_fill_down=True) }}
+            </div>
+        </div>
+        <div class="table-responsive document-grid-scroll">
+            <table class="table table-bordered table-hover table-sm align-middle mb-0 document-entry-grid" id="itemsTable" data-document-grid data-grid-key="purchase_receipt_items">
+                <thead class="table-light">
+                <tr data-grid-header>
+                    <th data-column-key="product_code">物料编码</th>
+                    <th data-column-key="product_name">物料名称</th>
+                    <th data-column-key="specification">规格型号</th>
+                    <th data-column-key="unit">单位</th>
+                    <th data-column-key="order_qty">订单数量</th>
+                    <th data-column-key="received_qty">已收数量</th>
+                    <th data-column-key="pending_qty">未收数量</th>
+                    <th data-column-key="quantity">实收数量 <span class="text-danger">*</span></th>
+                    <th data-column-key="lot_no">批号</th>
+                    <th data-column-key="warehouse_id">收货仓库</th>
+                    <th data-column-key="location_id">库位</th>
+                    <th data-column-key="unit_cost">单价</th>
+                    <th data-column-key="amount">金额</th>
+                    <th data-column-key="expected_date">预计到货</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for item in items %}
+                <tr>
+                    <td data-column-key="product_code">
+                        <input type="hidden" name="order_item_id[]" value="{{ item.id }}">
+                        <input class="form-control form-control-sm" value="{{ item.product_code or item.material_code or '' }}" readonly>
+                    </td>
+                    <td data-column-key="product_name"><input class="form-control form-control-sm" value="{{ item.product_name or item.material_name or '' }}" readonly></td>
+                    <td data-column-key="specification"><input class="form-control form-control-sm" value="{{ item.specification or item.material_spec or '' }}" readonly></td>
+                    <td data-column-key="unit"><input class="form-control form-control-sm" value="{{ item.unit or item.material_unit or '' }}" readonly></td>
+                    <td data-column-key="order_qty"><input class="form-control form-control-sm text-end" value="{{ item.quantity or 0 }}" readonly></td>
+                    <td data-column-key="received_qty"><input class="form-control form-control-sm text-end" value="{{ item.received_qty or 0 }}" readonly></td>
+                    <td data-column-key="pending_qty"><input class="form-control form-control-sm text-end js-pending-qty" value="{{ item.pending_qty or 0 }}" readonly></td>
+                    <td data-column-key="quantity"><input class="form-control form-control-sm text-end js-receive-qty" type="number" step="0.001" min="0" max="{{ item.pending_qty or 0 }}" name="quantity[]" value="{{ item.pending_qty or 0 }}"></td>
+                    <td data-column-key="lot_no"><input class="form-control form-control-sm" name="lot_no[]" value="{{ item.lot_no or '' }}"></td>
+                    <td data-column-key="warehouse_id">
+                        <select class="form-select form-select-sm js-wh-loc-warehouse" name="warehouse_id[]">
+                            <option value="">请选择</option>
+                            {% for warehouse in warehouses %}
+                            <option value="{{ warehouse.id }}" {% if (item.default_warehouse_id or selected_order.warehouse_id) == warehouse.id %}selected{% endif %}>{{ warehouse.name|clean_text }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td data-column-key="location_id">
+                        <select class="form-select form-select-sm js-wh-loc-location" name="location_id[]">
+                            <option value="">使用默认库位</option>
+                            {% for location in locations %}
+                            <option value="{{ location.id }}" data-warehouse-id="{{ location.warehouse_id or '' }}" {% if item.default_location_id == location.id %}selected{% endif %}>{{ location.code or location.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td data-column-key="unit_cost"><input class="form-control form-control-sm text-end js-unit-cost" value="{{ item.unit_price or 0 }}" readonly></td>
+                    <td data-column-key="amount"><input class="form-control form-control-sm text-end js-line-amount" readonly></td>
+                    <td data-column-key="expected_date"><input class="form-control form-control-sm" type="date" value="{{ item.expected_date or '' }}" readonly></td>
+                </tr>
+                {% endfor %}
+                {% if not items %}
+                <tr>
+                    <td colspan="14" class="text-muted text-center py-4" data-column-key="empty">{% if selected_order %}没有可入库的采购订单明细。{% else %}请选择来源采购订单后带出明细。{% endif %}</td>
+                </tr>
+                {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</form>
+</div>
+
+<script src="{{ url_for('static', filename='js/document_grid.js') }}"></script>
+<script>
+(function () {
+    const orderSelect = document.getElementById('purchaseOrderSelect');
+    const form = document.getElementById('purchaseReceiptForm');
+    const table = document.getElementById('itemsTable');
+
+    orderSelect?.addEventListener('change', function () {
+        const value = orderSelect.value || '';
+        window.location.href = value ? ('/purchase_receipts/new?purchase_order_id=' + encodeURIComponent(value)) : '/purchase_receipts/new';
+    });
+
+    function recalc(row) {
+        const qty = parseFloat(row.querySelector('.js-receive-qty')?.value || '0') || 0;
+        const price = parseFloat(row.querySelector('.js-unit-cost')?.value || '0') || 0;
+        const amount = row.querySelector('.js-line-amount');
+        if (amount) amount.value = qty && price ? (qty * price).toFixed(2) : '';
+    }
+
+    table?.querySelectorAll('tbody tr').forEach(recalc);
+    table?.addEventListener('input', function (event) {
+        if (event.target.classList.contains('js-receive-qty')) recalc(event.target.closest('tr'));
+    });
+
+    function gridApi() {
+        return window.documentGridApi || (window.initDocumentGrid && window.initDocumentGrid(table));
+    }
+
+    function currentLineRow() {
+        const active = document.activeElement?.closest?.('#itemsTable tbody tr');
+        if (active && active.querySelector('[name="order_item_id[]"]')) return active;
+        return Array.from(table?.querySelectorAll('tbody tr') || []).find(row => row.querySelector('[name="order_item_id[]"]')) || null;
+    }
+
+    function copyEditableLine(row) {
+        if (!row) return null;
+        return {
+            quantity: row.querySelector('.js-receive-qty')?.value || '',
+            lotNo: row.querySelector('[name="lot_no[]"]')?.value || '',
+            warehouseId: row.querySelector('[name="warehouse_id[]"]')?.value || '',
+            locationId: row.querySelector('[name="location_id[]"]')?.value || ''
+        };
+    }
+
+    function pasteEditableLine(row, values) {
+        if (!row || !values) return;
+        const quantity = row.querySelector('.js-receive-qty');
+        const lotNo = row.querySelector('[name="lot_no[]"]');
+        const warehouseId = row.querySelector('[name="warehouse_id[]"]');
+        const locationId = row.querySelector('[name="location_id[]"]');
+        if (quantity) quantity.value = values.quantity;
+        if (lotNo) lotNo.value = values.lotNo;
+        if (warehouseId) warehouseId.value = values.warehouseId;
+        if (locationId) locationId.value = values.locationId;
+        recalc(row);
+    }
+    function fillableFieldKey(field) {
+        const name = field?.getAttribute?.('name') || '';
+        return ['warehouse_id[]', 'location_id[]', 'lot_no[]'].includes(name) ? name : '';
+    }
+    function selectedFillField() {
+        const active = document.activeElement?.closest?.('input, select, textarea');
+        if (active && table?.contains(active) && fillableFieldKey(active)) return active;
+        const activeCell = table?.querySelector('.document-grid-cell-active');
+        const field = activeCell?.querySelector?.('input, select, textarea');
+        return field && fillableFieldKey(field) ? field : null;
+    }
+    function fillDownFromCurrentField() {
+        const source = selectedFillField();
+        if (!source) {
+            showToast('请先选中收货仓库、库位或批号明细格。', 'warning');
+            return;
+        }
+        const row = source.closest('tr');
+        const rows = Array.from(table?.querySelectorAll('tbody tr') || []).filter(item => item.querySelector('[name="order_item_id[]"]'));
+        const start = rows.indexOf(row);
+        if (start < 0 || start >= rows.length - 1) {
+            showToast('当前行下面没有可填充的明细行。', 'info');
+            return;
+        }
+        const key = fillableFieldKey(source);
+        let filled = 0;
+        rows.slice(start + 1).forEach(function (targetRow) {
+            const target = targetRow.querySelector('[name="' + CSS.escape(key) + '"]');
+            if (!target || target.disabled || target.readOnly) return;
+            target.value = source.value || '';
+            target.dispatchEvent(new Event('input', {bubbles: true}));
+            target.dispatchEvent(new Event('change', {bubbles: true}));
+            filled += 1;
+        });
+        if (window.filterWarehouseLocations) window.filterWarehouseLocations(form || document);
+        showToast('已向下填充 ' + filled + ' 行。', 'success');
+    }
+
+    let copiedReceiptLine = null;
+
+    document.getElementById('addLineBtn')?.addEventListener('click', function () {
+        showToast('采购入库明细必须由来源采购订单带出，不能手工新增订单外物料。', 'warning');
+    });
+
+    document.querySelectorAll('[data-line-action]').forEach(function (button) {
+        button.addEventListener('click', function () {
+            const action = button.dataset.lineAction;
+            const api = gridApi();
+            const row = currentLineRow();
+            if (action === 'insert') {
+                showToast('采购入库明细必须由来源采购订单带出，不能手工插入订单外物料。', 'warning');
+                return;
+            }
+            if (action === 'copy') {
+                copiedReceiptLine = copyEditableLine(row);
+                if (copiedReceiptLine) showToast('已复制当前行的实收数量、批号、收货仓库和库位。', 'success');
+                return;
+            }
+            if (action === 'paste') {
+                pasteEditableLine(row, copiedReceiptLine);
+                if (!copiedReceiptLine) showToast('请先复制一行可编辑明细。', 'warning');
+                return;
+            }
+            if (action === 'fill-down') {
+                fillDownFromCurrentField();
+                return;
+            }
+            if (action === 'up') api?.moveCurrentRow(-1);
+            if (action === 'down') api?.moveCurrentRow(1);
+            if (action === 'delete') api?.deleteCurrentRow();
+        });
+    });
+
+    document.querySelectorAll('[data-grid-action]').forEach(function (button) {
+        button.addEventListener('click', function () {
+            const api = gridApi();
+            if (!api) return;
+            const action = button.dataset.gridAction;
+            if (action === 'columns') api.openColumnPanel(button);
+            if (action === 'custom-field') api.addCustomField();
+            if (action === 'reset') api.reset();
+            if (action === 'sort-help') showToast('点击明细表头可按该列升序/降序排序。', 'info');
+        });
+    });
+
+    form?.addEventListener('submit', function (event) {
+        const rows = Array.from(table.querySelectorAll('tbody tr')).filter(row => row.querySelector('[name="order_item_id[]"]'));
+        const validRows = rows.filter(row => (parseFloat(row.querySelector('.js-receive-qty')?.value || '0') || 0) > 0);
+        if (!validRows.length) {
+            event.preventDefault();
+            showToast('请至少保留一行实收数量大于 0 的明细。', 'warning');
+        }
+    });
+})();
+document.addEventListener('click', function(event) {
+    var item = event.target.closest('[data-menu-event]');
+    if (!item || item.disabled) return;
+    var action = item.dataset.menuEvent;
+    if (action && action.indexOf('toolbar-save-new') === 0) {
+        event.preventDefault();
+        if (typeof submitForm === 'function') { submitForm(); }
+        else {
+            var form = document.getElementById('purchaseReceiptForm');
+            if (form) {
+                var input = form.querySelector('input[name="save_action"]');
+                if (!input) { input = document.createElement('input'); input.type = 'hidden'; input.name = 'save_action'; form.appendChild(input); }
+                input.value = 'save_new';
+                if (typeof form.requestSubmit === 'function') { form.requestSubmit(); } else { form.submit(); }
+            }
+        }
+    }
+    if (action && action.indexOf('toolbar-save') === 0 && action.indexOf('toolbar-save-new') !== 0) {
+        event.preventDefault();
+        if (typeof submitForm === 'function') { submitForm(); }
+        else {
+            var form = document.getElementById('purchaseReceiptForm');
+            if (form) {
+                var input = form.querySelector('input[name="save_action"]');
+                if (input) input.value = '';
+                if (typeof form.requestSubmit === 'function') { form.requestSubmit(); } else { form.submit(); }
+            }
+        }
+    }
+});
+</script>
+{% include "partials/location_filter_script.html" %}
+{% endblock %}

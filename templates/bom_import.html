@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}导入BOM{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <h1>导入BOM</h1>
+    <p>按标准CSV模板导入一张草稿BOM；本页不执行MRP、齐套、工单、采购、领料或成本业务。</p>
+</div>
+
+{{ document_menu_bar(actions=[
+    {'label': '新增', 'type': 'link', 'href': '/bom/new'},
+    {'label': '保存', 'type': 'button', 'button_type': 'submit', 'form': 'bomImportForm'},
+    {'label': '查找', 'type': 'link', 'href': '/bom'},
+    {'label': '模板', 'type': 'link', 'href': url_for('bom_import_template')},
+    {'label': '刷新', 'type': 'link', 'href': url_for('bom_import')},
+    {'label': '退出', 'type': 'link', 'href': '/bom'}
+]) }}
+
+<form class="page-card" id="bomImportForm" method="post" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% if errors %}
+    <div class="alert alert-warning">
+        <div class="fw-semibold mb-1">导入校验未通过</div>
+        <ul class="mb-0 ps-3">
+            {% for error in errors %}
+            <li>{{ error }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+    <div class="mb-3">
+        <label class="form-label">CSV文件</label>
+        <input class="form-control" type="file" name="file" accept=".csv,text/csv" required>
+    </div>
+    <div class="alert alert-info py-2 mb-0">
+        <strong>导入规则：</strong>
+        一次只导入一张BOM；BOM编号不能重复；产品编码和子件编码必须已存在；导入后状态为草稿。
+    </div>
+</form>
+{% endblock %}

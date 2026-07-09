@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}工序报工单{% endblock %}
+{% block content %}
+<div class="page-card mb-3">
+    <div class="d-flex justify-content-between align-items-center gap-2">
+        <div>
+            <h1 class="h4 mb-1">工序报工单</h1>
+            <div class="text-muted">记录工序开工、完工、返工、报废和工时，审核后回写工序进度。</div>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-outline-secondary btn-sm" href="/work-orders">生产工单列表</a>
+            <a class="btn btn-outline-secondary btn-sm" href="/production-schedules">生产排程</a>
+            <a class="btn btn-outline-secondary btn-sm" href="/production-enhance/quality-inspections">质量检验列表</a>
+            <a class="btn btn-outline-secondary btn-sm" href="/production/reports/operation-report-detail">工序报工明细</a>
+        </div>
+    </div>
+</div>
+<div class="page-card">
+    <div class="table-responsive">
+        <table class="table table-sm align-middle client-paginate">
+            <thead>
+                <tr>
+                    <th>报工单号</th>
+                    <th>日期</th>
+                    <th>工单</th>
+                    <th>工作中心</th>
+                    <th>类型</th>
+                    <th class="text-end">合格</th>
+                    <th class="text-end">返工</th>
+                    <th class="text-end">报废</th>
+                    <th>状态</th>
+                    <th class="text-end">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for row in rows %}
+            <tr>
+                <td><a href="/production/operation-reports/{{ row.id }}">{{ row.report_no or row.id }}</a></td>
+                <td>{{ row.report_date or '-' }}</td>
+                <td>{% if row.work_order_id %}<a href="/work-orders/{{ row.work_order_id }}">{{ row.wo_no or row.work_order_id }}</a>{% else %}-{% endif %}</td>
+                <td>{{ row.work_center_name or '-' }}</td>
+                <td>{{ report_type_label(row.report_type) }}</td>
+                <td class="text-end">{{ row.good_qty|qty }}</td>
+                <td class="text-end">{{ row.rework_qty|qty }}</td>
+                <td class="text-end">{{ row.scrap_qty|qty }}</td>
+                <td>{{ status_label(row.status) }}</td>
+                <td class="text-end">
+                    {% if status_label(row.status) in ['草稿', '已提交'] %}
+                    <a class="btn btn-outline-secondary btn-sm" href="/production/operation-reports/{{ row.id }}/edit">编辑</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="10" class="text-muted">暂无报工单。</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

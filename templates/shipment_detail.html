@@ -1,0 +1,353 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}销售发货详情 - {{ shipment.shipment_no }}{% endblock %}
+{% block content %}
+{{ document_menu_bar(actions=[
+    {'type': 'nav', 'items': [
+        {'label': '首张', 'event': 'doc-nav-first', 'icon': 'bi-chevron-double-left'},
+        {'label': '上一张', 'event': 'doc-nav-prev', 'icon': 'bi-chevron-left'},
+        {'label': '下一张', 'event': 'doc-nav-next', 'icon': 'bi-chevron-right'},
+        {'label': '末张', 'event': 'doc-nav-last', 'icon': 'bi-chevron-double-right'}
+    ]},
+    {'label': '修改', 'type': 'link', 'href': '/shipments/' ~ shipment.id ~ '/edit', 'disabled': shipment.status and shipment.status not in ['', '草稿', '待提交', '待审核', 'draft', 'pending', 'unposted']},
+    {'label': '审核', 'type': 'button', 'event': 'shipment-audit', 'disabled': not action_state.can_confirm},
+    {'label': '反审', 'type': 'button', 'event': 'shipment-unaudit', 'disabled': not action_state.can_unaudit},
+    {'label': '删除', 'type': 'button', 'button_type': 'submit', 'form': 'shipmentDeleteForm', 'disabled': not action_state.can_delete, 'icon': 'bi-trash', 'title': '' if action_state.can_delete else '当前状态不能删除；已过账单据请先反审。'},
+    {'label': '复制', 'type': 'button', 'button_type': 'submit', 'form': 'copyForm', 'icon': 'bi-copy', 'title': '复制为新的草稿单据'},
+    {'label': '关闭', 'type': 'button', 'event': 'shipment-close', 'disabled': not action_state.can_close},
+    {'label': '下查', 'type': 'dropdown', 'items': [
+        {'label': '查看来源销售订单', 'type': 'link', 'href': '/sales/' ~ shipment.order_id if shipment.order_id else '#', 'disabled': not shipment.order_id},
+        {'label': '查看服务档案', 'type': 'link', 'href': '/service-cards/' ~ shipment.service_card_id if shipment.service_card_id else '#', 'disabled': not shipment.service_card_id},
+        {'label': '查看应收列表', 'type': 'link', 'href': '/receivables?keyword=' ~ (shipment.shipment_no|urlencode)},
+        {'label': '查看项目/机号台账', 'type': 'link', 'href': '/projects?keyword=' ~ ((shipment.project_code or shipment.serial_no or '')|urlencode)}
+    ]}
+]) }}
+<div id="doc-nav-config" data-nav-table="sales_shipments" data-nav-base="/shipments/" data-doc-id="{{ shipment.id }}" style="display:none"></div>
+<form id="shipmentAuditForm" method="post" action="/shipments/{{ shipment.id }}/audit"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+<form id="shipmentUnauditForm" method="post" action="/shipments/{{ shipment.id }}/unaudit"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+<form id="shipmentCloseForm" method="post" action="/shipments/{{ shipment.id }}/close"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+<form id="shipmentVoidForm" method="post" action="/shipments/{{ shipment.id }}/void"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+<form id="shipmentDeleteForm" method="post" action="/shipments/{{ shipment.id }}/delete" onsubmit="return confirm('确认删除这张未过账销售发货单？');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+<form id="copyForm" method="post" action="/shipments/{{ shipment.id }}/copy"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+
+<div class="page-card mb-3">
+    <div class="d-flex justify-content-between align-items-start gap-3">
+        <div>
+            <h1 class="h4 mb-1">销售发货详情：{{ shipment.shipment_no }}</h1>
+            <div class="text-muted">
+                客户：{{ shipment.customer_name or '-' }}
+                {% if shipment.contact_person %} / {{ shipment.contact_person }}{% endif %}
+                {% if shipment.customer_phone %} / {{ shipment.customer_phone }}{% endif %}
+            </div>
+        </div>
+        <span class="badge text-bg-primary">{{ shipment.status_label }}</span>
+    </div>
+</div>
+
+<div class="alert alert-info mb-3">
+    <strong>下一步：</strong>{{ shipment.next_action }}
+</div>
+
+<div class="row g-3 mb-3">
+    {% for metric in metrics %}
+    <div class="col-md-6 col-xl-3">
+        <div class="metric h-100">
+            <div class="label">{{ metric.label }}</div>
+            <div class="value">{{ metric.value }}</div>
+            {% if metric.hint %}<div class="text-muted small mt-1">{{ metric.hint }}</div>{% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="page-card mb-3">
+    <h2 class="h5 mb-3">发货信息</h2>
+    <div class="row g-2 small">
+        <div class="col-md-3"><span class="text-muted">发货单号：</span>{{ shipment.shipment_no or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">发货日期：</span>{{ shipment.shipment_date or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">来源销售订单：</span>{{ shipment.order_no or shipment.source_no or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">销售日期：</span>{{ shipment.order_date or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">交货日期：</span>{{ shipment.delivery_date or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">仓库：</span>{{ shipment.warehouse_name or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">经办人：</span>{{ shipment.operator_name or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">项目号（推荐追溯）：</span>{{ shipment.project_code or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">机号（推荐追溯）：</span>{{ shipment.serial_no or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">物流公司：</span>{{ shipment.logistics_provider or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">物流单号：</span>{{ shipment.logistics_no or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">签收状态：</span>{{ shipment.signoff_status or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">收货人：</span>{{ shipment.receiver_name or '-' }}</div>
+    </div>
+</div>
+
+<div class="page-card mb-3">
+    <h2 class="h5 mb-3">发货物料明细</h2>
+    {% if items %}
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+            <tr>
+                <th>物料编码</th>
+                <th>物料名称</th>
+                <th>规格</th>
+                <th class="text-end">本次发货</th>
+                <th class="text-end">销售数量</th>
+                <th class="text-end">累计已发</th>
+                <th>单位</th>
+                <th class="text-end">单价</th>
+                <th class="text-end">未税金额</th>
+                <th class="text-end">含税金额</th>
+                <th>仓库</th>
+                <th>库位</th>
+                <th>批号</th>
+                <th>项目号</th>
+                <th>机号</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for item in items %}
+            <tr>
+                <td>{{ item.product_code or item.product_id }}</td>
+                <td>{{ item.product_name or '-' }}</td>
+                <td>{{ item.specification or '-' }}</td>
+                <td class="text-end">{{ item.quantity|qty }}</td>
+                <td class="text-end">{{ item.ordered_qty|qty }}</td>
+                <td class="text-end">{{ item.order_shipped_qty|qty }}</td>
+                <td>{{ item.product_unit or '-' }}</td>
+                <td class="text-end">{{ (item.unit_price or item.unit_cost)|money }}</td>
+                <td class="text-end">{{ item.line_amount|money }}</td>
+                <td class="text-end">{{ item.amount_with_tax|money }}</td>
+                <td>{{ item.warehouse_name or shipment.warehouse_name or '-' }}</td>
+                <td>{{ item.location_code or item.location_name or '-' }}</td>
+                <td>{{ item.lot_no or '-' }}</td>
+                <td>{{ shipment.project_code|clean_text or '-' }}</td>
+                <td>{{ shipment.serial_no|clean_text or '-' }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-muted">暂无发货明细。</div>
+    {% endif %}
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-4">
+        <div class="page-card h-100">
+            <h2 class="h5 mb-3">来源销售订单</h2>
+            <div class="small">
+                <div><span class="text-muted">订单：</span>{% if shipment.order_id %}<a href="/sales/{{ shipment.order_id }}">{{ shipment.order_no }}</a>{% else %}{{ shipment.source_no or '-' }}{% endif %}</div>
+                <div><span class="text-muted">订单状态：</span>{{ shipment.order_status or '-' }}</div>
+                <div><span class="text-muted">订单含税金额：</span>{{ shipment.order_amount_with_tax|money }}</div>
+                <div><span class="text-muted">订单已发货金额：</span>{{ shipment.order_shipped_amount|money }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="page-card h-100">
+            <h2 class="h5 mb-3">服务档案/售后交接</h2>
+            {% if shipment.service_card_id %}
+            <div class="small">
+                <div><span class="text-muted">服务档案：</span><a href="/service-cards/{{ shipment.service_card_id }}">{{ shipment.serial_no or shipment.service_card_id }}</a></div>
+                <div><span class="text-muted">状态：</span>{{ shipment.service_card_status or '-' }}</div>
+                <div><span class="text-muted">机型：</span>{{ shipment.machine_model or '-' }}</div>
+                <div><span class="text-muted">安装地址：</span>{{ shipment.install_address or '-' }}</div>
+            </div>
+            {% else %}
+            <div class="text-muted">尚未生成服务档案；发货后需要补齐安装和售后接续资料。</div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="page-card h-100">
+            <h2 class="h5 mb-3">下游影响</h2>
+            <div class="small">
+                <div><span class="text-muted">库存：</span>{{ '已形成销售出库流水' if shipment.stock_txn_count else '未见库存流水' }}</div>
+                <div><span class="text-muted">应收：</span>应收 {{ shipment.receivable_amount|money }} / 已收 {{ shipment.received_amount|money }} / 余额 {{ shipment.receivable_balance|money }}</div>
+                <div><span class="text-muted">售后：</span>{{ '已有关联服务档案' if shipment.service_card_id else '待补服务档案' }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mt-1">
+    <div class="col-lg-6">
+        <div class="page-card h-100">
+            <h2 class="h5 mb-3">库存流水</h2>
+            {% if stock_transactions %}
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead><tr><th>日期</th><th>物料</th><th class="text-end">数量</th><th class="text-end">成本</th><th>批号</th></tr></thead>
+                    <tbody>
+                    {% for row in stock_transactions %}
+                    <tr>
+                        <td>{{ row.transaction_date or '-' }}</td>
+                        <td>{{ row.product_code or '-' }} / {{ row.product_name or '-' }}</td>
+                        <td class="text-end">{{ row.quantity|qty }}</td>
+                        <td class="text-end">{{ row.unit_cost|money }}</td>
+                        <td>{{ row.lot_no or '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-muted">暂无库存流水。</div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="page-card h-100">
+            <h2 class="h5 mb-3">应收记录</h2>
+            {% if receivables %}
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead><tr><th>来源</th><th>日期</th><th class="text-end">应收</th><th class="text-end">已收</th><th class="text-end">余额</th><th>状态</th></tr></thead>
+                    <tbody>
+                    {% for row in receivables %}
+                    <tr>
+                        <td>{{ row.source_no or '-' }}</td>
+                        <td>{{ row.receivable_date or '-' }}</td>
+                        <td class="text-end">{{ row.total_amount|money }}</td>
+                        <td class="text-end">{{ row.received_amount|money }}</td>
+                        <td class="text-end">{{ row.balance|money }}</td>
+                        <td>{{ row.status or '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-muted">暂无应收记录。</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% if same_project_shipments %}
+<div class="page-card mt-3">
+    <h2 class="h5 mb-3">同项目/机号发货</h2>
+    <div class="d-flex flex-wrap gap-2">
+        {% for row in same_project_shipments %}
+        <a class="btn btn-outline-secondary btn-sm" href="/shipments/{{ row.id }}">{{ row.shipment_no }} / {{ row.shipment_date or '-' }}</a>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% if shipment.remark %}
+<div class="page-card mt-3">
+    <h2 class="h5 mb-2">备注</h2>
+    <div>{{ shipment.remark }}</div>
+</div>
+{% endif %}
+
+<div class="row g-3 mt-1">
+    <div class="col-lg-6">
+        <div class="page-card h-100">
+            <div class="section-title">
+                <div>
+                    <h2>单据附件</h2>
+                    <span>保存物流单、签收照片、客户回执和交接资料</span>
+                </div>
+            </div>
+            <form class="row g-2 align-items-end mb-3" method="post" action="{{ action_prefix }}/{{ shipment.id }}/attachments" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="col-md-5">
+                    <label class="form-label">选择文件</label>
+                    <input class="form-control" type="file" name="file" required>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label">备注</label>
+                    <input class="form-control" name="remark" placeholder="例如：物流单、签收照片、客户回执">
+                </div>
+                <div class="col-md-2 d-grid">
+                    <button class="btn btn-primary" type="submit"><i class="bi bi-upload"></i> 上传</button>
+                </div>
+            </form>
+            {% if attachments %}
+            <div class="list-group list-group-flush">
+                {% for file in attachments %}
+                <div class="list-group-item px-0">
+                    <div class="d-flex justify-content-between gap-3">
+                        <div class="min-w-0">
+                            <div class="fw-semibold text-truncate">
+                                {% if file.attachment_type == 'image' %}<i class="bi bi-image text-primary"></i>{% else %}<i class="bi bi-file-earmark-text text-primary"></i>{% endif %}
+                                <a href="{{ url_for('static', filename=file.stored_path) }}" target="_blank">{{ file.file_name }}</a>
+                            </div>
+                            <div class="text-muted small">{{ file.remark or '-' }}</div>
+                            <div class="text-muted small">{{ file.uploaded_at or '-' }} / {{ ((file.file_size or 0) / 1024)|round(1) }} KB</div>
+                        </div>
+                        <form method="post" action="{{ action_prefix }}/{{ shipment.id }}/attachments/{{ file.id }}/delete">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="btn btn-outline-danger btn-sm" type="submit">删除</button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-muted">暂无附件。</div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="page-card h-100">
+            <div class="section-title">
+                <div>
+                    <h2>备注/操作记录</h2>
+                    <span>记录发货确认、物流异常、签收和客户沟通</span>
+                </div>
+            </div>
+            <form class="row g-2 align-items-end mb-3" method="post" action="{{ action_prefix }}/{{ shipment.id }}/notes">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="col-md-9">
+                    <label class="form-label">新增备注</label>
+                    <input class="form-control" name="note" placeholder="输入本次发货处理说明" required>
+                </div>
+                <div class="col-md-3 d-grid">
+                    <button class="btn btn-primary" type="submit"><i class="bi bi-clock-history"></i> 记录</button>
+                </div>
+            </form>
+            {% if activity_logs %}
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead><tr><th>时间</th><th>人员</th><th>操作</th><th>说明</th></tr></thead>
+                    <tbody>
+                    {% for log in activity_logs %}
+                    <tr>
+                        <td class="text-muted small">{{ log.created_at or '-' }}</td>
+                        <td>{{ log.username or '-' }}</td>
+                        <td>{{ log.action or '-' }}</td>
+                        <td>{{ log.remark or log.target or '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-muted">暂无操作记录。</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('click', function(event) {
+    const action = event.target.closest('[data-menu-event]');
+    if (!action) return;
+    const forms = {
+        'shipment-audit': 'shipmentAuditForm',
+        'shipment-unaudit': 'shipmentUnauditForm',
+        'shipment-close': 'shipmentCloseForm',
+        'shipment-void': 'shipmentVoidForm'
+    };
+    const form = document.getElementById(forms[action.dataset.menuEvent]);
+    if (!form) return;
+    if (action.dataset.menuEvent === 'shipment-unaudit' && !window.confirm('确认反审这张销售发货单？')) return;
+    if (action.dataset.menuEvent === 'shipment-void' && !window.confirm('确认作废这张销售发货单？')) return;
+    if (action.dataset.menuEvent === 'shipment-close' && !window.confirm('确认关闭这张销售发货单？')) return;
+    form.requestSubmit();
+});
+</script>
+{% endblock %}

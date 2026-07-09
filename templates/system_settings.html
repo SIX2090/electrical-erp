@@ -1,0 +1,511 @@
+{% extends "base.html" %}
+{% block title %}系统参数{% endblock %}
+
+{% block extra_css %}
+<style>
+.settings-layout {
+    display: grid;
+    grid-template-columns: 210px minmax(0, 1fr);
+    gap: 14px;
+    align-items: start;
+}
+.settings-sidebar {
+    position: sticky;
+    top: 12px;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    border-radius: 8px;
+    overflow: hidden;
+}
+.settings-search {
+    padding: 10px;
+    border-bottom: 1px solid #e5e7eb;
+}
+.settings-nav {
+    display: grid;
+    max-height: calc(100vh - 220px);
+    overflow: auto;
+}
+.settings-nav a {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    color: #111827;
+    text-decoration: none;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 14px;
+}
+.settings-nav a:hover,
+.settings-nav a.active {
+    color: #0f766e;
+    background: #ecfdf5;
+}
+.settings-main {
+    display: grid;
+    gap: 14px;
+}
+.settings-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+}
+.settings-summary-item {
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+.settings-summary-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: #111827;
+}
+.settings-summary-label {
+    color: #64748b;
+    font-size: 13px;
+}
+.settings-card .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: #f8fafc;
+}
+.settings-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+}
+.settings-desc {
+    color: #64748b;
+    font-size: 13px;
+}
+.setting-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(160px, 240px);
+    gap: 18px;
+    align-items: center;
+    padding: 14px 0;
+    border-bottom: 1px solid #edf2f7;
+}
+.setting-row:last-child {
+    border-bottom: 0;
+}
+.setting-label {
+    font-weight: 600;
+    color: #1f2937;
+}
+.setting-help {
+    margin-top: 4px;
+    color: #64748b;
+    font-size: 13px;
+    line-height: 1.45;
+}
+.setting-control {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 8px;
+}
+.setting-control.wide {
+    justify-content: stretch;
+}
+.setting-control.wide .form-control,
+.setting-control.wide .input-group {
+    max-width: none;
+    width: 100%;
+}
+.setting-control .input-group {
+    max-width: 190px;
+}
+.settings-actions {
+    position: sticky;
+    bottom: 0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 14px 0 0;
+    background: linear-gradient(180deg, rgba(255,255,255,0), #fff 32%);
+}
+.coding-rule-table {
+    min-width: 980px;
+}
+.coding-rule-table th {
+    white-space: nowrap;
+    color: #475569;
+    font-size: 13px;
+    font-weight: 600;
+}
+.coding-rule-table td {
+    vertical-align: middle;
+}
+.coding-rule-key {
+    font-family: Consolas, monospace;
+    font-size: 12px;
+    color: #475569;
+}
+.coding-rule-label {
+    font-weight: 600;
+    color: #111827;
+}
+.coding-rule-help {
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.35;
+}
+@media (max-width: 768px) {
+    .settings-layout {
+        grid-template-columns: 1fr;
+    }
+    .settings-sidebar {
+        position: static;
+    }
+    .settings-nav {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        max-height: none;
+    }
+    .setting-row {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    .setting-control {
+        justify-content: flex-start;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+        <h2 class="mb-1"><i class="bi bi-sliders"></i> 系统参数</h2>
+        <div class="text-muted small">统一管理会直接影响业务行为的系统级参数。</div>
+    </div>
+</div>
+
+{% set ns = namespace(total_settings=0) %}
+{% for group in setting_groups %}
+    {% set ns.total_settings = ns.total_settings + group.settings|length %}
+{% endfor %}
+
+<form id="systemSettingsForm" class="settings-layout">
+    <aside class="settings-sidebar">
+        <div class="settings-search">
+            <input type="search" class="form-control form-control-sm" id="settingsSearch" placeholder="参数搜索" autocomplete="off">
+        </div>
+        <nav class="settings-nav" id="settingsNav" aria-label="参数分组">
+            {% for group in setting_groups %}
+            <a href="#settings-group-{{ group.key }}" data-settings-group="{{ group.key }}">
+                <i class="bi {{ group.icon }}"></i> {{ group.title }}
+            </a>
+            {% endfor %}
+            <a href="#settings-group-coding-rules" data-settings-group="coding-rules">
+                <i class="bi bi-upc-scan"></i> 编码规则
+            </a>
+            <a href="#settings-group-effect-matrix" data-settings-group="effect-matrix">
+                <i class="bi bi-diagram-3"></i> 参数影响
+            </a>
+        </nav>
+    </aside>
+
+    <div class="settings-main">
+    <div class="settings-summary">
+        <div class="settings-summary-item">
+            <div class="settings-summary-value">{{ setting_groups|length }}</div>
+            <div class="settings-summary-label">参数分组</div>
+        </div>
+        <div class="settings-summary-item">
+            <div class="settings-summary-value">{{ ns.total_settings }}</div>
+            <div class="settings-summary-label">系统参数</div>
+        </div>
+        <div class="settings-summary-item">
+            <div class="settings-summary-value">实时</div>
+            <div class="settings-summary-label">保存后立即生效</div>
+        </div>
+    </div>
+
+    {% for group in setting_groups %}
+    <div class="card settings-card" id="settings-group-{{ group.key }}" data-settings-card data-search-text="{{ (group.title ~ ' ' ~ group.description)|lower }}">
+        <div class="card-header py-2">
+            <div>
+                <div class="settings-title"><i class="bi {{ group.icon }}"></i> {{ group.title }}</div>
+                {% if group.description %}
+                <div class="settings-desc mt-1">{{ group.description }}</div>
+                {% endif %}
+            </div>
+            {% if group.key == 'ai_assistant' %}
+            <button type="button" class="btn btn-outline-primary btn-sm" id="testAiLlmBtn">
+                <i class="bi bi-plug"></i> 测试连接
+            </button>
+            {% endif %}
+        </div>
+        <div class="card-body py-1">
+            {% for setting in group.settings %}
+            <div class="setting-row" data-setting-row data-search-text="{{ (setting.label ~ ' ' ~ setting.remark ~ ' ' ~ setting.key)|lower }}">
+                <div>
+                    <div class="setting-label">{{ setting.label }}</div>
+                    <div class="setting-help">{{ setting.remark }}</div>
+                    {% if setting.type == 'secret' and setting.has_value %}
+                    <div class="setting-help text-success">已保存密钥；留空保存会继续保留原密钥。</div>
+                    {% endif %}
+                </div>
+                <div class="setting-control {% if setting.wide %}wide{% endif %}">
+                    {% if setting.type == 'bool' %}
+                    <div class="form-check form-switch fs-5 m-0">
+                        <input class="form-check-input" type="checkbox" role="switch" id="{{ setting.key }}" name="{{ setting.key }}" value="1" {% if setting.checked %}checked{% endif %}>
+                    </div>
+                    {% elif setting.type == 'int' %}
+                    <div class="input-group input-group-sm">
+                        <input type="number" class="form-control" id="{{ setting.key }}" name="{{ setting.key }}" value="{{ setting.value }}" min="{{ setting.min }}" max="{{ setting.max }}" step="1">
+                        {% if setting.unit %}
+                        <span class="input-group-text">{{ setting.unit }}</span>
+                        {% endif %}
+                    </div>
+                    {% elif setting.type == 'select' %}
+                    <select class="form-select form-select-sm" id="{{ setting.key }}" name="{{ setting.key }}">
+                        {% for option in setting.options %}
+                        <option value="{{ option.value }}" {% if setting.value == option.value %}selected{% endif %}>{{ option.label }}</option>
+                        {% endfor %}
+                    </select>
+                    {% elif setting.type == 'secret' %}
+                    <input type="password" class="form-control form-control-sm" id="{{ setting.key }}" name="{{ setting.key }}" value="" placeholder="{% if setting.has_value %}已保存，留空不修改{% else %}请输入 API Key{% endif %}" autocomplete="new-password">
+                    {% else %}
+                    <input type="text" class="form-control form-control-sm" id="{{ setting.key }}" name="{{ setting.key }}" value="{{ setting.value }}">
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+
+    <div class="card settings-card" id="settings-group-coding-rules" data-settings-card data-search-text="编码规则 单据编码 物料编码 document material code rule">
+        <div class="card-header py-2">
+            <div>
+                <div class="settings-title"><i class="bi bi-upc-scan"></i> 编码规则</div>
+                <div class="settings-desc mt-1">维护物料编码和单据编码的前缀、日期格式、流水位数、重置范围和手工编码控制。</div>
+            </div>
+        </div>
+        <div class="card-body">
+            <input type="hidden" name="code_rule_count" value="{{ coding_rules|length }}">
+            <div class="table-responsive">
+                <table class="table table-sm align-middle coding-rule-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 210px;">规则</th>
+                            <th style="width: 90px;">类型</th>
+                            <th style="width: 110px;">前缀</th>
+                            <th style="width: 130px;">日期格式</th>
+                            <th style="width: 110px;">流水位数</th>
+                            <th style="width: 90px;">分隔符</th>
+                            <th style="width: 120px;">重置范围</th>
+                            <th style="width: 90px;">启用</th>
+                            <th style="width: 120px;">允许手工</th>
+                            <th style="width: 150px;">下一号预览</th>
+                            <th style="width: 220px;">说明</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for rule in coding_rules %}
+                        {% set idx = loop.index0 %}
+                        <tr data-setting-row data-search-text="{{ (rule.rule_key ~ ' ' ~ rule.label ~ ' ' ~ rule.remark)|lower }}">
+                            <td>
+                                <input type="hidden" name="code_rule_key_{{ idx }}" value="{{ rule.rule_key }}">
+                                <div class="coding-rule-label">{{ rule.label }}</div>
+                                <div class="coding-rule-key">{{ rule.rule_key }}</div>
+                            </td>
+                            <td>
+                                <select class="form-select form-select-sm" name="code_rule_target_type_{{ idx }}">
+                                    <option value="material" {% if rule.target_type == 'material' %}selected{% endif %}>物料</option>
+                                    <option value="document" {% if rule.target_type == 'document' %}selected{% endif %}>单据</option>
+                                </select>
+                            </td>
+                            <td><input class="form-control form-control-sm" name="code_rule_prefix_{{ idx }}" value="{{ rule.prefix }}"></td>
+                            <td>
+                                {% if rule.target_type == 'material' %}
+                                <input type="hidden" name="code_rule_date_format_{{ idx }}" value="NONE">
+                                <span class="badge text-bg-light">按分类</span>
+                                <div class="coding-rule-help">不使用日期</div>
+                                {% else %}
+                                <select class="form-select form-select-sm" name="code_rule_date_format_{{ idx }}">
+                                    {% for value, label in [('YYYYMMDD','年月日'),('YYYYMM','年月'),('YYMMDD','短年月日'),('NONE','无日期')] %}
+                                    <option value="{{ value }}" {% if rule.date_format == value %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                                {% endif %}
+                            </td>
+                            <td><input type="number" class="form-control form-control-sm" name="code_rule_sequence_length_{{ idx }}" min="2" max="8" step="1" value="{{ rule.sequence_length }}"></td>
+                            <td><input class="form-control form-control-sm" name="code_rule_separator_{{ idx }}" maxlength="4" value="{{ rule.separator }}"></td>
+                            <td>
+                                {% if rule.target_type == 'material' %}
+                                <input type="hidden" name="code_rule_reset_scope_{{ idx }}" value="continuous">
+                                <span class="badge text-bg-light">连续</span>
+                                {% else %}
+                                <select class="form-select form-select-sm" name="code_rule_reset_scope_{{ idx }}">
+                                    {% for value, label in [('daily','每日'),('monthly','每月'),('continuous','连续')] %}
+                                    <option value="{{ value }}" {% if rule.reset_scope == value %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="form-check form-switch m-0">
+                                    <input class="form-check-input" type="checkbox" role="switch" name="code_rule_is_active_{{ idx }}" value="1" {% if rule.is_active %}checked{% endif %}>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="form-check form-switch m-0">
+                                    <input class="form-check-input" type="checkbox" role="switch" name="code_rule_manual_allowed_{{ idx }}" value="1" {% if rule.manual_allowed %}checked{% endif %}>
+                                </div>
+                            </td>
+                            <td><code>{{ rule.next_preview or '-' }}</code></td>
+                            <td><textarea class="form-control form-control-sm" name="code_rule_remark_{{ idx }}" rows="2">{{ rule.remark }}</textarea></td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="11" class="text-muted text-center py-3">暂无编码规则。</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="coding-rule-help mt-2">单据规则默认不强制启用；启用后只影响新生成的单据号，不重编历史单据和历史物料。</div>
+        </div>
+    </div>
+
+    <div class="card settings-card" id="settings-group-effect-matrix" data-settings-card data-search-text="参数影响 生效范围 验收 owner acceptance">
+        <div class="card-header py-2">
+            <div>
+                <div class="settings-title"><i class="bi bi-diagram-3"></i> 参数影响矩阵</div>
+                <div class="settings-desc mt-1">保存参数前先确认影响范围、数据责任人和验收方式；参数不直接新增业务单据或模块。</div>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th style="width: 140px;">范围</th>
+                            <th style="width: 220px;">参数键</th>
+                            <th>影响</th>
+                            <th style="width: 150px;">责任</th>
+                            <th style="width: 260px;">验收</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in parameter_effects %}
+                        <tr data-setting-row data-search-text="{{ (row.area ~ ' ' ~ row.keys ~ ' ' ~ row.effect ~ ' ' ~ row.owner ~ ' ' ~ row.acceptance)|lower }}">
+                            <td class="fw-semibold">{{ row.area }}</td>
+                            <td><code>{{ row.keys }}</code></td>
+                            <td>{{ row.effect }}</td>
+                            <td>{{ row.owner }}</td>
+                            <td>{{ row.acceptance }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="settings-actions">
+        <button type="button" class="btn btn-outline-secondary" onclick="location.reload()">
+            <i class="bi bi-arrow-counterclockwise"></i> 还原
+        </button>
+        <button type="submit" class="btn btn-primary" id="saveSettingsBtn">
+            <i class="bi bi-save"></i> 保存参数
+        </button>
+    </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('systemSettingsForm').addEventListener('submit', function(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const btn = document.getElementById('saveSettingsBtn');
+    const data = new FormData(form);
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>保存中';
+
+    const fetcher = window.csrfFetch || fetch;
+    fetcher('/system_settings/form/save', {
+        method: 'POST',
+        body: data
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'success') {
+            showToast(data.msg || '保存成功', 'success');
+            setTimeout(() => location.reload(), 500);
+        } else {
+            showToast(data.msg || '保存失败', 'danger');
+        }
+    })
+    .catch(error => {
+        showToast('保存失败：' + error.message, 'danger');
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-save"></i> 保存参数';
+    });
+});
+
+const settingsSearch = document.getElementById('settingsSearch');
+if (settingsSearch) {
+    settingsSearch.addEventListener('input', function() {
+        const keyword = settingsSearch.value.trim().toLowerCase();
+        document.querySelectorAll('[data-settings-card]').forEach(card => {
+            let visibleRows = 0;
+            card.querySelectorAll('[data-setting-row]').forEach(row => {
+                const matched = !keyword || row.dataset.searchText.includes(keyword) || card.dataset.searchText.includes(keyword);
+                row.style.display = matched ? '' : 'none';
+                if (matched) visibleRows += 1;
+            });
+            card.style.display = visibleRows ? '' : 'none';
+        });
+    });
+}
+
+document.querySelectorAll('#settingsNav a').forEach(link => {
+    link.addEventListener('click', function() {
+        document.querySelectorAll('#settingsNav a').forEach(item => item.classList.remove('active'));
+        link.classList.add('active');
+    });
+});
+
+const testAiLlmBtn = document.getElementById('testAiLlmBtn');
+if (testAiLlmBtn) {
+    testAiLlmBtn.addEventListener('click', function() {
+        const btn = testAiLlmBtn;
+        const originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>测试中';
+
+        const fetcher = window.csrfFetch || fetch;
+        fetcher('/system_settings/form/test_ai_llm', {
+            method: 'POST',
+            body: new FormData(document.getElementById('systemSettingsForm'))
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    showToast(data.msg || '连接成功', 'success');
+                } else {
+                    showToast(data.msg || '连接失败', 'danger');
+                }
+            })
+            .catch(error => {
+                showToast('连接失败：' + error.message, 'danger');
+            })
+            .finally(() => {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            });
+    });
+}
+</script>
+{% endblock %}

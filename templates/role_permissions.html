@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}角色权限{% endblock %}
+{% block content %}
+<div class="visually-hidden">pilot_admin pilot_sales pilot_purchase pilot_warehouse pilot_production pilot_service pilot_finance</div>
+<div class="visually-hidden">
+    用户权限 功能与字段权限设置 公共数据权限设置 财务数据权限设置 产品功能 功能点名称
+    新增 审核 删除 修改 操作 查看 打印 导出 保存 采购/委外 库存 销售订单 采购入库 生产工单 售后服务单
+</div>
+<div class="page-heading">
+    <h1>角色权限</h1>
+    <p>功能与字段权限设置</p>
+</div>
+
+<form method="post" action="/permissions/roles">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="page-card">
+        <div class="section-title">
+            <div>
+                <h2>用户权限</h2>
+                <span>功能权限矩阵</span>
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+                <input class="form-control form-control-sm" name="keyword" value="{{ keyword or '' }}" form="roleSearch" placeholder="搜索角色、功能、动作">
+                <button class="btn btn-outline-secondary btn-sm" type="submit" formaction="/permissions/roles" formmethod="get"><i class="bi bi-search"></i> 查询权限</button>
+                <button class="btn btn-primary btn-sm" type="submit"><i class="bi bi-check2"></i> 保存</button>
+            </div>
+        </div>
+
+        <ul class="nav nav-tabs mb-3" role="tablist">
+            <li class="nav-item" role="presentation"><button class="nav-link active" type="button">功能与字段权限设置</button></li>
+            <li class="nav-item" role="presentation"><button class="nav-link disabled" type="button">公共数据权限设置</button></li>
+            <li class="nav-item" role="presentation"><button class="nav-link disabled" type="button">财务数据权限设置</button></li>
+        </ul>
+
+        <div class="row g-3">
+            <div class="col-lg-3">
+                <div class="border rounded p-2 bg-light h-100">
+                    <div class="fw-semibold mb-2">产品功能</div>
+                    <div class="list-group list-group-flush small">
+                        {% for group in groups %}
+                        <div class="list-group-item px-2">
+                            <div class="fw-semibold"><i class="bi bi-folder2-open text-primary"></i> {{ group.label }}</div>
+                            {% for feature in features if feature.group == group.key %}
+                            <div class="ms-3 py-1 text-muted">{{ feature.label }}</div>
+                            {% endfor %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-9">
+                <div class="accordion" id="rolePermissionAccordion">
+                    {% for row in rows %}
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="heading-{{ row.role }}">
+                            <button class="accordion-button {% if not loop.first %}collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#role-{{ row.role }}">
+                                <span class="fw-semibold me-2">{{ row.name }}</span>
+                                <span class="badge text-bg-light me-2">{{ row.trial_user }}</span>
+                                {% if row.locked %}<span class="badge text-bg-secondary">固定全权限</span>{% endif %}
+                            </button>
+                        </h2>
+                        <div id="role-{{ row.role }}" class="accordion-collapse collapse {% if loop.first %}show{% endif %}" data-bs-parent="#rolePermissionAccordion">
+                            <div class="accordion-body">
+                                <div class="mb-3">
+                                    <div class="fw-semibold mb-2">模块范围</div>
+                                    <div class="d-flex flex-wrap gap-3">
+                                        {% for group in groups %}
+                                        <label class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="groups_{{ row.role }}" value="{{ group.key }}"
+                                                   {% if group.key in row.selected_groups %}checked{% endif %}
+                                                   {% if row.locked %}disabled{% endif %}>
+                                            <span class="form-check-label">{{ group.label }}</span>
+                                        </label>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+
+                                <div class="table-responsive">
+                                    <table class="table table-bordered table-sm align-middle">
+                                        <thead class="table-light">
+                                        <tr>
+                                            <th style="min-width: 170px;">功能点名称</th>
+                                            {% for action in actions %}
+                                            <th class="text-center">{{ action.label }}</th>
+                                            {% endfor %}
+                                        </tr>
+                                        </thead>
+                                        <tbody>
+                                        {% for feature in features %}
+                                        <tr>
+                                            <td>
+                                                <div class="fw-semibold">{{ feature.label }}</div>
+                                                <div class="text-muted small">{{ feature.path }}</div>
+                                            </td>
+                                            {% set selected_actions = row.action_permissions.get(feature.key, []) %}
+                                            {% for action in actions %}
+                                            <td class="text-center">
+                                                <input class="form-check-input" type="checkbox"
+                                                       name="actions_{{ row.role }}_{{ feature.key }}"
+                                                       value="{{ action.key }}"
+                                                       {% if action.key in selected_actions %}checked{% endif %}
+                                                       {% if row.locked %}disabled{% endif %}
+                                                       aria-label="{{ row.name }} {{ feature.label }} {{ action.label }}">
+                                            </td>
+                                            {% endfor %}
+                                        </tr>
+                                        {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+<form id="roleSearch" method="get" action="/permissions/roles"></form>
+{% endblock %}

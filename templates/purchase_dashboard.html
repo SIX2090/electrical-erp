@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}{{ title|clean_text }}{% endblock %}
+{% block content %}
+<div class="page-heading erp-list-heading">
+    <div>
+        <h1>{{ title|clean_text }}</h1>
+        {% if subtitle %}<p>{{ subtitle|clean_text }}</p>{% endif %}
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-outline-primary btn-sm" href="/purchase-orders"><i class="bi bi-list-ul"></i> 采购订单列表</a>
+        <a class="btn btn-outline-primary btn-sm" href="/purchase_receipts"><i class="bi bi-list-check"></i> 采购入库单列表</a>
+        <a class="btn btn-outline-primary btn-sm" href="/payables"><i class="bi bi-wallet2"></i> 应付账款</a>
+    </div>
+</div>
+
+<div class="erp-queue-grid mb-3">
+    {% for card in queue_cards %}
+    <div class="erp-queue-card {{ card.variant|default('primary') }}">
+        <div class="erp-queue-top">
+            <div>
+                <div class="erp-queue-role">{{ card.role|clean_text }}</div>
+                <div class="erp-queue-title">{{ card.label|clean_text }}</div>
+            </div>
+            <a class="btn btn-outline-primary btn-sm" href="{{ card.url }}">进入</a>
+        </div>
+        <div class="erp-queue-count">{{ card.count }}</div>
+        <dl class="erp-queue-lines">
+            <div><dt>下一步</dt><dd>{{ card.next_action|clean_text }}</dd></div>
+            <div><dt>条件</dt><dd>{{ card.condition|clean_text }}</dd></div>
+            <div><dt>影响</dt><dd>{{ card.impact|clean_text }}</dd></div>
+        </dl>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="page-card erp-list-card mb-3">
+    <form class="row g-2" method="get" action="{{ back_url }}">
+        <div class="col-lg-4">
+            <input class="form-control" name="keyword" value="{{ filters.keyword }}" placeholder="订单、供应商、项目号、机号">
+        </div>
+        <div class="col-lg-2">
+            <select class="form-select" name="supplier_id">
+                <option value="">全部供应商</option>
+                {% for row in suppliers %}
+                <option value="{{ row.id }}" {% if filters.supplier_id|string == row.id|string %}selected{% endif %}>{{ row.name|clean_text }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-lg-2">
+            <select class="form-select" name="status">
+                <option value="">全部状态</option>
+                {% for row in status_rows %}
+                <option value="{{ row.status }}" {% if filters.status == row.status %}selected{% endif %}>{{ (row.display_status or row.status)|clean_text }} ({{ row.count }})</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-lg-2">
+            <select class="form-select" name="risk">
+                <option value="">全部队列</option>
+                <option value="pending_receive" {% if filters.risk == 'pending_receive' %}selected{% endif %}>待收货</option>
+                <option value="overdue" {% if filters.risk == 'overdue' %}selected{% endif %}>逾期未到</option>
+                <option value="payable" {% if filters.risk == 'payable' %}selected{% endif %}>待付款</option>
+            </select>
+        </div>
+        <div class="col-lg-2 d-grid">
+            <button class="btn btn-primary" type="submit"><i class="bi bi-search"></i> 查询队列</button>
+        </div>
+    </form>
+</div>
+
+<div class="page-card erp-list-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>采购工作台待处理队列</h2>
+            {% if project_focus %}
+            <span>{{ project_focus|length }} 条异常/待办，按逾期、堵点、待收货排序</span>
+            {% else %}
+            <span>暂无待处理队列</span>
+            {% endif %}
+        </div>
+        <a class="btn btn-outline-secondary btn-sm" href="/purchase-orders">进入订单列表</a>
+    </div>
+    {% if project_focus %}
+    <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle erp-list-table">
+            <thead>
+            <tr>
+                <th>来源订单</th>
+                <th>供应商</th>
+                <th>项目/机号</th>
+                <th>到货预警</th>
+                <th class="text-end">未收数量</th>
+                <th class="text-end">应付余额</th>
+                <th>队列</th>
+                <th>下一步</th>
+                <th>责任角色</th>
+                <th>堵点/条件</th>
+                <th class="text-end">操作</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for row in project_focus %}
+            <tr>
+                <td><a href="/purchase_order/{{ row.id }}">{{ row.order_no|clean_text }}</a><div class="text-muted small">{{ row.order_date or '-' }}</div></td>
+                <td>{{ row.supplier_name|clean_text }}</td>
+                <td>{{ row.project_code|clean_text }} / {{ row.serial_no|clean_text }}</td>
+                <td>
+                    <div>{{ row.arrival_alert|default(row.risk_label)|clean_text }}</div>
+                    <div class="text-muted small">预计 {{ row.expected_date or '-' }} / 实到 {{ row.last_receipt_date or '-' }}</div>
+                </td>
+                <td class="text-end {% if row.pending_receive_qty %}fw-semibold text-primary{% endif %}">{{ row.pending_receive_qty|qty }}</td>
+                <td class="text-end">{{ row.payable_balance|money }}</td>
+                <td>{{ row.risk_label|clean_text }}</td>
+                <td>{{ row.next_action|clean_text }}</td>
+                <td>{{ row.owner_role|clean_text }}</td>
+                <td>{{ (row.blocked_reason or row.condition_label)|clean_text }}</td>
+                <td class="text-end">
+                    <a class="btn btn-outline-primary btn-sm" href="/purchase_order/{{ row.id }}">订单详情</a>
+                    {% if row.can_receive %}<a class="btn btn-primary btn-sm" href="/purchase_order/{{ row.id }}">下推入库</a>{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="erp-empty-line">暂无需要采购工作台处理的异常、堵点或待办。</div>
+    {% endif %}
+</div>
+
+{% if pending_items %}
+<div class="page-card erp-list-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>采购未到明细</h2>
+            <span>{{ pending_items|length }} 条待收货物料，仅显示未到队列，不作为完整订单列表</span>
+        </div>
+        <a class="btn btn-outline-secondary btn-sm" href="/purchase-orders?risk=pending_receive">查看待收货订单</a>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle erp-list-table">
+            <thead><tr><th>来源订单</th><th>供应商</th><th>物料名称</th><th>规格</th><th>单位</th><th>预计到货</th><th class="text-end">未收</th><th>下一步</th></tr></thead>
+            <tbody>
+            {% for row in pending_items %}
+            <tr>
+                <td><a href="/purchase_order/{{ row.order_id }}">{{ row.order_no|clean_text }}</a></td>
+                <td>{{ row.supplier_name|clean_text }}</td>
+                <td>{{ row.product_code|clean_text }} / {{ row.product_name|clean_text }}</td>
+                <td>{{ row.specification|clean_text or '-' }}</td>
+                <td>{{ row.unit|clean_text or '-' }}</td>
+                <td>{{ row.expected_date or '-' }}</td>
+                <td class="text-end fw-semibold">{{ row.pending_receive_qty|qty }}</td>
+                <td>到货后在采购订单详情下推采购入库单</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

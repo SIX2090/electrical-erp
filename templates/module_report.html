@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}{{ title|clean_text }}{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <h1>{{ title|clean_text }}</h1>
+    <p>{{ subtitle|clean_text or '只读报表，支持查询、导出、打印和查看明细，不提供新增、提交、审核或过账动作。' }}</p>
+    <p class="text-muted small mb-0">大数据量库存报表请优先按日期、仓库、物料、项目号或机号筛选，避免加载重图表。</p>
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>报表条件</h2>
+            <span>按日期、状态、关键字、项目号和机号筛选</span>
+        </div>
+    </div>
+    <form id="reportFilterForm" method="get" class="row g-2 align-items-end">
+        <div class="col-md-2">
+            <label class="form-label small text-muted mb-1">开始日期</label>
+            <input class="form-control form-control-sm" type="date" name="date_start" value="{{ filters.date_start }}">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small text-muted mb-1">结束日期</label>
+            <input class="form-control form-control-sm" type="date" name="date_end" value="{{ filters.date_end }}">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small text-muted mb-1">状态</label>
+            <input class="form-control form-control-sm" name="status" value="{{ filters.status }}" placeholder="全部状态">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small text-muted mb-1">关键字</label>
+            <input class="form-control form-control-sm" name="keyword" value="{{ filters.keyword }}" placeholder="单号、物料、项目号、机号">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small text-muted mb-1">项目号/机号</label>
+            <input class="form-control form-control-sm" name="project" value="{{ filters.project }}" placeholder="项目号或机号">
+        </div>
+        <div class="col-md-1 d-grid">
+            <button class="btn btn-primary btn-sm" type="submit"><i class="bi bi-search"></i> 查询</button>
+        </div>
+    </form>
+</div>
+
+<div class="metric-grid mb-3">
+    {% for metric in metrics %}
+    <div class="metric-card">
+        <span>{{ metric.label|clean_text }}</span>
+        <strong>{{ metric.value }}</strong>
+        <small>{{ metric.hint|clean_text }}</small>
+    </div>
+    {% endfor %}
+</div>
+
+{% for section in sections %}
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>{{ section.title|clean_text }}</h2>
+            <span>{{ section.rows|length }} 条记录</span>
+        </div>
+        {% if section.url %}
+        <a class="btn btn-outline-primary btn-sm" href="{{ section.url }}"><i class="bi bi-box-arrow-up-right"></i> 查看明细</a>
+        {% endif %}
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+            <tr>
+                {% for column in section.columns %}
+                <th>{{ column.label|clean_text }}</th>
+                {% endfor %}
+            </tr>
+            </thead>
+            <tbody>
+            {% for row in section.rows %}
+            <tr>
+                {% for column in section.columns %}
+                <td>
+                    {% if column.url_key and row.get(column.url_key) %}
+                    <a href="{{ row.get(column.url_key) }}">{{ row.get(column.key)|clean_text }}</a>
+                    {% else %}
+                    {{ row.get(column.key)|clean_text }}
+                    {% endif %}
+                </td>
+                {% endfor %}
+            </tr>
+            {% else %}
+            <tr><td colspan="{{ section.columns|length }}" class="text-muted text-center">暂无数据</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endfor %}
+
+{% endblock %}

@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}ERP 操作手册{% endblock %}
+{% block extra_css %}
+<style>
+.manual-layout {
+    display: grid;
+    grid-template-columns: 230px minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+}
+.manual-nav {
+    position: sticky;
+    top: 72px;
+    display: grid;
+    gap: 4px;
+    padding: 8px;
+    border: 1px solid #dbe4ef;
+    border-radius: 8px;
+    background: #fff;
+}
+.manual-nav a {
+    padding: 8px 10px;
+    border-radius: 6px;
+    color: #334155;
+    text-decoration: none;
+    font-size: 13px;
+}
+.manual-nav a:hover {
+    background: #ecfdf5;
+    color: #0f766e;
+}
+.manual-main {
+    display: grid;
+    gap: 14px;
+}
+.manual-section {
+    scroll-margin-top: 80px;
+    border: 1px solid #dbe4ef;
+    border-radius: 8px;
+    background: #fff;
+}
+.manual-section header {
+    padding: 14px 16px;
+    border-bottom: 1px solid #e5ebf3;
+    background: #f8fafc;
+}
+.manual-section h3 {
+    margin: 0 0 5px;
+    color: #0f172a;
+    font-size: 16px;
+}
+.manual-summary {
+    color: #64748b;
+    font-size: 13px;
+}
+.manual-body {
+    display: grid;
+    gap: 13px;
+    padding: 14px 16px 16px;
+}
+.manual-steps {
+    margin: 0;
+    padding-left: 20px;
+}
+.manual-steps li {
+    margin: 5px 0;
+}
+.manual-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.manual-links a {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 30px;
+    padding: 4px 9px;
+    border: 1px solid #cfe0f1;
+    border-radius: 6px;
+    color: #0f766e;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 700;
+}
+.manual-tips {
+    margin: 0;
+    padding: 9px 12px;
+    border-left: 3px solid #f59e0b;
+    background: #fffbeb;
+    color: #7c2d12;
+    font-size: 13px;
+}
+@media (max-width: 768px) {
+    .manual-layout {
+        grid-template-columns: 1fr;
+    }
+    .manual-nav {
+        position: static;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-start flex-wrap gap-2">
+    <div>
+        <h2 class="mb-1"><i class="bi bi-journal-text"></i> ERP 操作手册</h2>
+        <div class="text-muted small">面向机床制造 ERP 操作员，按业务闭环说明常用入口、处理步骤和注意事项。</div>
+    </div>
+    <a class="btn btn-outline-primary btn-sm" href="/help/assistant">
+        <i class="bi bi-cpu"></i> 打开操作助手
+    </a>
+</div>
+
+<div class="manual-layout">
+    <nav class="manual-nav" aria-label="操作手册目录">
+        {% for section in manual_sections %}
+        <a href="#{{ section.key }}">{{ section.title }}</a>
+        {% endfor %}
+    </nav>
+    <div class="manual-main">
+        {% for section in manual_sections %}
+        <section class="manual-section" id="{{ section.key }}">
+            <header>
+                <h3>{{ section.title }}</h3>
+                <div class="manual-summary">{{ section.summary }}</div>
+            </header>
+            <div class="manual-body">
+                <div>
+                    <div class="fw-bold mb-1">操作步骤</div>
+                    <ol class="manual-steps">
+                        {% for step in section.steps %}
+                        <li>{{ step }}</li>
+                        {% endfor %}
+                    </ol>
+                </div>
+                <div>
+                    <div class="fw-bold mb-2">常用入口</div>
+                    <div class="manual-links">
+                        {% for link in section.links %}
+                        <a href="{{ link.href }}"><i class="bi bi-box-arrow-up-right"></i>{{ link.label }}</a>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% if section.tips %}
+                <div class="manual-tips">
+                    {% for tip in section.tips %}
+                    <div>{{ tip }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </section>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

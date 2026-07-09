@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <h1>{{ title }}</h1>
+    <p>{{ subtitle }}</p>
+</div>
+
+<div class="alert alert-warning d-flex align-items-start gap-2">
+    <i class="bi bi-exclamation-triangle"></i>
+    <div>库存明细为只读查询页。若出现负库存，请先确认系统参数 allow_negative_stock 状态，再按库存流水追溯来源单据。</div>
+</div>
+
+<div class="page-card mb-3">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+        <div>
+            <h2 class="h5 mb-1">库存明细查询</h2>
+            <div class="text-muted small">宽表会自动进入横向滚动容器，不撑破页面。</div>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-outline-primary btn-sm" href="/inventory/detail"><i class="bi bi-box-seam"></i> 库存明细</a>
+            <a class="btn btn-outline-primary btn-sm" href="/transactions"><i class="bi bi-arrow-left-right"></i> 库存流水</a>
+        </div>
+    </div>
+    <form class="row g-2" method="get" action="{{ back_url }}">
+        <div class="col-lg-4">
+            <input class="form-control" name="keyword" value="{{ filters.keyword }}" placeholder="物料、仓库、库位、批号、机号">
+        </div>
+        <div class="col-lg-2">
+            <input class="form-control" name="project_code" value="{{ filters.project_code }}" placeholder="项目号">
+        </div>
+        <div class="col-lg-3">
+            <select class="form-select" name="warehouse_id">
+                <option value="">全部仓库</option>
+                {% for row in warehouses %}
+                <option value="{{ row.id }}" {% if filters.warehouse_id|string == row.id|string %}selected{% endif %}>{{ row.name|clean_text }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-lg-2">
+            <select class="form-select" name="stock_state">
+                <option value="">全部状态</option>
+                <option value="available" {% if filters.stock_state == 'available' %}selected{% endif %}>有可用</option>
+                <option value="locked" {% if filters.stock_state == 'locked' %}selected{% endif %}>有锁定</option>
+                <option value="low" {% if filters.stock_state == 'low' %}selected{% endif %}>低库存</option>
+                <option value="zero" {% if filters.stock_state == 'zero' %}selected{% endif %}>零库存</option>
+            </select>
+        </div>
+        <div class="col-lg-2 d-grid">
+            <button class="btn btn-primary" type="submit">查询</button>
+        </div>
+    </form>
+</div>
+
+<div class="page-card">
+    <div class="section-title">
+        <div>
+            <h2>库存余额</h2>
+            {% if rows %}<span>{{ rows|length }} 条记录</span>{% endif %}
+        </div>
+        <a class="btn btn-outline-secondary btn-sm" href="/export/inventory">导出</a>
+    </div>
+    {% if rows %}
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+            <tr>
+                <th>物料编码</th>
+                <th>物料名称</th>
+                <th>规格</th>
+                <th>项目号</th>
+                <th>仓库</th>
+                <th>库位</th>
+                <th>批号</th>
+                <th>机号</th>
+                <th class="text-end">数量</th>
+                <th class="text-end">锁定</th>
+                <th class="text-end">可用</th>
+                <th class="text-end">单位成本</th>
+                <th class="text-end">金额</th>
+                <th>有效期</th>
+                <th>状态</th>
+                <th>下一步</th>
+                <th>操作</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for row in rows %}
+            <tr>
+                <td>{{ row.product_code|clean_text }}</td>
+                <td>{{ row.product_name|clean_text }}</td>
+                <td>{{ row.specification|clean_text }}</td>
+                <td>{{ row.project_code|clean_text }}</td>
+                <td>{{ row.warehouse_name|clean_text }}</td>
+                <td>{{ (row.location_code or row.location_name)|clean_text }}</td>
+                <td>{{ row.lot_no|clean_text }}</td>
+                <td>{{ row.serial_no|clean_text }}</td>
+                <td class="text-end">{{ row.quantity|qty }}</td>
+                <td class="text-end">{{ row.locked_qty|qty }}</td>
+                <td class="text-end fw-semibold">{{ row.available_qty|qty }}</td>
+                <td class="text-end">{{ row.unit_cost|money }}</td>
+                <td class="text-end">{{ row.stock_value|money }}</td>
+                <td>{{ row.expire_date or '-' }}</td>
+                <td>{{ row.stock_state|clean_text }}</td>
+                <td>
+                    {% if (row.quantity or 0) < 0 %}
+                    负库存，需核对出入库
+                    {% elif (row.available_qty or 0) <= 0 %}
+                    无可用库存，关注采购或领料需求
+                    {% else %}
+                    查看库存流水和批次
+                    {% endif %}
+                </td>
+                <td><a class="btn btn-outline-primary btn-sm" href="{{ back_url }}/{{ row.id }}">详情</a></td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-muted">没有匹配库存明细。</div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}导入银行对账单{% endblock %}
+{% block header_title %}导入银行对账单{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+    <h2 class="mb-0"><i class="bi bi-upload"></i> 导入银行对账单</h2>
+    <a class="btn btn-outline-secondary btn-sm" href="/finance/bank-statements"><i class="bi bi-arrow-left"></i> 返回列表</a>
+</div>
+
+<div class="card mb-3">
+    <div class="card-header py-2"><i class="bi bi-info-circle"></i> CSV 文件格式说明</div>
+    <div class="card-body py-2 small">
+        <p class="mb-1">支持的列名（中英文均可）：</p>
+        <ul class="mb-1">
+            <li><strong>交易日期 / transaction_date</strong>：格式 YYYY-MM-DD</li>
+            <li><strong>金额 / amount</strong>：正数表示收入，负数表示支出</li>
+            <li><strong>方向 / direction</strong>：收入/借/in 或 支出/贷/out（可留空，系统按金额正负自动判断）</li>
+            <li><strong>对方户名 / counterparty_name</strong>：对方账户名称</li>
+            <li><strong>对方账号 / counterparty_account</strong>：对方银行账号</li>
+            <li><strong>对方开户行 / counterparty_bank</strong>：对方开户行</li>
+            <li><strong>摘要 / summary</strong>：交易摘要</li>
+            <li><strong>银行流水号 / bank_reference</strong>：银行流水号</li>
+        </ul>
+    </div>
+</div>
+
+<form method="post" enctype="multipart/form-data" class="card">
+    <div class="card-body">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label">银行账户 <span class="text-danger">*</span></label>
+                <select name="account_id" class="form-select" required>
+                    <option value="">请选择...</option>
+                    {% for a in accounts %}
+                    <option value="{{ a.id }}">{{ a.account_name }} ({{ a.account_code }}) {{ a.bank_account_no or '' }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">对账单日期 <span class="text-danger">*</span></label>
+                <input type="date" name="statement_date" class="form-control" required>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">CSV 文件 <span class="text-danger">*</span></label>
+                <input type="file" name="file" class="form-control" accept=".csv" required>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">期初余额</label>
+                <input type="number" name="opening_balance" class="form-control" step="0.01" value="0">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">期末余额</label>
+                <input type="number" name="closing_balance" class="form-control" step="0.01" value="0">
+            </div>
+        </div>
+        <div class="mt-3">
+            <button type="submit" class="btn btn-primary"><i class="bi bi-upload"></i> 导入</button>
+            <a class="btn btn-outline-secondary" href="/finance/bank-statements">取消</a>
+        </div>
+    </div>
+</form>
+{% endblock %}

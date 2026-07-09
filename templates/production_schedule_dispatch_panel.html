@@ -1,0 +1,66 @@
+<div class="page-card mb-3" id="dispatch-control">
+    <div class="section-title">
+        <div>
+            <h2>排程派工控制</h2>
+        </div>
+        <a class="btn btn-outline-success btn-sm" href="/production/operation-reports/new?work_order_id={{ row.get('work_order_id') or '' }}&work_order_process_id={{ row.get('work_order_process_id') or '' }}">
+            下游报工
+        </a>
+    </div>
+    <form method="post" action="/production-schedules/{{ row.get('id') }}/dispatch" class="row g-3">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="col-md-3">
+            <label class="form-label">计划开始</label>
+            <input class="form-control" type="date" name="planned_start_date" value="{{ row.get('planned_start_date') or '' }}">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">计划完成</label>
+            <input class="form-control" type="date" name="planned_end_date" value="{{ row.get('planned_end_date') or '' }}">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">工作中心</label>
+            <select class="form-select" name="work_center_id">
+                <option value="">请选择</option>
+                {% for wc in work_centers %}
+                <option value="{{ wc.id }}" {% if wc.id == row.get('work_center_id') %}selected{% endif %}>
+                    {{ wc.code|clean_text }} {{ wc.name|clean_text }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">负责人</label>
+            <input class="form-control" name="responsible_person" value="{{ row.get('responsible_person') or row.get('dispatched_to') or '' }}" placeholder="班组长 / 操作员">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">派工状态</label>
+            <select class="form-select" name="dispatch_status">
+                {% for status in ['待派工', '已派工', '改期', '暂停', '已完成'] %}
+                <option value="{{ status }}" {% if status == (row.get('dispatch_status') or '待派工') %}selected{% endif %}>{{ status }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-9">
+            <label class="form-label">堵点 / 条件</label>
+            <input class="form-control" name="blocked_reason" value="{{ row.get('blocked_reason') or '' }}" placeholder="齐套、设备、人员、图纸、委外到货等">
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">下一步</label>
+            <input class="form-control" name="next_action" value="{{ row.get('next_action') or '' }}" placeholder="派工、改期、等待齐套、报工等">
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">下游影响</label>
+            <input class="form-control" name="downstream_impact" value="{{ row.get('downstream_impact') or '' }}" placeholder="工作中心负荷、开工、报工、交付">
+        </div>
+        <div class="col-12">
+            <label class="form-label">备注</label>
+            <textarea class="form-control" name="remark" rows="2">{{ row.get('remark') or '' }}</textarea>
+        </div>
+        <div class="col-12 d-flex flex-wrap gap-2">
+            <button class="btn btn-primary" type="submit"><i class="bi bi-save"></i> 保存派工/改期</button>
+            {% if row.get('work_order_id') %}
+            <a class="btn btn-outline-secondary" href="/work-orders/{{ row.get('work_order_id') }}"><i class="bi bi-diagram-3"></i> 查看工单</a>
+            {% endif %}
+        </div>
+    </form>
+</div>

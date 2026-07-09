@@ -1,0 +1,413 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+{{ document_menu_bar(actions=[
+    {'label': '筛选条件', 'type': 'button', 'event': 'report-toggle-filter', 'icon': 'bi-funnel'}
+], aria_label='报表操作菜单') }}
+
+<div class="page-heading">
+    <h1><i class="bi bi-graph-up"></i> {{ title }}</h1>
+    <p>只读报表，按当前筛选条件查询、导出和打印；业务处理请回到对应单据页面完成。</p>
+</div>
+
+<section class="page-card mb-3 filter-card" id="filterPanel">
+    <div class="section-title">
+        <div>
+            <h2>查询条件</h2>
+            <span>按日期、物料、往来单位、状态等条件筛选</span>
+        </div>
+    </div>
+    <form id="filterForm" class="row g-3">
+        {% if filters_config.date %}
+        <div class="col-md-3">
+            <label for="start_date" class="form-label">开始日期</label>
+            <input id="start_date" name="start_date" type="date" class="form-control">
+        </div>
+        <div class="col-md-3">
+            <label for="end_date" class="form-label">结束日期</label>
+            <input id="end_date" name="end_date" type="date" class="form-control">
+        </div>
+        {% endif %}
+
+        {% if filters_config.material %}
+        <div class="col-md-3">
+            <label for="material_code" class="form-label">物料搜索</label>
+            <input id="material_code" name="material_code" type="text" class="form-control" placeholder="编码 / 名称 / 规格">
+        </div>
+        {% endif %}
+
+        {% if filters_config.supplier %}
+        <div class="col-md-3">
+            <label for="supplier" class="form-label">供应商</label>
+            <input id="supplier" name="supplier" type="text" class="form-control" list="supplierOptions" placeholder="供应商编码或名称" autocomplete="off">
+            <datalist id="supplierOptions">
+                {% for supplier in suppliers %}
+                <option value="{{ supplier.code }} {{ supplier.name }}"></option>
+                {% endfor %}
+            </datalist>
+        </div>
+        {% endif %}
+
+        {% if filters_config.customer %}
+        <div class="col-md-3">
+            <label for="customer" class="form-label">客户 / 部门</label>
+            <input id="customer" name="customer" type="text" class="form-control" placeholder="客户名称或领用部门">
+        </div>
+        {% endif %}
+
+        {% if filters_config.status %}
+        <div class="col-md-3">
+            <label for="status" class="form-label">状态</label>
+            <select id="status" name="status" class="form-select">
+                <option value="">全部</option>
+                <option value="pending">待处理</option>
+                <option value="completed">已完成</option>
+            </select>
+        </div>
+        {% endif %}
+
+        <div class="col-12 d-flex flex-wrap gap-2">
+            <button class="btn btn-primary" type="submit"><i class="bi bi-search"></i> 查询</button>
+            <button class="btn btn-outline-secondary" type="button" id="resetBtn"><i class="bi bi-arrow-counterclockwise"></i> 重置</button>
+        </div>
+    </form>
+</section>
+
+<section class="row g-3 mb-3" id="summaryCards">
+    <div class="col-md-4">
+        <div class="metric h-100">
+            <div class="label">{{ summary_labels.count }}</div>
+            <div class="value" id="summaryCount">0</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="metric h-100">
+            <div class="label">{{ summary_labels.quantity }}</div>
+            <div class="value" id="summaryQuantity">0</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="metric h-100">
+            <div class="label">{{ summary_labels.amount }}</div>
+            <div class="value" id="summaryAmount">0</div>
+        </div>
+    </div>
+</section>
+
+<section class="page-card">
+    <div class="section-title">
+        <div>
+            <h2>报表数据</h2>
+            <span>点击列头可排序，点击单据号可钻取来源</span>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" id="reportTable">
+            <thead class="table-light">
+                <tr id="tableHeaderRow"></tr>
+            </thead>
+            <tbody id="tableBody">
+                <tr>
+                    <td class="text-center text-muted py-5">正在加载数据...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mt-3" id="paginationBar">
+        <div class="text-muted small">
+            共 <span id="pageTotal">0</span> 条，
+            每页
+            <select id="pageSize" class="form-select form-select-sm d-inline-block page-size-select">
+                <option value="20">20</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="200">200</option>
+            </select>
+            条
+        </div>
+        <nav aria-label="分页">
+            <ul class="pagination pagination-sm mb-0" id="paginationNav"></ul>
+        </nav>
+    </div>
+</section>
+
+<div class="loading-mask" id="loadingMask" hidden>
+    <div class="spinner-border text-light" role="status"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const reportType = {{ report_type|tojson }};
+const summaryTypes = {{ summary_types|tojson }};
+
+let currentPage = 1;
+let pageSize = 20;
+let totalPages = 0;
+let currentSortField = '';
+let currentSortOrder = 'asc';
+
+const filterForm = document.getElementById('filterForm');
+const filterPanel = document.getElementById('filterPanel');
+const resetBtn = document.getElementById('resetBtn');
+const loadingMask = document.getElementById('loadingMask');
+const tableHeaderRow = document.getElementById('tableHeaderRow');
+const tableBody = document.getElementById('tableBody');
+const paginationNav = document.getElementById('paginationNav');
+const pageTotal = document.getElementById('pageTotal');
+const pageSizeSelect = document.getElementById('pageSize');
+
+document.querySelectorAll('[data-menu-event]').forEach((item) => {
+    item.addEventListener('click', () => {
+        const eventName = item.dataset.menuEvent;
+        if (eventName === 'report-query') {
+            currentPage = 1;
+            loadData();
+        } else if (eventName === 'report-reset') {
+            resetBtn.click();
+        } else if (eventName === 'report-toggle-filter') {
+            filterPanel.classList.toggle('collapsed');
+        } else if (eventName === 'report-export') {
+            exportReport();
+        } else if (eventName === 'report-print') {
+            window.print();
+        } else if (eventName === 'report-refresh') {
+            loadData();
+        }
+    });
+});
+
+filterForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    currentPage = 1;
+    loadData();
+});
+
+resetBtn.addEventListener('click', () => {
+    filterForm.reset();
+    currentPage = 1;
+    currentSortField = '';
+    currentSortOrder = 'asc';
+    loadData();
+});
+
+pageSizeSelect.addEventListener('change', () => {
+    pageSize = Number(pageSizeSelect.value);
+    currentPage = 1;
+    loadData();
+});
+
+function exportReport() {
+    const params = buildParams(true);
+    window.open(`/report/api/${encodeURIComponent(reportType)}?${params.toString()}`, '_blank');
+}
+
+function buildParams(isExport = false) {
+    const params = new URLSearchParams();
+    const formData = new FormData(filterForm);
+    for (const [key, value] of formData.entries()) {
+        if (String(value).trim()) {
+            params.set(key, String(value).trim());
+        }
+    }
+    params.set('page', String(currentPage));
+    params.set('page_size', String(pageSize));
+    if (currentSortField) {
+        params.set('sort_field', currentSortField);
+        params.set('sort_order', currentSortOrder);
+    }
+    if (isExport) {
+        params.set('export', 'excel');
+    }
+    return params;
+}
+
+function setLoading(loading) {
+    loadingMask.hidden = !loading;
+}
+
+function formatValue(value, type) {
+    if (value === null || value === undefined || value === '') return '-';
+    if (type === 'money') {
+        return Number(value).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    if (type === 'number') {
+        return Number(value).toLocaleString('zh-CN', { maximumFractionDigits: 2 });
+    }
+    return String(value);
+}
+
+function escapeHtml(value) {
+    return String(value)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+}
+
+function renderSummary(summary) {
+    document.getElementById('summaryCount').textContent = formatValue(summary.count || 0, summaryTypes.count);
+    document.getElementById('summaryQuantity').textContent = formatValue(summary.quantity || 0, summaryTypes.quantity);
+    document.getElementById('summaryAmount').textContent = formatValue(summary.amount || 0, summaryTypes.amount);
+}
+
+function renderTable(columns, rows) {
+    tableHeaderRow.innerHTML = '';
+    columns.forEach((column) => {
+        const th = document.createElement('th');
+        th.className = 'sortable-header';
+        const marker = currentSortField === column.field ? (currentSortOrder === 'asc' ? '↑' : '↓') : '';
+        th.innerHTML = `${escapeHtml(column.title)} <span class="sort-marker">${marker}</span>`;
+        th.addEventListener('click', () => {
+            if (currentSortField === column.field) {
+                currentSortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSortField = column.field;
+                currentSortOrder = 'asc';
+            }
+            loadData();
+        });
+        tableHeaderRow.appendChild(th);
+    });
+
+    if (!rows.length) {
+        tableBody.innerHTML = `<tr><td colspan="${columns.length || 1}" class="text-center text-muted py-5">当前条件下没有数据</td></tr>`;
+        return;
+    }
+
+    tableBody.innerHTML = rows.map((row) => {
+        const cells = columns.map((column) => {
+            const value = row[column.field];
+            if (column.type === 'status') {
+                if (value === 'completed') return '<td><span class="badge bg-success">已完成</span></td>';
+                if (value === 'pending') return '<td><span class="badge bg-warning text-dark">待处理</span></td>';
+            }
+            const displayValue = formatValue(value, column.type);
+            const link = column.link_field ? row[column.link_field] : '';
+            if (link && value !== null && value !== undefined && value !== '') {
+                return `<td><a class="report-doc-link" href="${escapeHtml(link)}">${escapeHtml(displayValue)}</a></td>`;
+            }
+            return `<td>${escapeHtml(displayValue)}</td>`;
+        }).join('');
+        return `<tr>${cells}</tr>`;
+    }).join('');
+}
+
+function renderPagination(total) {
+    pageTotal.textContent = String(total);
+    totalPages = Math.max(1, Math.ceil(total / pageSize));
+    paginationNav.innerHTML = '';
+    if (totalPages <= 1) return;
+
+    const items = [];
+    items.push({ label: '上一页', page: currentPage - 1, disabled: currentPage === 1, active: false });
+
+    const start = Math.max(1, currentPage - 2);
+    const end = Math.min(totalPages, currentPage + 2);
+    if (start > 1) {
+        items.push({ label: '1', page: 1, disabled: false, active: currentPage === 1 });
+        if (start > 2) items.push({ label: '...', page: 0, disabled: true, active: false });
+    }
+    for (let page = start; page <= end; page += 1) {
+        items.push({ label: String(page), page, disabled: false, active: page === currentPage });
+    }
+    if (end < totalPages) {
+        if (end < totalPages - 1) items.push({ label: '...', page: 0, disabled: true, active: false });
+        items.push({ label: String(totalPages), page: totalPages, disabled: false, active: currentPage === totalPages });
+    }
+    items.push({ label: '下一页', page: currentPage + 1, disabled: currentPage === totalPages, active: false });
+
+    items.forEach((item) => {
+        const li = document.createElement('li');
+        li.className = `page-item${item.disabled ? ' disabled' : ''}${item.active ? ' active' : ''}`;
+        const link = document.createElement(item.disabled ? 'span' : 'a');
+        link.className = 'page-link';
+        link.textContent = item.label;
+        if (!item.disabled && item.page) {
+            link.href = '#';
+            link.addEventListener('click', (event) => {
+                event.preventDefault();
+                currentPage = item.page;
+                loadData();
+            });
+        }
+        li.appendChild(link);
+        paginationNav.appendChild(li);
+    });
+}
+
+async function loadData() {
+    setLoading(true);
+    try {
+        const response = await fetch(`/report/api/${encodeURIComponent(reportType)}?${buildParams().toString()}`);
+        const result = await response.json();
+        if (!response.ok || result.status !== 'success') {
+            throw new Error(result.msg || '报表查询失败');
+        }
+        renderSummary(result.summary || {});
+        renderTable(result.columns || [], result.data || []);
+        renderPagination(result.total || 0);
+    } catch (error) {
+        tableBody.innerHTML = `<tr><td class="text-center text-danger py-5">${escapeHtml(error.message || '报表查询失败')}</td></tr>`;
+        tableHeaderRow.innerHTML = '<th>错误</th>';
+        paginationNav.innerHTML = '';
+        pageTotal.textContent = '0';
+    } finally {
+        setLoading(false);
+    }
+}
+
+loadData();
+</script>
+
+<style>
+.filter-card.collapsed form {
+    display: none;
+}
+
+.sortable-header {
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.sortable-header .sort-marker {
+    font-size: 0.75rem;
+    opacity: 0.8;
+}
+
+.page-size-select {
+    width: 74px;
+}
+
+.report-doc-link {
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.report-doc-link:hover {
+    text-decoration: underline;
+}
+
+.loading-mask {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(20, 26, 36, 0.4);
+    z-index: 1100;
+}
+
+@media print {
+    .document-menu-bar,
+    .filter-card,
+    .pagination,
+    .loading-mask {
+        display: none !important;
+    }
+}
+</style>
+{% endblock %}

@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}工程BOM详情{% endblock %}
+{% block content %}
+{% set bom_refresh_url = url_for('bom_detail', bom_key=bom.bom_no) if bom and bom.bom_no else request.path %}
+{% set bom_status_key = bom.status_key if bom and bom.status_key else 'draft' %}
+{{ document_menu_bar(actions=[
+    {'label': '导入', 'type': 'link', 'href': url_for('bom_import')},
+    {'label': '修改', 'type': 'link', 'href': url_for('bom_edit', bom_key=bom.bom_no) if bom else '#', 'disabled': not bom or bom_status_key != 'draft'},
+    {'label': '复制为新BOM', 'type': 'link', 'href': url_for('bom_copy', bom_key=bom.bom_no) if bom else '#', 'disabled': not bom},
+    {'label': '审核', 'type': 'button', 'button_type': 'submit', 'form': 'bomApproveForm', 'disabled': not bom or bom_status_key != 'draft'},
+    {'label': '反审核', 'type': 'button', 'button_type': 'submit', 'form': 'bomUnapproveForm', 'disabled': not bom or bom_status_key != 'released'},
+    {'label': '状态', 'type': 'dropdown', 'items': [
+        {'label': '冻结', 'type': 'button', 'button_type': 'submit', 'form': 'bomFreezeForm', 'disabled': not bom or not bom.can_freeze},
+        {'label': '作废', 'type': 'button', 'button_type': 'submit', 'form': 'bomObsoleteForm', 'disabled': not bom or not bom.can_obsolete},
+        {'label': '恢复草稿', 'type': 'button', 'button_type': 'submit', 'form': 'bomRestoreDraftForm', 'disabled': not bom or not bom.can_restore_draft}
+    ]},
+    {'label': '结构', 'type': 'link', 'href': url_for('bom_structure', bom_key=bom.bom_no) if bom else '#', 'disabled': not bom},
+    {'label': '下查', 'type': 'dropdown', 'items': [
+        {'label': '齐套检查', 'type': 'link', 'href': bom_drilldown.links.kitting if bom and bom_drilldown else '/engineering/kitting', 'disabled': not bom},
+        {'label': '相关工单', 'type': 'link', 'href': bom_drilldown.links.work_orders if bom and bom_drilldown else '/work-orders', 'disabled': not bom},
+        {'label': '采购/MRP需求', 'type': 'link', 'href': bom_drilldown.links.mrp if bom and bom_drilldown else '/production-enhance/mrp-requirements', 'disabled': not bom},
+        {'label': '使用此BOM的产品/工单', 'type': 'link', 'href': '#bom-drilldown-usage', 'disabled': not bom}
+    ]},
+    {'label': '导出', 'type': 'dropdown', 'items': [
+        {'label': '导出当前BOM明细', 'type': 'link', 'href': url_for('bom_detail_export', bom_key=bom.bom_no) if bom else '#', 'disabled': not bom},
+        {'label': '导出BOM清单', 'type': 'link', 'href': '/bom?export=csv'},
+        {'label': '下载导入模板', 'type': 'link', 'href': url_for('bom_import_template')}
+    ]}
+]) }}
+
+<div id="doc-nav-config" data-nav-table="boms" data-nav-base="/bom/" data-doc-id="{{ bom.id if bom else '' }}" style="display:none"></div>
+
+{% if not bom %}
+<div class="page-card">未找到 BOM。</div>
+{% else %}
+{% set bom_material_url = url_for('material_detail', product_id=bom.product_id) if bom.product_id else ('/material?keyword=' ~ (bom.product_code|urlencode) if bom.product_code else '/material') %}
+<form id="bomApproveForm" method="post" action="{{ url_for('bom_approve', bom_key=bom.bom_no) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="opinion" value="详情页审核通过"></form>
+<form id="bomUnapproveForm" method="post" action="{{ url_for('bom_unapprove', bom_key=bom.bom_no) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="reason" value="详情页反审核"></form>
+<form id="bomFreezeForm" method="post" action="{{ url_for('bom_freeze', bom_key=bom.bom_no) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+<form id="bomObsoleteForm" method="post" action="{{ url_for('bom_obsolete', bom_key=bom.bom_no) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+<form id="bomRestoreDraftForm" method="post" action="{{ url_for('bom_restore_draft', bom_key=bom.bom_no) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+
+<div class="page-card mb-3">
+    <div class="d-flex justify-content-between align-items-start gap-3">
+        <div>
+            <h1 class="h4 mb-1">{{ bom.bom_no|clean_text }}</h1>
+            <div class="text-muted">{{ bom.product_code|clean_text or '物料档案缺失' }} / {{ bom.product_name_display }}{% if bom.product_specification_display and bom.product_specification_display != '-' %} / {{ bom.product_specification_display }}{% endif %}</div>
+        </div>
+        <span class="badge text-bg-primary">{{ bom.status_label|clean_text or '未定' }}</span>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-3"><div class="metric"><div class="label">版本</div><div class="value h5">{{ bom.version or '-' }}</div></div></div>
+    <div class="col-md-3"><div class="metric"><div class="label">类型</div><div class="value h5">{{ bom.bom_type_label or '-' }}</div></div></div>
+    <div class="col-md-3"><div class="metric"><div class="label">生效日期</div><div class="value h5">{{ bom.effective_date or '-' }}</div></div></div>
+    <div class="col-md-3"><div class="metric"><div class="label">子项数</div><div class="value">{{ items|length }}</div></div></div>
+</div>
+
+<div class="alert alert-info py-2 mb-3"><strong>使用边界：</strong>本页仅用于查看 BOM 主数据和组成明细；齐套、领料、工单、成本和MRP执行不在本页处理。</div>
+{% if quality_issues %}
+<div class="alert alert-warning py-2 mb-3"><strong>主数据需要修正：</strong>{{ quality_issues|join('；') }}</div>
+{% endif %}
+
+<div class="page-card mb-3">
+    <h2 class="h5 mb-3">BOM基础信息</h2>
+    <dl class="row mb-0">
+        <dt class="col-sm-2">BOM编号</dt><dd class="col-sm-4">{{ bom.bom_no|clean_text }}</dd>
+        <dt class="col-sm-2">适用产品</dt><dd class="col-sm-4">{{ bom.product_code|clean_text or '物料档案缺失' }} {{ bom.product_name_display }}</dd>
+        <dt class="col-sm-2">产品规格</dt><dd class="col-sm-4">{{ bom.product_specification_display }}</dd>
+        <dt class="col-sm-2">产品单位</dt><dd class="col-sm-4">{{ bom.product_unit_display }}</dd>
+        <dt class="col-sm-2">失效日期</dt><dd class="col-sm-4">{{ bom.expiry_date or '-' }}</dd>
+        <dt class="col-sm-2">状态</dt><dd class="col-sm-4">{{ bom.status_label|clean_text or '未定' }}</dd>
+    </dl>
+</div>
+
+<div class="page-card mb-3">
+    <div class="d-flex justify-content-between align-items-center gap-2 mb-3"><h2 class="h5 mb-0">BOM版本列表</h2><a class="btn btn-outline-primary btn-sm" href="{{ url_for('bom_copy', bom_key=bom.bom_no, upgrade=1) }}">复制升版</a></div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+            <thead><tr><th>当前</th><th>BOM编号</th><th>版本</th><th>状态</th><th>类型</th><th>生效日期</th><th>失效日期</th><th class="text-end">子项数</th><th>异常</th><th>入口</th></tr></thead>
+            <tbody>
+            {% for version in bom_versions %}
+            <tr class="{% if version.date_conflict %}table-warning{% endif %}">
+                <td>{% if version.is_current %}<span class="badge text-bg-primary">当前</span>{% else %}<span class="text-muted">-</span>{% endif %}</td>
+                <td>{{ version.bom_no|clean_text }}</td><td>{{ version.version|clean_text or '-' }}</td><td>{{ version.status_label|clean_text or '-' }}</td><td>{{ version.bom_type_label|clean_text or '-' }}</td><td>{{ version.effective_date or '-' }}</td><td>{{ version.expiry_date or '-' }}</td><td class="text-end">{{ version.item_count or 0 }}</td>
+                <td>{% if version.date_conflict %}<span class="badge text-bg-warning">有效期重叠</span>{% else %}<span class="text-muted">-</span>{% endif %}</td>
+                <td class="text-nowrap"><a class="btn btn-outline-primary btn-sm" href="{{ version.detail_url }}">详情</a> <a class="btn btn-outline-secondary btn-sm" href="{{ version.copy_upgrade_url }}">复制升版</a></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="10" class="text-muted">暂无同一适用产品的其它BOM版本。</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="page-card mb-3" id="bom-drilldown">
+    <div class="d-flex justify-content-between align-items-center gap-3 mb-3">
+        <h2 class="h5 mb-0">BOM下查</h2>
+        <span class="text-muted small">只读查询入口；本区不执行库存、工单、采购或MRP动作。</span>
+    </div>
+    <div class="row g-3 mb-3">
+        <div class="col-md-3"><div class="metric"><div class="label">相关工单</div><div class="value">{{ bom_drilldown.work_order_summary.order_count or 0 }}</div><div class="text-muted small">未关闭 {{ bom_drilldown.work_order_summary.open_count or 0 }}</div></div></div>
+        <div class="col-md-3"><div class="metric"><div class="label">工单计划数</div><div class="value">{{ bom_drilldown.work_order_summary.planned_qty|qty }}</div><div class="text-muted small"><a href="{{ bom_drilldown.links.work_orders }}">查看工单列表</a></div></div></div>
+        <div class="col-md-3"><div class="metric"><div class="label">MRP需求</div><div class="value">{{ bom_drilldown.mrp_summary.requirement_count or 0 }}</div><div class="text-muted small">缺料 {{ bom_drilldown.mrp_summary.shortage_qty|qty }}</div></div></div>
+        <div class="col-md-3"><div class="metric"><div class="label">采购未到</div><div class="value">{{ bom_drilldown.purchase_summary.pending_qty|qty }}</div><div class="text-muted small">订单 {{ bom_drilldown.purchase_summary.order_count or 0 }}</div></div></div>
+    </div>
+    <div class="d-flex flex-wrap gap-2 mb-3">
+        <a class="btn btn-outline-primary btn-sm" href="{{ bom_drilldown.links.kitting }}">齐套检查</a>
+        <a class="btn btn-outline-primary btn-sm" href="{{ bom_drilldown.links.work_orders }}">相关工单</a>
+        <a class="btn btn-outline-primary btn-sm" href="{{ bom_drilldown.links.mrp }}">MRP缺料</a>
+        <a class="btn btn-outline-secondary btn-sm" href="{{ bom_drilldown.links.purchase_requests }}">采购申请</a>
+        <a class="btn btn-outline-secondary btn-sm" href="{{ bom_drilldown.links.purchase_orders }}">采购订单</a>
+    </div>
+    <div class="row g-3">
+        <div class="col-lg-6">
+            <h3 class="h6">最近相关工单</h3>
+            <div class="table-responsive"><table class="table table-sm align-middle mb-0"><thead><tr><th>工单</th><th>项目/机号</th><th>数量</th><th>状态</th><th>计划完工</th></tr></thead><tbody>
+            {% for row in bom_drilldown.recent_work_orders %}
+            <tr><td><a href="/work-orders/{{ row.id }}">{{ row.wo_no|clean_text or row.id }}</a></td><td>{{ row.project_code|clean_text or '-' }} / {{ row.serial_no|clean_text or '-' }}</td><td>{{ row.quantity|qty }}</td><td>{{ row.status|erp_value|clean_text or '-' }}</td><td>{{ row.planned_end_date or '-' }}</td></tr>
+            {% else %}
+            <tr><td colspan="5" class="text-muted">暂无使用此BOM或适用产品的工单。</td></tr>
+            {% endfor %}
+            </tbody></table></div>
+        </div>
+        <div class="col-lg-6">
+            <h3 class="h6">采购/MRP需求</h3>
+            <div class="table-responsive"><table class="table table-sm align-middle mb-0"><thead><tr><th>物料</th><th>项目/机号</th><th class="text-end">需求</th><th class="text-end">缺料</th><th>需求日</th></tr></thead><tbody>
+            {% for row in bom_drilldown.mrp_rows %}
+            <tr><td>{{ row.product_code|clean_text or '-' }} {{ row.product_name|clean_text or '' }}</td><td>{{ row.project_code|clean_text or '-' }} / {{ row.serial_no|clean_text or '-' }}</td><td class="text-end">{{ row.quantity|qty }}</td><td class="text-end">{{ row.shortage_quantity|qty }}</td><td>{{ row.requirement_date or '-' }}</td></tr>
+            {% else %}
+            <tr><td colspan="5" class="text-muted">暂无当前BOM父项或子项关联MRP需求。</td></tr>
+            {% endfor %}
+            </tbody></table></div>
+        </div>
+    </div>
+</div>
+
+<div class="page-card mb-3" id="bom-drilldown-usage">
+    <h2 class="h5 mb-3">使用此BOM的产品/工单</h2>
+    <div class="row g-3">
+        <div class="col-lg-6">
+            <h3 class="h6">上级BOM</h3>
+            <div class="table-responsive"><table class="table table-sm align-middle mb-0"><thead><tr><th>BOM编号</th><th>版本</th><th>适用产品</th><th>状态</th></tr></thead><tbody>
+            {% for row in bom_drilldown.used_by_boms %}
+            <tr><td><a href="/bom/{{ row.bom_no|urlencode }}">{{ row.bom_no|clean_text }}</a></td><td>{{ row.version|clean_text or '-' }}</td><td>{{ row.product_code|clean_text or '-' }} {{ row.product_name|clean_text or '' }}</td><td>{{ row.status|erp_value|clean_text or '-' }}</td></tr>
+            {% else %}
+            <tr><td colspan="4" class="text-muted">暂无其它BOM把当前适用产品作为子项。</td></tr>
+            {% endfor %}
+            </tbody></table></div>
+        </div>
+        <div class="col-lg-6">
+            <h3 class="h6">采购订单子项</h3>
+            <div class="table-responsive"><table class="table table-sm align-middle mb-0"><thead><tr><th>采购单</th><th>物料</th><th class="text-end">数量</th><th class="text-end">未到</th><th>状态</th></tr></thead><tbody>
+            {% for row in bom_drilldown.purchase_rows %}
+            <tr><td>{% if row.id %}<a href="/purchase_order/{{ row.id }}">{{ row.order_no|clean_text or row.id }}</a>{% else %}-{% endif %}</td><td>{{ row.product_code|clean_text or '-' }} {{ row.product_name|clean_text or '' }}</td><td class="text-end">{{ row.quantity|qty }}</td><td class="text-end">{{ row.pending_qty|qty }}</td><td>{{ row.status|erp_value|clean_text or '-' }}</td></tr>
+            {% else %}
+            <tr><td colspan="5" class="text-muted">暂无当前BOM父项或子项关联采购订单。</td></tr>
+            {% endfor %}
+            </tbody></table></div>
+        </div>
+    </div>
+</div>
+
+<div class="page-card mb-3">
+    <h2 class="h5 mb-3">组成物料</h2>
+    <div class="table-responsive"><table class="table table-sm align-middle"><thead><tr><th>物料编码</th><th>物料名称</th><th>规格</th><th class="text-end">数量</th><th>单位</th><th class="text-end">损耗率%</th><th class="text-end">含损耗用量</th><th>可选替代</th><th>备注</th><th class="text-center">替代料</th></tr></thead><tbody>
+    {% for item in items %}
+    <tr><td>{{ item.product_code|clean_text or '物料档案缺失' }}</td><td>{{ item.product_name_display }}</td><td>{{ item.specification_display }}</td><td class="text-end">{{ item.quantity|qty }}</td><td>{{ item.display_unit_display }}</td><td class="text-end">{{ item.loss_rate|qty }}</td><td class="text-end">{{ item.requirement_with_loss|qty }}</td><td>{{ '可选替代' if item.is_optional else '标准件' }}</td><td>{{ item.remark_display }}</td><td class="text-center">{% if item.id %}<a class="btn btn-outline-info btn-sm py-0 px-2" href="{{ url_for('bom_substitute_list', bom_item_id=item.id) }}" title="替代料管理"><i class="bi bi-diagram-2"></i></a>{% else %}-{% endif %}</td></tr>
+    {% else %}
+    <tr><td colspan="10" class="text-muted">暂无子项。</td></tr>
+    {% endfor %}
+    </tbody></table></div>
+</div>
+
+<div class="page-card">
+    <div class="d-flex justify-content-between align-items-center gap-3 mb-3"><h2 class="h5 mb-0">操作历史</h2><span class="text-muted small">显示新增、修改、复制升版、导入、审核、反审核、冻结、作废、恢复</span></div>
+    {% if bom_history %}
+    <div class="table-responsive"><table class="table table-sm align-middle mb-0"><thead><tr><th>时间</th><th>操作</th><th>操作人</th><th>对象</th><th>说明</th></tr></thead><tbody>{% for log in bom_history %}<tr><td>{{ log.created_at or '-' }}</td><td>{{ log.action|clean_text }}</td><td>{{ log.username|clean_text or '-' }}</td><td>{{ log.target|clean_text or '-' }}</td><td>{{ log.remark|clean_text or '' }}</td></tr>{% endfor %}</tbody></table></div>
+    {% else %}
+    <div class="text-muted">暂无 BOM 操作历史。</div>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

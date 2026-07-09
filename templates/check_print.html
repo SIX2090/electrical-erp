@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>盘点单打印 - {{ check.check_no }}</title>
+    <style>
+        body {
+            font-family: Arial, "Microsoft YaHei", sans-serif;
+            color: #111827;
+            margin: 24px;
+            font-size: 13px;
+        }
+        h1 {
+            text-align: center;
+            font-size: 22px;
+            margin: 0 0 18px;
+            letter-spacing: 0;
+        }
+        .meta {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px 18px;
+            margin-bottom: 18px;
+        }
+        .label { color: #6b7280; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #d1d5db;
+            padding: 7px 8px;
+        }
+        th {
+            background: #f3f4f6;
+            font-weight: 600;
+        }
+        .text-end { text-align: right; }
+        .remark { margin-top: 14px; }
+        @media print {
+            body { margin: 0; }
+        }
+    </style>
+</head>
+<body>
+    <h1>库存盘点单</h1>
+    <div class="meta">
+        <div><span class="label">盘点单号：</span>{{ check.check_no }}</div>
+        <div><span class="label">日期：</span>{{ check.date }}</div>
+        <div><span class="label">状态：</span>{{ '草稿' if check.status == 'pending' else ('已完成' if check.status == 'completed' else check.status) }}</div>
+        <div><span class="label">操作人：</span>{{ check.operator.username if check.operator else '-' }}</div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>序号</th>
+                <th>物料编码</th>
+                <th>物料名称</th>
+                <th>规格</th>
+                <th>单位</th>
+                <th class="text-end">系统库存</th>
+                <th class="text-end">实际库存</th>
+                <th class="text-end">差异</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in check.items %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ item.material.code if item.material else '' }}</td>
+                <td>{{ item.material.name if item.material else '' }}</td>
+                <td>{{ item.material.spec if item.material else '' }}</td>
+                <td>{{ item.material.unit.name if item.material and item.material.unit else '' }}</td>
+                <td class="text-end">{{ "%.2f"|format(item.system_stock or 0) }}</td>
+                <td class="text-end">{{ "%.2f"|format(item.actual_stock or 0) }}</td>
+                <td class="text-end">{{ "%.2f"|format(item.difference or 0) }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="8" style="text-align:center;color:#6b7280;">暂无明细</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <div class="remark"><span class="label">备注：</span>{{ check.remark or '' }}</div>
+    <script>
+        window.addEventListener('load', function() {
+            window.print();
+        });
+    </script>
+</body>
+</html>

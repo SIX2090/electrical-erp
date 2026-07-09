@@ -1,0 +1,339 @@
+/* ==================== Excel风格表格样式 ==================== */
+/* 靛蓝主题 #4F46E5 */
+
+/* ==================== T+ 网格线表格包装器 ==================== */
+.excel-wrapper {
+    position: relative;
+    border: 1px solid #D9D9D9;
+    overflow: hidden;
+    background: #fff;
+}
+
+.excel-table {
+    width: 100%;
+    border-collapse: collapse;
+    border-spacing: 0;
+    margin: 0;
+    table-layout: auto;
+}
+.excel-table thead th {
+    background: #FAFAFA;
+    color: #333;
+    font-weight: 500;
+    font-size: 12px;
+    text-transform: none;
+    letter-spacing: 0;
+    padding: 7px 8px;
+    border: 1px solid #E8E8E8;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    text-align: center;
+    height: 34px;
+}
+.excel-table tbody td {
+    padding: 5px 8px;
+    font-size: 12px;
+    border: 1px solid #E8E8E8;
+    vertical-align: middle;
+    color: #333;
+    height: 30px;
+}
+.excel-table tbody tr:nth-child(even) td {
+    background-color: #FAFAFA;
+}
+.excel-table tbody tr:nth-child(odd) td {
+    background-color: #fff;
+}
+.excel-table tbody tr:hover td {
+    background-color: #E6F7FF !important;
+    border-color: #91D5FF;
+}
+.excel-table tbody tr:last-child td {
+    border-bottom-color: #E8E8E8;
+}
+.excel-table .row-num {
+    width: 44px;
+    text-align: center;
+    color: #999;
+    font-size: 12px;
+    background: transparent !important;
+    user-select: none;
+}
+.excel-table .amount-col {
+    text-align: right;
+    font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+    font-variant-numeric: tabular-nums;
+}
+.excel-table .detail-hidden {
+    display: none !important;
+}
+
+/* 单元格选中状态 */
+.cell-selected {
+    outline: 2px solid #4F46E5 !important;
+    outline-offset: -2px;
+    background-color: #EEF2FF !important;
+    position: relative;
+    z-index: 1;
+}
+
+/* 单元格编辑状态 */
+.cell-editing {
+    background-color: #fff !important;
+    padding: 0 !important;
+}
+
+/* Excel风格输入框 */
+.excel-edit-input {
+    width: 100%;
+    height: 100%;
+    border: 2px solid #4F46E5;
+    padding: 0.5rem;
+    font-size: inherit;
+    font-family: inherit;
+    text-align: inherit;
+    background: white;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.excel-edit-input:focus {
+    border-color: #4338CA;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+}
+
+/* 可编辑单元格样式 */
+.editable-cell {
+    cursor: cell;
+    position: relative;
+    transition: background-color 0.15s ease;
+}
+
+.editable-cell:hover:not(.cell-editing) {
+    background-color: #EEF2FF !important;
+}
+
+.editable-cell:focus {
+    outline: none;
+}
+
+/* 可编辑单元格右下角标记 */
+.editable-cell::after {
+    content: '';
+    position: absolute;
+    right: 2px;
+    bottom: 2px;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 0 0 6px 6px;
+    border-color: transparent transparent #94a3b8 transparent;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.editable-cell:hover::after {
+    opacity: 0.5;
+}
+
+.cell-selected::after {
+    opacity: 1;
+    border-color: transparent transparent #4F46E5 transparent;
+}
+
+/* 表格行悬停效果增强 */
+.order-table tbody tr:hover {
+    background-color: #EEF2FF;
+}
+
+.order-table tbody tr[data-id] {
+    transition: background-color 0.15s ease;
+}
+
+/* 键盘导航提示 */
+.keyboard-hint {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: rgba(55, 48, 163, 0.95);
+    color: white;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 0.3s, transform 0.3s;
+    pointer-events: none;
+}
+
+.keyboard-hint.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.keyboard-hint .hint-title {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.keyboard-hint .hint-list {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.25rem 0.75rem;
+    font-size: 0.7rem;
+}
+
+.keyboard-hint .hint-key {
+    background: rgba(255, 255, 255, 0.2);
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+    font-family: monospace;
+    font-weight: 600;
+}
+
+/* 加载状态 */
+.cell-loading {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+}
+
+/* 错误状态 */
+.cell-error {
+    background-color: #FEF2F2 !important;
+    animation: shake 0.3s;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+}
+
+/* 成功状态 */
+.cell-success {
+    background-color: #ECFDF5 !important;
+    animation: pulse-success 0.5s;
+}
+
+@keyframes pulse-success {
+    0%, 100% { background-color: #ECFDF5; }
+    50% { background-color: #D1FAE5; }
+}
+
+/* 批量选择模式 */
+.batch-select-mode .editable-cell {
+    cursor: pointer;
+}
+
+.batch-select-mode .cell-selected {
+    background-color: #C7D2FE !important;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .keyboard-hint {
+        display: none;
+    }
+
+    .excel-edit-input {
+        font-size: 16px; /* 防止iOS自动缩放 */
+    }
+}
+
+/* 表格焦点状态 */
+.order-table:focus-within {
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+/* 禁用状态 */
+.editable-cell.disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+    background-color: #F3F4F6 !important;
+}
+
+.editable-cell.disabled:hover::after {
+    display: none;
+}
+
+/* 数字输入框样式优化 */
+.excel-edit-input[type="number"] {
+    -moz-appearance: textfield;
+}
+
+.excel-edit-input[type="number"]::-webkit-outer-spin-button,
+.excel-edit-input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+/* 复制粘贴反馈 */
+.cell-copied {
+    animation: copy-flash 0.3s;
+}
+
+@keyframes copy-flash {
+    0%, 100% { background-color: inherit; }
+    50% { background-color: #FFFBEB; }
+}
+
+/* 多选框样式优化 */
+.order-table input[type="checkbox"] {
+    cursor: pointer;
+    width: 16px;
+    height: 16px;
+}
+
+.order-table input[type="checkbox"]:focus {
+    outline: 2px solid #4F46E5;
+    outline-offset: 2px;
+}
+
+/* 表格单元格内边距统一 */
+.order-table td {
+    padding: 0.75rem 0.5rem;
+    vertical-align: middle;
+}
+
+.order-table td.editable-cell {
+    padding: 0.75rem 0.5rem;
+}
+
+.order-table td.cell-editing {
+    padding: 0;
+}
+
+/* 序号列样式 */
+.order-table .row-num {
+    display: inline-block;
+    min-width: 24px;
+    text-align: center;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+/* 金额列高亮 */
+.order-table td.fw-bold.text-danger {
+    font-size: 0.95rem;
+}
+
+/* 合计行样式增强 */
+.order-table tfoot .total-row {
+    background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
+    font-weight: 600;
+}
+
+.order-table tfoot .total-row td {
+    padding: 1rem 0.5rem;
+    border-top: 2px solid #FDE68A;
+}

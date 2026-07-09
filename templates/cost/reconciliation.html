@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}{{ title }}{% endblock %}
+{% block header_title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <h1>{{ title }}</h1>
+    <p>{{ subtitle }}</p>
+</div>
+
+{{ document_menu_bar(actions=[
+    {'label': '成本引擎首页', 'type': 'link', 'href': '/cost'},
+    {'label': '成本运行列表', 'type': 'link', 'href': '/cost/runs'}
+], aria_label='成本对账操作菜单') }}
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>发起成本对账</h2>
+            <span>选择对账类型，按期间、项目号、机号对比业务成本与库存/总账成本。</span>
+        </div>
+        <span class="badge text-bg-light">document entry</span>
+    </div>
+    <form id="costReconciliationForm" class="row g-2" method="post" action="/cost/reconciliation/run">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="col-lg-3">
+            <label class="form-label small">对账类型</label>
+            <select class="form-select" name="reconciliation_type">
+                <option value="business_vs_inventory">业务成本 vs 库存成本</option>
+                <option value="business_vs_gl">业务成本 vs 总账成本</option>
+            </select>
+        </div>
+        <div class="col-lg-2">
+            <label class="form-label small">期间</label>
+            <input class="form-control" name="period" placeholder="如 2026-06">
+        </div>
+        <div class="col-lg-2">
+            <label class="form-label small">项目号</label>
+            <input class="form-control" name="project_code" placeholder="项目号">
+        </div>
+        <div class="col-lg-2">
+            <label class="form-label small">机号</label>
+            <input class="form-control" name="serial_no" placeholder="机号">
+        </div>
+        <div class="col-lg-3 d-grid align-self-end">
+            <button class="btn btn-primary" type="submit"><i class="bi bi-arrow-left-right"></i> 执行成本对账</button>
+        </div>
+    </form>
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>对账结果列表</h2>
+            <span>最近 200 条对账结果，差异为 0 表示平衡。</span>
+        </div>
+        <span class="badge text-bg-light">readonly / 只读</span>
+    </div>
+    <form class="row g-2 mb-2" method="get">
+        <div class="col-lg-2">
+            <input class="form-control" name="period" value="{{ filters.period }}" placeholder="期间">
+        </div>
+        <div class="col-lg-2">
+            <input class="form-control" name="project_code" value="{{ filters.project_code }}" placeholder="项目号">
+        </div>
+        <div class="col-lg-2">
+            <input class="form-control" name="serial_no" value="{{ filters.serial_no }}" placeholder="机号">
+        </div>
+        <div class="col-lg-2">
+            <select class="form-select" name="status">
+                <option value="">全部状态</option>
+                <option value="balanced" {% if filters.status == 'balanced' %}selected{% endif %}>平衡</option>
+                <option value="unbalanced" {% if filters.status == 'unbalanced' %}selected{% endif %}>不平衡</option>
+                <option value="open" {% if filters.status == 'open' %}selected{% endif %}>待处理</option>
+            </select>
+        </div>
+        <div class="col-lg-1 d-grid">
+            <button class="btn btn-primary" type="submit"><i class="bi bi-search"></i></button>
+        </div>
+    </form>
+    <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>ID</th>
+                    <th>期间</th>
+                    <th>项目号</th>
+                    <th>机号</th>
+                    <th class="text-end">业务成本</th>
+                    <th class="text-end">库存成本</th>
+                    <th class="text-end">总账成本</th>
+                    <th class="text-end">差异</th>
+                    <th>状态</th>
+                    <th>备注</th>
+                    <th>创建时间</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in results %}
+                <tr>
+                    <td>{{ r.id }}</td>
+                    <td>{{ r.period or '-' }}</td>
+                    <td>{{ r.project_code or '-' }}</td>
+                    <td>{{ r.serial_no or '-' }}</td>
+                    <td class="text-end">{{ money(r.business_cost) }}</td>
+                    <td class="text-end">{{ money(r.inventory_cost) }}</td>
+                    <td class="text-end">{{ money(r.gl_cost) }}</td>
+                    <td class="text-end">
+                        {% if r.difference and r.difference != 0 %}
+                        <strong class="text-danger">{{ money(r.difference) }}</strong>
+                        {% else %}
+                        <span class="text-success">{{ money(r.difference) }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if r.status == 'balanced' %}
+                        <span class="badge text-bg-success">平衡</span>
+                        {% elif r.status == 'unbalanced' %}
+                        <span class="badge text-bg-danger">不平衡</span>
+                        {% else %}
+                        <span class="badge text-bg-secondary">{{ r.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ r.remark or '-' }}</td>
+                    <td>{{ r.created_at }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="11" class="text-center text-muted">暂无对账结果</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

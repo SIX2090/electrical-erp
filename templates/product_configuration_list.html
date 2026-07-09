@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}产品选配单{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <h1>产品选配单</h1>
+    <p>按销售订单、项目号、机号和机型记录客户配置需求，由工程确认后链接项目BOM。</p>
+</div>
+
+<div class="page-card">
+    <div class="section-title">
+        <div>
+            <h2>选配单列表</h2>
+            <span>{{ rows|length }} 条记录</span>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <form class="d-flex flex-wrap gap-2" method="get">
+                <input class="form-control form-control-sm" name="keyword" value="{{ request.args.get('keyword', request.args.get('q', '')) }}" placeholder="选配单/销售订单/客户/项目号/机号/机型">
+                <select class="form-select form-select-sm" name="status">
+                    <option value="">全部状态</option>
+                    {% for key, label in statuses.items() %}
+                    <option value="{{ key }}" {% if request.args.get('status') == key %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <button class="btn btn-outline-primary btn-sm" type="submit"><i class="bi bi-search"></i> 查询</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+            <tr>
+                <th>选配单</th>
+                <th>来源单据</th>
+                <th>客户</th>
+                <th>项目/机号</th>
+                <th>产品/机型</th>
+                <th>BOM</th>
+                <th class="text-end">选项</th>
+                <th>状态</th>
+                <th>责任人</th>
+                <th>阻塞原因</th>
+                <th>下一步</th>
+                <th>下游影响</th>
+                <th>操作</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for row in rows %}
+            <tr>
+                <td><a href="/product-configurations/{{ row.id }}">{{ row.config_no|clean_text }}</a><div class="text-muted small">{{ row.config_date or '-' }}</div></td>
+                <td>
+                    <div>{{ row.sales_order_no|clean_text or row.quotation_no|clean_text or '-' }}</div>
+                    <div class="text-muted small">销售/报价来源</div>
+                </td>
+                <td>{{ row.customer_name|clean_text or '-' }}</td>
+                <td>{{ row.project_code|clean_text or '-' }} / {{ row.serial_no|clean_text or '-' }}</td>
+                <td>
+                    <div>{{ row.product_code|clean_text or '-' }} {{ row.product_name|clean_text or '' }}</div>
+                    <div class="text-muted small">{{ row.machine_model|clean_text or '-' }}</div>
+                </td>
+                <td>
+                    <div>{{ row.base_bom_display|clean_text or '-' }}</div>
+                    <div class="text-muted small">项目BOM：{{ row.project_bom_display|clean_text or '-' }}</div>
+                </td>
+                <td class="text-end">
+                    <div>{{ row.selected_count or 0 }} / {{ row.item_count or 0 }}</div>
+                    {% if row.required_missing_count or row.open_blocker_count %}
+                    <div class="text-danger small">缺必选 {{ row.required_missing_count or 0 }} / 未关闭 {{ row.open_blocker_count or 0 }}</div>
+                    {% endif %}
+                </td>
+                <td><span class="badge text-bg-{{ 'success' if row.status in ['engineering_confirmed', 'bom_linked'] else 'warning' if row.status in ['draft', 'submitted'] else 'secondary' }}">{{ row.status_label|clean_text }}</span></td>
+                <td>
+                    <div>{{ row.owner|clean_text or '-' }}</div>
+                    <div class="text-muted small">{{ row.engineering_owner|clean_text or '-' }}</div>
+                </td>
+                <td>{{ row.blocked_reason|clean_text or '-' }}</td>
+                <td>{{ row.next_action|clean_text }}</td>
+                <td>{{ row.downstream_impact|clean_text }}</td>
+                <td><a class="btn btn-outline-primary btn-sm" href="/product-configurations/{{ row.id }}">详情</a></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="13" class="text-muted">暂无产品选配单。</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

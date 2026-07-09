@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+{% block title %}管理层驾驶舱{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <h1>管理层驾驶舱</h1>
+    <p>跨模块 KPI 汇总：销售在手订单、生产进度、库存估值、应收账龄、财务现金头寸。数据截至 {{ kpis.generated_at }}。</p>
+</div>
+
+{% if kpis.get("error") %}
+<div class="alert alert-danger">
+    <i class="bi bi-exclamation-triangle"></i> 数据加载异常：{{ kpis.error }}
+</div>
+{% endif %}
+
+<div class="row g-3 mb-3">
+    <div class="col-md-3">
+        <div class="card kpi-card bg-primary text-white">
+            <div class="card-body">
+                <div class="kpi-label"><i class="bi bi-bag-check"></i> 在手订单</div>
+                <div class="kpi-value">{{ kpis.sales.backlog_orders }}</div>
+                <div class="kpi-sub">金额 ¥{{ "%.0f"|format(kpis.sales.backlog_amount or 0) }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card kpi-card bg-success text-white">
+            <div class="card-body">
+                <div class="kpi-label"><i class="bi bi-truck"></i> 本月发货</div>
+                <div class="kpi-value">{{ kpis.sales.month_shipments }}</div>
+                <div class="kpi-sub">金额 ¥{{ "%.0f"|format(kpis.sales.month_shipped_amount or 0) }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card kpi-card bg-info text-white">
+            <div class="card-body">
+                <div class="kpi-label"><i class="bi bi-gear-wide-connected"></i> 在产工单</div>
+                <div class="kpi-value">{{ kpis.production.wip_count }}</div>
+                <div class="kpi-sub">待产数量 {{ "%.0f"|format(kpis.production.wip_pending_qty or 0) }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card kpi-card bg-warning text-dark">
+            <div class="card-body">
+                <div class="kpi-label"><i class="bi bi-exclamation-circle"></i> 逾期工单</div>
+                <div class="kpi-value">{{ kpis.production.overdue_count }}</div>
+                <div class="kpi-sub">完工率 {{ kpis.production.completion_rate or 0 }}%</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-3">
+        <div class="card kpi-card bg-secondary text-white">
+            <div class="card-body">
+                <div class="kpi-label"><i class="bi bi-box-seam"></i> 库存 SKU</div>
+                <div class="kpi-value">{{ kpis.inventory.sku_count }}</div>
+                <div class="kpi-sub">估值 ¥{{ "%.0f"|format(kpis.inventory.total_value or 0) }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card kpi-card bg-danger text-white">
+            <div class="card-body">
+                <div class="kpi-label"><i class="bi bi-arrow-down-circle"></i> 低库存预警</div>
+                <div class="kpi-value">{{ kpis.inventory.low_stock_count }}</div>
+                <div class="kpi-sub">本月出入库 {{ kpis.inventory.month_tx_count or 0 }} 笔</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card kpi-card bg-primary text-white">
+            <div class="card-body">
+                <div class="kpi-label"><i class="bi bi-cash-stack"></i> 现金头寸</div>
+                <div class="kpi-value">¥{{ "%.0f"|format(kpis.finance.cash_balance or 0) }}</div>
+                <div class="kpi-sub">净头寸 ¥{{ "%.0f"|format(kpis.finance.net_cash_position or 0) }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card kpi-card bg-success text-white">
+            <div class="card-body">
+                <div class="kpi-label"><i class="bi bi-cart-check"></i> 在途采购</div>
+                <div class="kpi-value">{{ kpis.procurement.open_po_count }}</div>
+                <div class="kpi-sub">金额 ¥{{ "%.0f"|format(kpis.procurement.open_po_amount or 0) }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-receipt"></i> 应收账龄分析</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>账龄区间</th>
+                            <th class="text-end">单据数</th>
+                            <th class="text-end">金额</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% set bucket_labels = {'paid': '已付清', 'current': '未到期', 'overdue_30': '逾期0-30天', 'overdue_60': '逾期31-60天', 'overdue_90': '逾期61-90天', 'overdue_90_plus': '逾期90天以上'} %}
+                        {% for item in kpis.sales.ar_aging %}
+                        <tr>
+                            <td>{{ bucket_labels.get(item.bucket, item.bucket) }}</td>
+                            <td class="text-end">{{ item.count }}</td>
+                            <td class="text-end">¥{{ "%.0f"|format(item.amount) }}</td>
+                        </tr>
+                        {% endfor %}
+                        {% if not kpis.sales.ar_aging %}
+                        <tr><td colspan="3" class="text-center text-muted">暂无应收数据</td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-graph-up"></i> 财务概览</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tbody>
+                        <tr>
+                            <td>现金/银行余额</td>
+                            <td class="text-end">¥{{ "%.0f"|format(kpis.finance.cash_balance or 0) }}</td>
+                        </tr>
+                        <tr>
+                            <td>应收余额</td>
+                            <td class="text-end">¥{{ "%.0f"|format(kpis.finance.ar_total or 0) }}</td>
+                        </tr>
+                        <tr>
+                            <td>应付余额</td>
+                            <td class="text-end">¥{{ "%.0f"|format(kpis.finance.ap_total or 0) }}</td>
+                        </tr>
+                        <tr>
+                            <td>净现金头寸</td>
+                            <td class="text-end"><strong>¥{{ "%.0f"|format(kpis.finance.net_cash_position or 0) }}</strong></td>
+                        </tr>
+                        <tr>
+                            <td>本月凭证数</td>
+                            <td class="text-end">{{ kpis.finance.month_voucher_count or 0 }}</td>
+                        </tr>
+                        <tr>
+                            <td>本月凭证金额</td>
+                            <td class="text-end">¥{{ "%.0f"|format(kpis.finance.month_voucher_amount or 0) }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mt-1">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-gear"></i> 生产概览</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tbody>
+                        <tr>
+                            <td>在产工单</td>
+                            <td class="text-end">{{ kpis.production.wip_count or 0 }}</td>
+                        </tr>
+                        <tr>
+                            <td>在产待产数量</td>
+                            <td class="text-end">{{ "%.0f"|format(kpis.production.wip_pending_qty or 0) }}</td>
+                        </tr>
+                        <tr>
+                            <td>本月完工工单</td>
+                            <td class="text-end">{{ kpis.production.month_completed_count or 0 }}</td>
+                        </tr>
+                        <tr>
+                            <td>本月完工数量</td>
+                            <td class="text-end">{{ "%.0f"|format(kpis.production.month_completed_qty or 0) }}</td>
+                        </tr>
+                        <tr>
+                            <td>逾期工单</td>
+                            <td class="text-end"><span class="badge bg-warning text-dark">{{ kpis.production.overdue_count or 0 }}</span></td>
+                        </tr>
+                        <tr>
+                            <td>完工率</td>
+                            <td class="text-end">{{ kpis.production.completion_rate or 0 }}%</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-boxes"></i> 库存与采购</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tbody>
+                        <tr>
+                            <td>库存 SKU 数</td>
+                            <td class="text-end">{{ kpis.inventory.sku_count or 0 }}</td>
+                        </tr>
+                        <tr>
+                            <td>库存总数量</td>
+                            <td class="text-end">{{ "%.0f"|format(kpis.inventory.total_qty or 0) }}</td>
+                        </tr>
+                        <tr>
+                            <td>库存估值</td>
+                            <td class="text-end">¥{{ "%.0f"|format(kpis.inventory.total_value or 0) }}</td>
+                        </tr>
+                        <tr>
+                            <td>低库存预警</td>
+                            <td class="text-end"><span class="badge bg-danger">{{ kpis.inventory.low_stock_count or 0 }}</span></td>
+                        </tr>
+                        <tr>
+                            <td>在途采购订单</td>
+                            <td class="text-end">{{ kpis.procurement.open_po_count or 0 }}</td>
+                        </tr>
+                        <tr>
+                            <td>待收货采购订单</td>
+                            <td class="text-end">{{ kpis.procurement.pending_receipt_count or 0 }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% block title %}采购报表{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2 class="mb-0"><i class="bi bi-clipboard-data"></i> 采购报表</h2>
+</div>
+
+<section class="purchase-report-hero mb-4">
+    <div>
+        <span class="section-kicker">&#37319;&#36141;&#25253;&#34920;</span>
+        <h3>把采购报表放回采购管理模块</h3>
+        <p class="text-muted mb-0">现有系统已经具备采购申请、采购单、采购入库和供应商资料；本轮已补齐采购执行、供应商、物料和价格分析类核心报表。</p>
+    </div>
+    <a href="{{ url_for('report_view', report_type='in_detail') }}" class="btn btn-primary">
+        <i class="bi bi-box-arrow-in-down"></i> 查看采购入库明细
+    </a>
+</section>
+
+<section class="mb-4">
+    <div class="section-title-row">
+        <h4>现有采购相关报表</h4>
+        <span class="text-muted small">从采购模块直接进入，避免报表分散在报表中心</span>
+    </div>
+    <div class="row g-3">
+        {% for item in available_reports %}
+        <div class="col-md-6 col-xl-3">
+            <a class="purchase-report-card" href="{{ item.url }}">
+                <span class="report-icon"><i class="bi {{ item.icon }}"></i></span>
+                <strong>{{ item.title }}</strong>
+                <span>{{ item.description }}</span>
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+
+<section>
+    <div class="section-title-row">
+        <h4>对比畅捷通 T+ 后续仍可增强</h4>
+        <span class="text-muted small">核心采购统计已具备，后续补更细的执行和趋势分析</span>
+    </div>
+    <div class="card border-0 shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0 purchase-gap-table">
+                <thead>
+                    <tr>
+                        <th>缺少报表</th>
+                        <th>当前差距</th>
+                        <th style="width: 92px;">优先级</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for report in missing_reports %}
+                    <tr>
+                        <td class="fw-semibold">{{ report.name }}</td>
+                        <td class="text-muted">{{ report.gap }}</td>
+                        <td><span class="priority-badge priority-{{ report.priority }}">{{ report.priority }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<style>
+.purchase-report-hero {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.25rem;
+    padding: 1.25rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+}
+
+.purchase-report-hero h3 {
+    margin: 0.35rem 0 0.45rem;
+    font-size: 1.35rem;
+}
+
+.section-kicker {
+    color: #2563eb;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.section-title-row {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.85rem;
+}
+
+.section-title-row h4 {
+    margin: 0;
+    font-size: 1.05rem;
+}
+
+.purchase-report-card {
+    display: flex;
+    min-height: 156px;
+    height: 100%;
+    flex-direction: column;
+    gap: 0.65rem;
+    padding: 1rem;
+    color: #111827;
+    text-decoration: none;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.04);
+}
+
+.purchase-report-card:hover {
+    color: #0d6efd;
+    border-color: #b6d4fe;
+    transform: translateY(-1px);
+}
+
+.purchase-report-card span:last-child {
+    color: #6b7280;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.report-icon {
+    width: 40px;
+    height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background: #eff6ff;
+    color: #2563eb;
+    font-size: 1.25rem;
+}
+
+.purchase-gap-table th {
+    background: #f8fafc;
+    color: #334155;
+    font-weight: 700;
+}
+
+.priority-badge {
+    display: inline-flex;
+    min-width: 44px;
+    justify-content: center;
+    padding: 0.25rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.priority-高 { background: #fee2e2; color: #b91c1c; }
+.priority-中 { background: #fef3c7; color: #92400e; }
+.priority-低 { background: #e0f2fe; color: #0369a1; }
+
+@media (max-width: 768px) {
+    .purchase-report-hero,
+    .section-title-row {
+        align-items: stretch;
+        flex-direction: column;
+    }
+}
+</style>
+{% endblock %}

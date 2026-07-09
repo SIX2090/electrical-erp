@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}工作中心{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <h1>工作中心</h1>
+    <p>{{ subtitle }}</p>
+</div>
+
+<div class="page-card">
+    <div class="section-title">
+        <div>
+            <h2>工作中心主数据</h2>
+            <span>{{ rows|length }} 条记录；用于工艺路线、排程和报工责任识别</span>
+        </div>
+    </div>
+    <form class="row g-2 align-items-end mb-3" method="get">
+        <div class="col-md-5">
+            <label class="form-label small text-muted">搜索</label>
+            <input class="form-control form-control-sm" name="keyword" value="{{ filters.keyword }}" placeholder="中心编码 / 名称 / 归属 / 负责人">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small text-muted">状态</label>
+            <select class="form-select form-select-sm" name="status">
+                <option value="" {% if not filters.status %}selected{% endif %}>全部状态</option>
+                <option value="enabled" {% if filters.status == 'enabled' %}selected{% endif %}>启用</option>
+                <option value="disabled" {% if filters.status == 'disabled' %}selected{% endif %}>停用</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button class="btn btn-outline-primary btn-sm w-100" type="submit"><i class="bi bi-search"></i> 查询</button>
+        </div>
+    </form>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle client-paginate">
+            <thead>
+            <tr>
+                <th style="min-width: 160px;">工作中心</th>
+                <th style="width: 140px;">中心编码</th>
+                <th style="min-width: 240px;">用途说明</th>
+                <th style="width: 120px;">归属</th>
+                <th style="width: 120px;">负责人</th>
+                <th style="width: 90px;">状态</th>
+                <th style="min-width: 170px;">下一步</th>
+                <th style="width: 150px;">操作</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for row in rows %}
+            <tr>
+                <td class="fw-semibold">{{ row.name|clean_text }}</td>
+                <td>{{ row.code|clean_text }}</td>
+                <td>{{ row.description|clean_text or '-' }}</td>
+                <td>{{ row.location|clean_text or '-' }}</td>
+                <td>{{ row.owner_display|clean_text }}</td>
+                <td><span class="badge text-bg-{{ row.status_class }}">{{ row.status_display }}</span></td>
+                <td>{{ row.next_action }}</td>
+                <td>
+                    <div class="btn-group btn-group-sm">
+                        <a class="btn btn-outline-primary" href="/work-centers/{{ row.id }}">详情</a>
+                        <a class="btn btn-outline-secondary" href="/work-centers/{{ row.id }}/edit">编辑</a>
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="8" class="text-muted">暂无工作中心。</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

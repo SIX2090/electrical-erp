@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% from "partials/document_void_stamp.html" import void_stamp %}
+{% block title %}{{ title }} - {{ order.return_no }}{% endblock %}
+{% block content %}
+{% set status = order.status or '' %}
+{% set can_edit = status in ['', '待过账', '待审核', '草稿', 'draft', 'pending', 'unposted'] %}
+{% set can_post = status not in ['已过账', '已关闭'] %}
+{% set can_close = status == '已过账' %}
+{% set can_unaudit = status == '已过账' %}
+{% set can_delete = status in ['', '待过账', '待审核', '草稿', 'draft', 'pending', 'unposted'] %}
+{% set prev_id = order.id - 1 if order.id and order.id > 1 else 1 %}
+{% set doc_no = order.return_no or order.id %}
+{% set trace_keyword = order.project_code or order.serial_no or doc_no %}
+
+{{ document_menu_bar(actions=[
+    {'label': '返回列表', 'type': 'link', 'href': back_url, 'icon': 'bi-arrow-left'},
+    {'type': 'nav', 'items': [
+        {'label': '首张', 'event': 'doc-nav-first', 'icon': 'bi-chevron-double-left'},
+        {'label': '上一张', 'event': 'doc-nav-prev', 'icon': 'bi-chevron-left'},
+        {'label': '下一张', 'event': 'doc-nav-next', 'icon': 'bi-chevron-right'},
+        {'label': '末张', 'event': 'doc-nav-last', 'icon': 'bi-chevron-double-right'}
+    ]},
+    {'label': '编辑', 'type': 'link', 'href': back_url ~ '/' ~ order.id ~ '/edit', 'disabled': not can_edit, 'icon': 'bi-pencil-square'},
+    {'label': '打印', 'type': 'link', 'href': print_url, 'target': '_blank', 'icon': 'bi-printer'},
+    {'label': '审核', 'type': 'button', 'button_type': 'submit', 'form': 'returnPostForm', 'disabled': not can_post, 'icon': 'bi-check2-circle'},
+    {'label': '反审', 'type': 'button', 'button_type': 'submit', 'form': 'returnUnauditForm', 'disabled': not can_unaudit, 'icon': 'bi-arrow-counterclockwise'},
+    {'label': '删除', 'type': 'button', 'button_type': 'submit', 'form': 'returnDeleteForm', 'disabled': not can_delete, 'icon': 'bi-trash', 'title': '' if can_delete else '当前状态不能删除；已过账单据请先反审。'},
+    {'label': '复制', 'type': 'button', 'button_type': 'submit', 'form': 'copyForm', 'icon': 'bi-copy', 'title': '复制为新的草稿单据'},
+    {'label': '取消', 'type': 'button', 'button_type': 'submit', 'form': 'returnCancelForm', 'disabled': not can_post, 'icon': 'bi-x-circle'},
+    {'label': '关闭', 'type': 'button', 'button_type': 'submit', 'form': 'returnCloseForm', 'disabled': not can_close, 'icon': 'bi-lock'},
+    {'label': '工具', 'type': 'dropdown', 'items': [
+        {'label': '来源单据', 'type': 'link', 'href': back_url ~ '?keyword=' ~ ((order.source_no or order.source_order_no or doc_no)|urlencode)},
+        {'label': '明细流水', 'type': 'link', 'href': '/transactions?keyword=' ~ (doc_no|urlencode)},
+        {'label': '批次/机号追溯', 'type': 'link', 'href': '/transactions?keyword=' ~ (trace_keyword|urlencode)},
+        {'label': '附件', 'type': 'link', 'href': '#returnAttachmentsPanel'},
+        {'label': '备注/操作记录', 'type': 'link', 'href': '#returnNotesPanel'}
+    ]}
+], aria_label=title ~ '操作菜单') }}
+{% set nav_table = 'sales_returns' if doc_kind == 'sales_return' else 'purchase_returns' %}
+<div id="doc-nav-config" data-nav-table="{{ nav_table }}" data-nav-base="{{ back_url }}/" data-doc-id="{{ order.id }}" style="display:none"></div>
+
+<div class="d-flex flex-wrap align-items-center gap-2 mb-3 d-none">
+    <div class="btn-group btn-group-sm" role="group" aria-label="单据翻页">
+        <a class="btn btn-outline-secondary" data-doc-nav="first" href="{{ back_url }}/1">首张</a>
+        <a class="btn btn-outline-secondary" data-doc-nav="previous" href="{{ back_url }}/{{ prev_id }}">上一张</a>
+        <a class="btn btn-outline-secondary" data-doc-nav="next" href="{{ back_url }}/{{ order.id + 1 }}">下一张</a>
+        <a class="btn btn-outline-secondary" data-doc-nav="last" href="{{ back_url }}?order=id_desc">末张</a>
+    </div>
+</div>
+<form id="returnPostForm" class="d-none" method="post" action="{{ post_url }}" onsubmit="return confirm('确认审核这张退货单？');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+<form id="returnCancelForm" class="d-none" method="post" action="{{ back_url }}/{{ order.id }}/cancel" onsubmit="return confirm('确认取消这张未过账退货单？');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+<form id="returnUnauditForm" class="d-none" method="post" action="{{ back_url }}/{{ order.id }}/unaudit" onsubmit="return confirm('确认反审这张已过账退货单？系统将回滚对应库存流水。');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+<form id="returnCloseForm" class="d-none" method="post" action="{{ back_url }}/{{ order.id }}/close" onsubmit="return confirm('确认关闭这张退货单？关闭后只允许查看追溯。');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+<form id="returnDeleteForm" class="d-none" method="post" action="{{ back_url }}/{{ order.id }}/delete" onsubmit="return confirm('确认删除这张未过账退货单？');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+<form id="copyForm" class="d-none" method="post" action="{{ back_url }}/{{ order.id }}/copy"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+
+<div class="alert alert-info mb-3">
+    <strong>当前状态：</strong>{{ status or '待过账' }}。
+    {% if status == '已过账' %}
+    已写入库存流水，可按退货单号追溯。
+    {% elif status == '已关闭' %}
+    单据已关闭，不允许再过账。
+    {% elif status == '已取消' %}
+    单据已取消，未写入库存。
+    {% else %}
+    请复核{{ partner_label }}、物料、仓库、库位、批号、机号和数量后确认{{ direction_label }}。
+    {% endif %}
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>{{ title }}</h2>
+            <span>{{ doc_no }}</span>
+        </div>
+        <div class="document-title-stamp">
+            {{ void_stamp(status) }}
+            <span class="badge text-bg-primary">{{ status or '待过账' }}</span>
+        </div>
+    </div>
+    <div class="row g-3">
+        <div class="col-md-3"><div class="metric"><div class="label">单据编号</div><div class="value h5">{{ doc_no }}</div></div></div>
+        <div class="col-md-3"><div class="metric"><div class="label">退货日期</div><div class="value h5">{{ order.return_date or '-' }}</div></div></div>
+        <div class="col-md-3"><div class="metric"><div class="label">{{ partner_label }}</div><div class="value h5">{{ order.partner_name or '-' }}</div></div></div>
+        <div class="col-md-3"><div class="metric"><div class="label">来源单</div><div class="value h5">{{ order.source_no or order.source_order_no or '-' }}</div></div></div>
+        <div class="col-md-3"><div class="metric"><div class="label">库存流水</div><div class="value h5">{{ transactions|length }}</div></div></div>
+    </div>
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title"><div><h2>退货明细</h2><span>退货影响库存的物料、仓库、库位、批号和机号</span></div></div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead><tr><th>物料编码</th><th>物料名称</th><th>规格</th><th class="text-end">数量</th><th>单位</th><th class="text-end">库存成本单价</th><th>仓库</th>{% if location_management_enabled %}<th>库位</th>{% endif %}<th>批号</th><th>机号</th><th>项目号</th></tr></thead>
+            <tbody>
+            <tr>
+                <td>{{ order.product_code or order.product_id or '-' }}</td>
+                <td>{{ order.product_name or '-' }}</td>
+                <td>{{ order.specification or '-' }}</td>
+                <td class="text-end">{{ order.quantity|qty }}</td>
+                <td>{{ order.unit or '-' }}</td>
+                <td class="text-end">{{ order.unit_cost|money }}</td>
+                <td>{{ order.warehouse_name or '-' }}</td>
+                {% if location_management_enabled %}<td>{{ order.location_code or order.location_name or '-' }}</td>{% endif %}
+                <td>{{ order.lot_no or '-' }}</td>
+                <td>{{ order.serial_no or '-' }}</td>
+                <td>{{ order.project_code or '-' }}</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="page-card">
+    <div class="section-title"><div><h2>库存流水</h2><span>按退货单号生成的库存流水</span></div></div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead><tr><th>日期</th><th>类型</th><th>物料</th><th>仓库</th><th>库位</th><th class="text-end">数量</th><th class="text-end">成本</th><th>批号</th><th>机号</th></tr></thead>
+            <tbody>
+            {% for tx in transactions %}
+            <tr>
+                <td>{{ tx.transaction_date or '-' }}</td>
+                <td>{{ tx.transaction_type or '-' }}</td>
+                <td>{{ tx.product_code or tx.product_id }} / {{ tx.product_name or '-' }}</td>
+                <td>{{ tx.warehouse_name or '-' }}</td>
+                <td>{{ tx.location_code or tx.location or '-' }}</td>
+                <td class="text-end">{{ tx.quantity|qty }}</td>
+                <td class="text-end">{{ tx.unit_cost|money }}</td>
+                <td>{{ tx.lot_no or '-' }}</td>
+                <td>{{ tx.serial_no or '-' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="9" class="text-muted">暂无库存流水。</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="row g-3 mt-1">
+    <div class="col-lg-6">
+        <div class="page-card h-100" id="returnAttachmentsPanel">
+            <div class="section-title">
+                <div>
+                    <h2>单据附件</h2>
+                    <span>保存退货申请、签收凭证、质检照片和财务依据</span>
+                </div>
+            </div>
+            <form class="row g-2 align-items-end mb-3" method="post" action="{{ action_prefix }}/{{ order.id }}/attachments" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="col-md-5">
+                    <label class="form-label">选择文件</label>
+                    <input class="form-control" type="file" name="file" required>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label">备注</label>
+                    <input class="form-control" name="remark" placeholder="例如：客户退货单、供应商签收单、现场照片">
+                </div>
+                <div class="col-md-2 d-grid">
+                    <button class="btn btn-primary" type="submit"><i class="bi bi-upload"></i> 上传</button>
+                </div>
+            </form>
+            {% if attachments %}
+            <div class="list-group list-group-flush">
+                {% for file in attachments %}
+                <div class="list-group-item px-0">
+                    <div class="d-flex justify-content-between gap-3">
+                        <div class="min-w-0">
+                            <div class="fw-semibold text-truncate">
+                                <a href="{{ url_for('static', filename=file.stored_path) }}" target="_blank">{{ file.file_name }}</a>
+                            </div>
+                            <div class="text-muted small">{{ file.remark or '-' }}</div>
+                            <div class="text-muted small">{{ file.uploaded_at or '-' }} / {{ ((file.file_size or 0) / 1024)|round(1) }} KB</div>
+                        </div>
+                        <form method="post" action="{{ action_prefix }}/{{ order.id }}/attachments/{{ file.id }}/delete">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="btn btn-outline-danger btn-sm" type="submit">删除</button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-muted">暂无附件。</div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="page-card h-100" id="returnNotesPanel">
+            <div class="section-title">
+                <div>
+                    <h2>备注/操作记录</h2>
+                    <span>记录退货原因、复核说明、对账处理和后续跟进</span>
+                </div>
+            </div>
+            {% if order.remark %}
+            <div class="alert alert-light border py-2">单据备注：{{ order.remark }}</div>
+            {% endif %}
+            <form class="row g-2 align-items-end mb-3" method="post" action="{{ action_prefix }}/{{ order.id }}/notes">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="col-md-9">
+                    <label class="form-label">新增备注</label>
+                    <input class="form-control" name="note" placeholder="输入退货原因、审批意见、对账说明或现场说明" required>
+                </div>
+                <div class="col-md-3 d-grid">
+                    <button class="btn btn-primary" type="submit"><i class="bi bi-clock-history"></i> 记录</button>
+                </div>
+            </form>
+            {% if activity_logs %}
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead><tr><th>时间</th><th>人员</th><th>操作</th><th>说明</th></tr></thead>
+                    <tbody>
+                    {% for log in activity_logs %}
+                    <tr>
+                        <td class="text-muted small">{{ log.created_at or '-' }}</td>
+                        <td>{{ log.username or '-' }}</td>
+                        <td>{{ log.action or '-' }}</td>
+                        <td>{{ log.remark or log.target or '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-muted">暂无操作记录。</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

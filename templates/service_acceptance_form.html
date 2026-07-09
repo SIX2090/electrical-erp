@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% set form_acceptance = acceptance|default({}) %}
+{% set source_status = source_status|default({}) %}
+{% block title %}{{ '编辑安装验收' if mode == 'edit' else '新增安装验收' }}{% endblock %}
+{% block content %}
+<form id="serviceAcceptanceForm" method="post" action="{{ action_url|default('/service-acceptance/new') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {{ document_menu_bar(actions=[
+        {'label': '保存', 'type': 'button', 'button_type': 'submit', 'form': 'serviceAcceptanceForm', 'disabled': mode != 'edit' and not service_cards, 'icon': 'bi-save'},
+        {'label': '返回列表', 'type': 'link', 'href': '/service-acceptance', 'icon': 'bi-arrow-left'},
+        {'label': '下查', 'type': 'dropdown', 'items': [
+            {'label': '售后服务单列表', 'type': 'link', 'href': '/service-orders'},
+            {'label': '设备服务档案', 'type': 'link', 'href': '/service-cards'},
+            {'label': '安装验收列表', 'type': 'link', 'href': '/service-acceptance'},
+            {'label': 'RMA列表', 'type': 'link', 'href': '/service-rmas'}
+        ]}
+    ]) }}
+    <div class="page-heading order-form-heading">
+        <div>
+            <h1>{{ '编辑安装验收' if mode == 'edit' else '新增安装验收' }}</h1>
+            <p>从设备服务档案登记安装、调试、培训和交付确认项目。</p>
+        </div>
+        <a class="btn btn-outline-secondary btn-sm d-none" href="/service-acceptance">返回验收列表</a>
+    </div>
+
+    {% if mode != 'edit' and source_status.blocked_reason %}
+    <div class="alert alert-warning" data-testid="service-acceptance-source-blocked">
+        <div class="fw-semibold">{{ source_status.blocked_reason }}</div>
+        <div class="small mt-1">{{ source_status.next_action }}</div>
+    </div>
+    {% endif %}
+
+    <div class="page-card order-form-card">
+        <div class="section-title">
+            <div>
+                <h2>验收表头</h2>
+                <span>选择服务档案后自动带出项目号、机号、客户和机型。</span>
+            </div>
+        </div>
+        <div class="row g-2">
+            <div class="col-md-3">
+                <label class="form-label">验收单号</label>
+                <input class="form-control form-control-sm" type="text" value="{{ form_acceptance.acceptance_no if mode == 'edit' else '' }}" placeholder="保存时自动生成" readonly>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">设备服务档案 <span class="text-danger">*</span></label>
+                <select class="form-select form-select-sm" name="service_card_id" id="serviceCardSelect" required {% if mode != 'edit' and not service_cards %}disabled{% endif %}>
+                    <option value="">请选择</option>
+                    {% for card in service_cards %}
+                    <option value="{{ card.id }}" data-project="{{ card.project_code or '' }}" data-serial="{{ card.serial_no or '' }}" data-customer="{{ card.customer_name or '' }}" data-machine="{{ card.machine_model or '' }}" {% if selected_card_id == card.id %}selected{% endif %}>{{ card.serial_no or card.id }} / {{ card.project_code or '-' }} / {{ card.customer_name or '-' }} / {{ card.machine_model or '-' }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3"><label class="form-label">验收日期</label><input class="form-control form-control-sm" type="date" name="check_date" value="{{ form_acceptance.check_date or today().isoformat() }}"></div>
+            <div class="col-md-3">
+                <label class="form-label">验收类型</label>
+                {% set checklist_type = form_acceptance.checklist_type or '安装验收' %}
+                <select class="form-select form-select-sm" name="checklist_type">
+                    {% for label in ['安装验收','调试验收','客户培训','交付确认'] %}
+                    <option value="{{ label }}" {% if label == checklist_type %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3"><label class="form-label">客户</label><input class="form-control form-control-sm" id="customerName" readonly></div>
+            <div class="col-md-3"><label class="form-label">机型</label><input class="form-control form-control-sm" id="machineModel" readonly></div>
+            <div class="col-md-3"><label class="form-label">项目号 <span class="text-muted small">建议</span></label><input class="form-control form-control-sm" name="project_code" id="projectCode" value="{{ form_acceptance.project_code or '' }}"></div>
+            <div class="col-md-3"><label class="form-label">机号 <span class="text-muted small">建议</span></label><input class="form-control form-control-sm" name="serial_no" id="serialNo" value="{{ form_acceptance.serial_no or '' }}"></div>
+            <div class="col-md-8"><label class="form-label">验收项目 <span class="text-danger">*</span></label><input class="form-control form-control-sm" name="item_name" value="{{ form_acceptance.item_name or '' }}" required></div>
+            <div class="col-md-4">
+                <label class="form-label">验收结果</label>
+                {% set result = form_acceptance.result or '待整改' %}
+                <select class="form-select form-select-sm" name="result">
+                    {% for label in ['待整改','客户待确认','通过','不通过'] %}
+                    <option value="{{ label }}" {% if label == result %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12"><label class="form-label">备注</label><input class="form-control form-control-sm" name="remark" value="{{ form_acceptance.remark or '' }}"></div>
+        </div>
+    </div>
+    <div class="footer-bar d-none"><button class="btn btn-primary" type="submit" {% if mode != 'edit' and not service_cards %}disabled{% endif %}><i class="bi bi-save"></i> 保存验收</button><a class="btn btn-secondary" href="/service-acceptance">取消</a></div>
+</form>
+<script>
+(function () {
+    const select = document.getElementById('serviceCardSelect');
+    if (!select) return;
+    function fillFromCard() {
+        const data = select.selectedOptions[0] ? select.selectedOptions[0].dataset : {};
+        if (!projectCode.value) projectCode.value = data.project || '';
+        if (!serialNo.value) serialNo.value = data.serial || '';
+        customerName.value = data.customer || '';
+        machineModel.value = data.machine || '';
+    }
+    select.addEventListener('change', function () { projectCode.value = ''; serialNo.value = ''; fillFromCard(); });
+    fillFromCard();
+})();
+</script>
+{% endblock %}

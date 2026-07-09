@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+
+{% block title %}凭证列表{% endblock %}
+
+{% block extra_css %}
+<style>
+    .filter-section {
+        background: #f8f9fa;
+        padding: 1rem;
+        border-radius: 0.25rem;
+        margin-bottom: 1.5rem;
+    }
+    .filter-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        align-items: end;
+    }
+    .filter-field {
+        flex: 1;
+        min-width: 150px;
+    }
+    .voucher-table {
+        font-size: 0.9rem;
+    }
+    .status-badge {
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+        font-size: 0.85rem;
+    }
+    .status-draft { background: #ffc107; color: #000; }
+    .status-reviewed { background: #17a2b8; color: #fff; }
+    .status-posted { background: #28a745; color: #fff; }
+    .btn-toolbar {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>凭证列表</h2>
+        <div class="btn-toolbar">
+            <a href="/finance/vouchers/generate" class="btn btn-success">
+                <i class="bi bi-magic"></i> 自动生成凭证
+            </a>
+        </div>
+    </div>
+
+    <!-- 筛选条件 -->
+    <div class="filter-section">
+        <form method="get" action="/finance/vouchers">
+            <div class="filter-row">
+                <div class="filter-field">
+                    <label class="form-label">凭证号</label>
+                    <input type="text" name="voucher_no" class="form-control"
+                           value="{{ filters.voucher_no or '' }}" placeholder="输入凭证号">
+                </div>
+                <div class="filter-field">
+                    <label class="form-label">会计年度</label>
+                    <input type="number" name="period_year" class="form-control"
+                           value="{{ filters.period_year or '' }}" placeholder="例如: 2026">
+                </div>
+                <div class="filter-field">
+                    <label class="form-label">会计月份</label>
+                    <select name="period_month" class="form-select">
+                        <option value="">全部</option>
+                        {% for m in range(1, 13) %}
+                        <option value="{{ m }}" {% if filters.period_month == m|string %}selected{% endif %}>
+                            {{ m }}月
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-field">
+                    <label class="form-label">凭证状态</label>
+                    <select name="status" class="form-select">
+                        <option value="">全部</option>
+                        <option value="草稿" {% if filters.status == '草稿' %}selected{% endif %}>草稿</option>
+                        <option value="已审核" {% if filters.status == '已审核' %}selected{% endif %}>已审核</option>
+                        <option value="已过账" {% if filters.status == '已过账' %}selected{% endif %}>已过账</option>
+                    </select>
+                </div>
+                <div class="filter-field">
+                    <label class="form-label">源单据类型</label>
+                    <select name="source_type" class="form-select">
+                        <option value="">全部</option>
+                        <option value="sales_invoice" {% if filters.source_type == 'sales_invoice' %}selected{% endif %}>销售发票</option>
+                        <option value="purchase_invoice" {% if filters.source_type == 'purchase_invoice' %}selected{% endif %}>采购发票</option>
+                        <option value="customer_receipt" {% if filters.source_type == 'customer_receipt' %}selected{% endif %}>收款单</option>
+                        <option value="supplier_payment" {% if filters.source_type == 'supplier_payment' %}selected{% endif %}>付款单</option>
+                        <option value="manual" {% if filters.source_type == 'manual' %}selected{% endif %}>手工录入</option>
+                    </select>
+                </div>
+            </div>
+            <div class="filter-row mt-2">
+                <div class="filter-field">
+                    <label class="form-label">开始日期</label>
+                    <input type="date" name="start_date" class="form-control"
+                           value="{{ filters.start_date or '' }}">
+                </div>
+                <div class="filter-field">
+                    <label class="form-label">结束日期</label>
+                    <input type="date" name="end_date" class="form-control"
+                           value="{{ filters.end_date or '' }}">
+                </div>
+                <div class="filter-field" style="flex: 2;">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-search"></i> 查询
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- 凭证列表 -->
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover voucher-table">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 5%;">序号</th>
+                            <th style="width: 12%;">凭证号</th>
+                            <th style="width: 10%;">凭证日期</th>
+                            <th style="width: 8%;">期间</th>
+                            <th style="width: 20%;">摘要</th>
+                            <th style="width: 10%;">借方金额</th>
+                            <th style="width: 10%;">贷方金额</th>
+                            <th style="width: 10%;">源单据</th>
+                            <th style="width: 8%;">制单人</th>
+                            <th style="width: 7%;">状态</th>
+                            <th style="width: 10%;">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if vouchers %}
+                            {% for voucher in vouchers %}
+                            <tr>
+                                <td>{{ loop.index }}</td>
+                                <td>
+                                    <a href="/finance/vouchers/{{ voucher.id }}">
+                                        {{ voucher.voucher_no }}
+                                    </a>
+                                </td>
+                                <td>{{ voucher.voucher_date }}</td>
+                                <td>{{ voucher.period_year }}-{{ '%02d'|format(voucher.period_month) }}</td>
+                                <td>
+                                    <span title="{{ voucher.summary }}">
+                                        {{ voucher.summary[:30] }}{% if voucher.summary|length > 30 %}...{% endif %}
+                                    </span>
+                                </td>
+                                <td class="text-end">{{ '%.2f'|format(voucher.total_debit) }}</td>
+                                <td class="text-end">{{ '%.2f'|format(voucher.total_credit) }}</td>
+                                <td>
+                                    {% if voucher.source_no %}
+                                        <small class="text-muted">{{ voucher.source_no }}</small>
+                                    {% else %}
+                                        <small class="text-muted">手工录入</small>
+                                    {% endif %}
+                                </td>
+                                <td>{{ voucher.prepared_by_name }}</td>
+                                <td>
+                                    {% if voucher.status == 'draft' %}
+                                        <span class="status-badge status-draft">草稿</span>
+                                    {% elif voucher.status == 'audited' %}
+                                        <span class="status-badge status-reviewed">已复核</span>
+                                    {% elif voucher.status == 'posted' %}
+                                        <span class="status-badge status-posted">已过账</span>
+                                    {% elif voucher.status == 'closed' %}
+                                        <span class="status-badge status-closed">已作废</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="/finance/vouchers/{{ voucher.id }}" class="btn btn-sm btn-outline-primary">
+                                        查看
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="11" class="text-center text-muted py-4">
+                                    暂无凭证数据
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 统计信息 -->
+    {% if vouchers %}
+    <div class="row mt-3">
+        <div class="col-md-12">
+            <div class="alert alert-info">
+                <strong>统计信息：</strong>
+                共 {{ vouchers|length }} 张凭证，
+                借方合计：{{ '%.2f'|format(vouchers|sum(attribute='total_debit')) }} 元，
+                贷方合计：{{ '%.2f'|format(vouchers|sum(attribute='total_credit')) }} 元
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

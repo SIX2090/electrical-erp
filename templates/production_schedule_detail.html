@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}生产排程详情{% endblock %}
+{% block content %}
+{{ document_menu_bar(actions=[
+    {'label': '编辑', 'type': 'link', 'href': '/production-schedules/' ~ row.id ~ '/edit' if row else '#', 'disabled': not row, 'icon': 'bi-pencil-square'},
+    {'label': '保存派工', 'type': 'button', 'event': 'focus-dispatch', 'disabled': not row, 'icon': 'bi-save'},
+    {'label': '联查工单', 'type': 'link', 'href': '/work-orders/' ~ row.work_order_id if row and row.work_order_id else '#', 'disabled': not (row and row.work_order_id), 'icon': 'bi-diagram-3'},
+    {'label': '下游报工', 'type': 'link', 'href': '/production/operation-reports/new?work_order_id=' ~ (row.work_order_id or '') ~ '&work_order_process_id=' ~ (row.work_order_process_id or '') if row else '#', 'disabled': not row, 'icon': 'bi-box-arrow-in-down'},
+    {'type': 'nav', 'items': [
+        {'label': '首张', 'event': 'doc-nav-first', 'icon': 'bi-chevron-double-left'},
+        {'label': '上一张', 'event': 'doc-nav-prev', 'icon': 'bi-chevron-left'},
+        {'label': '下一张', 'event': 'doc-nav-next', 'icon': 'bi-chevron-right'},
+        {'label': '末张', 'event': 'doc-nav-last', 'icon': 'bi-chevron-double-right'}
+    ]}
+], aria_label='生产排程单据操作菜单') }}
+{% if row %}<div id="doc-nav-config" data-nav-table="production_schedules" data-nav-base="/production-schedules/" data-doc-id="{{ row.id }}" style="display:none"></div>{% endif %}
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>基本信息</h2>
+        </div>
+    </div>
+    {% if row %}
+    <dl class="row mb-0">
+        <dt class="col-sm-2">排程单号</dt>
+        <dd class="col-sm-4 fw-semibold">{{ row.schedule_no|clean_text }}</dd>
+        <dt class="col-sm-2">状态</dt>
+        <dd class="col-sm-4">{{ row.status_display|clean_text or '-' }}</dd>
+        <dt class="col-sm-2">来源工单</dt>
+        <dd class="col-sm-4">{{ row.wo_no|clean_text or row.work_order_id or '-' }}</dd>
+        <dt class="col-sm-2">项目号 / 机号</dt>
+        <dd class="col-sm-4">{{ row.project_code|clean_text or '-' }} / {{ row.serial_no|clean_text or '-' }}</dd>
+        <dt class="col-sm-2">工作中心</dt>
+        <dd class="col-sm-4">{{ row.work_center_code|clean_text or '' }} {{ row.work_center_name|clean_text or row.work_center_id or '-' }}</dd>
+        <dt class="col-sm-2">计划日期</dt>
+        <dd class="col-sm-4">{{ row.planned_start_date or row.start_date or '-' }} 至 {{ row.planned_end_date or row.end_date or '-' }}</dd>
+        <dt class="col-sm-2">数量</dt>
+        <dd class="col-sm-4">{{ row.quantity or '-' }}</dd>
+        <dt class="col-sm-2">派工状态</dt>
+        <dd class="col-sm-4">{{ row.dispatch_status|clean_text or '-' }}</dd>
+        <dt class="col-sm-2">负责人</dt>
+        <dd class="col-sm-4">{{ row.responsible_person|clean_text or row.dispatched_to|clean_text or row.work_center_owner|clean_text or '-' }}</dd>
+        <dt class="col-sm-2">堵点 / 条件</dt>
+        <dd class="col-sm-10">{{ row.blocked_reason|clean_text or '-' }}</dd>
+        <dt class="col-sm-2">下一步</dt>
+        <dd class="col-sm-10">{{ row.next_action|clean_text or '-' }}</dd>
+        <dt class="col-sm-2">下游影响</dt>
+        <dd class="col-sm-10">{{ row.downstream_impact|clean_text or '-' }}</dd>
+        <dt class="col-sm-2">备注</dt>
+        <dd class="col-sm-10">{{ row.remark|clean_text or '-' }}</dd>
+    </dl>
+    {% else %}
+    <div class="text-muted">记录不存在。</div>
+    {% endif %}
+</div>
+
+{% if row %}
+{% include "production_schedule_dispatch_panel.html" %}
+
+<div class="mt-3">
+    <form method="post" action="/production-schedules/{{ row.id }}/delete" onsubmit="return confirm('确认删除这条生产排程？');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-outline-danger btn-sm" type="submit"><i class="bi bi-trash"></i> 删除排程</button>
+    </form>
+</div>
+{% endif %}
+
+<script>
+document.addEventListener('click', function (event) {
+    const action = event.target.closest('[data-menu-event="focus-dispatch"]');
+    if (!action) return;
+    const target = document.querySelector('#dispatch-control');
+    if (target) target.scrollIntoView({behavior: 'smooth', block: 'start'});
+});
+</script>
+{% endblock %}

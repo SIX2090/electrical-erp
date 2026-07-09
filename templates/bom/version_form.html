@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}新增BOM版本{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <h1>新增BOM版本</h1>
+    <p>为BOM创建新的版本记录，初始状态为草稿；审核、发布、作废在版本详情页操作。</p>
+</div>
+
+<form method="post" action="{{ url_for('bom_version_new') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% set document_menu_actions = [
+        {'label': '保存', 'type': 'button', 'button_type': 'submit'},
+        {'label': '取消', 'type': 'link', 'href': url_for('bom_version_list')}
+    ] %}
+    {{ document_menu_bar(document_menu_actions) }}
+
+    <div class="page-card mb-3">
+        <div class="section-title">
+            <div>
+                <h2>版本表头</h2>
+                <span>选择BOM并填写版本号；同一BOM版本号不能重复。</span>
+            </div>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label">BOM <span class="text-danger">*</span></label>
+                <select class="form-select" name="bom_id" required>
+                    <option value="">请选择BOM</option>
+                    {% for option in bom_options %}
+                    <option value="{{ option.id }}" {% if form_state.bom_id|string == option.id|string %}selected{% endif %}>{{ option.bom_no }} / {{ option.version }} / {{ option.product_code }} {{ option.product_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">版本号 <span class="text-danger">*</span></label>
+                <input class="form-control" name="version_no" required value="{{ form_state.version_no or '' }}" placeholder="如 V1.0、V2.0">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">初始状态</label>
+                <div class="form-control bg-light">草稿</div>
+            </div>
+            <div class="col-12">
+                <label class="form-label">变更说明</label>
+                <textarea class="form-control" name="change_note" rows="3" placeholder="说明本次版本变更的原因、范围和影响">{{ form_state.change_note or '' }}</textarea>
+            </div>
+        </div>
+    </div>
+
+    {% if bom %}
+    <div class="page-card mb-3">
+        <div class="section-title">
+            <div>
+                <h2>选中BOM信息</h2>
+                <span>仅作参考，新增版本不会复制BOM明细；BOM明细维护在BOM单据页。</span>
+            </div>
+        </div>
+        <dl class="row mb-0">
+            <dt class="col-sm-2">BOM编号</dt><dd class="col-sm-4">{{ bom.bom_no|clean_text or '-' }}</dd>
+            <dt class="col-sm-2">当前版本</dt><dd class="col-sm-4">{{ bom.version|clean_text or '-' }}</dd>
+            <dt class="col-sm-2">状态</dt><dd class="col-sm-4">{{ bom.status|clean_text or '-' }}</dd>
+            <dt class="col-sm-2">产品</dt><dd class="col-sm-10">{{ bom.product_code|clean_text }} {{ bom.product_name|clean_text }} {{ bom.product_specification|clean_text }}</dd>
+        </dl>
+    </div>
+    {% endif %}
+
+    <div class="d-flex justify-content-end gap-2">
+        <button class="btn btn-primary" type="submit"><i class="bi bi-save"></i> 保存</button>
+        <a class="btn btn-outline-secondary" href="{{ url_for('bom_version_list') }}">取消</a>
+    </div>
+</form>
+{% endblock %}

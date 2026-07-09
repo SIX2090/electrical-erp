@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block title %}数据归档管理{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <h1>数据归档管理</h1>
+    <p>预览和记录历史单据归档批次。归档记录仅登记元数据，实际数据迁移需 DBA 在备份后执行。</p>
+</div>
+
+<div class="card mb-3">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-hdd-stack"></i> 表行数概览</h5>
+    </div>
+    <div class="card-body">
+        <table class="table table-sm">
+            <thead>
+                <tr>
+                    <th>表名</th>
+                    <th>说明</th>
+                    <th class="text-end">行数</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in table_sizes %}
+                <tr>
+                    <td><code>{{ item.table }}</code></td>
+                    <td>{{ item.label }}</td>
+                    <td class="text-end">{{ "{:,}".format(item.row_count) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-calendar-x"></i> 归档预览（截止 {{ cutoff }}）</h5>
+    </div>
+    <div class="card-body">
+        <form method="get" class="row g-2 mb-3">
+            <div class="col-md-4">
+                <label class="form-label">截止日期</label>
+                <input class="form-control" type="date" name="date_to" value="{{ cutoff }}">
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <button class="btn btn-outline-primary" type="submit"><i class="bi bi-arrow-repeat"></i> 刷新预览</button>
+            </div>
+        </form>
+        <table class="table table-sm">
+            <thead>
+                <tr>
+                    <th>表</th>
+                    <th>说明</th>
+                    <th>日期列</th>
+                    <th>状态筛选</th>
+                    <th class="text-end">可归档记录数</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in previews %}
+                <tr>
+                    <td><code>{{ p.table }}</code></td>
+                    <td>{{ p.label }}</td>
+                    <td>{{ p.date_column or '-' }}</td>
+                    <td>{{ p.status_filter if p.status_filter is string else p.status_filter|join(', ') or '全部' }}</td>
+                    <td class="text-end">
+                        {% if p.error %}
+                        <span class="text-danger">{{ p.error }}</span>
+                        {% else %}
+                        <strong>{{ "{:,}".format(p.eligible_count or 0) }}</strong>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if not p.error and p.eligible_count > 0 %}
+                        <form method="post" action="{{ url_for('archive_record_batch') }}" class="d-inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="source_table" value="{{ p.table }}">
+                            <input type="hidden" name="date_to" value="{{ p.date_to }}">
+                            <input type="hidden" name="remark" value="">
+                            <button class="btn btn-sm btn-outline-success" type="submit"
+                                    onclick="return confirm('确认记录归档批次？此操作仅登记元数据，不删除数据。')">
+                                <i class="bi bi-bookmark-check"></i> 记录批次
+                            </button>
+                        </form>
+                        {% else %}
+                        <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i>
+            归档预览统计已关闭/已取消且日期早于截止日的单据。库存流水按日期筛选全部状态。
+            点击"记录批次"仅在 document_archive_records 表登记元数据，不执行实际数据删除。
+            实际数据迁移（INSERT INTO archive + DELETE）需 DBA 在备份后手动执行。
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-clock-history"></i> 归档批次记录</h5>
+    </div>
+    <div class="card-body">
+        {% if batches %}
+        <table class="table table-sm">
+            <thead>
+                <tr>
+                    <th>批次号</th>
+                    <th>归档日期</th>
+                    <th>源表</th>
+                    <th>截止日期</th>
+                    <th class="text-end">记录数</th>
+                    <th>状态</th>
+                    <th>操作人</th>
+                    <th>备注</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for b in batches %}
+                <tr>
+                    <td><code>{{ b.archive_batch_no }}</code></td>
+                    <td>{{ b.archive_date }}</td>
+                    <td>{{ b.source_table }}</td>
+                    <td>{{ b.date_to }}</td>
+                    <td class="text-end">{{ "{:,}".format(b.record_count or 0) }}</td>
+                    <td>{{ b.status }}</td>
+                    <td>{{ b.archived_by or '-' }}</td>
+                    <td>{{ b.remark or '-' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="text-muted text-center">暂无归档批次记录。</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

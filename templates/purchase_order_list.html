@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <h1>{{ title }}</h1>
+    <p>{{ subtitle }}</p>
+</div>
+
+<div class="page-card mb-3">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+        <div>
+            <h2 class="h5 mb-1">采购订单筛选</h2>
+            <div class="text-muted small">列表用于查询、筛选和追踪采购订单；收货需进入独立采购入库单据流程处理。</div>
+        </div>
+    </div>
+    <div class="filter-schemes" aria-label="过滤方案">
+        <a class="filter-scheme {% if not filters.risk and not filters.status %}active{% endif %}" href="{{ back_url }}">全部</a>
+        <a class="filter-scheme {% if filters.risk == 'pending_receive' %}active{% endif %}" href="{{ back_url }}?risk=pending_receive">待收货</a>
+        <a class="filter-scheme {% if filters.risk == 'overdue' %}active{% endif %}" href="{{ back_url }}?risk=overdue">逾期未到</a>
+        <a class="filter-scheme {% if filters.risk == 'payable' %}active{% endif %}" href="{{ back_url }}?risk=payable">待付款</a>
+    </div>
+    <form class="row g-2" method="get" action="{{ back_url }}" data-list-filter-form>
+        <div class="col-lg-4"><input class="form-control" name="keyword" value="{{ filters.keyword }}" placeholder="采购订单、供应商、项目号、机号"></div>
+        <div class="col-lg-2">
+            <select class="form-select" name="supplier_id">
+                <option value="">全部供应商</option>
+                {% for row in suppliers %}<option value="{{ row.id }}" {% if filters.supplier_id|string == row.id|string %}selected{% endif %}>{{ row.name|clean_text }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-lg-2">
+            <select class="form-select" name="status">
+                <option value="">全部状态</option>
+                {% for row in status_rows %}<option value="{{ row.status }}" {% if filters.status == row.status %}selected{% endif %}>{{ (row.display_status or row.status)|clean_text }} ({{ row.count }})</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-lg-2">
+            <select class="form-select" name="risk">
+                <option value="">全部风险</option>
+                <option value="pending_receive" {% if filters.risk == 'pending_receive' %}selected{% endif %}>待收货</option>
+                <option value="overdue" {% if filters.risk == 'overdue' %}selected{% endif %}>逾期未到</option>
+                <option value="payable" {% if filters.risk == 'payable' %}selected{% endif %}>待付款</option>
+            </select>
+        </div>
+        <div class="col-lg-1"><input class="form-control" type="date" name="date_from" value="{{ filters.date_from or '' }}" title="开始日期"></div>
+        <div class="col-lg-1"><input class="form-control" type="date" name="date_to" value="{{ filters.date_to or '' }}" title="结束日期"></div>
+        <div class="col-lg-1 d-grid"><button class="btn btn-primary" type="submit"><i class="bi bi-search"></i> 查询</button></div>
+    </form>
+</div>
+
+<div class="page-card">
+    <div class="section-title">
+        <div><h2>采购订单列表</h2>{% if orders %}<span>{{ orders|length }} 条记录</span>{% endif %}</div>
+    </div>
+    {% if orders %}
+    <div class="table-responsive">
+        <table class="table table-sm align-middle client-paginate" data-column-settings="off">
+            <thead><tr><th>采购订单</th><th>供应商</th><th>项目/机号</th><th>产品分类/BOM</th><th>预计到货</th><th class="text-end">采购数量</th><th class="text-end">未收</th><th class="text-end">应付余额</th><th>状态</th><th>下一步</th><th>收货条件</th><th data-column-system="actions">操作</th></tr></thead>
+            <tbody>
+            {% for row in orders %}
+            <tr>
+                <td><a href="/purchase_order/{{ row.id }}">{{ row.order_no }}</a><div class="text-muted small">{{ row.order_date or '-' }}</div></td>
+                <td>{{ row.supplier_name|clean_text }}</td>
+                <td>{{ row.project_code|clean_text }} / {{ row.serial_no|clean_text }}</td>
+                <td>
+                    {{ row.product_families|clean_text }}
+                    <div class="text-muted small">{{ row.bom_versions|clean_text }}</div>
+                </td>
+                <td>{{ row.expected_date or '-' }}</td>
+                <td class="text-end">{{ row.ordered_qty|qty }}</td>
+                <td class="text-end {% if row.pending_receive_qty %}fw-semibold text-primary{% endif %}">{{ row.pending_receive_qty|qty }}</td>
+                <td class="text-end">{{ row.payable_balance|money }}</td>
+                <td>{{ (row.display_status or row.status)|clean_text }}</td>
+                <td>{{ row.next_action|clean_text }}</td>
+                <td>{{ row.blocked_reason|clean_text if row.blocked_reason else '-' }}</td>
+                <td>
+                    <a class="btn btn-outline-primary btn-sm" href="/purchase_order/{{ row.id }}">详情</a>
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-muted">没有匹配采购订单。</div>
+    {% endif %}
+</div>
+{% endblock %}

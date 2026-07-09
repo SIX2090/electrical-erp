@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% set is_edit = mode == 'edit' %}
+{% block title %}{{ '修改工程变更单' if is_edit else '新增工程变更单' }}{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <h1>{{ '修改工程变更单' if is_edit else '新增工程变更单' }}</h1>
+    <p>工程变更单只管理BOM变更原因、影响范围、状态和升版关联；替代料一期保留为BOM子项替代标识或说明。</p>
+</div>
+
+<form method="post" action="{{ url_for('bom_ecn_edit', ecn_key=ecn.ecn_no) if is_edit and ecn else url_for('bom_ecn_new') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="status" id="ecnStatusInput" value="{{ form_state.status or 'draft' }}">
+    {% set document_menu_actions = [
+        {'label': '保存', 'type': 'button', 'button_type': 'submit', 'name': 'save_action', 'value': 'save', 'event': 'ecn-save'},
+        {'label': '提交', 'type': 'button', 'button_type': 'submit', 'name': 'save_action', 'value': 'submit', 'event': 'ecn-submit'},
+        {'label': '取消', 'type': 'link', 'href': url_for('bom_ecn_detail', ecn_key=ecn.ecn_no) if ecn else '/bom/ecn'}
+    ] %}
+    {{ document_menu_bar(document_menu_actions) }}
+
+    {% if errors %}
+    <div class="alert alert-warning">
+        <div class="fw-semibold mb-1">工程变更单保存校验未通过</div>
+        <ul class="mb-0 ps-3">{% for error in errors %}<li>{{ error }}</li>{% endfor %}</ul>
+    </div>
+    {% endif %}
+
+    <div class="page-card mb-3">
+        <div class="section-title">
+            <div>
+                <h2>ECN表头</h2>
+                <span>用于工程/BOM变更记录；本页不执行工单、库存、采购或报表动作。</span>
+            </div>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">ECN编号 <span class="text-danger">*</span></label>
+                <input class="form-control" name="ecn_no" required value="{{ form_state.ecn_no or '' }}" {% if form_state.status in ['approved', 'closed', 'voided'] %}readonly{% endif %}>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">变更类型 <span class="text-danger">*</span></label>
+                <select class="form-select" name="title" required>
+                    {% set change_type = form_state.title or '' %}
+                    <option value="">请选择变更类型</option>
+                    <option value="设计变更" {% if change_type == '设计变更' %}selected{% endif %}>设计变更</option>
+                    <option value="工艺变更" {% if change_type == '工艺变更' %}selected{% endif %}>工艺变更</option>
+                    <option value="替代料变更" {% if change_type == '替代料变更' %}selected{% endif %}>替代料变更</option>
+                    <option value="版本升版" {% if change_type == '版本升版' %}selected{% endif %}>版本升版</option>
+                    {% if change_type and change_type not in ['设计变更', '工艺变更', '替代料变更', '版本升版'] %}
+                    <option value="{{ change_type }}" selected>{{ change_type }}</option>
+                    {% endif %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">生效日期</label>
+                <input class="form-control" type="date" name="requested_date" value="{{ form_state.requested_date or '' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">当前状态</label>
+                <div class="form-control bg-light">{{ dict(status_options).get(form_state.status, form_state.status or '草稿') }}</div>
+            </div>
+            <div class="col-md-5">
+                <label class="form-label">影响BOM <span class="text-danger">*</span></label>
+                <select class="form-select" name="source_bom_key" required>
+                    <option value="">请选择BOM</option>
+                    {% for bom in bom_options %}
+                    <option value="{{ bom.id }}" {% if form_state.source_bom_key|string == bom.id|string or form_state.source_bom_key == bom.bom_no %}selected{% endif %}>{{ bom.bom_no }} / {{ bom.version }} / {{ bom.product_code }} {{ bom.product_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">升版BOM</label>
+                <select class="form-select" name="target_bom_key">
+                    <option value="">复制升版后回填</option>
+                    {% for bom in bom_options %}
+                    <option value="{{ bom.id }}" {% if form_state.target_bom_key|string == bom.id|string or form_state.target_bom_key == bom.bom_no %}selected{% endif %}>{{ bom.bom_no }} / {{ bom.version }} / {{ bom.product_code }} {{ bom.product_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">负责人</label>
+                <input class="form-control" name="owner" value="{{ form_state.owner or '' }}" placeholder="工程/技术负责人">
+            </div>
+            <div class="col-12">
+                <label class="form-label">变更原因 <span class="text-danger">*</span></label>
+                <textarea class="form-control" name="change_reason" rows="3" required placeholder="说明设计调整、现场反馈、替代说明或版本适用范围">{{ form_state.change_reason or '' }}</textarea>
+            </div>
+        </div>
+    </div>
+
+    <div class="page-card mb-3">
+        <div class="section-title">
+            <div>
+                <h2>变更明细</h2>
+                <span>记录物料层面的原值和新值，作为BOM调整依据；正式结构调整在BOM升版后完成。</span>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+                <thead>
+                <tr>
+                    <th style="min-width:220px;">物料名称</th>
+                    <th style="min-width:160px;">规格</th>
+                    <th style="min-width:100px;">单位</th>
+                    <th style="min-width:220px;">原值</th>
+                    <th style="min-width:220px;">新值</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for idx in range(3) %}
+                <tr>
+                    <td><input class="form-control form-control-sm" name="detail_material[]" placeholder="物料名称"></td>
+                    <td><input class="form-control form-control-sm" name="detail_specification[]" placeholder="规格型号"></td>
+                    <td><input class="form-control form-control-sm" name="detail_unit[]" placeholder="单位"></td>
+                    <td><input class="form-control form-control-sm" name="detail_old_value[]" placeholder="原用量、原规格或原说明"></td>
+                    <td><input class="form-control form-control-sm" name="detail_new_value[]" placeholder="新用量、新规格或新说明"></td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="page-card">
+        <div class="section-title">
+            <div>
+                <h2>影响提示</h2>
+                <span>只读提示用于提交前评估，不在本页改工单、MRP或采购单。</span>
+            </div>
+        </div>
+        <textarea class="form-control" name="impact_summary" rows="2" placeholder="可补充人工影响说明，不触发执行单据">{{ form_state.impact_summary or '' }}</textarea>
+        {% if impact %}
+        <div class="row g-3 mt-1">
+            <div class="col-md-4"><div class="metric"><div class="label">相关工单</div><div class="value">{{ impact.work_order_summary.order_count or 0 }}</div><div class="text-muted small">未关闭 {{ impact.work_order_summary.open_count or 0 }}</div></div></div>
+            <div class="col-md-4"><div class="metric"><div class="label">MRP需求</div><div class="value">{{ impact.mrp_summary.requirement_count or 0 }}</div><div class="text-muted small">缺料 {{ impact.mrp_summary.shortage_qty|qty }}</div></div></div>
+            <div class="col-md-4"><div class="metric"><div class="label">采购未到</div><div class="value">{{ impact.purchase_summary.pending_qty|qty }}</div><div class="text-muted small">订单 {{ impact.purchase_summary.order_count or 0 }}</div></div></div>
+        </div>
+        {% endif %}
+        <div class="d-flex justify-content-end gap-2 mt-3">
+            <button class="btn btn-primary" name="save_action" value="save" type="submit" data-menu-event="ecn-save"><i class="bi bi-save"></i> 保存</button>
+            <button class="btn btn-outline-primary" name="save_action" value="submit" type="submit" data-menu-event="ecn-submit"><i class="bi bi-send"></i> 提交</button>
+            <a class="btn btn-outline-secondary" href="{{ url_for('bom_ecn_detail', ecn_key=ecn.ecn_no) if ecn else '/bom/ecn' }}">取消</a>
+        </div>
+    </div>
+</form>
+<script>
+document.addEventListener('click', function (event) {
+    const button = event.target.closest('[data-menu-event="ecn-save"], [data-menu-event="ecn-submit"]');
+    const statusInput = document.getElementById('ecnStatusInput');
+    if (!button || !statusInput) return;
+    statusInput.value = button.dataset.menuEvent === 'ecn-submit' ? 'submitted' : 'draft';
+});
+</script>
+{% endblock %}

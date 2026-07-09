@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}追溯中心{% endblock %}
+{% block header_title %}追溯中心{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+    <h2 class="mb-0"><i class="bi bi-diagram-3"></i> 追溯中心</h2>
+    <a class="btn btn-outline-primary btn-sm" href="/trace/integrity">
+        <i class="bi bi-shield-check"></i> 追溯完整性异常
+        {% if open_count %}<span class="badge bg-warning text-dark ms-1">{{ open_count }}</span>{% endif %}
+    </a>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-muted small">追溯完整度</div>
+                <div class="display-6">{{ score.score }}%</div>
+                <div class="text-muted small">已链接 {{ score.linked_documents }} / 应链接 {{ score.total_documents }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-muted small">待处理异常</div>
+                <div class="display-6">{{ open_count }}</div>
+                <div class="text-muted small">销售/采购/生产/凭证追溯断点</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-muted small">追溯入口</div>
+                <div class="mt-2">
+                    <span class="text-muted small">按项目号或机号查询全链路追溯关系。</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-header py-2"><i class="bi bi-search"></i> 追溯查询</div>
+    <div class="card-body">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label small text-muted mb-1">项目号</label>
+                <input type="text" name="project_code" class="form-control" placeholder="输入项目号查询全链路">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small text-muted mb-1">机号</label>
+                <input type="text" name="serial_no" class="form-control" placeholder="输入机号查询全链路">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">单据类型</label>
+                <select name="doc_type" class="form-select">
+                    <option value="">全部</option>
+                    {% for key, lbl in doc_type_options %}
+                    <option value="{{ key }}">{{ lbl }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">单据ID</label>
+                <input type="number" name="doc_id" class="form-control" placeholder="单据ID">
+            </div>
+            <div class="col-12">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i> 查询</button>
+                <a href="/trace" class="btn btn-outline-secondary ms-2">清除</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header py-2 d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-exclamation-triangle"></i> 最近追溯异常</span>
+        <a href="/trace/integrity" class="btn btn-outline-secondary btn-sm">查看全部</a>
+    </div>
+    <div class="card-body p-0">
+        {% if recent_findings %}
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th width="60">序号</th>
+                        <th>异常类型</th>
+                        <th>单据类型</th>
+                        <th>单据编号</th>
+                        <th>项目号</th>
+                        <th>机号</th>
+                        <th>说明</th>
+                        <th>级别</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in recent_findings %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td><span class="badge text-bg-light border">{{ item.finding_type }}</span></td>
+                        <td>{{ label(item.doc_type) if label is defined else item.doc_type }}</td>
+                        <td>{{ item.doc_no or '-' }}</td>
+                        <td>{{ item.project_code or '-' }}</td>
+                        <td>{{ item.serial_no or '-' }}</td>
+                        <td>{{ item.description or '-' }}</td>
+                        <td>
+                            {% if item.severity == 'error' %}
+                            <span class="badge text-bg-danger">错误</span>
+                            {% elif item.severity == 'warning' %}
+                            <span class="badge text-bg-warning text-dark">警告</span>
+                            {% else %}
+                            <span class="badge text-bg-info">提示</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-muted p-3">暂无待处理追溯异常。</div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

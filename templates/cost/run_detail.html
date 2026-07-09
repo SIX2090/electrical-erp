@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}{{ title }}{% endblock %}
+{% block header_title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <h1>{{ title }}</h1>
+    <p>{{ subtitle }}</p>
+</div>
+
+{{ document_menu_bar(actions=[
+    {'label': '返回运行列表', 'type': 'link', 'href': '/cost/runs'},
+    {'label': '成本对账', 'type': 'link', 'href': '/cost/reconciliation'}
+], aria_label='成本运行明细操作菜单') }}
+
+<div class="row g-3 mb-3">
+    {% for metric in metrics %}
+    <div class="col-md-6 col-xl-3">
+        <div class="metric">
+            <div class="label">{{ metric.label }}</div>
+            <div class="value">{{ metric.value }}</div>
+            <div class="metric-hint">{{ metric.hint }}</div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>成本类型汇总</h2>
+            <span>按成本类型汇总金额与行数。</span>
+        </div>
+        <span class="badge text-bg-light">readonly / 只读</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>成本类型</th>
+                    <th class="text-end">明细行数</th>
+                    <th class="text-end">金额</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ts in type_summaries %}
+                <tr>
+                    <td>{{ ts.label }} <small class="text-muted">({{ ts.cost_type }})</small></td>
+                    <td class="text-end">{{ ts.line_count }}</td>
+                    <td class="text-end"><strong>{{ ts.amount_display }}</strong></td>
+                </tr>
+                {% else %}
+                <tr><td colspan="3" class="text-center text-muted">暂无明细</td></tr>
+                {% endfor %}
+            </tbody>
+            <tfoot class="table-light">
+                <tr>
+                    <th>合计</th>
+                    <th class="text-end">{{ items|length }}</th>
+                    <th class="text-end">{{ money(run.total_cost) }}</th>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+
+{% for cost_type, label in cost_type_labels.items() %}
+{% set type_items = items_by_type.get(cost_type, []) %}
+{% if type_items %}
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>{{ label }}明细</h2>
+            <span>成本类型：{{ cost_type }}，共 {{ type_items|length }} 行。</span>
+        </div>
+        <span class="badge text-bg-light">{{ cost_type }}</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>来源类型</th>
+                    <th>来源单号</th>
+                    <th>来源 ID</th>
+                    <th>产品 ID</th>
+                    <th>项目号</th>
+                    <th>机号</th>
+                    <th>工单</th>
+                    <th class="text-end">数量</th>
+                    <th class="text-end">单位成本</th>
+                    <th class="text-end">金额</th>
+                    <th>备注</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in type_items %}
+                <tr>
+                    <td>{{ item.source_type or '-' }}</td>
+                    <td>{{ item.source_no or '-' }}</td>
+                    <td>{{ item.source_id or '-' }}</td>
+                    <td>{{ item.product_id or '-' }}</td>
+                    <td>{{ item.project_code or '-' }}</td>
+                    <td>{{ item.serial_no or '-' }}</td>
+                    <td>{{ item.work_order_id or '-' }}</td>
+                    <td class="text-end">{{ item.quantity }}</td>
+                    <td class="text-end">{{ money(item.unit_cost) }}</td>
+                    <td class="text-end"><strong>{{ money(item.amount) }}</strong></td>
+                    <td>{{ item.remark or '-' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endfor %}
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>运行头信息</h2>
+            <span>成本运行头字段。</span>
+        </div>
+    </div>
+    <div class="row g-2 small">
+        <div class="col-md-3"><span class="text-muted">运行编号：</span>{{ run.run_no }}</div>
+        <div class="col-md-3"><span class="text-muted">期间：</span>{{ run.period or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">项目号：</span>{{ run.project_code or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">机号：</span>{{ run.serial_no or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">工单 ID：</span>{{ run.work_order_id or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">状态：</span>{{ run.status }}</div>
+        <div class="col-md-3"><span class="text-muted">创建人：</span>{{ run.created_by or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">创建时间：</span>{{ run.created_at }}</div>
+        <div class="col-md-3"><span class="text-muted">材料成本：</span>{{ money(run.total_material_cost) }}</div>
+        <div class="col-md-3"><span class="text-muted">人工成本：</span>{{ money(run.total_labor_cost) }}</div>
+        <div class="col-md-3"><span class="text-muted">制造费用：</span>{{ money(run.total_overhead_cost) }}</div>
+        <div class="col-md-3"><span class="text-muted">委外成本：</span>{{ money(run.total_outsource_cost) }}</div>
+        <div class="col-md-3"><span class="text-muted">售后成本：</span>{{ money(run.total_service_cost) }}</div>
+        <div class="col-md-3"><span class="text-muted">质量成本：</span>{{ money(run.total_quality_cost) }}</div>
+        <div class="col-md-3"><span class="text-muted">总成本：</span><strong>{{ money(run.total_cost) }}</strong></div>
+    </div>
+</div>
+{% endblock %}

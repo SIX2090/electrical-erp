@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+
+{% macro bom_node(node) -%}
+{% if node %}
+<section class="bom-node{% if node.has_issue %} has-issue{% endif %}" data-bom-node data-has-issue="{{ 1 if node.has_issue else 0 }}">
+    <details class="bom-node-details" {% if node.depth <= 2 or node.has_issue %}open{% endif %}>
+        <summary class="bom-node-summary">
+            <span class="badge text-bg-primary">第{{ node.depth }}层</span>
+            <span class="fw-semibold">{{ node.bom.bom_no|clean_text }}</span>
+            <span>{{ node.bom.product_code|clean_text or '物料档案缺失' }} {{ node.bom.product_name_display }}</span>
+            <span class="text-muted">{{ node.bom.product_specification_display }}</span>
+            <span class="badge text-bg-secondary">{{ node.bom.status_label|clean_text }}</span>
+            {% if node.cycle %}<span class="badge text-bg-danger">循环引用</span>{% endif %}
+            {% if node.max_depth_reached %}<span class="badge text-bg-warning">达到最大层级</span>{% endif %}
+            {% if node.has_issue and not node.cycle and not node.max_depth_reached %}<span class="badge text-bg-warning">存在异常</span>{% endif %}
+        </summary>
+        {% if node['items'] %}
+        <div class="table-responsive mt-2">
+            <table class="table table-sm align-middle mb-0">
+                <thead><tr><th>物料编码</th><th>物料名称</th><th>规格</th><th class="text-end">数量</th><th>单位</th><th class="text-end">损耗率%</th><th>下级BOM</th><th>异常</th></tr></thead>
+                <tbody>
+                {% for item in node['items'] %}
+                <tr class="{% if item.has_issue %}table-warning{% endif %}" data-structure-row data-has-issue="{{ 1 if item.has_issue else 0 }}">
+                    <td>{{ item.product_code|clean_text or '物料档案缺失' }}</td>
+                    <td>{{ item.product_name_display }}</td>
+                    <td>{{ item.specification_display }}</td>
+                    <td class="text-end">{{ item.quantity|qty }}</td>
+                    <td>{{ item.display_unit_display }}</td>
+                    <td class="text-end">{{ item.loss_rate|qty }}</td>
+                    <td>{% if item.child_bom %}有{% else %}<span class="text-muted">无</span>{% endif %}</td>
+                    <td>{% if item.child_cycle %}<span class="badge text-bg-danger">循环引用</span>{% elif item.has_issue %}<span class="badge text-bg-warning">异常</span>{% else %}<span class="text-muted">-</span>{% endif %}</td>
+                </tr>
+                {% if item.child_bom %}
+                <tr class="bom-child-row" data-structure-row data-has-issue="{{ 1 if item.child_bom.has_issue else 0 }}"><td colspan="8">{{ bom_node(item.child_bom) }}</td></tr>
+                {% endif %}
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-muted mt-2">暂无子项。</div>
+        {% endif %}
+    </details>
+</section>
+{% endif %}
+{%- endmacro %}
+
+{% block title %}BOM结构{% endblock %}
+{% block content %}
+{% set back_url = url_for('bom_detail', bom_key=root.bom.bom_no) if root and root.bom else '/bom' %}
+{% set export_url = request.path ~ '?export=csv' %}
+{% set issue_url = request.path ~ '?view=issues' %}
+{{ document_menu_bar(actions=[
+    {'label': '详情', 'type': 'link', 'href': back_url},
+    {'label': '只看异常', 'type': 'link', 'href': issue_url},
+    {'label': '导出结构CSV', 'type': 'link', 'href': export_url},
+    {'label': '查找', 'type': 'link', 'href': '/bom'},
+    {'label': '刷新', 'type': 'link', 'href': request.path},
+    {'label': '退出', 'type': 'link', 'href': back_url}
+]) }}
+
+<style>
+.bom-node { border-left: 3px solid rgba(13,110,253,.25); margin: 0 0 .75rem 0; padding-left: .75rem; }
+.bom-node.has-issue { border-left-color: #ffc107; }
+.bom-node-summary { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; cursor: pointer; }
+.structure-filter-active [data-structure-row][data-has-issue="0"] { display: none; }
+</style>
+
+<div class="page-heading">
+    <h1>BOM结构</h1>
+    <p>只展示BOM层级关系和循环风险，不在本页执行 MRP、齐套、工单、采购、领料或成本业务。</p>
+</div>
+
+{% if root and stats %}
+<div class="row g-3 mb-3">
+    <div class="col-md-3"><div class="metric"><div class="label">BOM层级节点</div><div class="value">{{ stats.total_nodes }}</div></div></div>
+    <div class="col-md-3"><div class="metric"><div class="label">结构行数</div><div class="value">{{ stats.total_items }}</div></div></div>
+    <div class="col-md-3"><div class="metric"><div class="label">异常节点</div><div class="value">{{ stats.issue_nodes }}</div></div></div>
+    <div class="col-md-3"><div class="metric"><div class="label">循环风险</div><div class="value">{{ stats.cycle_count }}</div></div></div>
+</div>
+{% endif %}
+
+{% if not root %}
+<div class="page-card">未找到 BOM：{{ bom_key|clean_text }}</div>
+{% else %}
+<div class="page-card{% if issue_only %} structure-filter-active{% endif %}">
+    {{ bom_node(root) }}
+</div>
+{% endif %}
+{% endblock %}

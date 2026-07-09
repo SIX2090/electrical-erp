@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}生产排程{% endblock %}
+{% block content %}
+{% if conflict_total and conflict_total > 0 %}
+<div class="alert alert-warning py-2 mb-2">
+    <i class="bi bi-exclamation-triangle"></i>
+    检测到 <strong>{{ conflict_total }}</strong> 条排程存在工作中心日期冲突，请核实产能。
+</div>
+{% endif %}
+
+<div class="page-card">
+    <div class="section-title">
+        <div>
+            <h2>生产排程列表</h2>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-outline-secondary btn-sm" href="/work-orders">生产工单列表</a>
+            <a class="btn btn-outline-secondary btn-sm" href="/production/operation-reports">工序报工列表</a>
+            <a class="btn btn-outline-secondary btn-sm" href="/engineering/kitting">齐套查询</a>
+            <a class="btn btn-outline-secondary btn-sm" href="/production/reports/project-serial-progress">项目/机号生产进度</a>
+        </div>
+    </div>
+    <form class="row g-2 align-items-end mb-3" method="get" data-list-filter-form>
+        <div class="col-md-5">
+            <label class="form-label small text-muted">搜索</label>
+            <input class="form-control form-control-sm" name="keyword" value="{{ filters.keyword }}" placeholder="排程单号 / 工单 / 项目号 / 机号 / 工作中心">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small text-muted">状态</label>
+            <select class="form-select form-select-sm" name="status">
+                <option value="" {% if not filters.status %}selected{% endif %}>全部</option>
+                <option value="scheduled" {% if filters.status == 'scheduled' %}selected{% endif %}>计划</option>
+                <option value="dispatched" {% if filters.status == 'dispatched' %}selected{% endif %}>已派工</option>
+                <option value="rescheduled" {% if filters.status == 'rescheduled' %}selected{% endif %}>改期</option>
+                <option value="paused" {% if filters.status == 'paused' %}selected{% endif %}>暂停</option>
+                <option value="completed" {% if filters.status == 'completed' %}selected{% endif %}>已完成</option>
+                <option value="blocked" {% if filters.status == 'blocked' %}selected{% endif %}>有堵点</option>
+                <option value="cancelled" {% if filters.status == 'cancelled' %}selected{% endif %}>已取消</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button class="btn btn-outline-primary btn-sm w-100" type="submit"><i class="bi bi-search"></i> 查询</button>
+        </div>
+        <div class="col-md-2">
+            <a class="btn btn-outline-secondary btn-sm w-100" href="/production-schedules"><i class="bi bi-arrow-counterclockwise"></i> 重置</a>
+        </div>
+    </form>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle client-paginate">
+            <thead>
+            <tr>
+                <th style="width: 150px;">排程单号</th>
+                <th style="width: 150px;">来源工单</th>
+                <th style="width: 130px;">项目号</th>
+                <th style="width: 130px;">机号</th>
+                <th style="min-width: 150px;">工作中心</th>
+                <th style="width: 170px;">计划日期</th>
+                <th style="width: 100px;">数量</th>
+                <th style="width: 110px;">派工状态</th>
+                <th style="width: 120px;">负责人</th>
+                <th style="min-width: 180px;">堵点/条件</th>
+                <th style="min-width: 180px;">下一步</th>
+                <th style="min-width: 180px;">下游影响</th>
+                <th style="width: 150px;">操作</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for row in rows %}
+            <tr>
+                <td class="fw-semibold">{{ row.schedule_no|clean_text }}</td>
+                <td>{{ row.wo_no|clean_text or '-' }}</td>
+                <td>{{ row.project_code|clean_text or '-' }}</td>
+                <td>{{ row.serial_no|clean_text or '-' }}</td>
+                <td>{{ row.work_center_name|clean_text or '-' }}
+                    {% if row.conflict_count and row.conflict_count > 0 %}
+                    <span class="badge bg-warning text-dark ms-1" title="{{ row.conflict_warning }}">冲突 {{ row.conflict_count }}</span>
+                    {% endif %}
+                </td>
+                <td>{{ row.planned_start or '-' }} 至 {{ row.planned_end or '-' }}</td>
+                <td>{{ row.quantity or '-' }}</td>
+                <td>{{ row.dispatch_status|clean_text or row.status_display|clean_text or '-' }}</td>
+                <td>{{ row.responsible_person|clean_text or row.dispatched_to|clean_text or '-' }}</td>
+                <td>{{ row.blocked_reason|clean_text or '-' }}</td>
+                <td>{{ row.next_action|clean_text or '按计划派工或跟进堵点' }}</td>
+                <td>{{ row.downstream_impact|clean_text or '-' }}</td>
+                <td>
+                    <div class="btn-group btn-group-sm">
+                        <a class="btn btn-outline-primary" href="/production-schedules/{{ row.id }}">详情</a>
+                        <a class="btn btn-outline-secondary" href="/production-schedules/{{ row.id }}/edit">编辑</a>
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="13" class="text-muted">暂无生产排程。</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

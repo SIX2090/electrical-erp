@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}工单快照{% endblock %}
+{% block content %}
+{% if not work_order %}
+<div class="page-card">未找到工单。</div>
+{% else %}
+{{ document_menu_bar(actions=[
+    {'type': 'nav', 'items': [
+        {'label': '首张', 'event': 'doc-nav-first', 'icon': 'bi-chevron-double-left'},
+        {'label': '上一张', 'event': 'doc-nav-prev', 'icon': 'bi-chevron-left'},
+        {'label': '下一张', 'event': 'doc-nav-next', 'icon': 'bi-chevron-right'},
+        {'label': '末张', 'event': 'doc-nav-last', 'icon': 'bi-chevron-double-right'}
+    ]},
+    {'label': '工单列表', 'type': 'link', 'href': '/work-orders'},
+    {'label': '工单详情', 'type': 'link', 'href': '/work-orders/' ~ work_order.id}
+]) }}
+<div id="doc-nav-config" data-nav-table="work_orders" data-nav-base="/work-orders/" data-doc-id="{{ work_order.id }}" style="display:none"></div>
+
+<div class="page-card mb-3">
+    <div class="d-flex justify-content-between align-items-start gap-3">
+        <div>
+            <h1 class="h4 mb-1">{{ work_order.wo_no|clean_text }}</h1>
+            <div class="text-muted">{{ work_order.product_code|clean_text }} {{ work_order.product_name|clean_text }} {{ work_order.product_specification|clean_text }}</div>
+        </div>
+        <div class="text-muted small text-end">
+            <div>项目号：{{ work_order.project_code|clean_text or '-' }}</div>
+            <div>机号：{{ work_order.serial_no|clean_text or '-' }}</div>
+            <div>状态：{{ work_order.status|clean_text or '-' }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="alert alert-info py-2">
+    边界：本页只读展示工单发布时的BOM、工艺、图纸快照；快照内容不可修改，用于追溯和与当前主数据对比。
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div><h2>BOM快照</h2><span>工单发布时锁定的BOM表头和子项；当前BOM修改不影响已发布工单。</span></div>
+    </div>
+    {% if bom_snapshots %}
+    {% set latest_bom = bom_snapshots[0] %}
+    {% set bom_payload = latest_bom.snapshot_json or {} %}
+    <div class="mb-2 text-muted small">最近快照：{{ latest_bom.created_at or '-' }} / BOM版本ID：{{ latest_bom.bom_version_id or '-' }}</div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+                <tr>
+                    <th>物料编码</th>
+                    <th>物料名称</th>
+                    <th>规格</th>
+                    <th class="text-end">用量</th>
+                    <th>单位</th>
+                    <th class="text-end">损耗率%</th>
+                    <th>替代</th>
+                    <th>备注</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for item in bom_payload.bom_items or [] %}
+            <tr>
+                <td>{{ item.material_code|clean_text or '-' }}</td>
+                <td>{{ item.material_name|clean_text or '-' }}</td>
+                <td>{{ item.material_spec|clean_text or '-' }}</td>
+                <td class="text-end">{{ item.base_qty|default(0) }}</td>
+                <td>{{ item.material_unit|clean_text or '-' }}</td>
+                <td class="text-end">{{ item.loss_rate|default(0) }}</td>
+                <td>{{ '替代' if item.is_optional else '-' }}</td>
+                <td>{{ item.remark|clean_text or '-' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="8" class="text-muted">BOM快照无子项。</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if bom_snapshots|length > 1 %}
+    <details class="mt-2">
+        <summary class="text-muted small">历史快照（{{ bom_snapshots|length - 1 }} 条）</summary>
+        <ul class="small text-muted mt-2">
+        {% for snap in bom_snapshots[1:] %}
+            <li>{{ snap.created_at or '-' }} / BOM版本ID：{{ snap.bom_version_id or '-' }}</li>
+        {% endfor %}
+        </ul>
+    </details>
+    {% endif %}
+    {% else %}
+    <div class="text-muted">该工单暂无BOM快照。</div>
+    {% endif %}
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div><h2>工艺路线快照</h2><span>工单发布时锁定的工艺路线和工序。</span></div>
+    </div>
+    {% if process_snapshots %}
+    {% set latest_proc = process_snapshots[0] %}
+    {% set proc_payload = latest_proc.snapshot_json or {} %}
+    <div class="mb-2 text-muted small">最近快照：{{ latest_proc.created_at or '-' }} / 工艺路线ID：{{ latest_proc.route_version_id or '-' }}</div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+                <tr>
+                    <th>序号</th>
+                    <th>工序名称</th>
+                    <th>工作中心</th>
+                    <th class="text-end">标准工时</th>
+                    <th class="text-end">准备工时</th>
+                    <th>备注</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for op in proc_payload.routing_operations or [] %}
+            <tr>
+                <td>{{ op.sequence|default('') }}</td>
+                <td>{{ op.operation_name|clean_text or '-' }}</td>
+                <td>{{ op.work_center_code|clean_text or '' }} {{ op.work_center_name|clean_text or '' }}</td>
+                <td class="text-end">{{ op.standard_time|default(0) }}</td>
+                <td class="text-end">{{ op.setup_time|default(0) }}</td>
+                <td>{{ op.remark|clean_text or '-' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="text-muted">工艺路线快照无工序。</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-muted">该工单暂无工艺路线快照。</div>
+    {% endif %}
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div><h2>图纸快照</h2><span>工单发布时锁定的图纸版本。</span></div>
+    </div>
+    {% if drawing_snapshots %}
+    {% set latest_draw = drawing_snapshots[0] %}
+    {% set draw_payload = latest_draw.snapshot_json or {} %}
+    <div class="mb-2 text-muted small">最近快照：{{ latest_draw.created_at or '-' }}</div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+                <tr>
+                    <th>图号</th>
+                    <th>版本</th>
+                    <th>图纸名称</th>
+                    <th>类型</th>
+                    <th>状态</th>
+                    <th>生效日期</th>
+                    <th>用途范围</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for d in draw_payload.drawings or [] %}
+            <tr>
+                <td>{{ d.drawing_no|clean_text or '-' }}</td>
+                <td>{{ d.version|clean_text or '-' }}</td>
+                <td>{{ d.drawing_name|clean_text or '-' }}</td>
+                <td>{{ d.drawing_type|clean_text or '-' }}</td>
+                <td>{{ d.status|clean_text or '-' }}</td>
+                <td>{{ d.effective_date or '-' }}</td>
+                <td>{{ d.usage_scope|clean_text or '-' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" class="text-muted">图纸快照无内容。</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-muted">该工单暂无图纸快照。</div>
+    {% endif %}
+</div>
+
+<div class="page-card">
+    <div class="section-title">
+        <div><h2>BOM快照与当前BOM对比</h2><span>检测BOM快照与当前BOM主数据的差异，用于评估是否需要切版或补料。</span></div>
+    </div>
+    {% if comparison and comparison.snapshot %}
+    <div class="row g-3 mb-3">
+        <div class="col-md-4"><div class="metric"><div class="label">新增子项</div><div class="value">{{ comparison.added|length }}</div></div></div>
+        <div class="col-md-4"><div class="metric"><div class="label">删除子项</div><div class="value">{{ comparison.removed|length }}</div></div></div>
+        <div class="col-md-4"><div class="metric"><div class="label">变更子项</div><div class="value">{{ comparison.changed|length }}</div></div></div>
+    </div>
+    {% if comparison.added %}
+    <h3 class="h6">新增子项</h3>
+    <table class="table table-sm align-middle mb-3">
+        <thead><tr><th>物料编码</th><th>物料名称</th><th class="text-end">用量</th><th>单位</th></tr></thead>
+        <tbody>
+        {% for item in comparison.added %}
+        <tr><td>{{ item.material_code|clean_text or '-' }}</td><td>{{ item.material_name|clean_text or '-' }}</td><td class="text-end">{{ item.base_qty|default(0) }}</td><td>{{ item.material_unit|clean_text or '-' }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+    {% if comparison.removed %}
+    <h3 class="h6">删除子项</h3>
+    <table class="table table-sm align-middle mb-3">
+        <thead><tr><th>物料编码</th><th>物料名称</th><th class="text-end">用量</th><th>单位</th></tr></thead>
+        <tbody>
+        {% for item in comparison.removed %}
+        <tr><td>{{ item.material_code|clean_text or '-' }}</td><td>{{ item.material_name|clean_text or '-' }}</td><td class="text-end">{{ item.base_qty|default(0) }}</td><td>{{ item.material_unit|clean_text or '-' }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+    {% if comparison.changed %}
+    <h3 class="h6">变更子项</h3>
+    <table class="table table-sm align-middle mb-3">
+        <thead><tr><th>物料编码</th><th>物料名称</th><th>差异字段</th><th>快照值</th><th>当前值</th></tr></thead>
+        <tbody>
+        {% for item in comparison.changed %}
+        {% for field, diff in item.differences.items() %}
+        <tr><td>{{ item.material_code|clean_text or '-' }}</td><td>{{ item.material_name|clean_text or '-' }}</td><td>{{ field }}</td><td>{{ diff.snapshot|default('-') }}</td><td>{{ diff.current|default('-') }}</td></tr>
+        {% endfor %}
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+    {% if not comparison.added and not comparison.removed and not comparison.changed %}
+    <div class="text-muted">BOM快照与当前BOM一致，无差异。</div>
+    {% endif %}
+    {% else %}
+    <div class="text-muted">暂无BOM快照，无法对比。</div>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

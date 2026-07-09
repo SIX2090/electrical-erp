@@ -1,0 +1,363 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+
+{% block title %}批量生成凭证{% endblock %}
+
+{% block extra_css %}
+<style>
+    .source-section {
+        margin-bottom: 2rem;
+    }
+    .source-card {
+        border: 1px solid #dee2e6;
+        border-radius: 0.25rem;
+        overflow: hidden;
+    }
+    .source-header {
+        background: #e9ecef;
+        padding: 0.75rem 1rem;
+        font-weight: 600;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .source-count {
+        background: #6c757d;
+        color: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+        font-size: 0.85rem;
+    }
+    .source-table {
+        font-size: 0.9rem;
+    }
+    .source-table th {
+        background: #f8f9fa;
+        font-weight: 600;
+    }
+    .checkbox-cell {
+        width: 40px;
+        text-align: center;
+    }
+    .select-all-section {
+        padding: 0.5rem 1rem;
+        background: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+    }
+    .empty-message {
+        padding: 2rem;
+        text-align: center;
+        color: #6c757d;
+    }
+    .action-bar {
+        position: sticky;
+        bottom: 0;
+        background: white;
+        padding: 1rem;
+        border-top: 2px solid #dee2e6;
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+        z-index: 100;
+    }
+    .summary-info {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    .summary-badge {
+        background: #007bff;
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 0.25rem;
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>批量生成凭证</h2>
+        <a href="/finance/vouchers" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> 返回凭证列表
+        </a>
+    </div>
+
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle"></i>
+        <strong>说明：</strong>选择需要生成凭证的业务单据，系统将根据预设的凭证模板自动生成会计凭证。
+        生成后的凭证状态为"草稿"，需要财务人员审核后过账。
+    </div>
+
+    <form method="post" action="/finance/vouchers/generate-batch" id="generateForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <!-- 销售发票 -->
+        <div class="source-section">
+            <div class="source-card">
+                <div class="source-header">
+                    <span><i class="bi bi-receipt"></i> 未生成凭证的销售发票</span>
+                    <span class="source-count">{{ sales_invoices|length }} 张</span>
+                </div>
+                {% if sales_invoices %}
+                <div class="select-all-section">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="selectAllSales"
+                               onclick="toggleSelectAll('sales_invoice', this.checked)">
+                        <label class="form-check-label" for="selectAllSales">
+                            全选
+                        </label>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table source-table mb-0">
+                        <thead>
+                            <tr>
+                                <th class="checkbox-cell"></th>
+                                <th>发票号</th>
+                                <th>发票日期</th>
+                                <th>客户名称</th>
+                                <th class="text-end">含税金额</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for invoice in sales_invoices %}
+                            <tr>
+                                <td class="checkbox-cell">
+                                    <input class="form-check-input select-item sales_invoice-item"
+                                           type="checkbox"
+                                           name="selected_items"
+                                           value="sales_invoice:{{ invoice.id }}">
+                                </td>
+                                <td>{{ invoice.invoice_no }}</td>
+                                <td>{{ invoice.invoice_date }}</td>
+                                <td>{{ invoice.customer_name }}</td>
+                                <td class="text-end">{{ '%.2f'|format(invoice.amount) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="empty-message">
+                    <i class="bi bi-inbox"></i> 暂无待生成凭证的销售发票
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- 采购发票 -->
+        <div class="source-section">
+            <div class="source-card">
+                <div class="source-header">
+                    <span><i class="bi bi-file-earmark-text"></i> 未生成凭证的采购发票</span>
+                    <span class="source-count">{{ purchase_invoices|length }} 张</span>
+                </div>
+                {% if purchase_invoices %}
+                <div class="select-all-section">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="selectAllPurchase"
+                               onclick="toggleSelectAll('purchase_invoice', this.checked)">
+                        <label class="form-check-label" for="selectAllPurchase">
+                            全选
+                        </label>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table source-table mb-0">
+                        <thead>
+                            <tr>
+                                <th class="checkbox-cell"></th>
+                                <th>发票号</th>
+                                <th>发票日期</th>
+                                <th>供应商名称</th>
+                                <th class="text-end">含税金额</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for invoice in purchase_invoices %}
+                            <tr>
+                                <td class="checkbox-cell">
+                                    <input class="form-check-input select-item purchase_invoice-item"
+                                           type="checkbox"
+                                           name="selected_items"
+                                           value="purchase_invoice:{{ invoice.id }}">
+                                </td>
+                                <td>{{ invoice.invoice_no }}</td>
+                                <td>{{ invoice.invoice_date }}</td>
+                                <td>{{ invoice.supplier_name }}</td>
+                                <td class="text-end">{{ '%.2f'|format(invoice.amount) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="empty-message">
+                    <i class="bi bi-inbox"></i> 暂无待生成凭证的采购发票
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- 收款单 -->
+        <div class="source-section">
+            <div class="source-card">
+                <div class="source-header">
+                    <span><i class="bi bi-cash-coin"></i> 未生成凭证的收款单</span>
+                    <span class="source-count">{{ receipts|length }} 张</span>
+                </div>
+                {% if receipts %}
+                <div class="select-all-section">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="selectAllReceipt"
+                               onclick="toggleSelectAll('customer_receipt', this.checked)">
+                        <label class="form-check-label" for="selectAllReceipt">
+                            全选
+                        </label>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table source-table mb-0">
+                        <thead>
+                            <tr>
+                                <th class="checkbox-cell"></th>
+                                <th>收款单号</th>
+                                <th>收款日期</th>
+                                <th>客户名称</th>
+                                <th class="text-end">收款金额</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for receipt in receipts %}
+                            <tr>
+                                <td class="checkbox-cell">
+                                    <input class="form-check-input select-item customer_receipt-item"
+                                           type="checkbox"
+                                           name="selected_items"
+                                           value="customer_receipt:{{ receipt.id }}">
+                                </td>
+                                <td>{{ receipt.receipt_no }}</td>
+                                <td>{{ receipt.receipt_date }}</td>
+                                <td>{{ receipt.customer_name }}</td>
+                                <td class="text-end">{{ '%.2f'|format(receipt.amount) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="empty-message">
+                    <i class="bi bi-inbox"></i> 暂无待生成凭证的收款单
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- 付款单 -->
+        <div class="source-section">
+            <div class="source-card">
+                <div class="source-header">
+                    <span><i class="bi bi-wallet2"></i> 未生成凭证的付款单</span>
+                    <span class="source-count">{{ payments|length }} 张</span>
+                </div>
+                {% if payments %}
+                <div class="select-all-section">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="selectAllPayment"
+                               onclick="toggleSelectAll('supplier_payment', this.checked)">
+                        <label class="form-check-label" for="selectAllPayment">
+                            全选
+                        </label>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table source-table mb-0">
+                        <thead>
+                            <tr>
+                                <th class="checkbox-cell"></th>
+                                <th>付款单号</th>
+                                <th>付款日期</th>
+                                <th>供应商名称</th>
+                                <th class="text-end">付款金额</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for payment in payments %}
+                            <tr>
+                                <td class="checkbox-cell">
+                                    <input class="form-check-input select-item supplier_payment-item"
+                                           type="checkbox"
+                                           name="selected_items"
+                                           value="supplier_payment:{{ payment.id }}">
+                                </td>
+                                <td>{{ payment.payment_no }}</td>
+                                <td>{{ payment.payment_date }}</td>
+                                <td>{{ payment.supplier_name }}</td>
+                                <td class="text-end">{{ '%.2f'|format(payment.amount) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="empty-message">
+                    <i class="bi bi-inbox"></i> 暂无待生成凭证的付款单
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- 操作栏 -->
+        <div class="action-bar">
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="summary-info">
+                    <span class="summary-badge">
+                        已选择：<span id="selectedCount">0</span> 张单据
+                    </span>
+                    <small class="text-muted">系统将为选中的单据自动生成凭证</small>
+                </div>
+                <div>
+                    <button type="submit" class="btn btn-primary btn-lg" id="generateBtn" disabled>
+                        <i class="bi bi-magic"></i> 生成凭证
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // 更新选中数量
+    function updateSelectedCount() {
+        const count = document.querySelectorAll('.select-item:checked').length;
+        document.getElementById('selectedCount').textContent = count;
+        document.getElementById('generateBtn').disabled = count === 0;
+    }
+
+    // 切换全选
+    function toggleSelectAll(sourceType, checked) {
+        const items = document.querySelectorAll('.' + sourceType + '-item');
+        items.forEach(item => {
+            item.checked = checked;
+        });
+        updateSelectedCount();
+    }
+
+    // 监听单个选择框变化
+    document.addEventListener('DOMContentLoaded', function() {
+        const items = document.querySelectorAll('.select-item');
+        items.forEach(item => {
+            item.addEventListener('change', updateSelectedCount);
+        });
+
+        // 表单提交前确认
+        document.getElementById('generateForm').addEventListener('submit', function(e) {
+            const count = document.querySelectorAll('.select-item:checked').length;
+            if (!confirm(`确定要为选中的 ${count} 张单据生成凭证吗？`)) {
+                e.preventDefault();
+            }
+        });
+    });
+</script>
+{% endblock %}

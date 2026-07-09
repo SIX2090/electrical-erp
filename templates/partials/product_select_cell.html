@@ -1,0 +1,16 @@
+<select class="form-select form-select-sm d-none js-product-id-source" name="product_id[]" aria-hidden="true" tabindex="-1">
+    <option value="">请选择</option>
+    {% for row in product_options %}
+    <option value="{{ row.id }}"
+            data-code="{{ row.code or '' }}"
+            data-name="{{ row.name or '' }}"
+            data-specification="{{ row.specification or '' }}"
+            data-unit="{{ row.unit or '' }}"
+            data-product-family="{{ row.product_family or '' }}"
+            data-bom-version="{{ row.default_bom_version or '' }}"
+            data-bom-no="{{ row.default_bom_no or '' }}"
+            data-available-qty="{{ row.available_qty or 0 }}"
+            data-price="{{ row.unit_cost or row.standard_price or 0 }}"
+            data-search="{{ row.code or '' }} {{ row.name or '' }} {{ row.specification or '' }} {{ row.unit or '' }} {{ row.product_family or '' }} {{ row.default_bom_no or '' }} {{ row.default_bom_version or '' }}">{{ row.display_name or row.name }}</option>
+    {% endfor %}
+</select>

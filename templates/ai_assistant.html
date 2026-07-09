@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}操作助手{% endblock %}
+{% block header_title %}操作助手{% endblock %}
+{% block extra_css %}
+<style>
+.assistant-page {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 280px;
+    gap: 16px;
+    align-items: start;
+}
+.assistant-shell {
+    border: 1px solid #dbe4ef;
+    border-radius: 8px;
+    background: #fff;
+    padding: 16px;
+}
+.assistant-shell .erp-ai-panel {
+    display: grid;
+}
+.assistant-manual {
+    border: 1px solid #dbe4ef;
+    border-radius: 8px;
+    background: #fff;
+    padding: 14px;
+}
+.assistant-manual h3 {
+    margin: 0 0 8px;
+    font-size: 16px;
+}
+.assistant-manual p {
+    margin: 0 0 12px;
+    color: #64748b;
+    font-size: 13px;
+}
+.assistant-scope {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-left: 3px solid #0f766e;
+    background: #ecfdf5;
+    color: #134e4a;
+    font-size: 13px;
+}
+@media (max-width: 900px) {
+    .assistant-page {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-start flex-wrap gap-2">
+    <div>
+        <h2 class="mb-1"><i class="bi bi-cpu"></i> 操作助手</h2>
+        <div class="text-muted small">仅按操作手册提供说明和章节定位，不作为报表、单据或业务处理入口。</div>
+    </div>
+    <a class="btn btn-outline-primary btn-sm" href="/help/operation-manual">
+        <i class="bi bi-journal-bookmark"></i> 打开操作手册
+    </a>
+</div>
+
+<div class="assistant-page">
+    <section class="assistant-shell">
+        <div class="erp-ai-panel" data-ai-assistant-panel>
+            <div class="erp-ai-panel-head">
+                <div>
+                    <strong>手册问答</strong>
+                    <span>输入操作问题后，助手只返回操作手册说明和章节链接</span>
+                </div>
+            </div>
+            <textarea class="form-control form-control-sm erp-ai-question" data-ai-question rows="5" placeholder="请输入操作问题，例如：采购订单已审核但无法入库，应该先看手册哪一段？"></textarea>
+            <div class="erp-ai-examples">
+                <button type="button" data-ai-example="采购订单已审核但无法入库，应该先看手册哪一段？">采购入库手册</button>
+                <button type="button" data-ai-example="库存预警很多，操作手册建议先按什么顺序处理？">库存预警手册</button>
+                <button type="button" data-ai-example="工单下达后无法领料，应查看哪些操作步骤？">工单领料手册</button>
+                <button type="button" data-ai-example="售后服务按机号追溯时，操作手册怎么说明？">售后追溯手册</button>
+            </div>
+            <button type="button" class="btn btn-primary btn-sm" data-ai-submit><i class="bi bi-search"></i> 查找手册说明</button>
+            <div class="erp-ai-answer" data-ai-answer>请输入问题后查找操作手册说明。</div>
+            <div class="erp-ai-foot">
+                <a href="/help/operation-manual">操作手册</a>
+                <span>不提供报表摘要、业务创建、审核、过账或对账功能</span>
+            </div>
+        </div>
+    </section>
+
+    <aside class="assistant-manual">
+        <h3>助手边界</h3>
+        <p>助手只解释操作手册内容，并返回手册章节定位。</p>
+        <a class="btn btn-outline-secondary btn-sm w-100" href="/help/operation-manual">
+            <i class="bi bi-journal-text"></i> 查看完整手册
+        </a>
+        <div class="assistant-scope">业务单据、查询列表、报表和系统参数仍从各自页面进入，助手页面不承载这些功能。</div>
+    </aside>
+</div>
+{% endblock %}

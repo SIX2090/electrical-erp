@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% from "partials/document_line_toolbar.html" import line_toolbar %}
+{% set form_order = order|default({}) %}
+{% set form_items = items if items else [{}] %}
+{% block title %}{{ '编辑外协订单' if mode == 'edit' else '新增外协订单' }}{% endblock %}
+{% block content %}
+{% if mode == 'edit' and order and order.id %}
+<form data-doc-action="void" method="post" action="{{ '/subcontract/' ~ order.id ~ '/void' }}" style="display:none"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+{% endif %}
+<form method="post" action="{{ action_url|default('/subcontract/new') }}" id="subcontractForm">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="page-card order-form-card mb-3">
+        <div class="section-title"><div><h2>单据信息</h2></div></div>
+        <div class="row g-2">
+            <div class="col-md-6 col-xl-4"><label class="form-label">单据编号</label><input class="form-control form-control-sm" type="text" value="{{ form_order.order_no|default('') }}" placeholder="保存时自动生成" readonly></div>
+            <div class="col-md-6 col-xl-4"><label class="form-label">加工厂商 <span class="text-danger">*</span></label><select class="form-select form-select-sm" name="supplier_id" required><option value="">请选择</option>{% for supplier in suppliers %}<option value="{{ supplier.id }}" {% if supplier.id == form_order.supplier_id %}selected{% endif %}>{{ supplier.name }}</option>{% endfor %}</select></div>
+            <div class="col-md-6 col-xl-4"><label class="form-label">外协日期</label><input class="form-control form-control-sm" type="date" name="order_date" value="{{ form_order.order_date or today().isoformat() }}"></div>
+            <div class="col-md-6 col-xl-4"><label class="form-label">要求完成日期</label><input class="form-control form-control-sm" type="date" name="required_date" value="{{ form_order.required_date or '' }}"></div>
+            <div class="col-md-6 col-xl-4"><label class="form-label">项目号 <span class="text-muted small">建议</span></label><input class="form-control form-control-sm" name="project_code" value="{{ form_order.project_code or '' }}"></div>
+            <div class="col-md-6 col-xl-4"><label class="form-label">机号 <span class="text-muted small">建议</span></label><input class="form-control form-control-sm" name="serial_no" value="{{ form_order.serial_no or '' }}"></div>
+            <div class="col-12"><label class="form-label">备注</label><input class="form-control form-control-sm" name="remark" value="{{ form_order.remark or '' }}"></div>
+        </div>
+    </div>
+    <div class="page-card order-form-card mb-3">
+        <div class="section-title"><div><h2>外协明细</h2></div><div class="d-flex flex-wrap gap-2">{{ line_toolbar('增行') }}</div></div>
+        <div class="table-responsive">
+            <table class="table table-sm align-middle" id="itemsTable" data-document-grid data-grid-key="subcontract_order_items">
+                <thead><tr data-grid-header><th data-column-key="product_name">物料名称 <span class="text-danger">*</span></th><th data-column-key="product_code">物料编码</th><th data-column-key="specification">规格型号</th><th data-column-key="unit">单位</th><th data-column-key="process_name">工序</th><th data-column-key="warehouse">发料仓库</th><th data-column-key="location">发料库位</th><th data-column-key="lot_no">批号</th><th data-column-key="source_line_no">来源行</th><th data-column-key="line_project_code">行项目号</th><th data-column-key="line_serial_no">行机号</th><th data-column-key="quantity" class="text-end">数量 <span class="text-danger">*</span></th><th data-column-key="unit_price" class="text-end">外协单价</th><th data-column-key="amount" class="text-end">外协金额</th><th data-column-key="actions">操作</th></tr></thead>
+                <tbody>{% for item in form_items %}<tr>
+                    <td data-column-key="product_name"><input type="hidden" name="product_id[]" class="js-product-id" value="{{ item.product_id or '' }}"><input class="form-control form-control-sm js-product-search" list="subcontractProductOptions" value="{{ item.product_name or '' }}" placeholder="输入物料名称/编码/规格" autocomplete="off"></td>
+                    <td data-column-key="product_code"><input class="form-control form-control-sm js-product-code" value="{{ item.product_code or '' }}" readonly></td><td data-column-key="specification"><input class="form-control form-control-sm js-product-spec" value="{{ item.specification or '' }}" readonly></td><td data-column-key="unit"><input class="form-control form-control-sm js-product-unit" value="{{ item.unit or '' }}" readonly></td>
+                    <td data-column-key="process_name"><input class="form-control form-control-sm" name="process_name[]" value="{{ item.process_name or '' }}"></td>
+                    <td data-column-key="warehouse"><select class="form-select form-select-sm" name="warehouse[]"><option value="">按发料单选择</option>{% for warehouse in warehouses %}<option value="{{ warehouse.name }}" {% if item.warehouse == warehouse.name %}selected{% endif %}>{{ warehouse.name }}</option>{% endfor %}</select></td>
+                    <td data-column-key="location"><select class="form-select form-select-sm" name="location[]"><option value="">按发料单选择</option>{% for location in locations %}<option value="{{ location.code or location.name }}" {% if item.location == (location.code or location.name) %}selected{% endif %}>{{ location.code or location.name }}</option>{% endfor %}</select></td>
+                    <td data-column-key="lot_no"><input class="form-control form-control-sm" name="lot_no[]" value="{{ item.lot_no or '' }}"></td>
+                    <td data-column-key="source_line_no"><input class="form-control form-control-sm" name="source_line_no[]" value="{{ item.source_line_no or '' }}"></td>
+                    <td data-column-key="line_project_code"><input class="form-control form-control-sm" name="line_project_code[]" value="{{ item.line_project_code or form_order.project_code or '' }}"></td>
+                    <td data-column-key="line_serial_no"><input class="form-control form-control-sm" name="line_serial_no[]" value="{{ item.line_serial_no or form_order.serial_no or '' }}"></td>
+                    <td data-column-key="quantity"><input class="form-control form-control-sm js-qty text-end" type="number" step="0.001" min="0.001" name="quantity[]" value="{{ item.quantity or 1 }}" required></td><td data-column-key="unit_price"><input class="form-control form-control-sm js-price text-end" type="number" step="0.0001" min="0" name="unit_price[]" value="{{ item.unit_price or 0 }}"></td><td data-column-key="amount"><input class="form-control form-control-sm js-amount text-end" readonly></td><td data-column-key="actions"><button class="btn btn-outline-danger btn-sm js-delete-line" type="button">删行</button></td>
+                </tr>{% endfor %}</tbody>
+            </table>
+            <datalist id="subcontractProductOptions">{% for product in products %}<option value="{{ product.name or product.display_name or product.code }}" label="{{ product.code or '' }}{% if product.name %} / {{ product.name }}{% endif %}{% if product.specification %} / {{ product.specification }}{% endif %}">{% endfor %}</datalist>
+        </div>
+    </div>
+    <div class="footer-bar"><button class="btn btn-primary" type="submit"><i class="bi bi-save"></i> 保存</button><a class="btn btn-secondary" href="/subcontract">取消</a></div>
+</form>
+<script src="{{ url_for('static', filename='js/document_grid.js') }}"></script>
+<script>
+(function () {
+    const table = document.getElementById('itemsTable');
+    const tbody = table.querySelector('tbody');
+    const products = {{ products|tojson }};
+    function findProduct(value) {
+        const text = String(value || '').trim().toLowerCase();
+        if (!text) return null;
+        return products.find(product => [product.name, product.code, product.specification, product.display_name].some(field => String(field || '').trim().toLowerCase() === text))
+            || products.find(product => [product.name, product.code, product.specification, product.display_name].some(field => String(field || '').toLowerCase().includes(text))) || null;
+    }
+    function applyProduct(row, product) {
+        if (!product) return;
+        row.querySelector('.js-product-id').value = product.id || '';
+        row.querySelector('.js-product-search').value = product.name || product.display_name || product.code || '';
+        row.querySelector('.js-product-code').value = product.code || '';
+        row.querySelector('.js-product-spec').value = product.specification || '';
+        row.querySelector('.js-product-unit').value = product.unit || '';
+        const priceInput = row.querySelector('.js-price');
+        if (!priceInput.value || Number(priceInput.value) === 0) priceInput.value = product.standard_price || product.unit_cost || 0;
+    }
+    function sync(row) {
+        if (!row) return;
+        const product = findProduct(row.querySelector('.js-product-search')?.value);
+        if (product) applyProduct(row, product);
+        const qty = parseFloat(row.querySelector('.js-qty').value || '0') || 0;
+        const price = parseFloat(row.querySelector('.js-price').value || '0') || 0;
+        row.querySelector('.js-amount').value = (qty * price).toFixed(2);
+    }
+    function cloneRow() {
+        const row = tbody.querySelector('tr').cloneNode(true);
+        row.querySelectorAll('input').forEach(input => { input.value = input.classList.contains('js-qty') ? '1' : (input.classList.contains('js-price') ? '0' : ''); });
+        row.querySelectorAll('select').forEach(select => { select.selectedIndex = 0; });
+        return row;
+    }
+    function currentRow() {
+        const active = document.activeElement && document.activeElement.closest && document.activeElement.closest('#itemsTable tbody tr');
+        return active || tbody.querySelector('tr');
+    }
+    function pasteRowValues(target, source) {
+        if (!target || !source) return;
+        const sourceFields = Array.from(source.querySelectorAll('input, select, textarea'));
+        const targetFields = Array.from(target.querySelectorAll('input, select, textarea'));
+        sourceFields.forEach((field, index) => {
+            const targetField = targetFields[index];
+            if (!targetField) return;
+            targetField.value = field.value || '';
+            targetField.dispatchEvent(new Event('change', {bubbles: true}));
+            targetField.dispatchEvent(new Event('input', {bubbles: true}));
+        });
+        sync(target);
+    }
+    tbody.addEventListener('input', event => sync(event.target.closest('tr')));
+    tbody.addEventListener('change', event => sync(event.target.closest('tr')));
+    tbody.addEventListener('click', event => { if (event.target.classList.contains('js-delete-line') && tbody.querySelectorAll('tr').length > 1) event.target.closest('tr').remove(); });
+    document.getElementById('addLineBtn')?.addEventListener('click', () => { const row = cloneRow(); tbody.appendChild(row); sync(row); if (window.documentGridApi) window.documentGridApi.refresh(); });
+    let copiedRow = null;
+    document.querySelectorAll('[data-line-action]').forEach(button => {
+        button.addEventListener('click', function () {
+            const action = button.dataset.lineAction;
+            const row = currentRow();
+            if (action === 'insert') {
+                const inserted = cloneRow();
+                if (row) tbody.insertBefore(inserted, row); else tbody.appendChild(inserted);
+                sync(inserted);
+                inserted.querySelector('.js-product-search')?.focus();
+            }
+            if (action === 'copy') copiedRow = row ? row.cloneNode(true) : null;
+            if (action === 'paste' && copiedRow && row) pasteRowValues(row, copiedRow);
+            if (action === 'up' && row && row.previousElementSibling) tbody.insertBefore(row, row.previousElementSibling);
+            if (action === 'down' && row && row.nextElementSibling) tbody.insertBefore(row.nextElementSibling, row);
+            if (action === 'delete' && row && tbody.querySelectorAll('tr').length > 1) row.remove();
+            tbody.querySelectorAll('tr').forEach(sync);
+            if (window.documentGridApi) window.documentGridApi.refresh();
+        });
+    });
+    document.querySelectorAll('[data-grid-action]').forEach(button => {
+        button.addEventListener('click', function () {
+            const api = window.documentGridApi || (window.initDocumentGrid && window.initDocumentGrid(table));
+            if (!api) return;
+            const action = button.dataset.gridAction;
+            if (action === 'columns') api.openColumnPanel(button);
+            if (action === 'custom-field') api.addCustomField();
+            if (action === 'reset') api.reset();
+            if (action === 'sort-help') showToast('点击明细表头可按该列升序/降序排序。', 'info');
+        });
+    });
+    tbody.querySelectorAll('tr').forEach(sync);
+})();
+document.addEventListener('click', function(event) {
+    var item = event.target.closest('[data-menu-event]');
+    if (!item || item.disabled) return;
+    var action = item.dataset.menuEvent;
+    if (action && action.indexOf('toolbar-save-new') === 0) {
+        event.preventDefault();
+        if (typeof submitForm === 'function') { submitForm(); }
+        else { var form = document.querySelector('form'); if (form) { if (typeof form.requestSubmit === 'function') { form.requestSubmit(); } else { form.submit(); } } }
+    }
+    if (action && action.indexOf('toolbar-save') === 0 && action.indexOf('toolbar-save-new') !== 0) {
+        event.preventDefault();
+        if (typeof submitForm === 'function') { submitForm(); }
+        else { var form = document.querySelector('form'); if (form) { if (typeof form.requestSubmit === 'function') { form.requestSubmit(); } else { form.submit(); } } }
+    }
+});
+</script>
+{% endblock %}

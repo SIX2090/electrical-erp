@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+
+{% block title %}存货与总账对账{% endblock %}
+
+{% block content %}
+<form id="reportFilterForm" method="get" class="d-none"></form>
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>{{ title }}</h2>
+        <div class="d-none">
+            <a class="btn btn-sm btn-outline-secondary" href="javascript:history.back()" title="返回上一页"><i class="bi bi-arrow-left"></i> 返回</a>
+            <button class="btn btn-sm btn-primary" onclick="exportReportTable()"><i class="bi bi-download"></i> 导出Excel</button>
+            <button class="btn btn-sm btn-secondary" onclick="window.print()"><i class="bi bi-printer"></i> 打印</button>
+        </div>
+    </div>
+    <div class="page-header">
+        <h1>存货与总账对账</h1>
+        <p class="text-muted">核对库存商品账面金额与总账科目余额是否一致</p>
+    </div>
+
+    <!-- 对账结果汇总 -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card border-info">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-warehouse"></i> 库存商品金额（业务系统）
+                    </h5>
+                </div>
+                <div class="card-body text-center">
+                    <h2 class="text-info mb-0">{{ "%.2f"|format(reconciliation.inventory_amount) }}</h2>
+                    <small class="text-muted">根据产品库存数量 × 当前成本计算</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card border-success">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-book"></i> 总账科目余额（财务系统）
+                    </h5>
+                </div>
+                <div class="card-body text-center">
+                    <h2 class="text-success mb-0">{{ "%.2f"|format(reconciliation.ledger_balance) }}</h2>
+                    <small class="text-muted">科目 1405 - 库存商品借贷方余额</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card {% if reconciliation.is_balanced %}border-success{% else %}border-danger{% endif %}">
+                <div class="card-header {% if reconciliation.is_balanced %}bg-success{% else %}bg-danger{% endif %} text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-{% if reconciliation.is_balanced %}check-circle{% else %}exclamation-triangle{% endif %}"></i>
+                        差异金额
+                    </h5>
+                </div>
+                <div class="card-body text-center">
+                    <h2 class="{% if reconciliation.is_balanced %}text-success{% else %}text-danger{% endif %} mb-0">
+                        {{ "%.2f"|format(reconciliation.difference) }}
+                    </h2>
+                    {% if reconciliation.is_balanced %}
+                        <span class="badge badge-success mt-2">账实相符</span>
+                    {% else %}
+                        <span class="badge badge-danger mt-2">存在差异</span>
+                        <br>
+                        <small class="text-muted">差异 = 库存金额 - 总账余额</small>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 对账说明 -->
+    {% if not reconciliation.is_balanced %}
+    <div class="alert alert-warning">
+        <h5><i class="fas fa-exclamation-triangle"></i> 差异原因分析</h5>
+        <p>存货金额与总账不符，可能的原因包括：</p>
+        <ul>
+            <li>有出库单据核算了成本，但未生成凭证记账</li>
+            <li>有入库单据已记账，但未进行成本核算</li>
+            <li>存在手工调整凭证但未同步更新库存成本</li>
+            <li>成本核算方法变更导致的过渡期差异</li>
+        </ul>
+        <p class="mb-0">
+            <strong>建议：</strong>
+            逐笔核对最近的存货交易和凭证，找出未匹配的单据并进行调整。
+        </p>
+    </div>
+    {% else %}
+    <div class="alert alert-success">
+        <h5><i class="fas fa-check-circle"></i> 对账结果</h5>
+        <p class="mb-0">
+            库存商品金额与总账科目余额一致，账实相符。
+        </p>
+    </div>
+    {% endif %}
+
+    <!-- 产品明细 -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-list"></i> 库存商品明细
+            </h5>
+            <small class="text-muted">仅显示有库存的产品</small>
+        </div>
+        <div class="card-body">
+            {% if reconciliation.details %}
+            <div class="table-responsive">
+                <table class="table table-hover table-sm">
+                    <thead class="thead-light">
+                        <tr>
+                            <th>序号</th>
+                            <th>产品编号</th>
+                            <th>产品名称</th>
+                            <th class="text-right">库存数量</th>
+                            <th class="text-right">当前成本</th>
+                            <th class="text-right">库存金额</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in reconciliation.details %}
+                        <tr>
+                            <td>{{ loop.index }}</td>
+                            <td>{{ row.code }}</td>
+                            <td>{{ row.name }}</td>
+                            <td class="text-right">{{ "%.2f"|format(row.quantity) }}</td>
+                            <td class="text-right">{{ "%.2f"|format(row.current_cost) }}</td>
+                            <td class="text-right">
+                                <strong>{{ "%.2f"|format(row.amount) }}</strong>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="thead-light">
+                        <tr>
+                            <th colspan="5" class="text-right">合计：</th>
+                            <th class="text-right">
+                                <strong>{{ "%.2f"|format(reconciliation.inventory_amount) }}</strong>
+                            </th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <!-- 分页或数量提示 -->
+            <div class="mt-3">
+                <small class="text-muted">
+                    共 {{ reconciliation.details|length }} 个产品有库存
+                </small>
+            </div>
+            {% else %}
+            <div class="alert alert-info mb-0">
+                <i class="fas fa-info-circle"></i> 当前没有库存产品
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 操作建议 -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-lightbulb"></i> 对账操作指引
+            </h5>
+        </div>
+        <div class="card-body">
+            <h6>定期对账流程：</h6>
+            <ol>
+                <li>每月月末进行一次存货与总账对账</li>
+                <li>确保所有入库、出库单据都已完成成本核算</li>
+                <li>确保所有成本核算都已生成凭证并记账</li>
+                <li>如发现差异，按以下步骤排查：
+                    <ul>
+                        <li>检查是否有未核算的入库/出库单据</li>
+                        <li>检查是否有核算但未生成凭证的记录</li>
+                        <li>检查是否有已生成但未审核/未记账的凭证</li>
+                        <li>检查是否存在手工调整凭证</li>
+                    </ul>
+                </li>
+                <li>找到差异原因后，补充核算或调整凭证</li>
+                <li>再次对账，确认账实相符</li>
+            </ol>
+
+            <h6 class="mt-3">相关功能链接：</h6>
+            <div class="btn-group" role="group">
+                <a href="/finance/inventory-costing/cost-ledger" class="btn btn-outline-primary">
+                    <i class="fas fa-file-invoice"></i> 查看成本明细账
+                </a>
+                <a href="/finance/vouchers" class="btn btn-outline-success">
+                    <i class="fas fa-book"></i> 查看凭证列表
+                </a>
+                <a href="/finance/reports/account-detail-ledger?account_code=1405" class="btn btn-outline-info">
+                    <i class="fas fa-list"></i> 查看1405科目明细账
+                </a>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<style>
+.card {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.card-body h2 {
+    font-size: 2.5rem;
+    font-weight: bold;
+}
+
+.alert h5 {
+    margin-bottom: 15px;
+}
+
+.table td, .table th {
+    vertical-align: middle;
+}
+</style>
+
+<script>
+function exportReportTable() {
+    var table = document.querySelector('.table');
+    if (!table) return;
+    var html = table.outerHTML;
+    var url = 'data:application/vnd.ms-excel,' + encodeURIComponent(html);
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = '{{ title }}_' + new Date().toISOString().substr(0,10) + '.xls';
+    link.click();
+}
+</script>
+{% endblock %}

@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% block title %}{{ doc_type }}详情{% endblock %}
+{% block content %}
+<div id="doc-nav-config" data-nav-table="{{ 'customer_receivables' if '应收' in (doc_type or '') else 'supplier_payables' }}" data-nav-base="{{ (back_url or '/receivables') }}/" data-doc-id="{{ doc.id }}" style="display:none"></div>
+<div class="mb-3">
+    <a class="btn btn-outline-secondary btn-sm" href="{{ back_url or '/receivables' }}">返回列表</a>
+</div>
+
+<div class="page-card mb-3">
+    <div class="d-flex justify-content-between align-items-start gap-3">
+        <div>
+            <h1 class="h4 mb-1">{{ doc_type }}详情：{{ doc.receivable_no or doc.payable_no or doc.doc_no or doc.source_no or doc.id }}</h1>
+            <div class="text-muted">
+                {{ partner_label }}：{{ partner_name or '-' }}
+                {% if doc.contact_person %} / {{ doc.contact_person }}{% endif %}
+                {% if doc.customer_phone or doc.supplier_phone %} / {{ doc.customer_phone or doc.supplier_phone }}{% endif %}
+            </div>
+        </div>
+        <span class="badge text-bg-primary">{{ doc.status or '-' }}</span>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    {% for metric in metrics %}
+    <div class="col-md-6 col-xl-3">
+        <div class="metric h-100">
+            <div class="label">{{ metric.label }}</div>
+            <div class="value">{{ metric.value }}</div>
+            <div class="text-muted small mt-1">{{ metric.hint }}</div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="page-card mb-3">
+    <h2 class="h5 mb-3">单据信息</h2>
+    <div class="row g-2">
+        {% if doc.receivable_no %}<div class="col-md-3"><strong>应收单号：</strong>{{ doc.receivable_no }}</div>{% endif %}
+        {% if doc.payable_no %}<div class="col-md-3"><strong>应付单号：</strong>{{ doc.payable_no }}</div>{% endif %}
+        <div class="col-md-3"><strong>来源：</strong>{{ doc.source_no or doc.doc_no or '-' }}</div>
+        <div class="col-md-3"><strong>日期：</strong>{{ doc.receivable_date or doc.doc_date or '-' }}</div>
+        <div class="col-md-3"><strong>项目号：</strong>{{ doc.project_code or '-' }}</div>
+        <div class="col-md-3"><strong>机号：</strong>{{ doc.serial_no or '-' }}</div>
+        <div class="col-md-6"><strong>成本对象：</strong>{{ doc.cost_object_code or doc.cost_object_id or '-' }} {{ doc.project_name or '' }}</div>
+        <div class="col-md-6"><strong>备注：</strong>{{ doc.remark or doc.finance_remark or '-' }}</div>
+    </div>
+</div>
+
+<div class="row g-3">
+    {% for section in sections %}
+    <div class="col-lg-6">
+        <div class="page-card h-100" data-finance-trace-fields="amount source_line source_line_no">
+            <h2 class="h5 mb-3">{{ section.title }}</h2>
+            {% if section.rows %}
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead>
+                    <tr>{% for column in section.columns %}<th data-column-key="{{ column.key }}">{{ column.label }}</th>{% endfor %}</tr>
+                    </thead>
+                    <tbody>
+                    {% for row in section.rows %}
+                    <tr>
+                        {% for column in section.columns %}
+                        {% set value = row.get(column.key) %}
+                        <td data-column-key="{{ column.key }}">{{ '-' if value is none else value }}</td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-muted">暂无记录。</div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="row g-3 mt-1">
+    <div class="col-lg-6">
+        <div class="page-card h-100">
+            <div class="section-title">
+                <div>
+                    <h2>财务附件</h2>
+                    <span>保存发票、付款凭证、对账单和客户/供应商确认件</span>
+                </div>
+            </div>
+            <form class="row g-2 align-items-end mb-3" method="post" action="{{ action_prefix }}/{{ doc.id }}/attachments" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="col-md-5">
+                    <label class="form-label">选择文件</label>
+                    <input class="form-control" type="file" name="file" required>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label">备注</label>
+                    <input class="form-control" name="remark" placeholder="例如：发票、付款凭证、对账单">
+                </div>
+                <div class="col-md-2 d-grid">
+                    <button class="btn btn-primary" type="submit"><i class="bi bi-upload"></i> 上传</button>
+                </div>
+            </form>
+            {% if attachments %}
+            <div class="list-group list-group-flush">
+                {% for file in attachments %}
+                <div class="list-group-item px-0">
+                    <div class="d-flex justify-content-between gap-3">
+                        <div class="min-w-0">
+                            <div class="fw-semibold text-truncate">
+                                <i class="bi {{ 'bi-image' if file.attachment_type == 'image' else 'bi-file-earmark-text' }} text-primary"></i>
+                                <a href="{{ url_for('static', filename=file.stored_path) }}" target="_blank">{{ file.file_name }}</a>
+                            </div>
+                            <div class="text-muted small">{{ file.remark or '-' }}</div>
+                            <div class="text-muted small">{{ file.uploaded_at or '-' }} / {{ ((file.file_size or 0) / 1024)|round(1) }} KB</div>
+                        </div>
+                        <form method="post" action="{{ action_prefix }}/{{ doc.id }}/attachments/{{ file.id }}/delete">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="btn btn-outline-danger btn-sm" type="submit">删除</button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-muted">暂无附件。</div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="page-card h-100">
+            <div class="section-title">
+                <div>
+                    <h2>备注/操作记录</h2>
+                    <span>记录对账、催收、付款安排和争议说明</span>
+                </div>
+            </div>
+            <form class="row g-2 align-items-end mb-3" method="post" action="{{ action_prefix }}/{{ doc.id }}/notes">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="col-md-9">
+                    <label class="form-label">新增备注</label>
+                    <input class="form-control" name="note" placeholder="输入对账、催收、付款安排或争议说明" required>
+                </div>
+                <div class="col-md-3 d-grid">
+                    <button class="btn btn-primary" type="submit"><i class="bi bi-clock-history"></i> 记录</button>
+                </div>
+            </form>
+            {% if activity_logs %}
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead><tr><th>时间</th><th>人员</th><th>操作</th><th>说明</th></tr></thead>
+                    <tbody>
+                    {% for log in activity_logs %}
+                    <tr>
+                        <td class="text-muted small">{{ log.created_at or '-' }}</td>
+                        <td>{{ log.username or '-' }}</td>
+                        <td>{{ log.action or '-' }}</td>
+                        <td>{{ log.remark or log.target or '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-muted">暂无操作记录。</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

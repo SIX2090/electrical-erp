@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h1 class="h4 mb-1">{{ title }}</h1>
+        <div class="text-muted small">报价单编辑入口，保存后回到明细页继续提交、审核或转销售订单。</div>
+    </div>
+    <a class="btn btn-outline-secondary btn-sm d-none" href="/quotations/{{ quotation.id }}">返回明细</a>
+</div>
+
+<form method="post" action="{{ post_url }}" class="card">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">报价单号</label>
+                <input class="form-control" type="text" value="{{ quotation.quote_no|default('') }}" placeholder="保存时自动生成" readonly>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">报价日期</label>
+                <input class="form-control" type="date" name="doc_date" value="{{ doc_date }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">客户</label>
+                <select class="form-select" name="customer_id" required>
+                    <option value="">请选择</option>
+                    {% for item in customers %}
+                    <option value="{{ item.id }}" {% if quotation.customer_id == item.id %}selected{% endif %}>{{ item.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">来源单号</label>
+                <input class="form-control" name="source_no" value="{{ quotation.source_no or '' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">有效期</label>
+                <input class="form-control" type="date" name="valid_until" value="{{ quotation.valid_until or '' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">项目号</label>
+                <input class="form-control" name="project_code" value="{{ quotation.project_code or '' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">机号</label>
+                <input class="form-control" name="serial_no" value="{{ quotation.serial_no or '' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">机型</label>
+                <input class="form-control" name="machine_type" value="{{ quotation.machine_type or '' }}">
+            </div>
+        </div>
+
+        <div class="table-responsive mt-3">
+            <table class="table table-bordered table-sm align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>物料名称</th>
+                        <th style="width: 140px;">规格</th>
+                        <th style="width: 90px;">单位</th>
+                        <th style="width: 120px;">数量</th>
+                        <th style="width: 120px;">单价</th>
+                        <th style="width: 100px;">税率%</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>
+                            <input type="hidden" name="product_id" id="productId" value="{{ line.product_id or '' }}">
+                            <input class="form-control form-control-sm" list="productOptions" id="productName" value="{{ line.item_name or line.product_name or '' }}" required>
+                            <datalist id="productOptions">
+                                {% for p in products %}
+                                <option data-id="{{ p.id }}" data-specification="{{ p.specification or '' }}" data-unit="{{ p.unit or '' }}" value="{{ p.name }}">{{ p.code }} {{ p.specification or '' }} {{ p.unit or '' }}</option>
+                                {% endfor %}
+                            </datalist>
+                        </td>
+                        <td><input class="form-control form-control-sm" id="productSpec" value="{{ line.specification or line.material_spec or '' }}" readonly tabindex="-1"></td>
+                        <td><input class="form-control form-control-sm" id="productUnit" value="{{ line.unit or line.material_unit or '' }}" readonly tabindex="-1"></td>
+                        <td><input class="form-control form-control-sm text-end" name="quantity" value="{{ line.quantity or '1' }}"></td>
+                        <td><input class="form-control form-control-sm text-end" name="unit_price" value="{{ line.unit_price or '0' }}"></td>
+                        <td><input class="form-control form-control-sm text-end" name="tax_rate" value="{{ line.tax_rate or '13' }}"></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="mt-3">
+            <label class="form-label">备注</label>
+            <input class="form-control" name="remark" value="{{ quotation.remark or '' }}">
+        </div>
+        <div class="mt-3 d-flex justify-content-end gap-2">
+            <a class="btn btn-outline-secondary" href="/quotations/{{ quotation.id }}">取消</a>
+            <button class="btn btn-primary" type="submit">保存报价单</button>
+        </div>
+    </div>
+</form>
+{% if quotation and quotation.id %}
+<form data-doc-action="copy" method="post" action="/quotations/{{ quotation.id }}/copy" class="d-none"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+<form data-doc-action="void" method="post" action="/quotations/{{ quotation.id }}/void" class="d-none"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+{% endif %}
+
+<script>
+document.getElementById('productName')?.addEventListener('input', function () {
+    const option = Array.from(document.querySelectorAll('#productOptions option')).find(item => item.value === this.value);
+    document.getElementById('productId').value = option ? option.dataset.id : '';
+    document.getElementById('productSpec').value = option ? option.dataset.specification || '' : '';
+    document.getElementById('productUnit').value = option ? option.dataset.unit || '' : '';
+});
+document.addEventListener('click', function(event) {
+    var item = event.target.closest('[data-menu-event]');
+    if (!item || item.disabled) return;
+    var action = item.dataset.menuEvent;
+    if (action && action.indexOf('toolbar-save-new') === 0) {
+        event.preventDefault();
+        if (typeof submitForm === 'function') { submitForm(); }
+        else { var form = document.querySelector('form'); if (form) { if (typeof form.requestSubmit === 'function') { form.requestSubmit(); } else { form.submit(); } } }
+    }
+    if (action && action.indexOf('toolbar-save') === 0 && action.indexOf('toolbar-save-new') !== 0) {
+        event.preventDefault();
+        if (typeof submitForm === 'function') { submitForm(); }
+        else { var form = document.querySelector('form'); if (form) { if (typeof form.requestSubmit === 'function') { form.requestSubmit(); } else { form.submit(); } } }
+    }
+});
+</script>
+{% endblock %}

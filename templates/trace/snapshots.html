@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}追溯快照列表{% endblock %}
+{% block header_title %}追溯快照{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+    <h2 class="mb-0"><i class="bi bi-camera"></i> 追溯快照列表</h2>
+    <a class="btn btn-outline-secondary btn-sm" href="/trace"><i class="bi bi-arrow-left"></i> 返回追溯中心</a>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-auto">
+                <label class="form-label small mb-0">单据类型</label>
+                <input type="text" class="form-control form-control-sm" name="doc_type" value="{{ filters.doc_type }}" placeholder="如 work_order">
+            </div>
+            <div class="col-auto">
+                <label class="form-label small mb-0">单据ID</label>
+                <input type="number" class="form-control form-control-sm" name="doc_id" value="{{ filters.doc_id }}" placeholder="数字">
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-search"></i> 筛选</button>
+                <a class="btn btn-outline-secondary btn-sm" href="/trace/snapshots">重置</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        {% if snapshots %}
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th width="60">ID</th>
+                        <th>单据类型</th>
+                        <th>单据ID</th>
+                        <th>单据编号</th>
+                        <th>快照事件</th>
+                        <th>项目号</th>
+                        <th>机号</th>
+                        <th>创建时间</th>
+                        <th width="80">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in snapshots %}
+                    <tr>
+                        <td>{{ s.id }}</td>
+                        <td>{{ label(s.doc_type) }}</td>
+                        <td>{{ s.doc_id }}</td>
+                        <td>{{ s.doc_no or '-' }}</td>
+                        <td><span class="badge text-bg-info">{{ s.snapshot_event or '-' }}</span></td>
+                        <td>{{ s.project_code or '-' }}</td>
+                        <td>{{ s.serial_no or '-' }}</td>
+                        <td class="text-muted small">{{ s.created_at or '-' }}</td>
+                        <td>
+                            <a class="btn btn-outline-primary btn-sm py-0 px-2" href="/trace/snapshots/{{ s.id }}">
+                                <i class="bi bi-eye"></i> 查看
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-muted p-4 text-center">暂无追溯快照记录。</div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

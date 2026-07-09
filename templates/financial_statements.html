@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <div>
+        <h1>{{ title }}</h1>
+        <p>{{ subtitle }} 当前期间：{{ period_label }}</p>
+    </div>
+    <a class="btn btn-outline-primary btn-sm" href="/finance/period-close?year={{ year }}&month={{ month }}">
+        <i class="bi bi-calendar-check"></i> 期间结账
+    </a>
+</div>
+
+{{ document_menu_bar(actions=[
+    {'label': '期间结账', 'type': 'link', 'href': '/finance/period-close?year=' ~ year ~ '&month=' ~ month}
+], aria_label='报表操作菜单') }}
+
+<div class="page-card mb-3">
+    <form id="financialStatementsFilterForm" method="get" class="row g-2 align-items-end">
+        <div class="col-md-2">
+            <label class="form-label">年度</label>
+            <input class="form-control" type="number" name="year" value="{{ year }}" min="2000" max="2100">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">月份</label>
+            <input class="form-control" type="number" name="month" value="{{ month }}" min="1" max="12">
+        </div>
+        <div class="col-md-2 d-grid">
+            <button class="btn btn-outline-primary" type="submit"><i class="bi bi-search"></i> 查询</button>
+        </div>
+    </form>
+</div>
+
+<div class="alert alert-info py-2">
+    当前页面为经营财务快照，数据来自业务单据、应收应付、库存余额和收付款；不等同于完整总账、会计科目余额表、税务申报或法定财务三表。
+    页面仅保留利润表、资产负债表、现金流量表的经营摘要口径名称，不能作为法定报表出具。
+</div>
+
+<div class="alert alert-secondary py-2">
+    {{ payload.reconciliation_note }}
+    <a class="ms-2" href="/finance/reports">钻取应收应付报表</a>
+    <a class="ms-2" href="/finance/inventory-cost/detail">查看库存成本明细</a>
+    <a class="ms-2" href="/finance/cash-bank/journal">查看现金银行流水</a>
+</div>
+
+{% for report in reports %}
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>{{ report.data.title }}</h2>
+            <span>状态：{{ report.status }}{% if report.created_at %} / {{ report.created_at }}{% endif %}</span>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead><tr><th>项目</th><th class="text-end">金额</th></tr></thead>
+            <tbody>
+            {% for row in report.data.rows %}
+            <tr>
+                <td>{{ row.item }}</td>
+                <td class="text-end">{{ row.amount|money }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="2" class="text-muted text-center">暂无数据。</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endfor %}
+<script>
+document.getElementById('financialStatementsPrintBtn')?.addEventListener('click', function () {
+    window.print();
+});
+</script>
+{% endblock %}

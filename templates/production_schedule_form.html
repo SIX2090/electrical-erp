@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}{{ '编辑生产排程' if mode == 'edit' else '新增生产排程' }}{% endblock %}
+{% block content %}
+
+{% if form_errors %}
+<div class="alert alert-warning">
+    {% for error in form_errors %}
+    <div>{{ error }}</div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<form method="post" id="productionScheduleForm">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="page-card">
+        <div class="section-title">
+            <div>
+                <h2>排程信息</h2>
+            </div>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">排程单号</label>
+                <input class="form-control form-control-sm" name="schedule_no" value="{{ form_state.schedule_no|clean_text }}" {% if form_state.status in ['dispatched', 'completed', 'cancelled'] %}readonly{% endif %}>
+            </div>
+            <div class="col-md-5">
+                <label class="form-label">来源工单</label>
+                <select class="form-select form-select-sm" name="work_order_id">
+                    <option value="">未指定</option>
+                    {% for order in work_orders %}
+                    <option value="{{ order.id }}" {% if form_state.work_order_id|string == order.id|string %}selected{% endif %}>
+                        {{ order.wo_no|clean_text }} {{ order.project_code|clean_text }} {{ order.serial_no|clean_text }} {{ order.status|clean_text }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">工作中心</label>
+                <select class="form-select form-select-sm" name="work_center_id">
+                    <option value="">未指定</option>
+                    {% for center in work_centers %}
+                    <option value="{{ center.id }}" {% if form_state.work_center_id|string == center.id|string %}selected{% endif %}>
+                        {{ center.code|clean_text }} {{ center.name|clean_text }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">计划开始</label>
+                <input class="form-control form-control-sm" type="date" name="planned_start_date" value="{{ form_state.planned_start_date }}" required>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">计划完成</label>
+                <input class="form-control form-control-sm" type="date" name="planned_end_date" value="{{ form_state.planned_end_date }}" required>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">计划数量</label>
+                <input class="form-control form-control-sm" name="quantity" value="{{ form_state.quantity or '0' }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">排程状态</label>
+                <select class="form-select form-select-sm" name="status">
+                    {% for value, label in status_options %}
+                    <option value="{{ value }}" {% if form_state.status == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">派工状态</label>
+                <select class="form-select form-select-sm" name="dispatch_status">
+                    {% for status in ['待派工', '已派工', '执行中', '已完成', '已关闭'] %}
+                    <option value="{{ status }}" {% if form_state.dispatch_status == status %}selected{% endif %}>{{ status }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">负责人</label>
+                <input class="form-control form-control-sm" name="responsible_person" value="{{ form_state.responsible_person|clean_text }}">
+            </div>
+            <div class="col-md-9">
+                <label class="form-label">下一步</label>
+                <input class="form-control form-control-sm" name="next_action" value="{{ form_state.next_action|clean_text }}" placeholder="例如：确认齐套后派工 / 等待外协件回厂">
+            </div>
+            <div class="col-12">
+                <label class="form-label">堵点 / 条件</label>
+                <textarea class="form-control form-control-sm" name="blocked_reason" rows="2">{{ form_state.blocked_reason|clean_text }}</textarea>
+            </div>
+            <div class="col-12">
+                <label class="form-label">下游影响</label>
+                <textarea class="form-control form-control-sm" name="downstream_impact" rows="2">{{ form_state.downstream_impact|clean_text }}</textarea>
+            </div>
+            <div class="col-12">
+                <label class="form-label">备注</label>
+                <textarea class="form-control form-control-sm" name="remark" rows="2">{{ form_state.remark|clean_text }}</textarea>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}

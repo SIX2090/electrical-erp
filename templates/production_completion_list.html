@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}完工入库单列表{% endblock %}
+{% block content %}
+<div class="page-card mb-3">
+    <div class="d-flex justify-content-between align-items-center gap-2">
+        <div>
+            <h1 class="h4 mb-1">完工入库单列表</h1>
+            <div class="text-muted">查询、筛选和进入详情；新增完工入库单从独立录入页进入。</div>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-outline-secondary btn-sm" href="/work-orders">生产工单列表</a>
+            <a class="btn btn-outline-secondary btn-sm" href="/production/operation-reports">工序报工列表</a>
+            <a class="btn btn-outline-secondary btn-sm" href="/production-enhance/quality-inspections">质量检验列表</a>
+            <a class="btn btn-outline-secondary btn-sm" href="/production/reports/work-order-execution-detail">工单执行明细</a>
+        </div>
+    </div>
+</div>
+
+<div class="page-card mb-3">
+    <form class="row g-2" method="get" data-list-filter-form>
+        <div class="col-md-7">
+            <input class="form-control form-control-sm" name="keyword" value="{{ keyword|clean_text }}" placeholder="单号 / 工单 / 物料名称 / 项目号 / 机号">
+        </div>
+        <div class="col-md-3">
+            <select class="form-select form-select-sm" name="status">
+                <option value="">全部状态</option>
+                {% for item in status_choices %}
+                <option value="{{ item }}" {% if status == item %}selected{% endif %}>{{ item }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2 d-grid">
+            <button class="btn btn-outline-primary btn-sm" type="submit">查询</button>
+        </div>
+    </form>
+</div>
+
+<div class="page-card">
+    <div class="table-responsive">
+        <table class="table table-sm align-middle client-paginate">
+            <thead>
+                <tr>
+                    <th>单号</th>
+                    <th>来源</th>
+                    <th>日期</th>
+                    <th>来源工单</th>
+                    <th>物料</th>
+                    <th>项目号</th>
+                    <th>机号</th>
+                    <th>仓库</th>
+                    <th class="text-end">完工数量</th>
+                    <th class="text-end">单位成本</th>
+                    <th>状态</th>
+                    <th>下一步</th>
+                    <th class="text-end">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for row in rows %}
+                <tr>
+                    <td>
+                        {% if row.source == 'legacy' %}
+                        {{ row.doc_no|clean_text }}
+                        {% else %}
+                        <a href="/production-completions/{{ row.id }}">{{ row.completion_no|default(row.doc_no)|clean_text }}</a>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if row.source == 'legacy' %}
+                        <span class="badge text-bg-secondary">历史完工</span>
+                        {% else %}
+                        <span class="badge text-bg-primary">正式单据</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ row.completion_date or row.complete_date or '-' }}</td>
+                    <td>{% if row.work_order_id or row.wo_id %}<a href="/work-orders/{{ row.work_order_id or row.wo_id }}">{{ row.wo_no|clean_text or row.work_order_id or row.wo_id }}</a>{% else %}-{% endif %}</td>
+                    <td>{{ row.product_code|clean_text or '-' }} / {{ row.product_name|clean_text or '-' }}</td>
+                    <td>{{ row.project_code|clean_text or '-' }}</td>
+                    <td>{{ row.serial_no|clean_text or '-' }}</td>
+                    <td>{{ row.warehouse_name|clean_text or '-' }}</td>
+                    <td class="text-end">{{ row.quantity|default(row.qty)|qty }}</td>
+                    <td class="text-end">{{ row.unit_cost|money }}</td>
+                    <td>{{ status_label(row.status) }}</td>
+                    <td>{{ next_action_for_status(row.status) }}</td>
+                    <td class="text-end">
+                        {% if row.source != 'legacy' and status_label(row.status) == '草稿' %}
+                        <a class="btn btn-outline-secondary btn-sm" href="/production-completions/{{ row.id }}/edit">编辑</a>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% else %}
+                <tr><td colspan="13" class="text-muted">暂无完工入库单。</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

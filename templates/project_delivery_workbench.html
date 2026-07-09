@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}项目交付工作台{% endblock %}
+{% block header_title %}项目交付工作台{% endblock %}
+{% block content %}
+<div class="page-heading erp-list-heading erp-workbench-heading">
+    <div>
+        <h1>项目交付工作台</h1>
+        <p>只保留跨部门异常入口；完整单据和明细回到各业务页面处理。</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-primary btn-sm" href="/projects"><i class="bi bi-kanban"></i> 项目/机号台账</a>
+        <a class="btn btn-outline-secondary btn-sm" href="/pending-documents"><i class="bi bi-inbox"></i> 待处理单据</a>
+    </div>
+</div>
+
+<div class="page-card erp-list-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>异常入口</h2>
+            <span>只显示跨销售、采购、生产、仓库和财务的关键卡点，避免重复展示业务列表。</span>
+        </div>
+    </div>
+    <div class="project-exception-grid">
+        {% for card in queue_cards %}
+        <a class="project-exception-card" href="{{ card.url }}">
+            <div>
+                <strong>{{ card.title }}</strong>
+                <span>{{ card.owner }}</span>
+            </div>
+            <em>{{ card.count }}</em>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="page-card erp-list-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>项目关注项</h2>
+            <span>仅保留最需要处理的前 3 条；订单、客户和完整明细到台账或原单据查看。</span>
+        </div>
+        <a class="btn btn-outline-secondary btn-sm" href="/projects?risk=blocked">更多项目</a>
+    </div>
+    {% if focus_rows %}
+    <div class="table-responsive">
+        <table class="table table-sm align-middle erp-list-table">
+            <thead>
+            <tr>
+                <th>项目号</th>
+                <th>机号</th>
+                <th>卡点</th>
+                <th>责任</th>
+                <th class="text-end">操作</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for row in focus_rows %}
+            {% if loop.index <= 3 %}
+            <tr>
+                <td>{{ row.project_code or '-' }}</td>
+                <td>{{ row.serial_no or '-' }}</td>
+                <td><span class="badge bg-light text-dark border">{{ row.blocked_reason }}</span></td>
+                <td>{{ row.owner }}</td>
+                <td class="text-end"><a class="btn btn-outline-primary btn-sm" href="{{ row.detail_url }}">进入台账</a></td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="erp-empty-line">暂无项目交付卡点。</div>
+    {% endif %}
+</div>
+
+<style>
+.project-exception-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(150px, 1fr));
+    gap: 12px;
+}
+.project-exception-card {
+    min-height: 76px;
+    padding: 12px 14px;
+    border: 1px solid #d7e2f2;
+    border-radius: 8px;
+    background: #fff;
+    color: #172033;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+.project-exception-card:hover {
+    border-color: #2563eb;
+    box-shadow: 0 8px 18px rgba(37, 99, 235, .12);
+}
+.project-exception-card strong {
+    display: block;
+    font-size: 14px;
+}
+.project-exception-card span {
+    display: block;
+    color: #5d6b82;
+    font-size: 12px;
+    margin-top: 4px;
+}
+.project-exception-card em {
+    font-style: normal;
+    font-size: 20px;
+    font-weight: 800;
+    color: #111827;
+    white-space: nowrap;
+}
+@media (max-width: 1200px) {
+    .project-exception-grid {
+        grid-template-columns: repeat(3, minmax(150px, 1fr));
+    }
+}
+@media (max-width: 720px) {
+    .project-exception-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+{% endblock %}

@@ -1,0 +1,309 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}采购入库详情 - {{ receipt.receipt_no }}{% endblock %}
+{% block content %}
+{% set receipt_status = receipt.status or '' %}
+{% set receipt_editable = not receipt.status or receipt.status in ['', '草稿', '待提交', '待审核', '待过账', 'draft', 'pending', 'unposted'] %}
+{% set can_audit_receipt = receipt_status in ['', '草稿', '待提交', '待审核', '待过账', 'draft', 'pending', 'unposted'] %}
+{% set can_unaudit_receipt = receipt_status in ['已收货', '已过账', 'posted', 'audited'] %}
+{% set can_delete_receipt = receipt_status in ['', '草稿', '待提交', '待审核', '待过账', 'draft', 'pending', 'unposted'] %}
+{{ document_menu_bar(actions=[
+    {'type': 'nav', 'items': [
+        {'label': '首张', 'event': 'doc-nav-first', 'icon': 'bi-chevron-double-left'},
+        {'label': '上一张', 'event': 'doc-nav-prev', 'icon': 'bi-chevron-left'},
+        {'label': '下一张', 'event': 'doc-nav-next', 'icon': 'bi-chevron-right'},
+        {'label': '末张', 'event': 'doc-nav-last', 'icon': 'bi-chevron-double-right'}
+    ]},
+    {'label': '编辑' if receipt_editable else '只读', 'type': 'link' if receipt_editable else 'disabled', 'href': '/purchase_receipts/' ~ receipt.id ~ '/edit', 'icon': 'bi-pencil-square'},
+    {'label': '审核', 'type': 'button', 'button_type': 'submit', 'form': 'purchaseReceiptAuditForm', 'icon': 'bi-check2-square', 'disabled': not can_audit_receipt, 'title': '' if can_audit_receipt else '当前状态不能审核；已入库单据请执行反审。'},
+    {'label': '反审', 'type': 'button', 'button_type': 'submit', 'form': 'purchaseReceiptUnauditForm', 'icon': 'bi-arrow-counterclockwise', 'disabled': not can_unaudit_receipt, 'title': '' if can_unaudit_receipt else '当前状态不能反审；只有已入库过账单据可以反审。'},
+    {'label': '删除', 'type': 'button', 'button_type': 'submit', 'form': 'purchaseReceiptDeleteForm', 'icon': 'bi-trash', 'disabled': not can_delete_receipt, 'title': '' if can_delete_receipt else '当前状态不能删除；已过账单据请先反审。'},
+    {'label': '复制', 'type': 'button', 'button_type': 'submit', 'form': 'copyForm', 'icon': 'bi-copy', 'title': '复制为新的草稿单据'},
+    {'label': '附件', 'type': 'link', 'href': '#receipt-attachments', 'icon': 'bi-paperclip'},
+    {'label': '备注', 'type': 'link', 'href': '#receipt-notes', 'icon': 'bi-chat-left-text'},
+    {'label': '操作记录', 'type': 'link', 'href': '#receipt-activity', 'icon': 'bi-journal-text'},
+    {'label': '来源/关联查询', 'type': 'dropdown', 'icon': 'bi-diagram-3', 'items': [
+        {'label': '来源采购订单', 'type': 'link' if receipt.order_id else 'disabled', 'href': '/purchase_order/' ~ receipt.order_id},
+        {'label': '库存流水', 'type': 'link', 'href': '#receipt-stock-transactions'},
+        {'label': '应付记录', 'type': 'link', 'href': '#receipt-payables'}
+    ]}
+], aria_label='采购入库单据操作菜单') }}
+<form id="purchaseReceiptAuditForm" method="post" action="/purchase_receipts/{{ receipt.id }}/audit" class="d-none">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+</form>
+<form id="purchaseReceiptUnauditForm" method="post" action="/purchase_receipts/{{ receipt.id }}/unaudit" class="d-none">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+</form>
+<form id="purchaseReceiptDeleteForm" method="post" action="/purchase_receipts/{{ receipt.id }}/delete" class="d-none" onsubmit="return confirm('确认删除这张采购入库单？');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+</form>
+<form id="copyForm" method="post" action="/purchase_receipts/{{ receipt.id }}/copy" class="d-none"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+<div id="doc-nav-config" data-nav-table="purchase_receipts" data-nav-base="/purchase_receipts/" data-doc-id="{{ receipt.id }}" style="display:none"></div>
+<div class="page-card mb-3">
+    <div class="d-flex justify-content-between align-items-start gap-3">
+        <div>
+            <h1 class="h4 mb-1">采购入库详情：{{ receipt.receipt_no }}</h1>
+            <div class="text-muted">
+                供应商：{{ receipt.supplier_name or '-' }}
+                {% if receipt.contact_person %} / {{ receipt.contact_person }}{% endif %}
+                {% if receipt.supplier_phone %} / {{ receipt.supplier_phone }}{% endif %}
+            </div>
+        </div>
+        <span class="badge text-bg-primary">{{ receipt.status or '未定' }}</span>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    {% for metric in metrics %}
+    <div class="col-md-6 col-xl-3">
+        <div class="metric h-100">
+            <div class="label">{{ metric.label }}</div>
+            <div class="value">{{ metric.value }}</div>
+            {% if metric.hint %}<div class="text-muted small mt-1">{{ metric.hint }}</div>{% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="page-card mb-3">
+    <h2 class="h5 mb-3">入库信息（收货信息）</h2>
+    <div class="row g-2 small">
+        <div class="col-md-3"><span class="text-muted">收货单号：</span>{{ receipt.receipt_no or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">入库日期：</span>{{ receipt.receipt_date or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">来源采购订单：</span>{{ receipt.order_no or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">采购日期：</span>{{ receipt.order_date or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">预计到货：</span>{{ receipt.expected_date or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">仓库：</span>{{ receipt.warehouse_name or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">经办人：</span>{{ receipt.operator_name or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">项目号：</span>{{ receipt.project_code or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">机号：</span>{{ receipt.serial_no or '-' }}</div>
+    </div>
+</div>
+
+<div class="page-card mb-3">
+    <h2 class="h5 mb-3">入库物料明细（收货物料明细）</h2>
+    {% if items %}
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+            <tr>
+                <th>物料编码</th>
+                <th>物料名称</th>
+                <th>规格</th>
+                <th class="text-end">本次入库</th>
+                <th class="text-end">采购数量</th>
+                <th class="text-end">累计已收</th>
+                <th>单位</th>
+                <th class="text-end">单位成本</th>
+                <th class="text-end">金额</th>
+                <th class="text-end">税率</th>
+                <th class="text-end">税额</th>
+                <th class="text-end">含税金额</th>
+                <th>收货仓库</th>
+                {% if location_management_enabled %}<th>库位</th>{% endif %}
+                <th>批号</th>
+                <th>项目号</th>
+                <th>机号</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for item in items %}
+            <tr>
+                <td>{{ item.product_code or item.product_id }}</td>
+                <td>{{ item.product_name or '-' }}</td>
+                <td>{{ item.specification or '-' }}</td>
+                <td class="text-end">{{ item.quantity|qty }}</td>
+                <td class="text-end">{{ item.ordered_qty|qty }}</td>
+                <td class="text-end">{{ item.order_received_qty|qty }}</td>
+                <td>{{ item.product_unit or '-' }}</td>
+                <td class="text-end">{{ item.unit_cost|money }}</td>
+                <td class="text-end">{{ (item.quantity * item.unit_cost)|money }}</td>
+                <td class="text-end">{{ item.tax_rate|default(0, true) }}%</td>
+                <td class="text-end">{{ item.tax_amount|money }}</td>
+                <td class="text-end">{{ item.amount_with_tax|money }}</td>
+                <td>{{ item.line_warehouse_name or receipt.warehouse_name or '-' }}</td>
+                {% if location_management_enabled %}<td>{{ item.location_code or item.location_name or '-' }}</td>{% endif %}
+                <td>{{ item.lot_no or '-' }}</td>
+                <td>{{ receipt.project_code|clean_text or '-' }}</td>
+                <td>{{ receipt.serial_no|clean_text or '-' }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-muted">暂无入库明细。</div>
+    {% endif %}
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-6">
+        <div class="page-card h-100" id="receipt-stock-transactions">
+            <h2 class="h5 mb-3">入库流水</h2>
+            {% if stock_transactions %}
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead><tr><th>日期</th><th>物料名称</th><th>规格</th><th>单位</th><th class="text-end">数量</th><th class="text-end">成本</th><th>仓库</th><th>库位</th><th>批号</th></tr></thead>
+                    <tbody>
+                    {% for row in stock_transactions %}
+                    <tr>
+                        <td>{{ row.transaction_date or '-' }}</td>
+                        <td>{{ row.product_code or '-' }} / {{ row.product_name or '-' }}</td>
+                        <td>{{ row.specification or '-' }}</td>
+                        <td>{{ row.unit or '-' }}</td>
+                        <td class="text-end">{{ row.quantity|qty }}</td>
+                        <td class="text-end">{{ row.unit_cost|money }}</td>
+                        <td>{{ row.warehouse_name or '-' }}</td>
+                        <td>{{ row.location or '-' }}</td>
+                        <td>{{ row.lot_no or '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-muted">暂无库存流水。</div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="page-card h-100" id="receipt-payables">
+            <h2 class="h5 mb-3">应付记录</h2>
+            {% if payables %}
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead><tr><th>来源</th><th>日期</th><th class="text-end">应付</th><th class="text-end">已付</th><th class="text-end">余额</th><th>状态</th></tr></thead>
+                    <tbody>
+                    {% for row in payables %}
+                    <tr>
+                        <td>{{ row.doc_no or '-' }}</td>
+                        <td>{{ row.doc_date or '-' }}</td>
+                        <td class="text-end">{{ row.amount|money }}</td>
+                        <td class="text-end">{{ row.paid_amount|money }}</td>
+                        <td class="text-end">{{ row.balance|money }}</td>
+                        <td>{{ row.status or '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-muted">暂无应付记录。</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% if same_project_receipts %}
+<div class="page-card mt-3">
+    <h2 class="h5 mb-3">同项目/机号入库</h2>
+    <div class="d-flex flex-wrap gap-2">
+        {% for row in same_project_receipts %}
+        <a class="btn btn-outline-secondary btn-sm" href="/purchase_receipts/{{ row.id }}">{{ row.receipt_no }} / {{ row.receipt_date or '-' }}</a>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% if receipt.remark %}
+<div class="page-card mt-3">
+    <h2 class="h5 mb-2">备注</h2>
+    <div>{{ receipt.remark }}</div>
+</div>
+{% endif %}
+
+<div class="row g-3 mt-1">
+    <div class="col-lg-6">
+        <div class="page-card h-100" id="receipt-attachments">
+            <div class="section-title">
+                <div>
+                    <h2>单据附件</h2>
+                    <span>保存送货单、质检记录、签收照片和供应商凭证</span>
+                </div>
+            </div>
+            <form class="row g-2 align-items-end mb-3" method="post" action="{{ action_prefix }}/{{ receipt.id }}/attachments" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="col-md-5">
+                    <label class="form-label">选择文件</label>
+                    <input class="form-control" type="file" name="file" required>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label">备注</label>
+                    <input class="form-control" name="remark" placeholder="例如：送货单、质检单、签收照片">
+                </div>
+                <div class="col-md-2 d-grid">
+                    <button class="btn btn-primary" type="submit"><i class="bi bi-upload"></i> 上传</button>
+                </div>
+            </form>
+            {% if attachments %}
+            <div class="list-group list-group-flush">
+                {% for file in attachments %}
+                <div class="list-group-item px-0">
+                    <div class="d-flex justify-content-between gap-3">
+                        <div class="min-w-0">
+                            <div class="fw-semibold text-truncate">
+                                {% if file.attachment_type == 'image' %}
+                                <i class="bi bi-image text-primary"></i>
+                                {% else %}
+                                <i class="bi bi-file-earmark-text text-primary"></i>
+                                {% endif %}
+                                <a href="{{ url_for('static', filename=file.stored_path) }}" target="_blank">{{ file.file_name }}</a>
+                            </div>
+                            <div class="text-muted small">{{ file.remark or '-' }}</div>
+                            <div class="text-muted small">{{ file.uploaded_at or '-' }} / {{ ((file.file_size or 0) / 1024)|round(1) }} KB</div>
+                        </div>
+                        <form method="post" action="{{ action_prefix }}/{{ receipt.id }}/attachments/{{ file.id }}/delete">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="btn btn-outline-danger btn-sm" type="submit">删除</button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-muted">暂无附件。</div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="page-card h-100" id="receipt-notes">
+            <div class="section-title">
+                <div>
+                    <h2>备注/操作记录</h2>
+                    <span>记录收货差异、质检结论、补料和供应商沟通</span>
+                </div>
+            </div>
+            <form class="row g-2 align-items-end mb-3" method="post" action="{{ action_prefix }}/{{ receipt.id }}/notes">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="col-md-9">
+                    <label class="form-label">新增备注</label>
+                    <input class="form-control" name="note" placeholder="输入本次收货处理说明" required>
+                </div>
+                <div class="col-md-3 d-grid">
+                    <button class="btn btn-primary" type="submit"><i class="bi bi-clock-history"></i> 记录</button>
+                </div>
+            </form>
+            <div id="receipt-activity"></div>
+            {% if activity_logs %}
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead><tr><th>时间</th><th>人员</th><th>操作</th><th>说明</th></tr></thead>
+                    <tbody>
+                    {% for log in activity_logs %}
+                    <tr>
+                        <td class="text-muted small">{{ log.created_at or '-' }}</td>
+                        <td>{{ log.username or '-' }}</td>
+                        <td>{{ log.action or '-' }}</td>
+                        <td>{{ log.remark or log.target or '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-muted">暂无操作记录。</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

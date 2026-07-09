@@ -1,0 +1,314 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% from "partials/document_void_stamp.html" import void_stamp %}
+{% block title %}{{ title }} - {{ number }}{% endblock %}
+{% block content %}
+{% set status = order.status or '' %}
+{% set pending_statuses = ['待过账', '待审核', '草稿', ''] %}
+{% set can_post = status in pending_statuses %}
+{% set can_cancel = status in pending_statuses %}
+{% set can_unaudit = status == '已过账' %}
+{% set clean_edit_statuses = ['', 'draft', 'pending', '草稿', '待过账', '待审核'] %}
+{% set can_edit = can_post or status in clean_edit_statuses %}
+{% set can_close = status == '已过账' %}
+{% if doc_type == 'transfer' %}
+    {% set doc_label = '库存调拨' %}
+    {% set post_url = '/transfers/' ~ order.id ~ '/post' %}
+    {% set unaudit_url = '/transfers/' ~ order.id ~ '/unaudit' %}
+    {% set copy_url = '/transfers/' ~ order.id ~ '/copy' %}
+{% elif doc_type == 'check' %}
+    {% set doc_label = '库存盘点' %}
+    {% set post_url = '/inventory_checks/' ~ order.id ~ '/post' %}
+    {% set unaudit_url = '/inventory_checks/' ~ order.id ~ '/unaudit' %}
+    {% set copy_url = '/inventory_checks/' ~ order.id ~ '/copy' %}
+{% else %}
+    {% set doc_label = '库存调整' %}
+    {% set post_url = '/adjustments/' ~ order.id ~ '/post' %}
+    {% set unaudit_url = '/adjustments/' ~ order.id ~ '/unaudit' %}
+    {% set copy_url = '/adjustments/' ~ order.id ~ '/copy' %}
+{% endif %}
+{% set prev_id = order.id - 1 if order.id and order.id > 1 else 1 %}
+{% set doc_no = number or order.doc_no or order.adj_no or order.transfer_no or order.check_no or order.id %}
+{% set trace_keyword = order.project_code or order.serial_no or doc_no %}
+
+{{ document_menu_bar(actions=[
+    {'label': '返回列表', 'type': 'link', 'href': back_url or '/inventory/detail', 'icon': 'bi-arrow-left'},
+    {'type': 'nav', 'items': [
+        {'label': '首张', 'event': 'doc-nav-first', 'icon': 'bi-chevron-double-left'},
+        {'label': '上一张', 'event': 'doc-nav-prev', 'icon': 'bi-chevron-left'},
+        {'label': '下一张', 'event': 'doc-nav-next', 'icon': 'bi-chevron-right'},
+        {'label': '末张', 'event': 'doc-nav-last', 'icon': 'bi-chevron-double-right'}
+    ]},
+    {'label': '编辑', 'type': 'link', 'href': action_prefix ~ '/' ~ order.id ~ '/edit', 'disabled': not can_edit, 'icon': 'bi-pencil-square'},
+    {'label': '打印', 'type': 'link', 'href': print_url, 'target': '_blank', 'icon': 'bi-printer'},
+    {'label': '过账', 'type': 'button', 'button_type': 'submit', 'form': 'inventoryPostForm', 'disabled': not can_post, 'icon': 'bi-check2-circle'},
+    {'label': '反审', 'type': 'button', 'button_type': 'submit', 'form': 'inventoryUnauditForm', 'disabled': not can_unaudit, 'icon': 'bi-arrow-counterclockwise', 'title': '' if can_unaudit else '当前状态不能反审；只有已过账单据可以反审。'},
+    {'label': '取消', 'type': 'button', 'button_type': 'submit', 'form': 'inventoryCancelForm', 'disabled': not can_cancel, 'icon': 'bi-x-circle'},
+    {'label': '删除', 'type': 'button', 'button_type': 'submit', 'form': 'inventoryDeleteForm', 'disabled': not can_cancel, 'icon': 'bi-trash', 'title': '' if can_cancel else '当前状态不能删除；已过账单据请先反审。'},
+    {'label': '关闭', 'type': 'button', 'button_type': 'submit', 'form': 'inventoryCloseForm', 'disabled': not can_close, 'icon': 'bi-lock'},
+    {'label': '复制', 'type': 'button', 'button_type': 'submit', 'form': 'copyForm', 'icon': 'bi-copy', 'title': '复制为新的草稿单据'},
+    {'label': '工具', 'type': 'dropdown', 'items': [
+        {'label': '下查库存流水', 'type': 'link', 'href': '/transactions?keyword=' ~ (doc_no|urlencode)},
+        {'label': '批次/机号追溯', 'type': 'link', 'href': '/transactions?keyword=' ~ (trace_keyword|urlencode)},
+        {'label': '上查来源单', 'type': 'link', 'href': (back_url or '/inventory/detail') ~ '?keyword=' ~ ((order.source_no or order.source_order_no or order.reference_no or doc_no)|urlencode)},
+        {'label': '附件', 'type': 'link', 'href': '#documentAttachmentsPanel'},
+        {'label': '备注/操作记录', 'type': 'link', 'href': '#documentNotesPanel'}
+    ]}
+], aria_label=doc_label ~ '单据操作菜单') }}
+<div id="doc-nav-config" data-nav-table="inventory_movements" data-nav-base="/transactions/" data-doc-id="{{ order.id }}" style="display:none"></div>
+<form id="copyForm" method="post" action="{{ copy_url }}" class="d-none"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+<form id="inventoryPostForm" method="post" action="{{ post_url }}" class="d-none" onsubmit="return confirm('确认过账这张库存单据？');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+<form id="inventoryUnauditForm" method="post" action="{{ unaudit_url }}" class="d-none" onsubmit="return confirm('确认反审这张已过账库存单据？系统将回滚对应库存流水。');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+<form id="inventoryCancelForm" method="post" action="{{ action_prefix }}/{{ order.id }}/cancel" class="d-none" onsubmit="return confirm('确认取消这张未过账库存单据？');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+<form id="inventoryDeleteForm" method="post" action="{{ action_prefix }}/{{ order.id }}/delete" class="d-none" onsubmit="return confirm('确认删除这张未过账库存单据？');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+<form id="inventoryCloseForm" method="post" action="{{ action_prefix }}/{{ order.id }}/close" class="d-none" onsubmit="return confirm('确认关闭这张库存单据？关闭后不能重复过账。');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+
+<div class="d-flex flex-wrap align-items-center gap-2 mb-3 d-none">
+    <div class="btn-group btn-group-sm" role="group" aria-label="单据导航">
+        <a class="btn btn-outline-secondary" href="{{ action_prefix }}/1">首张</a>
+        <a class="btn btn-outline-secondary" href="{{ action_prefix }}/{{ prev_id }}">上一张</a>
+        <a class="btn btn-outline-secondary" href="{{ action_prefix }}/{{ order.id + 1 }}">下一张</a>
+        <a class="btn btn-outline-secondary" href="{{ back_url or '/inventory/detail' }}?order=id_desc">末张</a>
+    </div>
+</div>
+
+<div class="alert alert-info mb-3">
+    <strong>当前状态：</strong>{{ status or '待过账' }}。
+    {% if can_post %}
+    单据已保存，尚未影响库存；请复核仓库、库位、批号、机号和数量后确认过账。
+    {% elif status == '已过账' %}
+    单据已写入库存流水，可关闭锁定为最终追溯依据。
+    {% elif status == '已关闭' %}
+    单据已关闭，只允许查看追溯。
+    {% elif status == '已取消' %}
+    单据已取消，未写入库存。
+    {% endif %}
+</div>
+
+<div class="page-card mb-3">
+    <div class="d-flex justify-content-between align-items-start gap-3">
+        <div>
+            <h1 class="h4 mb-1">{{ title }}：{{ doc_no }}</h1>
+            <div class="text-muted">
+                {% if doc_type == 'transfer' %}
+                库存调拨
+                {% elif doc_type == 'check' %}
+                {{ order.warehouse_name or '-' }}
+                {% else %}
+                {{ order.adj_type or doc_label }}
+                {% endif %}
+                / {{ order.project_code or '-' }}
+            </div>
+        </div>
+        <div class="document-title-stamp">
+            {{ void_stamp(status) }}
+            <span class="badge text-bg-primary">{{ status or '待过账' }}</span>
+        </div>
+    </div>
+</div>
+
+  <div class="row g-3 mb-3">
+    <div class="col-md-3"><div class="metric"><div class="label">单据日期</div><div class="value h5">{{ date or '-' }}</div></div></div>
+    <div class="col-md-3"><div class="metric"><div class="label">明细行</div><div class="value h5">{{ items|length }}</div></div></div>
+    <div class="col-md-3"><div class="metric"><div class="label">数量合计</div><div class="value h5">{{ items|sum(attribute='quantity')|qty if doc_type != 'check' else items|sum(attribute='diff_qty')|qty }}</div></div></div>
+    <div class="col-md-3"><div class="metric"><div class="label">流水行</div><div class="value h5">{{ transactions|length }}</div></div></div>
+    <div class="col-md-3"><div class="metric"><div class="label">项目号</div><div class="value h5">{{ order.project_code or '-' }}</div></div></div>
+  </div>
+
+{% if difference_summary %}
+<div class="alert alert-info d-flex align-items-start gap-2">
+    <i class="bi bi-clipboard-data"></i>
+    <div>
+        <strong>{{ difference_summary.title }}</strong>：
+        盘盈 {{ difference_summary.profit_qty|qty }}，
+        盘亏 {{ difference_summary.loss_qty|qty }}，
+        差异金额 {{ difference_summary.difference_amount|money }}。
+        {{ difference_summary.hint }}
+    </div>
+</div>
+{% endif %}
+
+  <div class="page-card mb-3">
+    <div class="section-title"><div><h2>物料明细</h2><span>单据过账涉及的物料、数量、批号、机号、库位和成本</span></div></div>
+    {% if items %}
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+            <tr>
+                <th>物料编码</th><th>物料名称</th><th>规格</th><th>产品分类</th><th>BOM版本</th><th>管控</th>
+                {% if doc_type == 'check' %}
+                <th class="text-end">账存</th><th class="text-end">实盘</th><th class="text-end">差异</th>
+                {% else %}
+                <th class="text-end">数量</th>
+                {% endif %}
+                <th>单位</th>
+                {% if doc_type == 'check' %}<th>仓库</th><th>库位</th>{% endif %}
+                {% if doc_type == 'transfer' %}<th>调出仓库</th><th>调出库位</th><th>调入仓库</th><th>调入库位</th>{% endif %}
+                <th class="text-end">成本</th><th class="text-end">成本金额</th><th>批号</th><th>项目号</th><th>机号</th><th>备注</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for item in items %}
+            <tr>
+                <td>{{ item.product_code or item.product_id }}</td>
+                <td>{{ item.product_name or '-' }}</td>
+                <td>{{ item.specification or '-' }}</td>
+                <td>{{ item.product_family|clean_text if item.product_family else '-' }}</td>
+                <td>{% set bom_text = [item.default_bom_no, item.default_bom_version]|select|join(' / ') %}{{ bom_text|clean_text if bom_text else '-' }}</td>
+                <td>
+                    {% if item.batch_control %}<span class="badge text-bg-light border">批次</span>{% endif %}
+                    {% if item.serial_control %}<span class="badge text-bg-light border">序列</span>{% endif %}
+                    {% if item.inspection_required %}<span class="badge text-bg-light border">需检</span>{% endif %}
+                    {% if not item.batch_control and not item.serial_control and not item.inspection_required %}-{% endif %}
+                </td>
+                {% if doc_type == 'check' %}
+                <td class="text-end">{{ item.book_qty|qty }}</td>
+                <td class="text-end">{{ item.actual_qty|qty }}</td>
+                <td class="text-end {% if item.diff_qty %}fw-semibold text-primary{% endif %}">{{ item.diff_qty|qty }}</td>
+                {% else %}
+                <td class="text-end">{{ item.quantity|qty }}</td>
+                {% endif %}
+                <td>{{ item.unit or '-' }}</td>
+                {% if doc_type == 'check' %}<td>{{ item.line_warehouse_name or '-' }}</td><td>{{ item.line_location_code or '-' }}</td>{% endif %}
+                {% if doc_type == 'transfer' %}
+                <td>{{ item.from_warehouse_name or '-' }}</td>
+                <td>{{ item.from_location_code or item.from_location_name or '-' }}</td>
+                <td>{{ item.to_warehouse_name or '-' }}</td>
+                <td>{{ item.to_location_code or item.to_location_name or '-' }}</td>
+                {% endif %}
+                <td class="text-end">{{ item.unit_cost|money }}</td>
+                <td class="text-end">{{ item.amount|money }}</td>
+                <td>{{ item.lot_no or '-' }}</td>
+                <td>{{ item.line_project_code|clean_text or item.project_code|clean_text or order.project_code|clean_text or '-' }}</td>
+                <td>{{ item.serial_no or '-' }}</td>
+                <td>{{ item.remark or '-' }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-muted">暂无明细。</div>
+    {% endif %}
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title"><div><h2>库存流水</h2><span>按单号追踪本单写入的库存流水</span></div></div>
+    {% if transactions %}
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead><tr><th>日期</th><th>类型</th><th>物料</th><th>产品分类/BOM</th><th>仓库</th><th>库位</th><th class="text-end">数量</th><th class="text-end">成本</th><th class="text-end">成本金额</th><th>批号</th><th>机号</th><th>备注</th></tr></thead>
+            <tbody>
+            {% for tx in transactions %}
+            <tr>
+                <td>{{ tx.transaction_date or '-' }}</td>
+                <td>{{ tx.transaction_type or '-' }}</td>
+                <td>{{ tx.product_code or tx.product_id }} / {{ tx.product_name or '-' }}</td>
+                <td><div>{{ tx.product_family|clean_text if tx.product_family else '-' }}</div>{% set tx_bom_text = [tx.default_bom_no, tx.default_bom_version]|select|join(' / ') %}<div class="text-muted small">{{ tx_bom_text|clean_text if tx_bom_text else '-' }}</div></td>
+                <td>{{ tx.warehouse_name or '-' }}</td>
+                <td>{{ tx.location_code or tx.location or '-' }}</td>
+                <td class="text-end">{{ tx.quantity|qty }}</td>
+                <td class="text-end">{{ tx.unit_cost|money }}</td>
+                <td class="text-end">{{ tx.amount|money }}</td>
+                <td>{{ tx.lot_no or '-' }}</td>
+                <td>{{ tx.serial_no or '-' }}</td>
+                <td>{{ tx.remark or '-' }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-muted">暂无库存流水。</div>
+    {% endif %}
+</div>
+
+<div class="row g-3 mt-1">
+    <div class="col-lg-6">
+        <div class="page-card h-100">
+            <div class="section-title">
+                <div>
+                    <h2>单据附件</h2>
+                    <span>保存盘点表、审核凭证、现场照片和库存处理依据</span>
+                </div>
+            </div>
+            <form class="row g-2 align-items-end mb-3" method="post" action="{{ action_prefix }}/{{ order.id }}/attachments" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="col-md-5">
+                    <label class="form-label">选择文件</label>
+                    <input class="form-control" type="file" name="file" required>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label">备注</label>
+                    <input class="form-control" name="remark" placeholder="例如：盘点表、审核截图、现场照片">
+                </div>
+                <div class="col-md-2 d-grid">
+                    <button class="btn btn-primary" type="submit"><i class="bi bi-upload"></i> 上传</button>
+                </div>
+            </form>
+            {% if attachments %}
+            <div class="list-group list-group-flush">
+                {% for file in attachments %}
+                <div class="list-group-item px-0">
+                    <div class="d-flex justify-content-between gap-3">
+                        <div class="min-w-0">
+                            <div class="fw-semibold text-truncate">
+                                <a href="{{ url_for('static', filename=file.stored_path) }}" target="_blank">{{ file.file_name }}</a>
+                            </div>
+                            <div class="text-muted small">{{ file.remark or '-' }}</div>
+                            <div class="text-muted small">{{ file.uploaded_at or '-' }} / {{ ((file.file_size or 0) / 1024)|round(1) }} KB</div>
+                        </div>
+                        <form method="post" action="{{ action_prefix }}/{{ order.id }}/attachments/{{ file.id }}/delete">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="btn btn-outline-danger btn-sm" type="submit">删除</button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-muted">暂无附件。</div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="page-card h-100">
+            <div class="section-title">
+                <div>
+                    <h2>备注/操作记录</h2>
+                    <span>记录库存差异原因、审核意见和处理说明</span>
+                </div>
+            </div>
+            <form class="row g-2 align-items-end mb-3" method="post" action="{{ action_prefix }}/{{ order.id }}/notes">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="col-md-9">
+                    <label class="form-label">新增备注</label>
+                    <input class="form-control" name="note" placeholder="输入库存处理原因、审核意见或现场说明" required>
+                </div>
+                <div class="col-md-3 d-grid">
+                    <button class="btn btn-primary" type="submit"><i class="bi bi-clock-history"></i> 记录</button>
+                </div>
+            </form>
+            {% if activity_logs %}
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead><tr><th>时间</th><th>人员</th><th>操作</th><th>说明</th></tr></thead>
+                    <tbody>
+                    {% for log in activity_logs %}
+                    <tr>
+                        <td class="text-muted small">{{ log.created_at or '-' }}</td>
+                        <td>{{ log.username or '-' }}</td>
+                        <td>{{ log.action or '-' }}</td>
+                        <td>{{ log.remark or log.target or '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-muted">暂无操作记录。</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

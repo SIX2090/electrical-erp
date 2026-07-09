@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+
+{% block title %}销售三单匹配报表{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2><i class="fas fa-link"></i> 销售三单匹配报表</h2>
+    <div class="d-none">
+      <a href="javascript:history.back()" class="btn btn-outline-secondary" title="返回上一页">
+        <i class="fas fa-arrow-left"></i> 返回
+      </a>
+      <button onclick="window.print()" class="btn btn-secondary">
+        <i class="fas fa-print"></i> 打印
+      </button>
+      <button onclick="exportReportTable()" class="btn btn-success">
+        <i class="fas fa-file-excel"></i> 导出Excel
+      </button>
+    </div>
+  </div>
+
+  <!-- 筛选表单 -->
+  <div class="card mb-3">
+    <div class="card-body">
+      <form method="get" id="reportFilterForm">
+        <div class="row">
+          <div class="col-md-3 mb-2">
+            <label class="form-label">客户</label>
+            <select name="customer_id" class="form-control">
+              <option value="">全部客户</option>
+              {% for customer in customers %}
+              <option value="{{ customer.id }}" {% if filters.customer_id|string == customer.id|string %}selected{% endif %}>
+                {{ customer.name }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="col-md-3 mb-2">
+            <label class="form-label">订单号</label>
+            <input type="text" name="order_no" class="form-control" placeholder="订单号"
+                   value="{{ filters.order_no or '' }}">
+          </div>
+
+          <div class="col-md-3 mb-2">
+            <label class="form-label">项目号</label>
+            <input type="text" name="project_code" class="form-control" placeholder="项目号"
+                   value="{{ filters.project_code or '' }}">
+          </div>
+
+          <div class="col-md-3 mb-2">
+            <label class="form-label">机号</label>
+            <input type="text" name="serial_no" class="form-control" placeholder="机号"
+                   value="{{ filters.serial_no or '' }}">
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-md-3 mb-2">
+            <label class="form-label">订单日期起</label>
+            <input type="date" name="start_date" class="form-control"
+                   value="{{ filters.start_date or '' }}">
+          </div>
+
+          <div class="col-md-3 mb-2">
+            <label class="form-label">订单日期止</label>
+            <input type="date" name="end_date" class="form-control"
+                   value="{{ filters.end_date or '' }}">
+          </div>
+
+          <div class="col-md-3 mb-2">
+            <label class="form-label">匹配状态</label>
+            <select name="match_status" class="form-control">
+              <option value="">全部状态</option>
+              <option value="未发货" {% if filters.match_status == '未发货' %}selected{% endif %}>未发货</option>
+              <option value="未开票" {% if filters.match_status == '未开票' %}selected{% endif %}>未开票</option>
+              <option value="部分开票" {% if filters.match_status == '部分开票' %}selected{% endif %}>部分开票</option>
+              <option value="已开票" {% if filters.match_status == '已开票' %}selected{% endif %}>已开票</option>
+              <option value="超开票" {% if filters.match_status == '超开票' %}selected{% endif %}>超开票</option>
+            </select>
+          </div>
+
+          <div class="col-md-3 mb-2 d-flex align-items-end">
+            <button type="submit" class="btn btn-primary me-2">
+              <i class="fas fa-search"></i> 查询
+            </button>
+            <a href="/finance/reports/sales-three-way-match" class="btn btn-secondary">
+              <i class="fas fa-redo"></i> 重置
+            </a>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 统计汇总 -->
+  {% if rows %}
+  <div class="alert alert-info">
+    <i class="fas fa-info-circle"></i>
+    共 <strong>{{ rows|length }}</strong> 条记录
+    {% set total_uninvoiced = rows|sum(attribute='uninvoiced_amount') %}
+    | 未开票总额: <strong class="text-danger">¥{{ "%.2f"|format(total_uninvoiced) }}</strong>
+  </div>
+  {% endif %}
+
+  <!-- 数据表格 -->
+  <div class="card">
+    <div class="card-body table-responsive">
+      <table class="table table-bordered table-hover table-sm" id="dataTable">
+        <thead class="table-light">
+          <tr>
+            <th rowspan="2" class="text-center align-middle">序号</th>
+            <th rowspan="2" class="align-middle">订单号</th>
+            <th rowspan="2" class="text-center align-middle">订单日期</th>
+            <th rowspan="2" class="align-middle">客户</th>
+            <th rowspan="2" class="align-middle">项目号</th>
+            <th rowspan="2" class="align-middle">机号</th>
+            <th rowspan="2" class="align-middle">物料编码</th>
+            <th rowspan="2" class="align-middle">物料名称</th>
+            <th rowspan="2" class="align-middle">规格</th>
+            <th colspan="2" class="text-center table-primary">订单</th>
+            <th colspan="3" class="text-center table-success">发货</th>
+            <th colspan="3" class="text-center table-warning">开票</th>
+            <th colspan="2" class="text-center table-danger">未开票</th>
+            <th rowspan="2" class="text-center align-middle">匹配状态</th>
+          </tr>
+          <tr>
+            <th class="text-right table-primary">数量</th>
+            <th class="text-right table-primary">金额</th>
+            <th class="text-right table-success">数量</th>
+            <th class="text-right table-success">金额</th>
+            <th class="table-success">最新发货单号</th>
+            <th class="text-right table-warning">数量</th>
+            <th class="text-right table-warning">金额</th>
+            <th class="table-warning">最新发票号</th>
+            <th class="text-right table-danger">数量</th>
+            <th class="text-right table-danger">金额</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if rows %}
+            {% for row in rows %}
+            <tr>
+              <td class="text-center">{{ loop.index }}</td>
+              <td>
+                <a href="/sales/{{ row.order_id }}" target="_blank">{{ row.order_no }}</a>
+              </td>
+              <td class="text-center">{{ row.order_date }}</td>
+              <td>{{ row.customer_name }}</td>
+              <td>{{ row.project_code or '-' }}</td>
+              <td>{{ row.serial_no or '-' }}</td>
+              <td>{{ row.product_code }}</td>
+              <td>{{ row.product_name }}</td>
+              <td>{{ row.specification or '-' }}</td>
+              <td class="text-right">{{ "%.2f"|format(row.order_qty) }}</td>
+              <td class="text-right">{{ "%.2f"|format(row.order_amount) }}</td>
+              <td class="text-right">{{ "%.2f"|format(row.delivery_qty) }}</td>
+              <td class="text-right">{{ "%.2f"|format(row.delivery_amount) }}</td>
+              <td>
+                {% if row.latest_delivery_no %}
+                  <small>{{ row.latest_delivery_no }}</small>
+                {% else %}
+                  <span class="text-muted">-</span>
+                {% endif %}
+              </td>
+              <td class="text-right">{{ "%.2f"|format(row.invoice_qty) }}</td>
+              <td class="text-right">{{ "%.2f"|format(row.invoice_amount) }}</td>
+              <td>
+                {% if row.latest_invoice_no %}
+                  <small>{{ row.latest_invoice_no }}</small>
+                {% else %}
+                  <span class="text-muted">-</span>
+                {% endif %}
+              </td>
+              <td class="text-right {% if row.uninvoiced_qty > 0 %}text-danger font-weight-bold{% endif %}">
+                {{ "%.2f"|format(row.uninvoiced_qty) }}
+              </td>
+              <td class="text-right {% if row.uninvoiced_amount > 0 %}text-danger font-weight-bold{% endif %}">
+                {{ "%.2f"|format(row.uninvoiced_amount) }}
+              </td>
+              <td class="text-center">
+                {% if row.match_status == '已开票' %}
+                  <span class="badge bg-success">{{ row.match_status }}</span>
+                {% elif row.match_status == '未发货' %}
+                  <span class="badge bg-secondary">{{ row.match_status }}</span>
+                {% elif row.match_status == '未开票' %}
+                  <span class="badge bg-warning">{{ row.match_status }}</span>
+                {% elif row.match_status == '部分开票' %}
+                  <span class="badge bg-info">{{ row.match_status }}</span>
+                {% elif row.match_status == '超开票' %}
+                  <span class="badge bg-danger">{{ row.match_status }}</span>
+                {% else %}
+                  <span class="badge bg-light text-dark">{{ row.match_status }}</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="20" class="text-center text-muted py-5">
+                <i class="fas fa-inbox fa-3x mb-3"></i>
+                <p>暂无数据，请调整筛选条件后重试</p>
+              </td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 说明 -->
+  <div class="card mt-3">
+    <div class="card-body">
+      <h6 class="card-title">报表说明</h6>
+      <ul class="mb-0">
+        <li><strong>三单匹配</strong>：追踪销售订单 → 发货单 → 销售发票的完整流程</li>
+        <li><strong>未开票数量</strong>：已发货数量 - 已开票数量</li>
+        <li><strong>匹配状态</strong>：
+          <span class="badge bg-secondary">未发货</span> 订单未发货 |
+          <span class="badge bg-warning">未开票</span> 已发货但未开票 |
+          <span class="badge bg-info">部分开票</span> 部分已开票 |
+          <span class="badge bg-success">已开票</span> 全部已开票 |
+          <span class="badge bg-danger">超开票</span> 开票数量超过发货数量
+        </li>
+        <li><strong>用途</strong>：监控发货与开票进度，及时催办开票，减少应收账款风险</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script>
+function exportReportTable() {
+    var table = document.querySelector('.table');
+    if (!table) return;
+    var html = table.outerHTML;
+    var url = 'data:application/vnd.ms-excel,' + encodeURIComponent(html);
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = '{{ title }}_' + new Date().toISOString().substr(0,10) + '.xls';
+    link.click();
+}
+</script>
+
+<style>
+@media print {
+  .btn, .card-body form, .no-print {
+    display: none !important;
+  }
+  .table {
+    font-size: 10px;
+  }
+}
+</style>
+{% endblock %}

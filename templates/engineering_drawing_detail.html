@@ -1,0 +1,338 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}图纸详情{% endblock %}
+{% block content %}
+{{ document_menu_bar(actions=[
+    {'type': 'nav', 'items': [
+        {'label': '首张', 'event': 'doc-nav-first', 'icon': 'bi-chevron-double-left'},
+        {'label': '上一张', 'event': 'doc-nav-prev', 'icon': 'bi-chevron-left'},
+        {'label': '下一张', 'event': 'doc-nav-next', 'icon': 'bi-chevron-right'},
+        {'label': '末张', 'event': 'doc-nav-last', 'icon': 'bi-chevron-double-right'}
+    ]}
+], aria_label='工程图纸操作菜单') }}
+{% if drawing %}
+<div id="doc-nav-config" data-nav-table="engineering_drawings" data-nav-base="/engineering/drawings/" data-doc-id="{{ drawing.id }}" style="display:none"></div>
+{% endif %}
+<div class="page-heading">
+    <h1>图纸详情</h1>
+    <p>{{ drawing.drawing_no|clean_text }} / {{ drawing.version|clean_text }}，用于确认下游业务正在使用哪一版图纸。</p>
+</div>
+
+<div class="d-flex flex-wrap gap-2 mb-3">
+    <a class="btn btn-outline-secondary btn-sm" href="/engineering/drawings">返回列表</a>
+    {% if can_edit %}
+    <a class="btn btn-primary btn-sm" href="/engineering/drawings/{{ drawing.id }}/edit"><i class="bi bi-pencil"></i> 修改图纸</a>
+    {% endif %}
+    {% if drawing.can_release and can_audit %}
+    <button class="btn btn-success btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#releasePanel"><i class="bi bi-check2-circle"></i> 发布</button>
+    {% endif %}
+    {% if drawing.can_change and can_operate %}
+    <button class="btn btn-warning btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#changePanel"><i class="bi bi-arrow-repeat"></i> 发起变更</button>
+    {% endif %}
+    {% if drawing.can_obsolete and can_audit %}
+    <button class="btn btn-outline-danger btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#obsoletePanel"><i class="bi bi-x-circle"></i> 作废</button>
+    {% endif %}
+    {% if can_create and can_operate %}
+    <button class="btn btn-outline-primary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#copyVersionPanel"><i class="bi bi-files"></i> 复制新版本</button>
+    {% endif %}
+</div>
+
+<div class="collapse mb-3" id="releasePanel">
+    <div class="page-card">
+        <form class="row g-2 align-items-end" method="post" action="/engineering/drawings/{{ drawing.id }}/release">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="col-md-2"><label class="form-label">发布单号</label><input class="form-control form-control-sm" name="release_no" value="{{ drawing.release_no or '' }}" required></div>
+            <div class="col-md-2"><label class="form-label">批准人</label><input class="form-control form-control-sm" name="approved_by" value="{{ drawing.approved_by or '' }}" required></div>
+            <div class="col-md-4"><label class="form-label">发布说明</label><input class="form-control form-control-sm" name="reason"></div>
+            <div class="col-md-3"><label class="form-label">影响范围</label><input class="form-control form-control-sm" name="impact_scope" placeholder="物料/BOM/项目/机号/工序"></div>
+            <div class="col-md-1 d-grid"><button class="btn btn-success btn-sm" type="submit">确认</button></div>
+        </form>
+    </div>
+</div>
+
+<div class="collapse mb-3" id="changePanel">
+    <div class="page-card">
+        <form class="row g-2 align-items-end" method="post" action="/engineering/drawings/{{ drawing.id }}/changing">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="col-md-2"><label class="form-label">变更单号</label><input class="form-control form-control-sm" name="change_no" required></div>
+            <div class="col-md-4"><label class="form-label">变更原因</label><input class="form-control form-control-sm" name="reason" required></div>
+            <div class="col-md-5"><label class="form-label">影响范围</label><input class="form-control form-control-sm" name="impact_scope" required placeholder="采购在途、外协在制、装配、质检、售后"></div>
+            <div class="col-md-1 d-grid"><button class="btn btn-warning btn-sm" type="submit">确认</button></div>
+        </form>
+    </div>
+</div>
+
+<div class="collapse mb-3" id="obsoletePanel">
+    <div class="page-card">
+        <form class="row g-2 align-items-end" method="post" action="/engineering/drawings/{{ drawing.id }}/obsolete">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="col-md-2"><label class="form-label">作废单号</label><input class="form-control form-control-sm" name="change_no" required></div>
+            <div class="col-md-4"><label class="form-label">作废原因</label><input class="form-control form-control-sm" name="reason" required></div>
+            <div class="col-md-4"><label class="form-label">下游处理</label><input class="form-control form-control-sm" name="impact_scope" required placeholder="禁止新引用，未结单据需确认版本"></div>
+            <div class="col-md-1 form-check pt-4">
+                <input class="form-check-input" type="checkbox" name="force_obsolete" value="yes" id="forceObsolete">
+                <label class="form-check-label small" for="forceObsolete">强制</label>
+            </div>
+            <div class="col-md-1 d-grid"><button class="btn btn-outline-danger btn-sm" type="submit">确认</button></div>
+        </form>
+        {% if open_downstream %}
+        <div class="alert alert-warning mt-3 mb-0 small">存在 {{ open_downstream|length }} 条未关闭下游引用。默认阻断作废；确需作废时必须确认替代版本并勾选强制。</div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="collapse mb-3" id="copyVersionPanel">
+    <div class="page-card">
+        <form class="row g-2 align-items-end" method="post" action="/engineering/drawings/{{ drawing.id }}/copy-version">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="col-md-2"><label class="form-label">新版本</label><input class="form-control form-control-sm" name="new_version" required></div>
+            <div class="col-md-2"><label class="form-label">变更单号</label><input class="form-control form-control-sm" name="change_no" required></div>
+            <div class="col-md-4"><label class="form-label">升版原因</label><input class="form-control form-control-sm" name="reason" required></div>
+            <div class="col-md-3"><label class="form-label">影响范围</label><input class="form-control form-control-sm" name="impact_scope" required></div>
+            <div class="col-md-1 d-grid"><button class="btn btn-outline-primary btn-sm" type="submit">创建</button></div>
+        </form>
+    </div>
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>图纸信息</h2>
+            <span>ERP 记录发布版本、受控信息和业务引用，CAD/PDM 保留设计源文件。</span>
+        </div>
+    </div>
+    <div class="row g-3">
+        <div class="col-md-3"><strong>图号：</strong>{{ drawing.drawing_no|clean_text }}</div>
+        <div class="col-md-2"><strong>版本：</strong>{{ drawing.version|clean_text }}</div>
+        <div class="col-md-4"><strong>名称：</strong>{{ drawing.drawing_name|clean_text }}</div>
+        <div class="col-md-3"><strong>类型：</strong>{{ drawing.type_label|clean_text }}</div>
+        <div class="col-md-2"><strong>状态：</strong><span class="badge bg-{{ drawing.status_badge }}">{{ drawing.status_label|erp_value|clean_text }}</span></div>
+        <div class="col-md-2"><strong>负责人：</strong>{{ drawing.owner|clean_text or '-' }}</div>
+        <div class="col-md-2"><strong>发布日期：</strong>{{ drawing.released_date or '-' }}</div>
+        <div class="col-md-2"><strong>生效日期：</strong>{{ drawing.effective_date or '-' }}</div>
+        <div class="col-md-2"><strong>作废日期：</strong>{{ drawing.obsolete_date or '-' }}</div>
+        <div class="col-md-2"><strong>受控等级：</strong>{{ drawing.security_label|clean_text }}</div>
+        <div class="col-md-3"><strong>发布单号：</strong>{{ drawing.release_no|clean_text or '-' }}</div>
+        <div class="col-md-2"><strong>批准人：</strong>{{ drawing.approved_by|clean_text or '-' }}</div>
+        <div class="col-md-2"><strong>批准日期：</strong>{{ drawing.approval_date or '-' }}</div>
+        <div class="col-md-3"><strong>来源系统：</strong>{{ drawing.source_system|clean_text or '-' }}</div>
+        <div class="col-md-2"><strong>格式：</strong>{{ drawing.file_format|clean_text or '-' }}</div>
+        <div class="col-md-4">
+            <strong>文件位置：</strong>{{ drawing.file_location|clean_text or '-' }}
+            {% if drawing.safe_file_url %}
+            <a class="btn btn-outline-secondary btn-sm ms-2" href="{{ drawing.safe_file_url }}" target="_blank" rel="noopener">打开</a>
+            {% elif drawing.file_location %}
+            <button class="btn btn-outline-secondary btn-sm ms-2" type="button" data-copy-text="{{ drawing.file_location|e }}">复制</button>
+            <div class="text-muted small">{{ drawing.file_open_hint }}</div>
+            {% endif %}
+        </div>
+        <div class="col-md-4"><strong>校验值：</strong>{{ drawing.checksum|clean_text or '-' }}</div>
+        <div class="col-md-6"><strong>变更原因：</strong>{{ drawing.change_reason|clean_text or '-' }}</div>
+        <div class="col-md-6"><strong>备注：</strong>{{ drawing.remark|clean_text or '-' }}</div>
+        <div class="col-md-3"><strong>下一步：</strong>{{ drawing.next_action|clean_text }}</div>
+        <div class="col-md-9"><strong>阻断原因：</strong>{{ drawing.blocked_reason|clean_text or '-' }}</div>
+    </div>
+</div>
+
+<div class="page-card mb-3" id="linkPanel">
+    <div class="section-title">
+        <div>
+            <h2>业务引用</h2>
+            <span>同一图纸版本可关联多个物料、BOM、项目号或机号；已作废图纸不能新增引用。</span>
+        </div>
+    </div>
+    {% if drawing.status == 'released' and can_operate %}
+    <form class="row g-2 align-items-end mb-3" method="post" action="/engineering/drawings/{{ drawing.id }}/links">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="col-md-3">
+            <label class="form-label">关联物料</label>
+            <select class="form-select form-select-sm" name="product_id">
+                <option value="">不关联</option>
+                {% for product in options.products %}
+                <option value="{{ product.id }}">{{ product.code|clean_text }} {{ product.name|clean_text }} {{ product.specification|clean_text or '' }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">关联BOM</label>
+            <select class="form-select form-select-sm" name="bom_id">
+                <option value="">不关联</option>
+                {% for bom in options.boms %}
+                <option value="{{ bom.id }}">{{ bom.bom_no|clean_text }} / {{ bom.version|clean_text }} {{ bom.product_code|clean_text or '' }} {{ bom.product_name|clean_text or '' }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2"><label class="form-label">项目号</label><input class="form-control form-control-sm" name="project_code"></div>
+        <div class="col-md-2"><label class="form-label">机号</label><input class="form-control form-control-sm" name="serial_no"></div>
+        <div class="col-md-2">
+            <label class="form-label">使用范围</label>
+            <select class="form-select form-select-sm" name="usage_scope" required>
+                <option value="">请选择</option>
+                <option value="采购">采购</option>
+                <option value="外协">外协</option>
+                <option value="生产">生产</option>
+                <option value="装配">装配</option>
+                <option value="质检">质检</option>
+                <option value="售后">售后</option>
+                <option value="通用">通用</option>
+                <option value="其他">其他</option>
+            </select>
+        </div>
+        <div class="col-md-10"><label class="form-label">引用说明</label><input class="form-control form-control-sm" name="link_remark"></div>
+        <div class="col-md-2 d-grid"><button class="btn btn-outline-primary btn-sm" type="submit"><i class="bi bi-plus-lg"></i> 添加引用</button></div>
+    </form>
+    {% endif %}
+
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+            <tr>
+                <th>物料</th>
+                <th>BOM</th>
+                <th>项目号</th>
+                <th>机号</th>
+                <th>使用范围</th>
+                <th>说明</th>
+                <th class="text-end">操作</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for link in links %}
+            <tr>
+                <td>{{ link.product_code|clean_text or '-' }} {{ link.product_name|clean_text or '' }}</td>
+                <td>{{ link.bom_no|clean_text or '-' }} {{ link.bom_version|clean_text or '' }}</td>
+                <td>{{ link.project_code|clean_text or '-' }}</td>
+                <td>{{ link.serial_no|clean_text or '-' }}</td>
+                <td>{{ link.usage_scope|clean_text or '-' }}</td>
+                <td>{{ link.remark|clean_text or '-' }}</td>
+                <td class="text-end">
+                    {% if can_operate %}
+                    <form method="post" action="/engineering/drawings/{{ drawing.id }}/links/{{ link.id }}/delete" class="d-inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button class="btn btn-outline-danger btn-sm" type="submit">删除</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" class="text-muted">暂无业务引用。</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-6">
+        <div class="page-card h-100">
+            <div class="section-title">
+                <div>
+                    <h2>同图号版本</h2>
+                    <span>用于确认新旧版本并行、升版和作废状态。</span>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead><tr><th>版本</th><th>名称</th><th>状态</th><th>发布日期</th></tr></thead>
+                    <tbody>
+                    {% for item in versions %}
+                    <tr>
+                        <td><a href="/engineering/drawings/{{ item.id }}">{{ item.version|clean_text }}</a></td>
+                        <td>{{ item.drawing_name|clean_text }}</td>
+                        <td><span class="badge bg-{{ item.status_badge }}">{{ item.status_label|clean_text }}</span></td>
+                        <td>{{ item.released_date or '-' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="4" class="text-muted">暂无其他版本。</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="page-card h-100">
+            <div class="section-title">
+                <div>
+                    <h2>下游使用</h2>
+                    <span>按图号版本直接引用和图纸业务引用范围核对下游风险。</span>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead><tr><th>单据类型</th><th>单号</th><th>项目/机号</th><th>状态</th><th>依据</th></tr></thead>
+                    <tbody>
+                    {% for item in downstream %}
+                    <tr>
+                        <td>{{ item.doc_type|clean_text }}</td>
+                        <td>{% if item.link_path %}<a href="{{ item.link_path }}">{{ item.doc_no|clean_text }}</a>{% else %}{{ item.doc_no|clean_text }}{% endif %}</td>
+                        <td>{{ item.project_code|clean_text or '-' }} / {{ item.serial_no|clean_text or '-' }}</td>
+                        <td>{{ item.status|erp_value|clean_text or '-' }}</td>
+                        <td>{{ item.source_basis|clean_text or '-' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="5" class="text-muted">暂无下游引用。</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="page-card mt-3">
+    <div class="section-title">
+        <div>
+            <h2>变更记录</h2>
+            <span>记录发布、升版、作废、引用维护和人工补充说明，方便追溯。</span>
+        </div>
+    </div>
+    <form class="row g-2 align-items-end mb-3" method="post" action="/engineering/drawings/{{ drawing.id }}/changes">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="col-md-2"><label class="form-label">动作</label><input class="form-control form-control-sm" name="action" placeholder="评审/确认/通知"></div>
+        <div class="col-md-2"><label class="form-label">单号</label><input class="form-control form-control-sm" name="change_no"></div>
+        <div class="col-md-4"><label class="form-label">原因/说明</label><input class="form-control form-control-sm" name="reason"></div>
+        <div class="col-md-3"><label class="form-label">影响范围</label><input class="form-control form-control-sm" name="impact_scope"></div>
+        <div class="col-md-1 d-grid"><button class="btn btn-outline-primary btn-sm" type="submit">保存</button></div>
+    </form>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead><tr><th>时间</th><th>动作</th><th>单号</th><th>状态变化</th><th>原因</th><th>影响范围</th></tr></thead>
+            <tbody>
+            {% for item in change_logs %}
+            <tr>
+                <td>{{ item.created_at or '-' }}</td>
+                <td>{{ item.action|clean_text }}</td>
+                <td>{{ item.change_no|clean_text or '-' }}</td>
+                <td>{{ item.old_status_label|clean_text }} -> {{ item.new_status_label|clean_text }}</td>
+                <td>{{ item.reason|clean_text or '-' }}</td>
+                <td>{{ item.impact_scope|clean_text or '-' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="text-muted">暂无变更记录。</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    if (!window.location.hash) return;
+    const target = document.querySelector(window.location.hash);
+    if (target && target.classList.contains('collapse') && window.bootstrap) {
+        window.bootstrap.Collapse.getOrCreateInstance(target).show();
+        target.scrollIntoView({behavior: 'smooth', block: 'start'});
+    }
+});
+document.querySelectorAll('[data-copy-text]').forEach(function (button) {
+    button.addEventListener('click', function () {
+        const text = button.getAttribute('data-copy-text') || '';
+        navigator.clipboard?.writeText(text);
+    });
+});
+</script>
+{% endblock %}

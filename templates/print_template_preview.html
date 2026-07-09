@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <title>{{ template.template_name }} - 预览</title>
+    <style>
+        body{font-family:"Microsoft YaHei",Arial,sans-serif;margin:0;background:#eef2f7;color:#111827}
+        .preview-toolbar{height:44px;background:#1f2937;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 16px;font-size:14px}
+        .preview-toolbar button{border:1px solid #d1d5db;background:#fff;color:#111827;border-radius:4px;padding:5px 12px;cursor:pointer}
+        .paper{width:210mm;min-height:297mm;margin:16px auto;background:#fff;padding:16mm;box-shadow:0 6px 24px rgba(15,23,42,.18)}
+        .print-sheet-title{text-align:center;font-size:22px;font-weight:700;margin-bottom:16px}
+        .print-sheet-meta{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;font-size:13px;margin-bottom:12px}
+        .print-sheet-lines{width:100%;border-collapse:collapse;font-size:13px}
+        .print-sheet-lines th,.print-sheet-lines td{border:1px solid #111827;padding:7px;text-align:left;height:28px}
+        .preview-grid{display:grid;width:100%;font-size:12px;align-items:stretch}
+        .preview-cell{min-height:28px;padding:6px 7px;box-sizing:border-box;overflow:hidden;white-space:nowrap;text-overflow:clip;line-height:1.25}
+        .preview-cell.border{border:1px solid #111827}
+        .preview-cell.title{font-size:20px;font-weight:700;text-align:center;min-height:48px;display:flex;align-items:center;justify-content:center}
+        .print-sheet-sign{display:flex;justify-content:space-between;margin-top:28px;font-size:13px}
+        @media print{body{background:#fff}.preview-toolbar{display:none}.paper{box-shadow:none;margin:0;width:auto;min-height:auto}}
+    </style>
+</head>
+<body>
+    <div class="preview-toolbar">
+        <span>{{ template.template_code }} / {{ template.template_name }} / {{ preview_time.strftime('%Y-%m-%d %H:%M') }}</span>
+        <button type="button" onclick="window.print()">打印</button>
+    </div>
+    <main class="paper">
+        {% set layout = template.layout_json or {} %}
+        {% set cells = layout.cells or {} %}
+        {% if cells %}
+        {% set grid_cols = layout.grid_cols or 12 %}
+        {% set grid_rows = layout.grid_rows or 20 %}
+        {% set grid_styles = layout.cell_styles or {} %}
+        {% set col_widths = layout.col_widths or {} %}
+        {% set ns = namespace(columns='') %}
+        {% for col in range(1, grid_cols + 1) %}
+            {% set ns.columns = ns.columns ~ ' minmax(0,' ~ (col_widths.get(col|string, 92)) ~ 'fr)' %}
+        {% endfor %}
+        <div class="preview-grid" style="grid-template-columns:{{ ns.columns }}">
+            {% set render_row = namespace(index=0) %}
+            {% for row in range(1, grid_rows + 1) %}
+                {% set row_has_value = namespace(value=false) %}
+                {% for col in range(1, grid_cols + 1) %}
+                    {% set key = row ~ '-' ~ col %}
+                    {% set style = grid_styles.get(key, {}) %}
+                    {% if not style.covered and (cells.get(key) or style.border or style.borderTop or style.borderRight or style.borderBottom or style.borderLeft) %}{% set row_has_value.value = true %}{% endif %}
+                {% endfor %}
+                {% if row_has_value.value %}
+                    {% set render_row.index = render_row.index + 1 %}
+                    {% for col in range(1, grid_cols + 1) %}
+                        {% set key = row ~ '-' ~ col %}
+                        {% set cell_style = grid_styles.get(key, {}) %}
+                        {% set value = cells.get(key, '') %}
+                        {% if not cell_style.covered and (value or cell_style.border or cell_style.borderTop or cell_style.borderRight or cell_style.borderBottom or cell_style.borderLeft) %}
+                        <div class="preview-cell {% if cell_style.border %}border{% endif %} {% if row == 1 and col == 1 %}title{% endif %}"
+                             style="grid-row:{{ render_row.index }};{% if cell_style.merged and cell_style.colSpan %}grid-column:{{ col }} / span {{ cell_style.colSpan }};{% elif row == 1 and col == 1 %}grid-column:1 / span 2;{% else %}grid-column:{{ col }};{% endif %}{% if cell_style.borderTop %}border-top:{{ cell_style.borderTop }};{% endif %}{% if cell_style.borderRight %}border-right:{{ cell_style.borderRight }};{% endif %}{% if cell_style.borderBottom %}border-bottom:{{ cell_style.borderBottom }};{% endif %}{% if cell_style.borderLeft %}border-left:{{ cell_style.borderLeft }};{% endif %}{% if cell_style.fontFamily %}font-family:{{ cell_style.fontFamily }};{% endif %}{% if cell_style.fontSize %}font-size:{{ cell_style.fontSize }}pt;{% endif %}{% if cell_style.fontWeight %}font-weight:{{ cell_style.fontWeight }};{% endif %}{% if cell_style.fontStyle %}font-style:{{ cell_style.fontStyle }};{% endif %}{% if cell_style.textDecoration %}text-decoration:{{ cell_style.textDecoration }};{% endif %}{% if cell_style.color %}color:{{ cell_style.color }};{% endif %}{% if cell_style.textAlign %}text-align:{{ cell_style.textAlign }};{% endif %}{% if cell_style.backgroundImage %}background-image:{{ cell_style.backgroundImage }};background-size:{{ cell_style.backgroundSize or 'cover' }};{% endif %}">
+                            {{ value|safe }}
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                {% endif %}
+            {% endfor %}
+        </div>
+        {% else %}
+        {{ template.content_html|safe }}
+        {% endif %}
+    </main>
+</body>
+</html>

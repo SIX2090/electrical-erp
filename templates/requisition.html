@@ -1,0 +1,452 @@
+{% extends 'base.html' %}
+
+{% block title %}工单领料管理{% endblock %}
+
+{% block extra_css %}
+<style>
+.requisition-page .page-header {
+    margin-bottom: 12px;
+}
+
+.requisition-actions {
+    white-space: nowrap;
+}
+
+.requisition-actions .btn,
+.requisition-toolbar .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
+.requisition-table th,
+.requisition-table td {
+    vertical-align: middle;
+}
+
+.requisition-table .order-no {
+    font-weight: 600;
+}
+
+.empty-orders {
+    padding: 42px 16px;
+    text-align: center;
+    color: #6c757d;
+}
+
+.empty-orders i {
+    display: block;
+    margin-bottom: 8px;
+    color: #adb5bd;
+    font-size: 2rem;
+}
+
+@media (max-width: 768px) {
+    .requisition-toolbar {
+        width: 100%;
+    }
+
+    .requisition-toolbar .btn {
+        flex: 1 1 auto;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid requisition-page">
+    <div class="page-header">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <h2 class="mb-0"><i class="bi bi-clipboard-check"></i> 工单领料管理</h2>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-body py-2">
+            <form method="get" class="row g-2 align-items-end">
+                {% if request.args.get('embedded') == '1' %}
+                <input type="hidden" name="embedded" value="1">
+                {% endif %}
+                <div class="col-md-2">
+                    <label class="form-label small text-muted mb-1">状态</label>
+                    <select name="status" class="form-select form-select-sm">
+                        <option value="" {% if not filters.status %}selected{% endif %}>全部状态</option>
+                        <option value="pending" {% if filters.status == 'pending' %}selected{% endif %}>草稿/待处理</option>
+                        <option value="completed" {% if filters.status == 'completed' %}selected{% endif %}>已完成</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small text-muted mb-1">开始日期</label>
+                    <input type="date" name="date_start" class="form-control form-control-sm" value="{{ filters.date_start }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small text-muted mb-1">结束日期</label>
+                    <input type="date" name="date_end" class="form-control form-control-sm" value="{{ filters.date_end }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small text-muted mb-1">关键词</label>
+                    <input type="text" name="search" class="form-control form-control-sm" placeholder="单号/工单/BOM/物料/草稿/已完成" value="{{ filters.search }}">
+                </div>
+                <div class="col-md-2 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary btn-sm flex-fill"><i class="bi bi-search"></i> 筛选</button>
+                    {% if filters.status or filters.search or filters.date_start or filters.date_end %}
+                    <a href="/requisition{% if request.args.get('embedded') == '1' %}?embedded=1{% endif %}" class="btn btn-outline-secondary btn-sm">清除</a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span><i class="bi bi-list-ul"></i> 工单领料单列表</span>
+            <span class="badge bg-light text-dark">共 {{ requisitions|length }} 单</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive-wrapper">
+                <table class="table table-bordered table-hover table-sm mb-0 requisition-table" id="requisitionTable">
+                    <thead>
+                        <tr>
+                            <th width="46" class="text-center"><input type="checkbox" id="selectAll"></th>
+                            <th width="60" class="text-center">序号</th>
+                            <th data-sortable="req_no" class="sortable-header">工单领料单号 {% if sort_by=='req_no' %}<i class="bi bi-caret-{{ 'up' if sort_order=='asc' else 'down' }}-fill small"></i>{% endif %}</th>
+                            <th data-sortable="date" class="sortable-header">日期 {% if sort_by=='date' %}<i class="bi bi-caret-{{ 'up' if sort_order=='asc' else 'down' }}-fill small"></i>{% endif %}</th>
+                            <th data-sortable="production_order" class="sortable-header">工单 {% if sort_by=='production_order' %}<i class="bi bi-caret-{{ 'up' if sort_order=='asc' else 'down' }}-fill small"></i>{% endif %}</th>
+                            <th data-sortable="purpose" class="sortable-header">用途 {% if sort_by=='purpose' %}<i class="bi bi-caret-{{ 'up' if sort_order=='asc' else 'down' }}-fill small"></i>{% endif %}</th>
+                            <th>关联BOM</th>
+                            <th class="text-center">明细</th>
+                            <th data-sortable="status" class="sortable-header text-center">状态 {% if sort_by=='status' %}<i class="bi bi-caret-{{ 'up' if sort_order=='asc' else 'down' }}-fill small"></i>{% endif %}</th>
+                            <th>操作人</th>
+                            <th class="text-center" width="260">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for requisition in requisitions %}
+                        <tr>
+                            <td class="text-center">
+                                <input type="checkbox" class="itemCheck check-item" value="{{ requisition.id }}" {% if requisition.status != 'pending' %}disabled title="已完成单据请先反提交"{% endif %}>
+                            </td>
+                            <td class="text-center">{{ loop.index }}</td>
+                            <td>
+                                <a class="order-no" href="{{ url_for('requisition_detail', id=requisition.id) }}">{{ requisition.req_no }}</a>
+                            </td>
+                            <td>{{ requisition.date }}</td>
+                            <td>{{ requisition.production_order or '-' }}</td>
+                            <td>{{ requisition.purpose or '-' }}</td>
+                            <td>{{ requisition.bom.name if requisition.bom else '-' }}</td>
+                            <td class="text-center">
+                                <span class="badge bg-light text-dark">{{ requisition.items|length }} 项</span>
+                            </td>
+                            <td class="text-center">
+                                {% if requisition.status == 'pending' %}
+                                <span class="badge bg-warning text-dark">草稿</span>
+                                {% elif requisition.status == 'completed' %}
+                                <span class="badge bg-success">已完成</span>
+                                {% else %}
+                                <span class="badge bg-secondary">{{ requisition.status or '未知' }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ requisition.operator.username if requisition.operator else '-' }}</td>
+                            <td class="text-center">
+                                <div class="btn-group btn-group-sm requisition-actions" role="group">
+                                    <a href="{{ url_for('requisition_detail', id=requisition.id) }}" class="btn btn-outline-primary" title="{{ '编辑明细' if requisition.status == 'pending' else '查看明细' }}">
+                                        <i class="bi bi-list-ul"></i><span class="d-none d-xl-inline">{{ '明细' if requisition.status == 'pending' else '查看' }}</span>
+                                    </a>
+                                    {% if requisition.status == 'pending' %}
+                                    <a class="btn btn-outline-secondary"
+                                            href="{{ url_for('requisition_detail', id=requisition.id) }}"
+                                            title="编辑">
+                                        <i class="bi bi-pencil-square"></i><span class="d-none d-xl-inline">修改</span>
+                                    </a>
+                                    <button class="btn btn-outline-success complete-btn" data-id="{{ requisition.id }}" title="完成工单领料">
+                                        <i class="bi bi-check-circle"></i><span class="d-none d-xl-inline">完成</span>
+                                    </button>
+                                    <button class="btn btn-outline-danger delete-btn" data-id="{{ requisition.id }}" title="删除">
+                                        <i class="bi bi-trash"></i><span class="d-none d-xl-inline">删除</span>
+                                    </button>
+                                    {% elif requisition.status == 'completed' %}
+                                    <button class="btn btn-outline-warning revert-btn" data-id="{{ requisition.id }}" title="反提交">
+                                        <i class="bi bi-arrow-counterclockwise"></i><span class="d-none d-xl-inline">反提交</span>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="11" class="empty-orders">
+                                <i class="bi bi-inbox"></i>
+                                暂无工单领料单
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="orderModal" tabindex="-1" aria-labelledby="orderModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="orderModalLabel"><i class="bi bi-plus-circle"></i> 新增工单领料单</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="&#20851;&#38381;"></button>
+            </div>
+            <form id="orderForm">
+                <input type="hidden" id="order_id" name="order_id">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="bom_id" class="form-label">关联BOM</label>
+                        <select class="form-select" id="bom_id" name="bom_id">
+                            <option value="">请选择BOM</option>
+                            {% for bom in boms %}
+                            <option value="{{ bom.id }}">{{ bom.bom_no }} - {{ bom.product_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="production_order" class="form-label">工单号</label>
+                        <input type="text" class="form-control" id="production_order" name="production_order">
+                    </div>
+                    <div class="mb-3">
+                        <label for="purpose" class="form-label">工单领料用途</label>
+                        <input type="text" class="form-control" id="purpose" name="purpose">
+                    </div>
+                    <div class="mb-3">
+                        <label for="remark" class="form-label">备注</label>
+                        <textarea class="form-control" id="remark" name="remark" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary" id="orderSubmitBtn">
+                        <i class="bi bi-check-circle"></i> 保存并编辑明细
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const requisitionUrls = {
+    add: "/requisition/new",
+    update: "/requisition/0/edit",
+    detail: "/requisition/0",
+    complete: "/requisition/0/complete",
+    revert: "/requisition/0/revert",
+    delete: "/requisition/0/delete",
+    batchDelete: "/requisition/batch_delete"
+};
+
+function urlWithId(template, id) {
+    return template.replace('/0', '/' + encodeURIComponent(id));
+}
+
+document.querySelectorAll('.sortable-header').forEach(function(th) {
+    th.addEventListener('click', function() {
+        const sortField = this.dataset.sortable;
+        const url = new URL(window.location.href);
+        const currentSort = url.searchParams.get('sort');
+        const currentOrder = url.searchParams.get('order') || 'desc';
+        url.searchParams.set('sort', sortField);
+        url.searchParams.set('order', currentSort === sortField && currentOrder === 'asc' ? 'desc' : 'asc');
+        window.location.href = url.toString();
+    });
+});
+
+const orderModalEl = document.getElementById('orderModal');
+const orderModal = orderModalEl ? new bootstrap.Modal(orderModalEl) : null;
+const orderForm = document.getElementById('orderForm');
+const orderModalLabel = document.getElementById('orderModalLabel');
+const orderSubmitBtn = document.getElementById('orderSubmitBtn');
+
+function setOrderFormMode(mode, data) {
+    data = data || {};
+    orderForm.reset();
+    document.getElementById('order_id').value = data.id || '';
+    document.getElementById('bom_id').value = data.bomId || '';
+    document.getElementById('production_order').value = data.productionOrder || '';
+    document.getElementById('purpose').value = data.purpose || '';
+    document.getElementById('remark').value = data.remark || '';
+
+    orderForm.dataset.mode = mode;
+    if (mode === 'edit') {
+        orderModalLabel.innerHTML = '<i class="bi bi-pencil-square"></i> 修改工单领料单';
+        orderSubmitBtn.innerHTML = '<i class="bi bi-check-circle"></i> 保存修改';
+    } else {
+        orderModalLabel.innerHTML = '<i class="bi bi-plus-circle"></i> 新增工单领料单';
+        orderSubmitBtn.innerHTML = '<i class="bi bi-check-circle"></i> 保存并编辑明细';
+    }
+}
+
+document.getElementById('openAddModal')?.addEventListener('click', function() {
+    setOrderFormMode('add');
+    orderModal.show();
+});
+
+document.querySelectorAll('.edit-order-btn').forEach(function(button) {
+    button.addEventListener('click', function() {
+        setOrderFormMode('edit', {
+            id: this.dataset.id,
+            bomId: this.dataset.bomId,
+            productionOrder: this.dataset.productionOrder,
+            purpose: this.dataset.purpose,
+            remark: this.dataset.remark
+        });
+        orderModal.show();
+    });
+});
+
+orderForm?.addEventListener('submit', function(event) {
+    event.preventDefault();
+    const mode = orderForm.dataset.mode || 'add';
+    const orderId = document.getElementById('order_id').value;
+    const url = mode === 'edit' ? urlWithId(requisitionUrls.update, orderId) : requisitionUrls.add;
+    const formData = new FormData(orderForm);
+    orderSubmitBtn.disabled = true;
+
+    fetch(url, {
+        method: 'POST',
+        headers: {'X-CSRFToken': (document.querySelector('meta[name="csrf-token"]') || {}).content || ''},
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            showToast(data.msg || '保存成功', 'success');
+            if (mode === 'add' && data.id) {
+                setTimeout(() => window.location.href = urlWithId(requisitionUrls.detail, data.id), 500);
+            } else {
+                setTimeout(() => location.reload(), 500);
+            }
+        } else {
+            showToast(data.msg || '保存失败', 'danger');
+        }
+    })
+    .catch(error => showToast('保存失败：' + error.message, 'danger'))
+    .finally(() => {
+        orderSubmitBtn.disabled = false;
+    });
+});
+
+document.getElementById('selectAll')?.addEventListener('change', function() {
+    document.querySelectorAll('.itemCheck:not(:disabled)').forEach(checkbox => {
+        checkbox.checked = this.checked;
+    });
+});
+
+document.querySelectorAll('.itemCheck:not(:disabled)').forEach(function(checkbox) {
+    checkbox.addEventListener('change', function() {
+        const selectable = document.querySelectorAll('.itemCheck:not(:disabled)');
+        const checked = document.querySelectorAll('.itemCheck:not(:disabled):checked');
+        document.getElementById('selectAll').checked = selectable.length > 0 && selectable.length === checked.length;
+    });
+});
+
+document.getElementById('batchDeleteBtn')?.addEventListener('click', function() {
+    const checkedItems = document.querySelectorAll('.itemCheck:not(:disabled):checked');
+    if (!checkedItems.length) {
+        showToast('请选择要删除的草稿工单领料单', 'warning');
+        return;
+    }
+
+    showConfirm('确定要删除选中的 ' + checkedItems.length + ' 个工单领料单吗？', {title: '批量删除'}).then(function(confirmed) {
+        if (!confirmed) return;
+        const ids = Array.from(checkedItems).map(item => item.value);
+        fetch(requisitionUrls.batchDelete, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': (document.querySelector('meta[name="csrf-token"]') || {}).content || ''
+            },
+            body: JSON.stringify({ids: ids})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                showToast(data.msg || '删除成功', 'success');
+                setTimeout(() => location.reload(), 500);
+            } else {
+                showToast(data.msg || '删除失败', 'danger');
+            }
+        })
+        .catch(error => showToast('删除失败：' + error.message, 'danger'));
+    });
+});
+
+document.querySelectorAll('.complete-btn').forEach(function(button) {
+    button.addEventListener('click', function() {
+        const id = this.dataset.id;
+        showConfirm('确认完成工单领料？完成后库存将减少。', {title: '完成工单领料'}).then(function(confirmed) {
+            if (!confirmed) return;
+            fetch(urlWithId(requisitionUrls.complete, id), {
+                method: 'POST',
+                headers: {'X-CSRFToken': (document.querySelector('meta[name="csrf-token"]') || {}).content || ''}
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    showToast(data.msg || '操作成功', 'success');
+                    setTimeout(() => location.reload(), 500);
+                } else {
+                    showToast(data.msg || '操作失败', 'danger');
+                }
+            })
+            .catch(error => showToast('操作失败：' + error.message, 'danger'));
+        });
+    });
+});
+
+document.querySelectorAll('.revert-btn').forEach(function(button) {
+    button.addEventListener('click', function() {
+        const id = this.dataset.id;
+        showConfirm('确认反提交？反提交后库存将恢复。', {title: '反提交工单领料单'}).then(function(confirmed) {
+            if (!confirmed) return;
+            fetch(urlWithId(requisitionUrls.revert, id), {
+                method: 'POST',
+                headers: {'X-CSRFToken': (document.querySelector('meta[name="csrf-token"]') || {}).content || ''}
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    showToast(data.msg || '反提交成功', 'success');
+                    setTimeout(() => location.reload(), 500);
+                } else {
+                    showToast(data.msg || '操作失败', 'danger');
+                }
+            })
+            .catch(error => showToast('操作失败：' + error.message, 'danger'));
+        });
+    });
+});
+
+document.querySelectorAll('.delete-btn').forEach(function(button) {
+    button.addEventListener('click', function() {
+        const id = this.dataset.id;
+        showConfirm('确定要删除该工单领料单吗？此操作不可恢复。', {title: '删除工单领料单'}).then(function(confirmed) {
+            if (!confirmed) return;
+            fetch(urlWithId(requisitionUrls.delete, id), {
+                method: 'POST',
+                headers: {'X-CSRFToken': (document.querySelector('meta[name="csrf-token"]') || {}).content || ''}
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    showToast(data.msg || '删除成功', 'success');
+                    setTimeout(() => location.reload(), 500);
+                } else {
+                    showToast(data.msg || '删除失败', 'danger');
+                }
+            })
+            .catch(error => showToast('删除失败：' + error.message, 'danger'));
+        });
+    });
+});
+</script>
+{% endblock %}

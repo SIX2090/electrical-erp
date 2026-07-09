@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}ECN影响分析{% endblock %}
+{% block content %}
+{% if not ecn %}
+<div class="page-card">未找到工程变更单。</div>
+{% else %}
+{{ document_menu_bar(actions=[
+    {'type': 'nav', 'items': [
+        {'label': '首张', 'event': 'doc-nav-first', 'icon': 'bi-chevron-double-left'},
+        {'label': '上一张', 'event': 'doc-nav-prev', 'icon': 'bi-chevron-left'},
+        {'label': '下一张', 'event': 'doc-nav-next', 'icon': 'bi-chevron-right'},
+        {'label': '末张', 'event': 'doc-nav-last', 'icon': 'bi-chevron-double-right'}
+    ]},
+    {'label': 'ECN列表', 'type': 'link', 'href': '/bom/ecn'},
+    {'label': 'ECN详情', 'type': 'link', 'href': url_for('bom_ecn_detail', ecn_key=ecn.ecn_no)},
+    {'label': '影响任务列表', 'type': 'link', 'href': url_for('ecn_impact_tasks')},
+    {'label': '执行任务', 'type': 'link', 'href': url_for('ecn_action_tasks_by_ecn', ecn_id=ecn.id)}
+]) }}
+<div id="doc-nav-config" data-nav-table="bom_ecn" data-nav-base="/ecn/" data-doc-id="{{ ecn.id }}" style="display:none"></div>
+
+<div class="page-card mb-3">
+    <div class="d-flex justify-content-between align-items-start gap-3">
+        <div>
+            <h1 class="h4 mb-1">{{ ecn.ecn_no|clean_text }}</h1>
+            <div class="text-muted">{{ ecn.title|clean_text }}</div>
+        </div>
+        <span class="badge text-bg-primary">{{ ecn.status|clean_text or '-' }}</span>
+    </div>
+</div>
+
+<div class="alert alert-info py-2">
+    边界：本页执行ECN影响分析并保存结果；影响任务的处理回到各自业务单据，不在本页改工单、采购单或库存。
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>执行影响分析</h2>
+            <span>按产品、BOM、项目号、机号筛选受影响单据；执行会覆盖当前待处理结果。</span>
+        </div>
+    </div>
+    <form method="post" action="{{ url_for('ecn_impact_analyze', ecn_id=ecn.id) }}" class="row g-2 align-items-end">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="col-md-3">
+            <label class="form-label">产品ID</label>
+            <input class="form-control form-control-sm" name="product_id" value="{{ request.args.get('product_id', '') }}" placeholder="留空使用ECN关联产品">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">BOM ID</label>
+            <input class="form-control form-control-sm" name="bom_id" value="{{ request.args.get('bom_id', '') }}" placeholder="留空使用ECN关联BOM">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">项目号</label>
+            <input class="form-control form-control-sm" name="project_code" value="{{ request.args.get('project_code', '') }}">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">机号</label>
+            <input class="form-control form-control-sm" name="serial_no" value="{{ request.args.get('serial_no', '') }}">
+        </div>
+        <div class="col-md-2 d-grid">
+            <button class="btn btn-primary btn-sm" type="submit"><i class="bi bi-play-circle"></i> 执行分析</button>
+        </div>
+    </form>
+</div>
+
+<div class="page-card">
+    <div class="section-title">
+        <div>
+            <h2>影响结果</h2>
+            <span>当前共 {{ results|length }} 条；按影响等级和状态排序。</span>
+        </div>
+        {% if results %}
+        <form method="post" action="{{ url_for('ecn_action_tasks_generate', ecn_id=ecn.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-primary btn-sm" type="submit"><i class="bi bi-gear"></i> 生成执行任务</button>
+        </form>
+        {% endif %}
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+                <tr>
+                    <th>类型</th>
+                    <th>单据编号</th>
+                    <th>影响等级</th>
+                    <th>状态</th>
+                    <th>处理动作</th>
+                    <th>创建时间</th>
+                    <th class="text-end">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for row in results %}
+            <tr>
+                <td>{{ type_labels.get(row.affected_type, row.affected_type) }}</td>
+                <td>{{ row.affected_no|clean_text or '-' }}</td>
+                <td>
+                    {% if row.impact_level == 'high' %}<span class="badge bg-danger">高</span>
+                    {% elif row.impact_level == 'medium' %}<span class="badge bg-warning text-dark">中</span>
+                    {% else %}<span class="badge bg-light text-dark border">低</span>{% endif %}
+                </td>
+                <td>
+                    {% if row.status == 'pending' %}<span class="badge bg-light text-dark border">{{ status_labels.get(row.status, row.status) }}</span>
+                    {% elif row.status == 'resolved' %}<span class="badge bg-success">{{ status_labels.get(row.status, row.status) }}</span>
+                    {% else %}<span class="badge bg-secondary">{{ status_labels.get(row.status, row.status) }}</span>{% endif %}
+                </td>
+                <td>{{ row.action_required|clean_text or '-' }}</td>
+                <td>{{ row.created_at or '-' }}</td>
+                <td class="text-end">
+                    {% if row.status == 'pending' %}
+                    <form method="post" action="{{ url_for('ecn_impact_task_resolve', task_id=row.id) }}" class="d-inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="next" value="{{ url_for('ecn_impact_view', ecn_id=ecn.id) }}">
+                        <button class="btn btn-outline-success btn-sm" type="submit">标记已处理</button>
+                    </form>
+                    {% else %}
+                    <span class="text-muted small">已处理</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" class="text-muted">暂无影响结果，请先执行影响分析。</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

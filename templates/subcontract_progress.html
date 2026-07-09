@@ -1,0 +1,171 @@
+{% extends 'base.html' %}
+
+{% block title %}委外进度跟踪{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="h3 mb-3 text-gray-800">委外加工进度跟踪</h1>
+    
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6 class="m-0 font-weight-bold text-primary">进度概览</h6>
+                </div>
+                <div class="col-md-6 text-right">
+                    <span class="badge badge-info mr-2">总单数: {{ progress_data|length }}</span>
+                    <span class="badge badge-warning mr-2">待处理: {{ progress_data|selectattr('order.status', 'equalto', 'pending')|list|length }}</span>
+                    <span class="badge badge-primary mr-2">加工中: {{ progress_data|selectattr('order.status', 'equalto', 'processing')|list|length }}</span>
+                    <span class="badge badge-success mr-2">已完成: {{ progress_data|selectattr('order.status', 'equalto', 'completed')|list|length }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered client-paginate" id="dataTable" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>序号</th>
+                            <th>委外单号</th>
+                            <th>日期</th>
+                            <th>加工厂商</th>
+                            <th>状态</th>
+                            <th>交货期限</th>
+                            <th>发料进度</th>
+                            <th>入库进度</th>
+                            <th>总金额</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in progress_data %}
+                        <tr>
+                            <td>{{ loop.index }}</td>
+                            <td><a href="{{ url_for('subcontract_detail', id=item.order.id) }}">{{ item.order.order_no }}</a></td>
+                            <td>{{ item.order.date }}</td>
+                            <td>{{ item.order.supplier.name if item.order.supplier else '-' }}</td>
+                            <td>
+                                {% if item.order.status == 'pending' %}
+                                <span class="badge badge-secondary">待处理</span>
+                                {% elif item.order.status == 'processing' %}
+                                <span class="badge badge-warning">加工中</span>
+                                {% elif item.order.status == 'completed' %}
+                                <span class="badge badge-success">已完成</span>
+                                {% elif item.order.status == 'cancelled' %}
+                                <span class="badge badge-danger">已取消</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ item.order.deadline or '-' }}</td>
+                            <td>
+                                <div class="progress" style="height: 20px;">
+                                    {% set issue_pct = (item.issue_count / 1 * 100)|round|int if item.issue_count > 0 else 0 %}
+                                    {% if item.issue_completed > 0 %}
+                                    <div class="progress-bar bg-success" role="progressbar" style="width: 100%;">
+                                        {{ item.issue_count }}次
+                                    </div>
+                                    {% else %}
+                                    <div class="progress-bar bg-secondary" role="progressbar" style="width: 100%;">
+                                        未发料
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td>
+                                <div class="progress" style="height: 20px;">
+                                    {% set receive_pct = (item.receive_count / 1 * 100)|round|int if item.receive_count > 0 else 0 %}
+                                    {% if item.receive_count > 0 %}
+                                    <div class="progress-bar bg-success" role="progressbar" style="width: 100%;">
+                                        {{ item.receive_count }}次
+                                    </div>
+                                    {% else %}
+                                    <div class="progress-bar bg-secondary" role="progressbar" style="width: 100%;">
+                                        未入库
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td>{{ item.order.total_amount or 0 }}</td>
+                            <td>
+                                <a href="{{ url_for('subcontract_detail', id=item.order.id) }}" class="btn btn-info btn-sm">详情</a>
+                                {% if item.order.status == 'pending' %}
+                                <a href="/subcontract/issue" class="btn btn-primary btn-sm">去发料</a>
+                                {% elif item.order.status == 'processing' %}
+                                <a href="/subcontract/receive" class="btn btn-success btn-sm">去入库</a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 统计卡片 -->
+    <div class="row">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">委外加工单总数</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ progress_data|length }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-file-earmark-text fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">发料单总数</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ progress_data|sum(attribute='issue_count') }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-box-seam fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">入库单总数</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ progress_data|sum(attribute='receive_count') }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-boxes fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">总发料金额</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ progress_data|sum(attribute='order.total_amount') or 0 }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-currency-dollar fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

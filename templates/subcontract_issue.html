@@ -1,0 +1,143 @@
+{% extends 'base.html' %}
+
+{% block title %}委外发料单列表{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h3 mb-0 text-gray-800">委外发料单列表</h1>
+        <a class="btn btn-primary btn-sm" href="/subcontract_issue/new">
+            <i class="bi bi-plus-lg"></i> 新增委外发料单
+        </a>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-body py-2">
+            <form method="get" class="row g-2 align-items-end" data-list-filter-form>
+                {% if request.args.get('embedded') == '1' %}
+                <input type="hidden" name="embedded" value="1">
+                {% endif %}
+                <div class="col-md-2">
+                    <label class="form-label small text-muted mb-1">状态</label>
+                    <select name="status" class="form-select form-select-sm">
+                        <option value="" {% if not filters.status %}selected{% endif %}>全部状态</option>
+                        <option value="pending" {% if filters.status == 'pending' %}selected{% endif %}>待发料</option>
+                        <option value="completed" {% if filters.status == 'completed' %}selected{% endif %}>已发料</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small text-muted mb-1">开始日期</label>
+                    <input type="date" name="date_start" class="form-control form-control-sm" value="{{ filters.date_start }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small text-muted mb-1">结束日期</label>
+                    <input type="date" name="date_end" class="form-control form-control-sm" value="{{ filters.date_end }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small text-muted mb-1">关键字</label>
+                    <input type="text" name="search" class="form-control form-control-sm" placeholder="发料单/委外单/厂商/物料" value="{{ filters.search }}">
+                </div>
+                <div class="col-md-2 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary btn-sm flex-fill">
+                        <i class="bi bi-search"></i> 筛选
+                    </button>
+                    {% if filters.status or filters.search or filters.date_start or filters.date_end %}
+                    <a href="/subcontract_issue{% if request.args.get('embedded') == '1' %}?embedded=1{% endif %}" class="btn btn-outline-secondary btn-sm">清除</a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">发料单列表</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th><input type="checkbox" id="selectAll"></th>
+                            <th>序号</th>
+                            <th data-sortable="issue_no" class="sortable-header">
+                                发料单号
+                                {% if sort_by == 'issue_no' %}<i class="bi bi-caret-{{ 'up' if sort_order == 'asc' else 'down' }}-fill small"></i>{% endif %}
+                            </th>
+                            <th data-sortable="date" class="sortable-header">
+                                日期
+                                {% if sort_by == 'date' %}<i class="bi bi-caret-{{ 'up' if sort_order == 'asc' else 'down' }}-fill small"></i>{% endif %}
+                            </th>
+                            <th data-sortable="subcontract_order_id" class="sortable-header">
+                                委外加工单
+                                {% if sort_by == 'subcontract_order_id' %}<i class="bi bi-caret-{{ 'up' if sort_order == 'asc' else 'down' }}-fill small"></i>{% endif %}
+                            </th>
+                            <th data-sortable="supplier_id" class="sortable-header">
+                                加工厂商
+                                {% if sort_by == 'supplier_id' %}<i class="bi bi-caret-{{ 'up' if sort_order == 'asc' else 'down' }}-fill small"></i>{% endif %}
+                            </th>
+                            <th data-sortable="status" class="sortable-header">
+                                状态
+                                {% if sort_by == 'status' %}<i class="bi bi-caret-{{ 'up' if sort_order == 'asc' else 'down' }}-fill small"></i>{% endif %}
+                            </th>
+                            <th>操作人</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for issue in issues %}
+                        <tr>
+                            <td><input type="checkbox" class="itemCheck check-item" value="{{ issue.id }}"></td>
+                            <td>{{ loop.index }}</td>
+                            <td>{{ issue.issue_no }}</td>
+                            <td>{{ issue.date }}</td>
+                            <td>{{ issue.subcontract_order.order_no if issue.subcontract_order else '-' }}</td>
+                            <td>{{ issue.supplier.name if issue.supplier else '' }}</td>
+                            <td>
+                                {% if issue.status == 'pending' %}
+                                <span class="badge badge-warning">待发料</span>
+                                {% elif issue.status == 'completed' %}
+                                <span class="badge badge-success">已发料</span>
+                                {% else %}
+                                <span class="badge badge-secondary">{{ issue.status or '-' }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ issue.operator.username if issue.operator else '' }}</td>
+                            <td class="text-nowrap">
+                                <a class="btn btn-info btn-sm" href="/subcontract_issue/{{ issue.id }}">详情</a>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" disabled>提交</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" disabled>反提交</button>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="9" class="text-center text-muted py-4">暂无委外发料单</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.querySelectorAll('.sortable-header').forEach(function(th) {
+    th.addEventListener('click', function() {
+        var sortField = this.dataset.sortable;
+        var url = new URL(window.location.href);
+        var currentSort = url.searchParams.get('sort');
+        var currentOrder = url.searchParams.get('order') || 'desc';
+        url.searchParams.set('sort', sortField);
+        url.searchParams.set('order', currentSort === sortField && currentOrder === 'asc' ? 'desc' : 'asc');
+        window.location.href = url.toString();
+    });
+});
+
+$('#selectAll').on('click', function() {
+    $('.itemCheck').prop('checked', this.checked);
+});
+</script>
+{% endblock %}

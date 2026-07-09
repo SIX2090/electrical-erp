@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}数据访问日志{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+  <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h5 class="mb-0"><i class="bi bi-list-check"></i> 数据访问日志</h5>
+      <a href="{{ url_for('data_permission_list') }}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> 返回规则列表
+      </a>
+      <a href="/" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-house"></i> 返回首页
+      </a>
+    </div>
+    <div class="card-body">
+      <form method="get" class="row g-2 mb-3 align-items-end">
+        <div class="col-auto">
+          <label class="form-label small">用户ID</label>
+          <input type="text" name="user_id" value="{{ filters.user_id }}" class="form-control form-control-sm" placeholder="用户ID">
+        </div>
+        <div class="col-auto">
+          <label class="form-label small">资源类型</label>
+          <input type="text" name="resource_type" value="{{ filters.resource_type }}" class="form-control form-control-sm" placeholder="如 sales_order">
+        </div>
+        <div class="col-auto">
+          <label class="form-label small">结果</label>
+          <select name="allowed" class="form-select form-select-sm">
+            {% for value, label in allowed_options %}
+            <option value="{{ value }}" {% if filters.allowed == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-auto">
+          <label class="form-label small">条数</label>
+          <input type="number" name="limit" value="{{ filters.limit }}" class="form-control form-control-sm" min="1" max="1000" style="width:90px;">
+        </div>
+        <div class="col-auto">
+          <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-search"></i> 筛选</button>
+          <a href="{{ url_for('data_access_logs_page') }}" class="btn btn-sm btn-outline-secondary">重置</a>
+        </div>
+      </form>
+
+      {% if logs %}
+      <div class="table-responsive">
+        <table class="table table-bordered table-hover table-sm align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>ID</th>
+              <th>用户</th>
+              <th>角色</th>
+              <th>资源类型</th>
+              <th>资源ID</th>
+              <th>动作</th>
+              <th>结果</th>
+              <th>原因</th>
+              <th>时间</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for log in logs %}
+            <tr>
+              <td>{{ log.id }}</td>
+              <td>{{ log.username or log.user_id or '-' }}</td>
+              <td>{{ log.role or '-' }}</td>
+              <td>{{ log.resource_type or '-' }}</td>
+              <td>{{ log.resource_id or '-' }}</td>
+              <td>{{ log.action or '-' }}</td>
+              <td>
+                {% if log.allowed %}
+                <span class="badge bg-success">{{ log.allowed_label }}</span>
+                {% else %}
+                <span class="badge bg-danger">{{ log.allowed_label }}</span>
+                {% endif %}
+              </td>
+              <td>{{ log.reason or '-' }}</td>
+              <td>{{ log.created_at }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <p class="text-muted small">共 {{ logs|length }} 条记录</p>
+      {% else %}
+      <div class="alert alert-info">暂无数据访问日志。</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

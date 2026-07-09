@@ -1,0 +1,378 @@
+{% extends "base.html" %}
+{% block title %}库存盘点{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h2 class="mb-0"><i class="bi bi-clipboard-check"></i> 库存盘点</h2>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <form method="get" class="row g-2 align-items-end">
+            {% if request.args.get('embedded') == '1' %}
+            <input type="hidden" name="embedded" value="1">
+            {% endif %}
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">状态</label>
+                <select name="status" class="form-select form-select-sm">
+                    <option value="" {% if not filters.status %}selected{% endif %}>全部状态</option>
+                    <option value="pending" {% if filters.status == 'pending' %}selected{% endif %}>草稿/待处理</option>
+                    <option value="completed" {% if filters.status == 'completed' %}selected{% endif %}>已完成</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">开始日期</label>
+                <input type="date" name="date_start" class="form-control form-control-sm" value="{{ filters.date_start }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">结束日期</label>
+                <input type="date" name="date_end" class="form-control form-control-sm" value="{{ filters.date_end }}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small text-muted mb-1">关键词</label>
+                <input type="text" name="search" class="form-control form-control-sm" placeholder="单号/物料/差异原因/草稿/已完成" value="{{ filters.search }}">
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-primary btn-sm flex-fill"><i class="bi bi-search"></i> 筛选</button>
+                {% if filters.status or filters.search or filters.date_start or filters.date_end %}
+                <a href="/check{% if request.args.get('embedded') == '1' %}?embedded=1{% endif %}" class="btn btn-outline-secondary btn-sm">清除</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive-wrapper">
+        <table class="table table-bordered table-hover table-sm mb-0" id="checkTable">
+            <thead>
+                <tr>
+                    <th width="50">
+                        <input type="checkbox" id="selectAll"> 全选
+                    </th>
+                    <th data-sortable="check_no" class="sortable-header">盘点单号 {% if sort_by=='check_no' %}<i class="bi bi-caret-{{ 'up' if sort_order=='asc' else 'down' }}-fill small"></i>{% endif %}</th>
+                    <th data-sortable="date" class="sortable-header">日期 {% if sort_by=='date' %}<i class="bi bi-caret-{{ 'up' if sort_order=='asc' else 'down' }}-fill small"></i>{% endif %}</th>
+                    <th>备注</th>
+                    <th>操作人</th>
+                    <th data-sortable="status" class="sortable-header">状态 {% if sort_by=='status' %}<i class="bi bi-caret-{{ 'up' if sort_order=='asc' else 'down' }}-fill small"></i>{% endif %}</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for check in checks %}
+                <tr data-id="{{ check.id }}">
+                    <td><input type="checkbox" class="itemCheck check-item" value="{{ check.id }}"></td>
+                    <td><a href="/inventory_checks/{{ check.id }}">{{ check.check_no }}</a></td>
+                    <td>{{ check.date }}</td>
+                    <td>{{ check.remark or '' }}</td>
+                    <td>{{ check.operator.username if check.operator else '-' }}</td>
+                    <td>
+                        {% if check.status == 'pending' %}
+                        <span class="badge bg-warning">草稿</span>
+                        {% elif check.status == 'completed' %}
+                        <span class="badge bg-success">已完成</span>
+                        {% else %}
+                        <span class="badge bg-secondary">{{ check.status or '未知' }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a class="btn btn-sm btn-outline-primary editBtn" data-id="{{ check.id }}" href="/inventory_checks/{{ check.id }}" title="{{ '编辑' if check.status == 'pending' else '查看' }}">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <button class="btn btn-sm btn-outline-success copyBtn" data-id="{{ check.id }}" title="复制">
+                            <i class="bi bi-clipboard"></i>
+                        </button>
+                        {% if check.status == 'completed' %}
+                        <button class="btn btn-sm btn-outline-warning revertBtn" data-id="{{ check.id }}" title="反提交">
+                            <i class="bi bi-arrow-counterclockwise"></i>
+                        </button>
+                        {% endif %}
+                        <button class="btn btn-sm btn-outline-danger delBtn" data-id="{{ check.id }}" title="删除">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="7" class="text-center text-muted">暂无盘点记录</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div><!-- end table-responsive-wrapper -->
+    </div>
+</div>
+
+<!-- 新建盘点单弹窗 -->
+<div class="modal fade" id="addModal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-plus-circle"></i> 新建盘点单</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="addForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">备注（可选）</label>
+                        <textarea class="form-control" name="remark" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">创建</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 修改盘点单弹窗 -->
+<div class="modal fade" id="editModal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil"></i> 修改盘点单</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editForm">
+                <div class="modal-body">
+                    <input type="hidden" id="editId">
+                    <div class="mb-3">
+                        <label class="form-label">备注</label>
+                        <textarea class="form-control" id="editRemark" name="remark" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 全选/反选
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.sortable-header').forEach(function(th) {
+        th.addEventListener('click', function() {
+            const sortField = this.dataset.sortable;
+            const url = new URL(window.location.href);
+            const currentSort = url.searchParams.get('sort');
+            const currentOrder = url.searchParams.get('order') || 'desc';
+            url.searchParams.set('sort', sortField);
+            url.searchParams.set('order', currentSort === sortField && currentOrder === 'asc' ? 'desc' : 'asc');
+            window.location.href = url.toString();
+        });
+    });
+
+    // 全选/反选
+    const selectAll = document.getElementById('selectAll');
+    if (selectAll) {
+        selectAll.addEventListener('click', function() {
+            const itemChecks = document.querySelectorAll('.itemCheck');
+            itemChecks.forEach(function(item) {
+                item.checked = selectAll.checked;
+            });
+        });
+    }
+
+    // 单行删除
+    const delBtns = document.querySelectorAll('.delBtn');
+    delBtns.forEach(function(btn) {
+        btn.addEventListener('click', async function() {
+            let id = this.getAttribute('data-id');
+            const confirmed = await showConfirm('确认删除该盘点单？', { title: '删除盘点单' });
+            if(!confirmed) return;
+            
+            fetch('/inventory_checks/'+id+'/delete', {
+                method: 'POST',
+                headers: {'X-CSRFToken': (document.querySelector('meta[name="csrf-token"]') || {}).content || ''}
+            })
+            .then(response => response.json())
+            .then(res => {
+                if(res.status == 'success') {
+                    showToast('盘点单已删除，正在刷新列表…', 'success');
+                    setTimeout(function(){ location.reload(); }, 650);
+                } else {
+                    showToast(res.msg || '删除失败', 'danger', 3600);
+                }
+            })
+            .catch(error => {
+                showToast('删除失败：' + error.message, 'danger', 3600);
+            });
+        });
+    });
+
+    // 批量删除
+    const revertBtns = document.querySelectorAll('.revertBtn');
+    revertBtns.forEach(function(btn) {
+        btn.addEventListener('click', async function() {
+            let id = this.getAttribute('data-id');
+            const confirmed = await showConfirm('确认反提交该盘点单？反提交后库存将恢复到盘点前。', { title: '反提交盘点单' });
+            if(!confirmed) return;
+
+            fetch('/inventory_checks/'+id+'/revert', {
+                method: 'POST',
+                headers: {'X-CSRFToken': (document.querySelector('meta[name="csrf-token"]') || {}).content || ''}
+            })
+            .then(response => response.json())
+            .then(res => {
+                if(res.status == 'success') {
+                    showToast(res.msg || '反提交成功', 'success');
+                    setTimeout(function(){ location.reload(); }, 650);
+                } else {
+                    showToast(res.msg || '反提交失败', 'danger', 3600);
+                }
+            })
+            .catch(error => {
+                showToast('反提交失败：' + error.message, 'danger', 3600);
+            });
+        });
+    });
+
+    const batchDeleteBtn = document.getElementById('batchDeleteBtn');
+    if (batchDeleteBtn) {
+        batchDeleteBtn.addEventListener('click', async function() {
+            const checkedItems = document.querySelectorAll('.itemCheck:checked');
+            let ids = Array.from(checkedItems).map(function(item) { return item.value; });
+            if(ids.length == 0){
+                showToast('请先选择要删除的盘点单', 'warning');
+                return;
+            }
+            const confirmed = await showConfirm('确认删除选中的 '+ids.length+' 个盘点单？', { title: '批量删除盘点单' });
+            if(!confirmed) return;
+            
+            fetch('/inventory_checks/batch_delete', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': (document.querySelector('meta[name="csrf-token"]') || {}).content || ''
+                },
+                body: 'ids=' + JSON.stringify(ids)
+            })
+            .then(response => response.json())
+            .then(res => {
+                if(res.status == 'success'){
+                    showToast(res.msg || '盘点单删除成功，正在刷新列表…', 'success');
+                    setTimeout(function(){ location.reload(); }, 650);
+                } else {
+                    showToast(res.msg || '删除失败', 'danger', 3600);
+                }
+            })
+            .catch(error => {
+                showToast('删除失败：' + error.message, 'danger', 3600);
+            });
+        });
+    }
+
+    // 复制盘点单
+    const copyBtns = document.querySelectorAll('.copyBtn');
+    copyBtns.forEach(function(btn) {
+        btn.addEventListener('click', async function() {
+            let id = this.getAttribute('data-id');
+            const confirmed = await showConfirm('确认复制该盘点单？', { title: '复制盘点单' });
+            if(!confirmed) return;
+            
+            fetch('/inventory_checks/'+id+'/copy', {
+                method: 'POST',
+                headers: {'X-CSRFToken': (document.querySelector('meta[name="csrf-token"]') || {}).content || ''}
+            })
+            .then(response => response.json())
+            .then(res => {
+                if(res.status == 'success'){
+                    showToast('盘点单已复制，正在刷新列表…', 'success');
+                    setTimeout(function(){ location.reload(); }, 650);
+                } else {
+                    showToast(res.msg || '复制失败', 'danger', 3600);
+                }
+            })
+            .catch(error => {
+                showToast('复制失败：' + error.message, 'danger', 3600);
+            });
+        });
+    });
+
+    // 打开修改弹窗
+    const editBtns = document.querySelectorAll('.editBtn');
+    editBtns.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            let id = this.getAttribute('data-id');
+            let tr = this.closest('tr');
+            let remark = tr.querySelectorAll('td')[3].textContent;
+            document.getElementById('editId').value = id;
+            document.getElementById('editRemark').value = remark === '-' ? '' : remark;
+            
+            const editModal = new bootstrap.Modal(document.getElementById('editModal'));
+            editModal.show();
+        });
+    });
+
+    // 创建盘点单
+    const addForm = document.getElementById('addForm');
+    if (addForm) {
+        addForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            
+            fetch('/inventory_checks/new', {
+                method: 'POST',
+                headers: {'X-CSRFToken': (document.querySelector('meta[name="csrf-token"]') || {}).content || ''},
+                body: formData
+            })
+            .then(response => response.json())
+            .then(res => {
+                if (res.status === 'success'){
+                    const addModal = bootstrap.Modal.getInstance(document.getElementById('addModal'));
+                    addModal.hide();
+                    showToast('盘点单已创建，正在刷新列表…', 'success');
+                    setTimeout(function(){ location.reload(); }, 650);
+                } else {
+                    showToast(res.msg || '创建失败', 'danger', 3600);
+                }
+            })
+            .catch(error => {
+                showToast('创建失败：' + error.message, 'danger', 3600);
+            });
+        });
+    }
+
+    // 保存修改
+    const editForm = document.getElementById('editForm');
+    if (editForm) {
+        editForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            let id = document.getElementById('editId').value;
+            let remark = document.getElementById('editRemark').value;
+            
+            fetch('/inventory_checks/'+id+'/update', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': (document.querySelector('meta[name="csrf-token"]') || {}).content || ''
+                },
+                body: 'remark=' + encodeURIComponent(remark)
+            })
+            .then(response => response.json())
+            .then(res => {
+                if(res.status == 'success'){
+                    const editModal = bootstrap.Modal.getInstance(document.getElementById('editModal'));
+                    editModal.hide();
+                    showToast('盘点单已更新，正在刷新列表…', 'success');
+                    setTimeout(function(){ location.reload(); }, 650);
+                } else {
+                    showToast(res.msg || '修改失败', 'danger', 3600);
+                }
+            })
+            .catch(error => {
+                showToast('修改失败：' + error.message, 'danger', 3600);
+            });
+        });
+    }
+});
+</script>
+{% endblock %}

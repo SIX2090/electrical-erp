@@ -1,0 +1,480 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% from "partials/document_line_toolbar.html" import line_toolbar %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="erp-document-entry">
+<div class="page-heading order-form-heading">
+    <div>
+        <h1>{{ title }}</h1>
+        <p>{{ subtitle }}</p>
+    </div>
+    <a class="btn btn-outline-secondary btn-sm d-none" href="{{ back_url }}">返回</a>
+</div>
+
+<form method="post" action="{{ action_url }}" id="orderForm" data-main-document-form>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="custom_fields_json" id="customFieldsJson" value="">
+    {% if order_id and order %}
+    <input type="hidden" name="row_version" value="{{ order.row_version or 1 }}">
+    {% endif %}
+
+    <div class="page-card order-form-card document-entry-header-card mb-3">
+        <div class="section-title">
+            <div>
+                <h2>单据信息</h2>
+                <span>维护往来单位、日期、仓库和项目追踪信息。</span>
+            </div>
+        </div>
+        <div class="row g-2">
+            <div class="col-md-6 col-xl-4">
+                <label class="form-label">{{ '销售订单号' if document_type == 'sales_order' else '采购订单号' }}</label>
+                <input class="form-control form-control-sm" type="text" value="{{ order.order_no if order else '' }}" placeholder="保存时自动生成" readonly>
+            </div>
+            {% if document_type == 'purchase_order' and not order_id %}
+            <div class="col-12">
+                <label class="form-label">来源采购申请</label>
+                <select class="form-select form-select-sm" onchange="if (this.value) window.location.href='/purchase_order/new?source_request_id=' + encodeURIComponent(this.value);">
+                    <option value="">可直接新增，也可选择已审核采购申请带入明细</option>
+                    {% for req in source_requests %}
+                    <option value="{{ req.id }}" {% if source_request and source_request.id == req.id %}selected{% endif %}>
+                        {{ req.req_no }} / {{ req.req_date }} / {{ req.department or '-' }} / 未下推 {{ req.remaining_qty }}
+                    </option>
+                    {% endfor %}
+                </select>
+                {% if source_request %}
+                <div class="form-text">已带入采购申请 {{ source_request.req_no }} 的未下推明细；供应商可保存后补，审核前必须补齐。</div>
+                {% endif %}
+            </div>
+            {% endif %}
+            <div class="col-md-6 col-xl-4">
+                <label class="form-label">
+                    {{ partner_label }}
+                    {% if document_type == 'purchase_order' %}<span class="text-muted small">审核前必填</span>{% else %}<span class="text-danger">*</span>{% endif %}
+                </label>
+                <select class="form-select form-select-sm" name="{{ partner_field }}" {% if document_type != 'purchase_order' %}required{% endif %}>
+                    <option value="">请选择</option>
+                    {% for partner in partner_options %}
+                    <option value="{{ partner.id }}" data-tax="{{ partner.default_tax_rate or 13 }}" data-settlement-term-id="{{ partner.settlement_term_id or '' }}" {% if order and order.get(partner_field) == partner.id %}selected{% endif %}>{{ partner.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-6 col-xl-4">
+                <label class="form-label">单据日期</label>
+                <input class="form-control form-control-sm" type="date" name="order_date" value="{{ order.order_date if order else today().isoformat() }}">
+            </div>
+            <div class="col-md-6 col-xl-4">
+                <label class="form-label">{{ due_date_label }}</label>
+                <input class="form-control form-control-sm" type="date" name="{{ due_date_field }}" value="{{ order.get(due_date_field) if order else '' }}">
+            </div>
+            {% if document_type == 'sales_order' %}
+            <div class="col-md-6 col-xl-4">
+                <label class="form-label">项目号 <span class="text-muted small">来自项目档案</span></label>
+                <select class="form-select form-select-sm js-project-master" name="project_code">
+                    <option value="">请选择项目档案</option>
+                    {% set current_project_code = order.project_code if order else '' %}
+                    {% set project_codes = project_master_options | map(attribute='project_code') | list %}
+                    {% if current_project_code and current_project_code not in project_codes %}
+                    <option value="{{ current_project_code }}" selected>历史值（未建档）：{{ current_project_code }}</option>
+                    {% endif %}
+                    {% for project in project_master_options %}
+                    <option value="{{ project.project_code }}" data-customer-id="{{ project.customer_id or '' }}" {% if current_project_code == project.project_code %}selected{% endif %}>
+                        {{ project.display_name or project.project_code }}
+                    </option>
+                    {% endfor %}
+                </select>
+                {% if not project_master_options %}
+                <div class="form-text">请先在基础资料维护项目档案。</div>
+                {% endif %}
+            </div>
+            <div class="col-md-6 col-xl-4">
+                <label class="form-label">机号 <span class="text-muted small">来自机号档案</span></label>
+                <select class="form-select form-select-sm js-machine-serial-master" name="serial_no">
+                    <option value="">请选择机号档案</option>
+                    {% set current_serial_no = order.serial_no if order else '' %}
+                    {% set serial_numbers = machine_serial_options | map(attribute='serial_no') | list %}
+                    {% if current_serial_no and current_serial_no not in serial_numbers %}
+                    <option value="{{ current_serial_no }}" data-project-code="{{ current_project_code }}" selected>历史值（未建档）：{{ current_serial_no }}</option>
+                    {% endif %}
+                    {% for machine in machine_serial_options %}
+                    <option value="{{ machine.serial_no }}" data-project-code="{{ machine.project_code or '' }}" data-customer-id="{{ machine.customer_id or '' }}" {% if current_serial_no == machine.serial_no %}selected{% endif %}>
+                        {{ machine.display_name or machine.serial_no }}
+                    </option>
+                    {% endfor %}
+                </select>
+                {% if not machine_serial_options %}
+                <div class="form-text">请先在基础资料维护机号档案。</div>
+                {% endif %}
+            </div>
+            {% endif %}
+            <div class="col-md-6 col-xl-4">
+                <label class="form-label">{{ warehouse_label }}</label>
+                <select class="form-select form-select-sm" name="warehouse_id">
+                    <option value="">请选择</option>
+                    {% for warehouse in warehouse_options %}
+                    <option value="{{ warehouse.id }}" {% if order and order.get('warehouse_id') == warehouse.id %}selected{% endif %}>{{ warehouse.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% if document_type != 'sales_order' %}
+            <div class="col-md-6 col-xl-4">
+                <label class="form-label">项目号 <span class="text-muted small">建议</span></label>
+                <input class="form-control form-control-sm" name="project_code" value="{{ order.project_code if order else '' }}" placeholder="可留空，按项目制造时填写">
+            </div>
+            <div class="col-md-6 col-xl-4">
+                <label class="form-label">机号 <span class="text-muted small">建议</span></label>
+                <input class="form-control form-control-sm" name="serial_no" value="{{ order.serial_no if order else '' }}" placeholder="可留空，按单机追踪时填写">
+            </div>
+            {% endif %}
+            <div class="col-12">
+                <label class="form-label">备注</label>
+                <input class="form-control form-control-sm" name="remark" value="{{ order.remark if order else '' }}">
+            </div>
+        </div>
+    </div>
+
+    <div class="page-card order-form-card document-entry-lines-card mb-3">
+        <div class="section-title">
+            <div>
+                <h2>物料明细</h2>
+                <span>在物料名称中输入名称、编码或规格，系统自动回填编码、规格、单位和价格。</span>
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+                {{ line_toolbar('增行') }}
+            </div>
+        </div>
+        <div class="table-responsive document-grid-scroll">
+            <table class="table table-sm align-middle" id="itemsTable" data-document-grid data-grid-key="{{ document_type }}_items">
+                <thead>
+                <tr data-grid-header>
+                    <th data-column-key="product_name">物料名称 <span class="text-danger">*</span></th>
+                    <th data-column-key="product_code">物料编码</th>
+                    <th data-column-key="specification">规格型号</th>
+                    <th data-column-key="unit">单位</th>
+                    <th data-column-key="quantity">数量 <span class="text-danger">*</span></th>
+                    <th data-column-key="unit_price">未税单价</th>
+                    <th data-column-key="tax_rate">税率%</th>
+                    {% if document_type == 'purchase_order' %}<th data-column-key="expected_date">预计到货</th>{% endif %}
+                    <th data-column-key="amount">未税金额</th>
+                    <th data-column-key="tax_amount">税额</th>
+                    <th data-column-key="amount_with_tax">含税金额</th>
+                    <th data-column-key="lot_no">批号</th>
+                    <th data-column-key="actions">操作</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% set source_items = items if items else [None] %}
+                {% for item in source_items %}
+                <tr>
+                    <td data-column-key="product_name">
+                        <input type="hidden" name="source_line_no[]" value="{{ item.source_line_no if item else '' }}">
+                        <select class="form-select form-select-sm d-none js-product" name="product_id[]" aria-hidden="true" tabindex="-1">
+                            <option value="">请选择</option>
+                            {% for product in product_options %}
+                            <option value="{{ product.id }}" data-price="{{ 0 if document_type == 'purchase_order' else product.standard_price or 0 }}" data-tax="{{ product.default_tax_rate or 13 }}" data-warehouse-id="{{ product.default_warehouse_id or '' }}" data-location-id="{{ product.default_location_id or '' }}" {% if item and item.product_id == product.id %}selected{% endif %}>{{ product.display_name or product.code ~ ' / ' ~ product.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <input class="form-control form-control-sm js-product-name-search" list="orderProductOptions" placeholder="输入物料名称/编码/规格">
+                    </td>
+                    <td data-column-key="product_code"><input class="form-control form-control-sm js-product-code" readonly></td>
+                    <td data-column-key="specification"><input class="form-control form-control-sm js-product-spec" readonly></td>
+                    <td data-column-key="unit"><input class="form-control form-control-sm js-product-unit" readonly></td>
+                    <td data-column-key="quantity"><input class="form-control form-control-sm text-end js-qty" type="number" step="0.001" min="0.001" name="quantity[]" value="{{ item.quantity if item else '' }}"></td>
+                    <td data-column-key="unit_price"><input class="form-control form-control-sm text-end js-price" type="number" step="0.0001" min="0" name="unit_price[]" value="{{ item.unit_price if item else '' }}"></td>
+                    <td data-column-key="tax_rate"><input class="form-control form-control-sm text-end js-tax" type="number" step="0.01" min="0" name="tax_rate[]" value="{{ item.tax_rate if item else '' }}"></td>
+                    {% if document_type == 'purchase_order' %}<td data-column-key="expected_date"><input class="form-control form-control-sm" type="date" name="expected_date[]" value="{{ item.expected_date if item else '' }}"></td>{% endif %}
+                    <td data-column-key="amount"><input class="form-control form-control-sm text-end js-amount" readonly></td>
+                    <td data-column-key="tax_amount"><input class="form-control form-control-sm text-end js-tax-amount" readonly></td>
+                    <td data-column-key="amount_with_tax"><input class="form-control form-control-sm text-end js-amount-with-tax" readonly></td>
+                    <td data-column-key="lot_no"><input class="form-control form-control-sm" name="lot_no[]" value="{{ item.lot_no if item else '' }}"></td>
+                    <td data-column-key="actions"><button class="btn btn-outline-danger btn-sm js-delete-line" type="button">删行</button></td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            <datalist id="orderProductOptions">
+                {% for product in product_options %}
+                <option value="{{ product.name or product.display_name or product.code }}" label="{{ product.code or '' }}{% if product.name %} / {{ product.name }}{% endif %}{% if product.specification %} / {{ product.specification }}{% endif %}">
+                {% endfor %}
+            </datalist>
+        </div>
+    </div>
+
+    <div class="footer-bar">
+        <button class="btn btn-primary" type="submit"><i class="bi bi-save"></i> 保存</button>
+        <a class="btn btn-secondary" href="{{ back_url }}">取消</a>
+    </div>
+</form>
+{% if order_id %}
+{% set _order_base = '/sales/' ~ order_id if document_type == 'sales_order' else '/purchase_order/' ~ order_id %}
+<form data-doc-action="copy" method="post" action="{{ _order_base }}/copy" class="d-none"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+<form data-doc-action="void" method="post" action="{{ _order_base }}/void" class="d-none"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+{% endif %}
+</div>
+
+<script src="{{ url_for('static', filename='js/document_grid.js') }}"></script>
+<script>
+(function () {
+    const table = document.getElementById('itemsTable');
+    const tbody = table.querySelector('tbody');
+    const products = {{ product_options|tojson }};
+    const documentType = {{ document_type|tojson }};
+    const partnerSelect = document.querySelector('[name="{{ partner_field }}"]');
+    const projectSelect = document.querySelector('.js-project-master');
+    const machineSelect = document.querySelector('.js-machine-serial-master');
+    const legacyProjectInput = document.querySelector('input[name="project_code"]');
+    const legacySerialInput = document.querySelector('input[name="serial_no"]');
+
+    if (projectSelect && legacyProjectInput) {
+        legacyProjectInput.disabled = true;
+        legacyProjectInput.closest('.col-md-6')?.classList.add('d-none');
+    }
+    if (machineSelect && legacySerialInput) {
+        legacySerialInput.disabled = true;
+        legacySerialInput.closest('.col-md-6')?.classList.add('d-none');
+    }
+
+    function findProduct(value) {
+        const text = String(value || '').trim().toLowerCase();
+        if (!text) return null;
+        return products.find(product => [product.name, product.code, product.specification, product.display_name].some(field => String(field || '').trim().toLowerCase() === text))
+            || products.find(product => [product.name, product.code, product.specification, product.display_name].some(field => String(field || '').toLowerCase().includes(text)))
+            || null;
+    }
+    function applyProduct(row, product) {
+        const select = row.querySelector('.js-product');
+        if (select && product) select.value = product.id || '';
+        row.querySelector('.js-product-name-search').value = product ? product.name || product.display_name || product.code || '' : '';
+        row.querySelector('.js-product-code').value = product ? product.code || '' : '';
+        row.querySelector('.js-product-spec').value = product ? product.specification || '' : '';
+        row.querySelector('.js-product-unit').value = product ? product.unit || '' : '';
+        const qty = row.querySelector('.js-qty');
+        if (product && qty && !qty.value) qty.value = '1';
+        const price = row.querySelector('.js-price');
+        const productPrice = Number(product ? product.standard_price || 0 : 0);
+        if (documentType !== 'purchase_order' && product && price && !price.value && productPrice > 0) price.value = productPrice;
+        const tax = row.querySelector('.js-tax');
+        if (product && tax && !tax.value) {
+            tax.value = product.default_tax_rate || selectedPartnerTax() || 13;
+        }
+    }
+    function selectedPartnerTax() {
+        const option = partnerSelect ? partnerSelect.options[partnerSelect.selectedIndex] : null;
+        const value = option ? parseFloat(option.dataset.tax || '0') : 0;
+        return value || 0;
+    }
+    function applyPartnerDefaults() {
+        const partnerTax = selectedPartnerTax();
+        if (!partnerTax) return;
+        tbody.querySelectorAll('tr').forEach(row => {
+            const tax = row.querySelector('.js-tax');
+            const hasProduct = Boolean(row.querySelector('.js-product')?.value || row.querySelector('.js-product-name-search')?.value.trim());
+            if (hasProduct && tax && (!tax.value || Number(tax.value) === 0 || Number(tax.value) === 13)) tax.value = partnerTax;
+            sync(row);
+        });
+    }
+    function syncMachineOptions() {
+        if (!projectSelect || !machineSelect) return;
+        const selectedProject = projectSelect.value || '';
+        Array.from(machineSelect.options).forEach(option => {
+            if (!option.value) {
+                option.hidden = false;
+                return;
+            }
+            const optionProject = option.dataset.projectCode || '';
+            option.hidden = Boolean(selectedProject && optionProject && optionProject !== selectedProject);
+        });
+        const selectedOption = machineSelect.options[machineSelect.selectedIndex];
+        if (selectedOption && selectedOption.hidden) machineSelect.value = '';
+    }
+    function applyMachineProject() {
+        if (!projectSelect || !machineSelect) return;
+        const selectedOption = machineSelect.options[machineSelect.selectedIndex];
+        const machineProject = selectedOption ? selectedOption.dataset.projectCode || '' : '';
+        if (machineProject && !projectSelect.value) {
+            projectSelect.value = machineProject;
+            syncMachineOptions();
+        }
+    }
+    function sync(row) {
+        if (!row) return;
+        const search = row.querySelector('.js-product-name-search');
+        const select = row.querySelector('.js-product');
+        if (search && search.value.trim()) {
+            const product = findProduct(search.value);
+            if (product) applyProduct(row, product);
+        } else if (select && select.value) {
+            const product = products.find(item => String(item.id) === String(select.value));
+            if (product) applyProduct(row, product);
+        }
+        recalcAmount(row);
+    }
+    function recalcAmount(row) {
+        if (!row) return;
+        const qty = parseFloat(row.querySelector('.js-qty')?.value || '0') || 0;
+        const unitPrice = parseFloat(row.querySelector('.js-price')?.value || '0') || 0;
+        const hasProduct = Boolean(row.querySelector('.js-product')?.value || row.querySelector('.js-product-name-search')?.value.trim());
+        const hasQty = String(row.querySelector('.js-qty')?.value || '').trim() !== '';
+        const hasPrice = String(row.querySelector('.js-price')?.value || '').trim() !== '';
+        if (!hasProduct || !hasQty || !hasPrice) {
+            row.querySelector('.js-amount').value = '';
+            row.querySelector('.js-tax-amount').value = '';
+            row.querySelector('.js-amount-with-tax').value = '';
+            return;
+        }
+        const amount = qty * unitPrice;
+        const taxRate = parseFloat(row.querySelector('.js-tax')?.value || '0') || 0;
+        const taxAmount = amount * taxRate / 100;
+        row.querySelector('.js-amount').value = amount.toFixed(2);
+        row.querySelector('.js-tax-amount').value = taxAmount.toFixed(2);
+        row.querySelector('.js-amount-with-tax').value = (amount + taxAmount).toFixed(2);
+    }
+    function cloneRow() {
+        const row = tbody.querySelector('tr').cloneNode(true);
+        row.querySelectorAll('input').forEach(input => {
+            input.value = '';
+        });
+        row.querySelectorAll('select').forEach(select => select.value = '');
+        sync(row);
+        return row;
+    }
+    function ensureBlankRows(minRows) {
+        while (tbody.querySelectorAll('tr').length < minRows) {
+            tbody.appendChild(cloneRow());
+        }
+        if (window.documentGridApi) window.documentGridApi.refresh();
+    }
+    function currentRow() {
+        const active = document.activeElement && document.activeElement.closest && document.activeElement.closest('#itemsTable tbody tr');
+        return active || tbody.querySelector('tr');
+    }
+    function pasteRowValues(target, source) {
+        if (!target || !source) return;
+        const sourceFields = Array.from(source.querySelectorAll('input, select, textarea'));
+        const targetFields = Array.from(target.querySelectorAll('input, select, textarea'));
+        sourceFields.forEach((field, index) => {
+            const targetField = targetFields[index];
+            if (!targetField || targetField.type === 'hidden' && !targetField.classList.contains('js-product')) return;
+            targetField.value = field.value || '';
+            targetField.dispatchEvent(new Event('change', {bubbles: true}));
+            targetField.dispatchEvent(new Event('input', {bubbles: true}));
+        });
+        sync(target);
+    }
+    function pruneBlankRows() {
+        Array.from(tbody.querySelectorAll('tr')).forEach(row => {
+            const isOnlyRow = tbody.querySelectorAll('tr').length === 1;
+            const hasProduct = Boolean(row.querySelector('.js-product')?.value || row.querySelector('.js-product-name-search')?.value.trim());
+            if (!hasProduct && !isOnlyRow) row.remove();
+        });
+    }
+    function restoreSubmitState() {
+        const form = document.getElementById('orderForm');
+        if (form) form.dataset.submitting = '';
+        form?.querySelectorAll('button[type="submit"], input[type="submit"]').forEach(button => {
+            button.disabled = button.dataset._origDisabled === 'true';
+            if (button.dataset._origHtml) button.innerHTML = button.dataset._origHtml;
+        });
+    }
+    function clearValidationState() {
+        document.querySelectorAll('#orderForm .is-invalid').forEach(field => {
+            field.classList.remove('is-invalid');
+            field.removeAttribute('aria-invalid');
+        });
+    }
+    function markInvalid(field) {
+        if (!field) return;
+        field.classList.add('is-invalid');
+        field.setAttribute('aria-invalid', 'true');
+    }
+    table.addEventListener('input', event => recalcAmount(event.target.closest('tr')));
+    table.addEventListener('change', event => sync(event.target.closest('tr')));
+    partnerSelect?.addEventListener('change', applyPartnerDefaults);
+    projectSelect?.addEventListener('change', syncMachineOptions);
+    machineSelect?.addEventListener('change', applyMachineProject);
+    syncMachineOptions();
+    table.addEventListener('click', event => {
+        if (!event.target.classList.contains('js-delete-line')) return;
+        if (tbody.querySelectorAll('tr').length > 1) event.target.closest('tr').remove();
+        if (window.documentGridApi) window.documentGridApi.refresh();
+    });
+    document.getElementById('addLineBtn')?.addEventListener('click', () => {
+        tbody.appendChild(cloneRow());
+        if (window.documentGridApi) window.documentGridApi.refresh();
+    });
+    let copiedRow = null;
+    document.querySelectorAll('[data-line-action]').forEach(button => {
+        button.addEventListener('click', function () {
+            const action = button.dataset.lineAction;
+            const row = currentRow();
+            if (action === 'insert') {
+                const inserted = cloneRow();
+                if (row) tbody.insertBefore(inserted, row); else tbody.appendChild(inserted);
+                inserted.querySelector('.js-product-name-search')?.focus();
+            }
+            if (action === 'copy') copiedRow = row ? row.cloneNode(true) : null;
+            if (action === 'paste' && copiedRow && row) pasteRowValues(row, copiedRow);
+            if (action === 'up' && row && row.previousElementSibling) tbody.insertBefore(row, row.previousElementSibling);
+            if (action === 'down' && row && row.nextElementSibling) tbody.insertBefore(row.nextElementSibling, row);
+            if (action === 'delete' && row && tbody.querySelectorAll('tr').length > 1) row.remove();
+            tbody.querySelectorAll('tr').forEach(sync);
+            if (window.documentGridApi) window.documentGridApi.refresh();
+        });
+    });
+    document.getElementById('orderForm').addEventListener('submit', event => {
+        clearValidationState();
+        tbody.querySelectorAll('tr').forEach(sync);
+        pruneBlankRows();
+        const firstRow = tbody.querySelector('tr');
+        const productRows = Array.from(tbody.querySelectorAll('tr')).filter(row => row.querySelector('.js-product')?.value);
+        if (!productRows.length) {
+            event.preventDefault();
+            restoreSubmitState();
+            markInvalid(firstRow?.querySelector('.js-product-name-search'));
+            showToast('请先在物料名称中选择物料。', 'warning');
+            firstRow?.querySelector('.js-product-name-search')?.focus();
+            return;
+        }
+        for (const row of productRows) {
+        const qty = parseFloat(row.querySelector('.js-qty')?.value || '0') || 0;
+        if (qty <= 0) {
+            event.preventDefault();
+            restoreSubmitState();
+            markInvalid(row.querySelector('.js-qty'));
+            showToast('数量必须大于 0。', 'warning');
+            row.querySelector('.js-qty')?.focus();
+            return;
+        }
+        }
+    });
+    document.querySelectorAll('[data-grid-action]').forEach(button => {
+        button.addEventListener('click', function () {
+            const api = window.documentGridApi || (window.initDocumentGrid && window.initDocumentGrid(table));
+            if (!api) return;
+            if (button.dataset.gridAction === 'columns') api.toggleColumnPanel ? api.toggleColumnPanel() : api.openColumnPanel(button);
+            if (button.dataset.gridAction === 'custom-field') api.addCustomField ? api.addCustomField() : (api.openCustomFieldPanel && api.openCustomFieldPanel());
+            if (button.dataset.gridAction === 'reset') api.resetColumns ? api.resetColumns() : api.reset();
+            if (button.dataset.gridAction === 'sort-help') showToast('点击明细表头可按该列升序/降序排序。', 'info');
+        });
+    });
+    tbody.querySelectorAll('tr').forEach(sync);
+    applyPartnerDefaults();
+    ensureBlankRows(16);
+})();
+document.addEventListener('click', function(event) {
+    var item = event.target.closest('[data-menu-event]');
+    if (!item || item.disabled) return;
+    var action = item.dataset.menuEvent;
+    if (action && action.indexOf('toolbar-save-new') === 0) {
+        event.preventDefault();
+        if (typeof submitForm === 'function') { submitForm(); }
+        else { var form = document.querySelector('form'); if (form) { if (typeof form.requestSubmit === 'function') { form.requestSubmit(); } else { form.submit(); } } }
+    }
+    if (action && action.indexOf('toolbar-save') === 0 && action.indexOf('toolbar-save-new') !== 0) {
+        event.preventDefault();
+        if (typeof submitForm === 'function') { submitForm(); }
+        else { var form = document.querySelector('form'); if (form) { if (typeof form.requestSubmit === 'function') { form.requestSubmit(); } else { form.submit(); } } }
+    }
+});
+</script>
+{% endblock %}

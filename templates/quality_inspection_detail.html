@@ -1,0 +1,424 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}质量检验单 - {{ inspection.inspection_no }}{% endblock %}
+{% block content %}
+{% set status = inspection.status_display or inspection.status or '' %}
+{{ document_menu_bar(actions=[
+    {'label': '编辑', 'type': 'link', 'href': '/production-enhance/quality-inspections/' ~ inspection.id ~ '/edit', 'icon': 'bi-pencil-square'},
+    {'label': '提交', 'type': 'button', 'event': 'focus-submit', 'disabled': not actions.can_submit, 'icon': 'bi-send'},
+    {'label': '判定', 'type': 'button', 'event': 'focus-judge', 'disabled': not actions.can_judge, 'icon': 'bi-clipboard-check'},
+    {'label': '审核', 'type': 'button', 'event': 'focus-audit', 'disabled': not actions.can_audit, 'icon': 'bi-check2-square'},
+    {'label': '关闭', 'type': 'button', 'event': 'focus-close', 'disabled': not actions.can_close, 'icon': 'bi-stop-circle'},
+    {'label': '联查', 'type': 'dropdown', 'icon': 'bi-diagram-3', 'items': [
+        {'label': '来源单据', 'type': 'link', 'href': inspection.source_link or '#', 'disabled': not inspection.source_link},
+        {'label': '项目台账', 'type': 'link', 'href': '/projects?keyword=' ~ ((inspection.project_code or inspection.serial_no or inspection.inspection_no)|urlencode)},
+        {'label': '质量列表', 'type': 'link', 'href': '/production-enhance/quality-inspections?keyword=' ~ (inspection.inspection_no|urlencode)}
+    ]},
+    {'label': '附件/备注', 'type': 'button', 'event': 'focus-attachments', 'icon': 'bi-paperclip'},
+    {'type': 'nav', 'items': [
+        {'label': '首张', 'event': 'doc-nav-first', 'icon': 'bi-chevron-double-left'},
+        {'label': '上一张', 'event': 'doc-nav-prev', 'icon': 'bi-chevron-left'},
+        {'label': '下一张', 'event': 'doc-nav-next', 'icon': 'bi-chevron-right'},
+        {'label': '末张', 'event': 'doc-nav-last', 'icon': 'bi-chevron-double-right'}
+    ]}
+], aria_label='质量检验单据操作菜单') }}
+<div id="doc-nav-config" data-nav-table="quality_inspections" data-nav-base="{{ (back_url or '/production-enhance/quality-inspections') }}/" data-doc-id="{{ inspection.id }}" style="display:none"></div>
+
+<div class="alert alert-info mb-3">
+    <strong>当前状态：</strong>{{ status or '未定' }}
+    <span class="ms-3"><strong>放行状态：</strong>{{ inspection.release.label }}</span>
+    <span class="ms-3"><strong>下一步：</strong>{{ inspection.release.next_action or inspection.next_step }}</span>
+</div>
+
+<div class="page-card mb-3">
+    <div class="d-flex justify-content-between align-items-start gap-3">
+        <div>
+            <h1 class="h4 mb-1">质量检验单：{{ inspection.inspection_no }}</h1>
+            <div class="text-muted">{{ inspection.product_display }}</div>
+        </div>
+        <span class="badge text-bg-{{ inspection.release.badge }}">{{ inspection.release.label }}</span>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    {% for metric in metrics %}
+    <div class="col-md-6 col-xl-3">
+        <div class="metric h-100">
+            <div class="label">{{ metric.label|clean_text }}</div>
+            <div class="value">{{ metric.value }}</div>
+            <div class="text-muted small mt-1">{{ metric.hint|clean_text }}</div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-lg-7">
+        <div class="page-card h-100">
+            <div class="section-title">
+                <div>
+                    <h2>检验信息</h2>
+                    <span>质量判定、数量、缺陷、处置和 CAPA 信息</span>
+                </div>
+            </div>
+            <div class="row g-2 small">
+                <div class="col-md-4"><span class="text-muted">检验单号：</span>{{ inspection.inspection_no }}</div>
+                <div class="col-md-4"><span class="text-muted">检验日期：</span>{{ inspection.inspection_date or '-' }}</div>
+                <div class="col-md-4"><span class="text-muted">检验类型：</span>{{ inspection.inspection_type_display or inspection.inspection_type or '-' }}</div>
+                <div class="col-md-4"><span class="text-muted">检验结果：</span>{{ inspection.inspection_result_display }}</div>
+                <div class="col-md-4"><span class="text-muted">单据状态：</span>{{ inspection.status_display }}</div>
+                <div class="col-md-4"><span class="text-muted">产品系列：</span>{{ inspection.product_family or '-' }}</div>
+                <div class="col-md-4"><span class="text-muted">BOM：</span>{{ inspection.bom_display }}</div>
+                <div class="col-md-4"><span class="text-muted">控制要求：</span>{{ inspection.control_display }}</div>
+                <div class="col-md-4"><span class="text-muted">项目号：</span>{{ inspection.project_code or '-' }}</div>
+                <div class="col-md-4"><span class="text-muted">机号：</span>{{ inspection.serial_no or '-' }}</div>
+                <div class="col-md-4"><span class="text-muted">批号：</span>{{ inspection.batch_no or '-' }}</div>
+                <div class="col-md-4"><span class="text-muted">检验员：</span>{{ inspection.inspector or '-' }}</div>
+                <div class="col-md-4"><span class="text-muted">责任岗位：</span>{{ inspection.owner_role or '-' }}</div>
+                <div class="col-md-4"><span class="text-muted">责任方：</span>{{ inspection.responsible_party or '-' }}</div>
+                <div class="col-md-4"><span class="text-muted">抽样数量：</span>{{ inspection.sample_size|qty }}</div>
+                <div class="col-md-4"><span class="text-muted">合格数量：</span>{{ inspection.passed_quantity|qty }}</div>
+                <div class="col-md-4"><span class="text-muted">不合格数量：</span>{{ inspection.failed_quantity|qty }}</div>
+            </div>
+            <hr>
+            <div class="row g-3 small">
+                <div class="col-md-6"><div class="text-muted">缺陷描述</div><div>{{ inspection.defect_description or '-' }}</div></div>
+                <div class="col-md-6"><div class="text-muted">纠正措施</div><div>{{ inspection.corrective_action or '-' }}</div></div>
+                <div class="col-md-6"><div class="text-muted">放行依据</div><div>{{ inspection.release.basis }}</div></div>
+                <div class="col-md-6"><div class="text-muted">阻断原因</div><div>{{ inspection.blocked_reason or inspection.release.blocked_reason or '-' }}</div></div>
+                <div class="col-md-6"><div class="text-muted">判定结论</div><div>{{ inspection.conclusion or '-' }}</div></div>
+                <div class="col-md-6"><div class="text-muted">处置方式</div><div>{{ inspection.disposition_display }}</div></div>
+            </div>
+            <hr>
+            <h3 class="h6 mb-2">不合格处理 / CAPA 与质量成本</h3>
+            <div class="row g-2 small">
+                <div class="col-md-4"><span class="text-muted">不合格状态：</span>{{ inspection.nonconformance_status_display }}</div>
+                <div class="col-md-4"><span class="text-muted">缺陷分类：</span>{{ inspection.defect_category or '-' }}</div>
+                <div class="col-md-4"><span class="text-muted">严重度：</span>{{ inspection.severity_level or '-' }}</div>
+                <div class="col-md-4"><span class="text-muted">需要复检：</span>{{ '是' if inspection.reinspection_required else '否' }}</div>
+                <div class="col-md-4"><span class="text-muted">需要 CAPA：</span>{{ '是' if inspection.capa_required else '否' }}</div>
+                <div class="col-md-4"><span class="text-muted">CAPA 状态：</span>{{ inspection.capa_status or '-' }}</div>
+                <div class="col-md-4"><span class="text-muted">CAPA 责任人：</span>{{ inspection.capa_owner or '-' }}</div>
+                <div class="col-md-4"><span class="text-muted">计划完成：</span>{{ inspection.capa_due_date or '-' }}</div>
+                <div class="col-md-4"><span class="text-muted">质量成本估算：</span>{{ inspection.quality_cost_amount or 0 }}</div>
+            </div>
+            <div class="row g-3 small mt-1">
+                <div class="col-md-4"><div class="text-muted">根因分析</div><div>{{ inspection.root_cause or '-' }}</div></div>
+                <div class="col-md-4"><div class="text-muted">预防措施</div><div>{{ inspection.preventive_action or '-' }}</div></div>
+                <div class="col-md-4"><div class="text-muted">效果验证</div><div>{{ inspection.effectiveness_result or '-' }}</div></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="page-card h-100">
+            <div class="section-title">
+                <div>
+                    <h2>来源与影响</h2>
+                    <span>用于联查来源、放行门槛和下游影响</span>
+                </div>
+            </div>
+            <div class="row g-2 small">
+                <div class="col-12"><span class="text-muted">来源类型：</span>{{ inspection.source_type_display }}</div>
+                <div class="col-12">
+                    <span class="text-muted">来源单据：</span>
+                    {% if inspection.source_link %}
+                    <a href="{{ inspection.source_link }}">{{ inspection.source_display }}</a>
+                    {% else %}
+                    {{ inspection.source_display }}
+                    {% endif %}
+                </div>
+                {% if inspection.wo_no %}
+                <div class="col-12"><span class="text-muted">来源工单：</span>{{ inspection.wo_no }} / {{ inspection.work_order_status or '-' }}</div>
+                {% endif %}
+                {% if inspection.receipt_no %}
+                <div class="col-12"><span class="text-muted">采购入库：</span>{{ inspection.receipt_no }} / {{ inspection.purchase_receipt_status or '-' }}</div>
+                <div class="col-12"><span class="text-muted">采购订单：</span>{{ inspection.purchase_order_no or '-' }}</div>
+                <div class="col-12"><span class="text-muted">供应商：</span>{{ inspection.purchase_supplier_name or '-' }}</div>
+                {% endif %}
+                {% if inspection.receive_no %}
+                <div class="col-12"><span class="text-muted">委外收货：</span>{{ inspection.receive_no }} / {{ inspection.subcontract_receive_status or '-' }}</div>
+                <div class="col-12"><span class="text-muted">委外订单：</span>{{ inspection.subcontract_order_no or '-' }}</div>
+                <div class="col-12"><span class="text-muted">加工商：</span>{{ inspection.subcontract_supplier_name or '-' }}</div>
+                {% endif %}
+            </div>
+            <div class="alert alert-light border mt-3 mb-0 small">{{ inspection.downstream_impact }}</div>
+            <div class="alert alert-light border mt-2 mb-0 small">
+                <div><span class="text-muted">下一步：</span>{{ inspection.next_action or inspection.release.next_action }}</div>
+                <div><span class="text-muted">完工影响：</span>{{ inspection.release.completion_impact }}</div>
+            </div>
+            {% if completion_gate %}
+            <hr>
+            <div class="small">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="fw-semibold">完工门槛</span>
+                    <span class="badge text-bg-{{ 'success' if completion_gate.can_complete else 'danger' }}">{{ completion_gate.status_label }}</span>
+                </div>
+                <div><span class="text-muted">工单：</span>{{ completion_gate.work_order_no or inspection.wo_no or '-' }}</div>
+                <div><span class="text-muted">责任：</span>{{ completion_gate.owner }}</div>
+                <div><span class="text-muted">下一动作：</span>{{ completion_gate.next_action }}</div>
+                {% if completion_gate.blockers %}
+                <div class="mt-2 text-danger">
+                    {% for blocker in completion_gate.blockers %}
+                    <div>{{ blocker }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% if completion_gate.warnings %}
+                <div class="mt-2 text-warning">
+                    {% for warning in completion_gate.warnings %}
+                    <div>{{ warning }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="page-card mb-3" id="qualityActionsPanel">
+    <div class="section-title">
+        <div>
+            <h2>状态操作</h2>
+            <span>按单据状态提交、判定、审核和关闭</span>
+        </div>
+    </div>
+    <div class="row g-3">
+        <div class="col-lg-3" id="qualitySubmitPanel">
+            <form method="post" action="/production-enhance/quality-inspections/{{ inspection.id }}/submit">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <label class="form-label">提交说明</label>
+                <input class="form-control form-control-sm mb-2" name="remark" placeholder="提交检验记录">
+                <button class="btn btn-outline-primary btn-sm w-100" type="submit" {% if not actions.can_submit %}disabled{% endif %}>提交</button>
+            </form>
+        </div>
+        <div class="col-lg-5" id="qualityJudgePanel">
+            <form method="post" action="/production-enhance/quality-inspections/{{ inspection.id }}/judge">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="row g-2">
+                    <div class="col-md-5">
+                        <label class="form-label">判定结果</label>
+                        <select class="form-select form-select-sm" name="inspection_result" {% if not actions.can_judge %}disabled{% endif %}>
+                            <option value="pass" {% if inspection.inspection_result == 'pass' %}selected{% endif %}>合格</option>
+                            <option value="conditional_pass" {% if inspection.inspection_result == 'conditional_pass' %}selected{% endif %}>让步放行</option>
+                            <option value="fail" {% if inspection.inspection_result == 'fail' %}selected{% endif %}>不合格</option>
+                        </select>
+                    </div>
+                    <div class="col-md-7">
+                        <label class="form-label">判定结论</label>
+                        <input class="form-control form-control-sm" name="conclusion" value="{{ inspection.conclusion or '' }}" placeholder="例如：允许放行 / 需返工">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">缺陷描述</label>
+                        <input class="form-control form-control-sm" name="defect_description" value="{{ inspection.defect_description or '' }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">纠正措施</label>
+                        <input class="form-control form-control-sm" name="corrective_action" value="{{ inspection.corrective_action or '' }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">缺陷分类</label>
+                        <select class="form-select form-select-sm" name="defect_category">
+                            {% for value in ['尺寸', '外观', '性能', '装配', '电气', '资料', '供应商', '其他'] %}
+                            <option value="{{ value }}" {% if inspection.defect_category == value %}selected{% endif %}>{{ value }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">严重度</label>
+                        <select class="form-select form-select-sm" name="severity_level">
+                            {% for value in ['一般', '重要', '严重', '致命'] %}
+                            <option value="{{ value }}" {% if inspection.severity_level == value %}selected{% endif %}>{{ value }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">处置方式</label>
+                        <select class="form-select form-select-sm" name="disposition">
+                            {% for value,label in [('rework','返工'),('scrap','报废'),('concession','让步接收'),('return_supplier','退供应商'),('sort','挑选'),('reinspect','复检'),('use_as_is','照用')] %}
+                            <option value="{{ value }}" {% if inspection.disposition == value %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">责任方</label>
+                        <select class="form-select form-select-sm" name="responsible_party">
+                            {% for value in ['内部生产', '供应商', '委外加工商', '设计/工艺', '客户/使用', '待判定'] %}
+                            <option value="{{ value }}" {% if inspection.responsible_party == value %}selected{% endif %}>{{ value }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">责任岗位</label>
+                        <input class="form-control form-control-sm" name="owner_role" value="{{ inspection.owner_role or '' }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">不合格状态</label>
+                        <select class="form-select form-select-sm" name="nonconformance_status">
+                            {% for value in ['待处理', '处理中', '待复检', '已关闭'] %}
+                            <option value="{{ value }}" {% if inspection.nonconformance_status == value %}selected{% endif %}>{{ value }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">阻断原因</label>
+                        <input class="form-control form-control-sm" name="blocked_reason" value="{{ inspection.blocked_reason or inspection.defect_description or '' }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">下一步</label>
+                        <input class="form-control form-control-sm" name="next_action" value="{{ inspection.next_action or inspection.release.next_action or '' }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">根因分析</label>
+                        <input class="form-control form-control-sm" name="root_cause" value="{{ inspection.root_cause or '' }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">预防措施</label>
+                        <input class="form-control form-control-sm" name="preventive_action" value="{{ inspection.preventive_action or '' }}">
+                    </div>
+                    <div class="col-md-4 form-check mt-4 ms-2">
+                        <input class="form-check-input" type="checkbox" name="capa_required" value="1" id="detailCapaRequired" {% if inspection.capa_required %}checked{% endif %}>
+                        <label class="form-check-label" for="detailCapaRequired">需要 CAPA</label>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">CAPA 责任人</label>
+                        <input class="form-control form-control-sm" name="capa_owner" value="{{ inspection.capa_owner or '' }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">CAPA 状态</label>
+                        <select class="form-select form-select-sm" name="capa_status">
+                            {% for value in ['不需要', '待制定', '执行中', '待验证', '已验证', '已关闭'] %}
+                            <option value="{{ value }}" {% if inspection.capa_status == value %}selected{% endif %}>{{ value }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <button class="btn btn-outline-primary btn-sm mt-2 w-100" type="submit" {% if not actions.can_judge %}disabled{% endif %}>保存判定</button>
+            </form>
+        </div>
+        <div class="col-lg-2" id="qualityAuditPanel">
+            <form method="post" action="/production-enhance/quality-inspections/{{ inspection.id }}/audit">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <label class="form-label">审核说明</label>
+                <input class="form-control form-control-sm mb-2" name="remark" placeholder="审核意见">
+                <button class="btn btn-outline-primary btn-sm w-100" type="submit" {% if not actions.can_audit %}disabled{% endif %}>审核</button>
+            </form>
+        </div>
+        <div class="col-lg-2" id="qualityClosePanel">
+            <form method="post" action="/production-enhance/quality-inspections/{{ inspection.id }}/close">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <label class="form-label">关闭说明</label>
+                <input class="form-control form-control-sm mb-2" name="remark" placeholder="关闭归档">
+                <button class="btn btn-outline-secondary btn-sm w-100" type="submit" {% if not actions.can_close %}disabled{% endif %}>关闭</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3" id="qualityAttachmentsPanel">
+    <div class="col-lg-6">
+        <div class="page-card h-100">
+            <div class="section-title">
+                <div>
+                    <h2>单据附件</h2>
+                    <span>保存检验报告、照片、供应商质保资料和返工凭证</span>
+                </div>
+            </div>
+            <form class="row g-2 align-items-end mb-3" method="post" action="/production-enhance/quality-inspections/{{ inspection.id }}/attachments" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="col-md-5">
+                    <label class="form-label">选择文件</label>
+                    <input class="form-control" type="file" name="file" required>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label">备注</label>
+                    <input class="form-control" name="remark" placeholder="例如：检验报告、缺陷照片">
+                </div>
+                <div class="col-md-2 d-grid">
+                    <button class="btn btn-primary" type="submit"><i class="bi bi-upload"></i> 上传</button>
+                </div>
+            </form>
+            {% if attachments %}
+            <div class="list-group list-group-flush">
+                {% for file in attachments %}
+                <div class="list-group-item px-0">
+                    <div class="d-flex justify-content-between gap-3">
+                        <div class="min-w-0">
+                            <div class="fw-semibold text-truncate">
+                                <a href="{{ url_for('static', filename=file.stored_path) }}" target="_blank">{{ file.file_name }}</a>
+                            </div>
+                            <div class="text-muted small">{{ file.remark or '-' }}</div>
+                            <div class="text-muted small">{{ file.uploaded_at or '-' }} / {{ ((file.file_size or 0) / 1024)|round(1) }} KB</div>
+                        </div>
+                        <form method="post" action="/production-enhance/quality-inspections/{{ inspection.id }}/attachments/{{ file.id }}/delete">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="btn btn-outline-danger btn-sm" type="submit">删除</button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-muted">暂无附件。</div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="page-card h-100">
+            <div class="section-title">
+                <div>
+                    <h2>备注 / 操作记录</h2>
+                    <span>记录判定依据、返工沟通、放行原因和关闭说明</span>
+                </div>
+            </div>
+            <form class="row g-2 align-items-end mb-3" method="post" action="/production-enhance/quality-inspections/{{ inspection.id }}/notes">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="col-md-9">
+                    <label class="form-label">新增备注</label>
+                    <input class="form-control" name="note" placeholder="输入本次质量处理说明" required>
+                </div>
+                <div class="col-md-3 d-grid">
+                    <button class="btn btn-primary" type="submit"><i class="bi bi-clock-history"></i> 记录</button>
+                </div>
+            </form>
+            {% if activity_logs %}
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead><tr><th>时间</th><th>人员</th><th>操作</th><th>说明</th></tr></thead>
+                    <tbody>
+                    {% for log in activity_logs %}
+                    <tr>
+                        <td class="text-muted small">{{ log.created_at or '-' }}</td>
+                        <td>{{ log.username or '-' }}</td>
+                        <td>{{ log.action or '-' }}</td>
+                        <td>{{ log.remark or log.target or '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-muted">暂无操作记录。</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('click', function (event) {
+    const action = event.target.closest('[data-menu-event]');
+    if (!action) return;
+    const targets = {
+        'focus-submit': '#qualitySubmitPanel',
+        'focus-judge': '#qualityJudgePanel',
+        'focus-audit': '#qualityAuditPanel',
+        'focus-close': '#qualityClosePanel',
+        'focus-attachments': '#qualityAttachmentsPanel'
+    };
+    const selector = targets[action.dataset.menuEvent];
+    if (!selector) return;
+    const target = document.querySelector(selector);
+    if (target) target.scrollIntoView({behavior: 'smooth', block: 'start'});
+});
+</script>
+{% endblock %}

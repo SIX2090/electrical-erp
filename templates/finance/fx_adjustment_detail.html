@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}外汇调整详情{% endblock %}
+{% block header_title %}外汇调整详情{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+    <h2 class="mb-0"><i class="bi bi-currency-exchange"></i> 外汇调整详情 - {{ run.run_no }}</h2>
+    <a class="btn btn-outline-secondary btn-sm" href="/finance/fx-adjustments"><i class="bi bi-arrow-left"></i> 返回列表</a>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body py-2">
+                <div class="text-muted small">期间</div>
+                <div class="fw-bold">{{ run.period_year }}-{{ '%02d'|format(run.period_month) }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body py-2">
+                <div class="text-muted small">调整日期</div>
+                <div class="fw-bold">{{ run.adjustment_date }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body py-2">
+                <div class="text-muted small">汇兑损益合计</div>
+                <div class="h5 mb-0 {% if (run.total_gain_loss or 0) >= 0 %}text-success{% else %}text-danger{% endif %}">
+                    {{ '%.2f'|format(run.total_gain_loss or 0) }}
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body py-2">
+                <div class="text-muted small">状态</div>
+                <div class="fw-bold">
+                    {% if run.status == 'posted' %}
+                    <span class="badge text-bg-success">已过账</span>
+                    {% elif run.status == 'draft' %}
+                    <span class="badge text-bg-secondary">草稿</span>
+                    {% else %}
+                    <span class="badge text-bg-light">{{ run.status }}</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body py-2">
+                <div class="text-muted small">应收调整</div>
+                <div class="fw-bold">{{ '%.2f'|format(run.ar_adjustment or 0) }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body py-2">
+                <div class="text-muted small">应付调整</div>
+                <div class="fw-bold">{{ '%.2f'|format(run.ap_adjustment or 0) }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body py-2">
+                <div class="text-muted small">资金调整</div>
+                <div class="fw-bold">{{ '%.2f'|format(run.cash_adjustment or 0) }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header py-2"><i class="bi bi-list-ul"></i> 调整明细（{{ lines|length }} 条）</div>
+    <div class="card-body p-0">
+        {% if lines %}
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover table-sm mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>来源类型</th>
+                        <th>单据号</th>
+                        <th>往来方</th>
+                        <th>币种</th>
+                        <th class="text-end">原币金额</th>
+                        <th class="text-end">原汇率</th>
+                        <th class="text-end">原本位币</th>
+                        <th class="text-end">期末汇率</th>
+                        <th class="text-end">调整后本位币</th>
+                        <th class="text-end">汇兑损益</th>
+                        <th>科目</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for l in lines %}
+                    <tr>
+                        <td>{{ l.source_type }}</td>
+                        <td>{{ l.source_no or '-' }}</td>
+                        <td>{{ l.partner_name or '-' }}</td>
+                        <td>{{ l.currency_code }}</td>
+                        <td class="text-end">{{ '%.2f'|format(l.original_amount or 0) }}</td>
+                        <td class="text-end">{{ '%.8f'|format(l.original_rate or 0) }}</td>
+                        <td class="text-end">{{ '%.2f'|format(l.base_amount_original or 0) }}</td>
+                        <td class="text-end">{{ '%.8f'|format(l.period_end_rate or 0) }}</td>
+                        <td class="text-end">{{ '%.2f'|format(l.base_amount_adjusted or 0) }}</td>
+                        <td class="text-end {% if (l.gain_loss_amount or 0) >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ '%.2f'|format(l.gain_loss_amount or 0) }}
+                        </td>
+                        <td><small>{{ l.account_code }} {{ l.account_name or '' }}</small></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-muted p-3 text-center">无调整明细。</div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

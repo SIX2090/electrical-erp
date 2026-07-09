@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% set form_rma = rma|default({}) %}
+{% set source_status = source_status|default({}) %}
+{% block title %}{{ '编辑RMA' if mode == 'edit' else '新增RMA' }}{% endblock %}
+{% block content %}
+<form id="serviceRmaForm" method="post" action="{{ action_url|default('/service-rmas/new') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {{ document_menu_bar(actions=[
+        {'label': '保存', 'type': 'button', 'button_type': 'submit', 'form': 'serviceRmaForm', 'disabled': mode != 'edit' and not service_orders, 'icon': 'bi-save'},
+        {'label': '返回列表', 'type': 'link', 'href': '/service-rmas', 'icon': 'bi-arrow-left'}
+    ]) }}
+    <div class="page-heading order-form-heading">
+        <div>
+            <h1>{{ '编辑RMA' if mode == 'edit' else '新增RMA' }}</h1>
+            <p>从服务单登记退回、诊断、责任判定和索赔信息。</p>
+        </div>
+        <a class="btn btn-outline-secondary btn-sm d-none" href="/service-rmas">返回RMA列表</a>
+    </div>
+
+    {% if mode != 'edit' and source_status.blocked_reason %}
+    <div class="alert alert-warning" data-testid="service-rma-source-blocked">
+        <div class="fw-semibold">{{ source_status.blocked_reason }}</div>
+        <div class="small mt-1">{{ source_status.next_action }}</div>
+    </div>
+    {% endif %}
+
+    <div class="page-card order-form-card mb-3">
+        <div class="section-title">
+            <div>
+                <h2>RMA表头</h2>
+                <span>RMA 必须选择来源服务单，并继承服务档案、项目号和机号。</span>
+            </div>
+        </div>
+        <div class="row g-2">
+            <div class="col-md-3">
+                <label class="form-label">单据编号</label>
+                <input class="form-control form-control-sm" type="text" value="{{ form_rma.rma_no or '' }}" placeholder="保存时自动生成" readonly>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">来源服务单 <span class="text-danger">*</span></label>
+                <select class="form-select form-select-sm" name="order_id" id="serviceOrderSelect" required {% if mode != 'edit' and not service_orders %}disabled{% endif %}>
+                    <option value="">请选择</option>
+                    {% for source in service_orders %}
+                    <option value="{{ source.id }}" data-project="{{ source.project_code or '' }}" data-serial="{{ source.serial_no or '' }}" data-customer="{{ source.customer_name or '' }}" data-machine="{{ source.machine_model or '' }}" data-issue="{{ source.issue_summary or '' }}" {% if selected_order_id == source.id %}selected{% endif %}>{{ source.order_no or source.id }} / {{ source.customer_name or '-' }} / {{ source.project_code or '-' }} / {{ source.serial_no or '-' }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3"><label class="form-label">RMA日期</label><input class="form-control form-control-sm" type="date" name="rma_date" value="{{ form_rma.rma_date or today().isoformat() }}"></div>
+            <div class="col-md-3">
+                <label class="form-label">是否返厂</label>
+                {% set return_flag = (form_rma.return_factory_required|string) if form_rma.return_factory_required is defined else '1' %}
+                <select class="form-select form-select-sm" name="return_factory_required">
+                    <option value="1" {% if return_flag in ['1','True','true'] %}selected{% endif %}>需要返厂</option>
+                    <option value="0" {% if return_flag in ['0','False','false'] %}selected{% endif %}>不返厂</option>
+                </select>
+            </div>
+            <div class="col-md-3"><label class="form-label">客户</label><input class="form-control form-control-sm" id="customerName" readonly></div>
+            <div class="col-md-3"><label class="form-label">机型</label><input class="form-control form-control-sm" id="machineModel" readonly></div>
+            <div class="col-md-3"><label class="form-label">项目号 <span class="text-muted small">建议</span></label><input class="form-control form-control-sm" name="project_code" id="projectCode" value="{{ form_rma.project_code or '' }}"></div>
+            <div class="col-md-3"><label class="form-label">机号 <span class="text-muted small">建议</span></label><input class="form-control form-control-sm" name="serial_no" id="serialNo" value="{{ form_rma.serial_no or '' }}"></div>
+            <div class="col-md-3">
+                <label class="form-label">质保范围</label>
+                {% set warranty_scope = form_rma.warranty_scope or '待判定' %}
+                <select class="form-select form-select-sm" name="warranty_scope">
+                    {% for label in ['待判定','保内','保外','客户责任'] %}
+                    <option value="{{ label }}" {% if label == warranty_scope %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">责任类型</label>
+                {% set responsibility_type = form_rma.responsibility_type or '待判定' %}
+                <select class="form-select form-select-sm" name="responsibility_type">
+                    {% for label in ['待判定','设计','制造','供应商','客户','运输'] %}
+                    <option value="{{ label }}" {% if label == responsibility_type %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">索赔状态</label>
+                {% set claim_status = form_rma.claim_status or '未索赔' %}
+                <select class="form-select form-select-sm" name="claim_status">
+                    {% for label in ['未索赔','索赔中','不索赔'] %}
+                    <option value="{{ label }}" {% if label == claim_status %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3"><label class="form-label">供应商索赔金额</label><input class="form-control form-control-sm text-end" type="number" step="0.01" min="0" name="supplier_claim_amount" value="{{ form_rma.supplier_claim_amount or 0 }}"></div>
+            <div class="col-12"><label class="form-label">故障描述</label><textarea class="form-control form-control-sm" name="fault_summary" id="faultSummary" rows="2">{{ form_rma.fault_summary or '' }}</textarea></div>
+            <div class="col-12"><label class="form-label">初步诊断</label><textarea class="form-control form-control-sm" name="diagnosis" rows="2">{{ form_rma.diagnosis or '' }}</textarea></div>
+        </div>
+    </div>
+    <div class="page-card order-form-card mb-3">
+        <div class="section-title">
+            <div>
+                <h2>退回/故障物料</h2>
+                <span>可先登记一项退回物料；后续在 RMA 详情继续诊断和索赔。</span>
+            </div>
+        </div>
+        <div class="row g-2">
+            <div class="col-md-4"><label class="form-label">物料名称</label><input type="hidden" name="product_id" id="productId" value="{{ form_rma.product_id or '' }}"><input class="form-control form-control-sm" id="productName" list="rmaProductOptions" value="{{ form_rma.product_name or form_rma.material_name or '' }}" autocomplete="off"><datalist id="rmaProductOptions">{% for product in product_options %}<option value="{{ product.name or product.display_name or product.code }}" label="{{ product.display_name }}" data-id="{{ product.id }}" data-specification="{{ product.specification or '' }}" data-unit="{{ product.unit or '' }}" data-price="{{ product.standard_price or product.unit_cost or 0 }}"></option>{% endfor %}</datalist></div>
+            <div class="col-md-2"><label class="form-label">规格</label><input class="form-control form-control-sm" id="materialSpec" value="{{ form_rma.material_spec or '' }}" readonly tabindex="-1"></div>
+            <div class="col-md-2"><label class="form-label">单位</label><input class="form-control form-control-sm" id="materialUnit" value="{{ form_rma.material_unit or '' }}" readonly tabindex="-1"></div>
+            <div class="col-md-2"><label class="form-label">数量</label><input class="form-control form-control-sm text-end" type="number" step="0.001" min="0" name="quantity" value="{{ form_rma.quantity or 0 }}"></div>
+            <div class="col-md-2"><label class="form-label">成本单价</label><input class="form-control form-control-sm text-end" type="number" step="0.0001" min="0" name="unit_cost" id="unitCost" value="{{ form_rma.unit_cost or 0 }}"></div>
+            <div class="col-md-2"><label class="form-label">来源行</label><input class="form-control form-control-sm" name="source_line_no" value="{{ form_rma.source_line_no or '' }}"></div>
+            <div class="col-md-3"><label class="form-label">仓库</label><select class="form-select form-select-sm" name="warehouse_id"><option value="">未指定</option>{% for warehouse in warehouses %}<option value="{{ warehouse.id }}" {% if warehouse.id == form_rma.warehouse_id %}selected{% endif %}>{{ warehouse.code or '' }} {{ warehouse.name }}</option>{% endfor %}</select></div>
+            {% if location_management_enabled %}<div class="col-md-3"><label class="form-label">库位</label><select class="form-select form-select-sm" name="location_id"><option value="">未指定</option>{% for location in locations %}<option value="{{ location.id }}" {% if location.id == form_rma.location_id %}selected{% endif %}>{{ location.code or '' }} {{ location.name }}</option>{% endfor %}</select></div>{% endif %}
+            <div class="col-md-3"><label class="form-label">批号</label><input class="form-control form-control-sm" name="lot_no" value="{{ form_rma.lot_no or '' }}"></div>
+            <div class="col-md-3"><label class="form-label">索赔说明</label><input class="form-control form-control-sm" name="claim_note" value="{{ form_rma.claim_note or '' }}"></div>
+            <div class="col-12"><label class="form-label">备注</label><input class="form-control form-control-sm" name="remark" value="{{ form_rma.remark or '' }}"></div>
+        </div>
+    </div>
+    <div class="footer-bar d-none"><button class="btn btn-primary" type="submit" {% if mode != 'edit' and not service_orders %}disabled{% endif %}><i class="bi bi-save"></i> 保存RMA</button><a class="btn btn-secondary" href="/service-rmas">取消</a></div>
+</form>
+<script>
+(function () {
+    const orderSelect = document.getElementById('serviceOrderSelect');
+    const materialSpec = document.getElementById('materialSpec');
+    const materialUnit = document.getElementById('materialUnit');
+    const products = {{ product_options|tojson }};
+    if (!orderSelect) return;
+    function fillFromOrder() {
+        const data = orderSelect.selectedOptions[0] ? orderSelect.selectedOptions[0].dataset : {};
+        if (!projectCode.value) projectCode.value = data.project || '';
+        if (!serialNo.value) serialNo.value = data.serial || '';
+        customerName.value = data.customer || '';
+        machineModel.value = data.machine || '';
+        if (!faultSummary.value) faultSummary.value = data.issue || '';
+    }
+    function findProduct(value) {
+        const text = String(value || '').trim().toLowerCase();
+        return products.find(item => [item.name, item.code, item.specification, item.display_name].some(field => String(field || '').trim().toLowerCase() === text))
+            || products.find(item => [item.name, item.code, item.specification, item.display_name].some(field => String(field || '').toLowerCase().includes(text))) || null;
+    }
+    function syncProduct() {
+        const product = findProduct(productName.value);
+        if (!product) return;
+        productId.value = product.id || '';
+        productName.value = product.name || product.display_name || product.code || '';
+        materialSpec.value = product.specification || '';
+        materialUnit.value = product.unit || '';
+        if (!unitCost.value || unitCost.value === '0') unitCost.value = product.standard_price || product.unit_cost || '0';
+    }
+    orderSelect.addEventListener('change', function () { projectCode.value = ''; serialNo.value = ''; fillFromOrder(); });
+    productName.addEventListener('input', syncProduct);
+    productName.addEventListener('change', syncProduct);
+    fillFromOrder();
+    syncProduct();
+})();
+</script>
+{% endblock %}

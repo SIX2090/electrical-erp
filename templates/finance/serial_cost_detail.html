@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+
+{% block title %}机号成本明细{% endblock %}
+
+{% block content %}
+{{ document_menu_bar(actions=[
+    {'type': 'nav', 'items': [
+        {'label': '首张', 'event': 'doc-nav-first', 'icon': 'bi-chevron-double-left'},
+        {'label': '上一张', 'event': 'doc-nav-prev', 'icon': 'bi-chevron-left'},
+        {'label': '下一张', 'event': 'doc-nav-next', 'icon': 'bi-chevron-right'},
+        {'label': '末张', 'event': 'doc-nav-last', 'icon': 'bi-chevron-double-right'}
+    ]}
+], aria_label='机号成本操作菜单') }}
+<div class="container-fluid">
+    <div class="page-header">
+        <h1>机号成本明细报表</h1>
+        <p class="text-muted">查询机号成本明细流水</p>
+    </div>
+
+    <!-- 筛选条件 -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-filter"></i> 筛选条件
+            </h5>
+        </div>
+        <div class="card-body">
+            <form method="get" action="/finance/serial-cost/detail">
+                <div class="row">
+                    <div class="col-md-2">
+                        <div class="form-group">
+                            <label>机号</label>
+                            <select name="serial_no" class="form-control">
+                                <option value="">请选择机号</option>
+                                {% for s in serial_nos %}
+                                <option value="{{ s.serial_no }}" {% if filters.serial_no == s.serial_no %}selected{% endif %}>
+                                    {{ s.serial_no }}{% if s.project_code %} ({{ s.project_code }}){% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group">
+                            <label>项目号</label>
+                            <input type="text" name="project_code" class="form-control" placeholder="项目号" value="{{ filters.project_code or '' }}">
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group">
+                            <label>开始日期</label>
+                            <input type="date" name="start_date" class="form-control" value="{{ filters.start_date or '' }}">
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group">
+                            <label>结束日期</label>
+                            <input type="date" name="end_date" class="form-control" value="{{ filters.end_date or '' }}">
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group">
+                            <label>成本类型</label>
+                            <select name="cost_type" class="form-control">
+                                <option value="">全部类型</option>
+                                {% for ct in cost_types %}
+                                <option value="{{ ct }}" {% if filters.cost_type == ct %}selected{% endif %}>{{ ct }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group">
+                            <label>&nbsp;</label>
+                            <button type="submit" class="btn btn-primary btn-block">
+                                <i class="fas fa-search"></i> 查询
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 机号成本汇总卡片 -->
+    {% if serial_summary %}
+    <div class="card mb-4 border-primary">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-calculator"></i> 机号成本汇总 - {{ filters.serial_no }}
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-2">
+                    <h6 class="text-muted">领料成本</h6>
+                    <h4 class="text-primary">{{ "%.2f"|format(serial_summary.material_cost) }}</h4>
+                </div>
+                <div class="col-md-2">
+                    <h6 class="text-muted">采购成本</h6>
+                    <h4 class="text-success">{{ "%.2f"|format(serial_summary.purchase_cost) }}</h4>
+                </div>
+                <div class="col-md-2">
+                    <h6 class="text-muted">委外成本</h6>
+                    <h4 class="text-warning">{{ "%.2f"|format(serial_summary.outsource_cost) }}</h4>
+                </div>
+                <div class="col-md-2">
+                    <h6 class="text-muted">人工成本</h6>
+                    <h4 class="text-info">{{ "%.2f"|format(serial_summary.labor_cost) }}</h4>
+                </div>
+                <div class="col-md-2">
+                    <h6 class="text-muted">其他成本</h6>
+                    <h4 class="text-secondary">{{ "%.2f"|format(serial_summary.other_cost) }}</h4>
+                </div>
+                <div class="col-md-2">
+                    <h6 class="text-muted">总成本</h6>
+                    <h3 class="text-danger"><strong>{{ "%.2f"|format(serial_summary.total_cost) }}</strong></h3>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 成本明细 -->
+    <div class="card">
+        <div class="card-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-list"></i> 成本明细记录
+                </h5>
+                <div>
+                    <strong>合计金额：</strong>
+                    <span class="badge badge-primary" style="font-size: 1.1rem;">
+                        {{ "%.2f"|format(total_amount) }}
+                    </span>
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            {% if rows %}
+            <div class="table-responsive">
+                <table class="table table-hover table-sm">
+                    <thead class="thead-light">
+                        <tr>
+                            <th>序号</th>
+                            <th>成本日期</th>
+                            <th>机号</th>
+                            <th>项目号</th>
+                            <th>产品</th>
+                            <th>成本类型</th>
+                            <th>描述</th>
+                            <th>来源单号</th>
+                            <th class="text-right">数量</th>
+                            <th class="text-right">单位成本</th>
+                            <th class="text-right">成本金额</th>
+                            <th>记录人</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in rows %}
+                        <tr>
+                            <td>{{ loop.index }}</td>
+                            <td>{{ row.cost_date }}</td>
+                            <td>
+                                <span class="badge badge-secondary">{{ row.serial_no }}</span>
+                            </td>
+                            <td>
+                                {% if row.project_code %}
+                                    <span class="badge badge-info">{{ row.project_code }}</span>
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if row.product_code %}
+                                    <small>{{ row.product_code }}</small>
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge badge-primary">{{ row.cost_type }}</span>
+                            </td>
+                            <td>{{ row.description or '-' }}</td>
+                            <td>
+                                <small>{{ row.source_no or '-' }}</small>
+                            </td>
+                            <td class="text-right">
+                                {% if row.quantity %}
+                                    {{ "%.2f"|format(row.quantity) }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td class="text-right">
+                                {% if row.unit_cost %}
+                                    {{ "%.2f"|format(row.unit_cost) }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td class="text-right">
+                                <strong>{{ "%.2f"|format(row.cost_amount) }}</strong>
+                            </td>
+                            <td>
+                                <small>{{ row.recorded_by_name or '-' }}</small>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="thead-light">
+                        <tr>
+                            <th colspan="10" class="text-right">合计：</th>
+                            <th class="text-right">
+                                <strong>{{ "%.2f"|format(total_amount) }}</strong>
+                            </th>
+                            <th></th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <div class="mt-3">
+                <small class="text-muted">
+                    共 {{ rows|length }} 条记录
+                </small>
+            </div>
+            {% else %}
+            <div class="alert alert-info mb-0">
+                <i class="fas fa-info-circle"></i> 没有符合条件的成本记录
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+
+<style>
+.badge {
+    font-size: 0.85rem;
+}
+
+.table td, .table th {
+    vertical-align: middle;
+}
+
+.card {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+</style>
+{% endblock %}

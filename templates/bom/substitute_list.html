@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}BOM替代料管理{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <h1>BOM替代料管理</h1>
+    <p>管理BOM行的替代料关系：主料缺料时MRP引擎按优先级和比例自动使用已审批的替代料。</p>
+</div>
+
+{% set document_menu_actions = [
+    {'label': 'BOM版本管理', 'type': 'link', 'href': url_for('bom_version_list')},
+    {'label': 'BOM清单', 'type': 'link', 'href': '/bom'},
+    {'label': 'MRP引擎', 'type': 'link', 'href': '/mrp'},
+    {'label': '刷新', 'type': 'link', 'href': request.full_path.rstrip('?')},
+    {'label': '返回首页', 'type': 'link', 'href': '/', 'icon': 'bi-house'}
+] %}
+{{ document_menu_bar(document_menu_actions) }}
+
+<div class="alert alert-info py-2">
+    边界：本页只做替代料关系维护；MRP运算时自动按优先级尝试已审批且允许自动替代的替代料，不在此页执行库存扣减。
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div><h2>主料信息</h2><span>当前BOM行对应的主料。</span></div>
+    </div>
+    <table class="table table-sm">
+        <tbody>
+        <tr>
+            <th class="col-md-2">BOM编号</th>
+            <td class="col-md-4">{{ bom_item.bom_no or '-' }}</td>
+            <th class="col-md-2">BOM版本</th>
+            <td class="col-md-4">{{ bom_item.bom_version or '-' }}</td>
+        </tr>
+        <tr>
+            <th>主料编码</th>
+            <td>{{ bom_item.product_code or '-' }}</td>
+            <th>主料名称</th>
+            <td>{{ bom_item.product_name or '-' }}</td>
+        </tr>
+        <tr>
+            <th>规格</th>
+            <td>{{ bom_item.product_spec or '-' }}</td>
+            <th>单位</th>
+            <td>{{ bom_item.product_unit or '-' }}</td>
+        </tr>
+        <tr>
+            <th>基础用量</th>
+            <td>{{ bom_item.quantity or '-' }}</td>
+            <th>损耗率(%)</th>
+            <td>{{ bom_item.loss_rate or '0' }}</td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div><h2>新增替代料</h2><span>优先级数字越小越优先；比例=替代料用量/主料用量。</span></div>
+    </div>
+    <form method="post" action="{{ url_for('bom_substitute_new', bom_item_id=bom_item.id) }}" class="row g-2 align-items-end">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="col-md-4">
+            <label class="form-label">替代物料 <span class="text-danger">*</span></label>
+            <select class="form-select form-select-sm" name="substitute_product_id" required>
+                <option value="">请选择替代物料</option>
+                {% for p in products %}
+                <option value="{{ p.id }}">{{ p.code }} | {{ p.name }} | {{ p.specification or '' }} | {{ p.unit or '' }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-1">
+            <label class="form-label">优先级</label>
+            <input class="form-control form-control-sm" name="priority" value="1" type="number" min="1">
+        </div>
+        <div class="col-md-1">
+            <label class="form-label">比例</label>
+            <input class="form-control form-control-sm" name="ratio" value="1" type="number" step="0.000001" min="0.000001">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">允许自动替代</label>
+            <select class="form-select form-select-sm" name="allow_auto_substitute">
+                <option value="1">是</option>
+                <option value="0">否</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">审批状态</label>
+            <select class="form-select form-select-sm" name="approval_status">
+                <option value="approved">已审批</option>
+                <option value="pending">待审批</option>
+            </select>
+        </div>
+        <div class="col-md-2 d-grid">
+            <button class="btn btn-primary btn-sm" type="submit"><i class="bi bi-plus-circle"></i> 新增</button>
+        </div>
+        <div class="col-12">
+            <label class="form-label">备注</label>
+            <input class="form-control form-control-sm" name="remark" placeholder="替代料说明">
+        </div>
+    </form>
+</div>
+
+<div class="page-card">
+    <div class="section-title">
+        <div><h2>替代料列表</h2><span>当前 {{ substitutes|length }} 条；按优先级升序排列。</span></div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+                <tr>
+                    <th>优先级</th>
+                    <th>替代料编码</th>
+                    <th>替代料名称</th>
+                    <th>规格</th>
+                    <th>单位</th>
+                    <th>比例</th>
+                    <th>自动替代</th>
+                    <th>审批状态</th>
+                    <th>备注</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for s in substitutes %}
+                <tr>
+                    <td>{{ s.priority }}</td>
+                    <td>{{ s.substitute_code or '-' }}</td>
+                    <td>{{ s.substitute_name or '-' }}</td>
+                    <td>{{ s.substitute_spec or '-' }}</td>
+                    <td>{{ s.substitute_unit or '-' }}</td>
+                    <td>{{ s.ratio }}</td>
+                    <td>
+                        {% if s.allow_auto_substitute %}
+                            <span class="badge bg-success">允许</span>
+                        {% else %}
+                            <span class="badge bg-secondary">禁止</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if s.approval_status == 'approved' %}
+                            <span class="badge bg-success">已审批</span>
+                        {% elif s.approval_status == 'pending' %}
+                            <span class="badge bg-warning">待审批</span>
+                        {% else %}
+                            <span class="badge bg-secondary">{{ s.approval_status }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ s.remark or '-' }}</td>
+                    <td>
+                        {% if s.approval_status != 'approved' %}
+                        <form method="post" action="{{ url_for('bom_substitute_approve', substitute_id=s.id) }}" class="d-inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="btn btn-outline-success btn-sm" type="submit">审批</button>
+                        </form>
+                        {% endif %}
+                        <button class="btn btn-outline-secondary btn-sm" type="button"
+                                data-bs-toggle="modal" data-bs-target="#editModal{{ s.id }}">编辑</button>
+                        <form method="post" action="{{ url_for('bom_substitute_delete', substitute_id=s.id) }}"
+                              class="d-inline"
+                              onsubmit="return confirm('确认删除此替代料关系？');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="btn btn-outline-danger btn-sm" type="submit">删除</button>
+                        </form>
+                    </td>
+                </tr>
+
+                <div class="modal fade" id="editModal{{ s.id }}" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <form method="post" action="{{ url_for('bom_substitute_edit', substitute_id=s.id) }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">编辑替代料 - {{ s.substitute_code or '' }}</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="row g-2">
+                                        <div class="col-md-4">
+                                            <label class="form-label">优先级</label>
+                                            <input class="form-control form-control-sm" name="priority" value="{{ s.priority }}" type="number" min="1">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">比例</label>
+                                            <input class="form-control form-control-sm" name="ratio" value="{{ s.ratio }}" type="number" step="0.000001" min="0.000001">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">允许自动替代</label>
+                                            <select class="form-select form-select-sm" name="allow_auto_substitute">
+                                                <option value="1" {% if s.allow_auto_substitute %}selected{% endif %}>是</option>
+                                                <option value="0" {% if not s.allow_auto_substitute %}selected{% endif %}>否</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-12">
+                                            <label class="form-label">备注</label>
+                                            <input class="form-control form-control-sm" name="remark" value="{{ s.remark or '' }}">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">取消</button>
+                                    <button type="submit" class="btn btn-primary btn-sm">保存</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+                <tr>
+                    <td colspan="10" class="text-center text-muted py-3">暂无替代料记录</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}供应商报价详情{% endblock %}
+{% block content %}
+{% set actions = [
+    {'label': '新增', 'type': 'link', 'href': '/supplier-quotes/new'},
+    {'label': '修改', 'type': 'link', 'href': '/supplier-quotes/' ~ quote.id ~ '/edit', 'disabled': status_key not in ['draft', 'submitted']},
+    {'label': '提交', 'type': 'button', 'event': 'quote-submit', 'disabled': status_key != 'draft'},
+    {'label': '审核', 'type': 'button', 'event': 'quote-audit', 'disabled': status_key != 'submitted'},
+    {'label': '确认', 'type': 'button', 'event': 'quote-confirm', 'disabled': status_key != 'submitted'},
+    {'label': '关闭', 'type': 'button', 'event': 'quote-close', 'disabled': status_key != 'audited'},
+    {'label': '作废', 'type': 'button', 'event': 'quote-void', 'disabled': status_key not in ['draft', 'submitted']},
+    {'label': '打印', 'type': 'link', 'href': '/supplier-quotes/' ~ quote.id ~ '/print'},
+    {'label': '工具', 'type': 'dropdown', 'items': [
+        {'label': '比价', 'type': 'button', 'event': 'quote-compare'},
+        {'label': '转采购订单', 'type': 'button', 'event': 'quote-to-po'}
+    ]},
+    {'label': '更多', 'type': 'dropdown', 'icon': 'bi-three-dots', 'items': [
+        {'label': '复制', 'type': 'button', 'button_type': 'submit', 'form': 'copyForm', 'icon': 'bi-copy', 'title': '复制为新的草稿单据'},
+        {'type': 'divider'},
+        {'label': '返回首页', 'type': 'link', 'href': '/'}
+    ]},
+    {'label': '返回', 'type': 'link', 'href': back_url or '/supplier-quotes'},
+    {'type': 'nav', 'items': [
+        {'label': '首张', 'event': 'doc-nav-first', 'icon': 'bi-chevron-double-left'},
+        {'label': '上一张', 'event': 'doc-nav-prev', 'icon': 'bi-chevron-left'},
+        {'label': '下一张', 'event': 'doc-nav-next', 'icon': 'bi-chevron-right'},
+        {'label': '末张', 'event': 'doc-nav-last', 'icon': 'bi-chevron-double-right'}
+    ]}
+] %}
+{{ document_menu_bar(actions, '供应商报价操作菜单') }}
+<div id="doc-nav-config" data-nav-table="supplier_quotes" data-nav-base="{{ (back_url or '/supplier-quotes') }}/" data-doc-id="{{ quote.id }}" style="display:none"></div>
+
+<form id="quoteSubmitForm" method="post" action="/supplier-quotes/{{ quote.id }}/submit"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+<form id="quoteAuditForm" method="post" action="/supplier-quotes/{{ quote.id }}/audit"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+<form id="quoteConfirmForm" method="post" action="/supplier-quotes/{{ quote.id }}/confirm"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+<form id="quoteCloseForm" method="post" action="/supplier-quotes/{{ quote.id }}/close"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+<form id="quoteVoidForm" method="post" action="/supplier-quotes/{{ quote.id }}/void"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+<form id="quoteCompareForm" method="post" action="/supplier-quotes/{{ quote.id }}/compare"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+<form id="quoteToPoForm" method="post" action="/supplier-quotes/{{ quote.id }}/to-purchase-order"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+<form id="copyForm" method="post" action="/supplier-quotes/{{ quote.id }}/copy"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+
+<div class="page-heading">
+    <h1>供应商报价详情</h1>
+    <p>采购询报价单据；比价和转采购订单当前为受控入口，不自动写入采购订单。</p>
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>{{ quote.quote_no }}</h2>
+            <span class="badge text-bg-secondary">{{ status_label }}</span>
+        </div>
+        <div class="d-flex gap-2 d-none">
+            {% if status_key in ['draft', 'submitted'] %}
+            <a class="btn btn-outline-primary btn-sm" href="/supplier-quotes/{{ quote.id }}/edit">编辑</a>
+            {% endif %}
+            <a class="btn btn-outline-secondary btn-sm" href="{{ back_url or '/supplier-quotes' }}">返回列表</a>
+        </div>
+    </div>
+    <div class="row g-3">
+        <div class="col-md-3"><div class="text-muted small">供应商</div><div class="fw-semibold">{{ quote.supplier_name|clean_text }}</div></div>
+        <div class="col-md-3"><div class="text-muted small">报价日期</div><div>{{ quote.quote_date or '-' }}</div></div>
+        <div class="col-md-3"><div class="text-muted small">有效期</div><div>{{ quote.valid_until or '-' }}</div></div>
+        <div class="col-md-3"><div class="text-muted small">来源单号</div><div>{{ quote.source_no|clean_text or '-' }}</div></div>
+        <div class="col-md-3"><div class="text-muted small">项目号</div><div>{{ quote.project_code|clean_text or '-' }}</div></div>
+        <div class="col-md-3"><div class="text-muted small">机号</div><div>{{ quote.serial_no|clean_text or '-' }}</div></div>
+        <div class="col-md-3"><div class="text-muted small">未税金额</div><div>{{ '%.2f'|format(quote.total_amount or 0) }}</div></div>
+        <div class="col-md-3"><div class="text-muted small">含税金额</div><div>{{ '%.2f'|format(quote.amount_with_tax or quote.total_amount or 0) }}</div></div>
+        <div class="col-md-12"><div class="text-muted small">备注</div><div>{{ quote.remark|clean_text or '-' }}</div></div>
+    </div>
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div><h2>报价明细</h2>{% if items %}<span>{{ items|length }} 行</span>{% endif %}</div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+            <tr>
+                <th>序号</th><th>物料编码</th><th>物料名称</th><th>规格</th><th>单位</th>
+                <th class="text-end">数量</th><th class="text-end">未税单价</th><th class="text-end">未税金额</th>
+                <th class="text-end">税率%</th><th class="text-end">税额</th><th class="text-end">含税金额</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for item in items %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ item.product_code|clean_text }}</td>
+                <td>{{ (item.product_name or item.item_name)|clean_text }}</td>
+                <td>{{ (item.product_specification or item.specification)|clean_text }}</td>
+                <td>{{ item.product_unit|clean_text }}</td>
+                <td class="text-end">{{ '%.2f'|format(item.quantity or 0) }}</td>
+                <td class="text-end">{{ '%.2f'|format(item.unit_price or 0) }}</td>
+                <td class="text-end">{{ '%.2f'|format(item.amount or 0) }}</td>
+                <td class="text-end">{{ '%.2f'|format(item.tax_rate or 0) }}</td>
+                <td class="text-end">{{ '%.2f'|format(item.tax_amount or 0) }}</td>
+                <td class="text-end">{{ '%.2f'|format(item.amount_with_tax or 0) }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="11" class="text-muted">暂无明细。</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-6">
+        <div class="page-card h-100">
+            <div class="section-title"><div><h2>附件</h2></div></div>
+            <form class="row g-2 mb-3" method="post" action="/supplier-quotes/{{ quote.id }}/attachments" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="col-md-7"><input class="form-control form-control-sm" type="file" name="file" required></div>
+                <div class="col-md-3"><input class="form-control form-control-sm" name="remark" placeholder="说明"></div>
+                <div class="col-md-2"><button class="btn btn-primary btn-sm w-100" type="submit">上传</button></div>
+            </form>
+            {% for file in attachments %}
+            <div class="d-flex justify-content-between align-items-center border-top py-2">
+                <a href="{{ url_for('static', filename=file.stored_path) }}" target="_blank">{{ file.file_name|clean_text }}</a>
+                <form method="post" action="/supplier-quotes/{{ quote.id }}/attachments/{{ file.id }}/delete">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-outline-danger btn-sm" type="submit">删除</button>
+                </form>
+            </div>
+            {% else %}
+            <div class="text-muted">暂无附件。</div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="page-card h-100">
+            <div class="section-title"><div><h2>备注记录</h2></div></div>
+            <form class="d-flex gap-2 mb-3" method="post" action="/supplier-quotes/{{ quote.id }}/notes">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input class="form-control form-control-sm" name="note" placeholder="记录比价、供应商沟通或确认说明" required>
+                <button class="btn btn-primary btn-sm" type="submit">记录</button>
+            </form>
+            {% for log in activity_logs %}
+            <div class="border-top py-2">
+                <div class="small text-muted">{{ log.created_at or '' }} {{ log.username or '' }}</div>
+                <div>{{ log.action|clean_text }} {{ log.remark|clean_text }}</div>
+            </div>
+            {% else %}
+            <div class="text-muted">暂无备注记录。</div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('click', function (event) {
+    const action = event.target.closest('[data-menu-event]');
+    if (!action) return;
+    const forms = {
+        'quote-submit': 'quoteSubmitForm',
+        'quote-audit': 'quoteAuditForm',
+        'quote-confirm': 'quoteConfirmForm',
+        'quote-close': 'quoteCloseForm',
+        'quote-void': 'quoteVoidForm',
+        'quote-compare': 'quoteCompareForm',
+        'quote-to-po': 'quoteToPoForm'
+    };
+    const form = document.getElementById(forms[action.dataset.menuEvent]);
+    if (form) form.submit();
+});
+</script>
+{% endblock %}

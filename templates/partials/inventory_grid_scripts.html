@@ -1,0 +1,387 @@
+<script src="{{ url_for('static', filename='js/document_grid.js') }}"></script>
+<script>
+(function () {
+    const tbody = document.querySelector('#itemsTable tbody');
+    const table = document.getElementById('itemsTable');
+    if (!tbody || !table) return;
+    const productOptions = {{ product_options|tojson }};
+    const warehouseOptions = {{ warehouses|default([])|tojson }};
+    const locationOptions = {{ locations|default([])|tojson }};
+    let quantityField = 'quantity';
+    if (table.querySelector('[name="diff_quantity[]"]')) quantityField = 'diff_quantity';
+    if (table.querySelector('[name="actual_qty[]"]')) quantityField = 'actual_qty';
+    const isMovementGrid = table.dataset.gridKey === 'other_inbound_items' || table.dataset.gridKey === 'other_outbound_items';
+    const isTransferGrid = table.dataset.gridKey === 'inventory_transfer_items';
+    const hasRemarkColumn = !!table.querySelector('[data-column-key="remark"]');
+    const requireSerial = !!table.querySelector('input[name="serial_no[]"][required]');
+    const productDatalistId = 'documentProductNameOptions';
+
+    function escapeAttr(value) {
+        return String(value || '').replace(/[&<>"']/g, function (ch) {
+            return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[ch];
+        });
+    }
+    function escapeHtml(value) {
+        return String(value || '').replace(/[&<>"']/g, function (ch) {
+            return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[ch];
+        });
+    }
+    function money(value) {
+        const number = Number(value || 0);
+        return Number.isFinite(number) ? number.toFixed(2) : '0.00';
+    }
+    function optionHtml() {
+        return ['<option value="">请选择</option>'].concat(productOptions.map(function (item) {
+            const label = item.display_name || [item.code, item.name, item.specification].filter(Boolean).join(' / ') || item.name || '';
+            const search = [item.code, item.name, item.specification, item.unit, item.product_family, item.default_bom_no, item.default_bom_version].filter(Boolean).join(' ');
+            return '<option value="' + item.id + '"' +
+                ' data-code="' + escapeAttr(item.code || '') + '"' +
+                ' data-name="' + escapeAttr(item.name || '') + '"' +
+                ' data-specification="' + escapeAttr(item.specification || '') + '"' +
+                ' data-unit="' + escapeAttr(item.unit || '') + '"' +
+                ' data-product-family="' + escapeAttr(item.product_family || '') + '"' +
+                ' data-bom-version="' + escapeAttr(item.default_bom_version || '') + '"' +
+                ' data-bom-no="' + escapeAttr(item.default_bom_no || '') + '"' +
+                ' data-search="' + escapeAttr(search) + '"' +
+                ' data-available-qty="' + escapeAttr(item.available_qty || 0) + '"' +
+                ' data-price="' + escapeAttr(item.unit_cost || item.standard_price || 0) + '">' + escapeHtml(label) + '</option>';
+        })).join('');
+    }
+    function selectOptions(rows, emptyLabel) {
+        return ['<option value="">' + escapeHtml(emptyLabel) + '</option>'].concat((rows || []).map(function (row) {
+            return '<option value="' + escapeAttr(row.id) + '"' +
+                ' data-warehouse-id="' + escapeAttr(row.warehouse_id || '') + '">' +
+                escapeHtml(row.name || row.code || '') + '</option>';
+        })).join('');
+    }
+    function getSelectedProduct(row) {
+        const select = row.querySelector('select[name="product_id[]"]');
+        return select && select.selectedOptions.length ? select.selectedOptions[0] : null;
+    }
+    function ensureProductNameDatalist() {
+        if (document.getElementById(productDatalistId)) return;
+        const datalist = document.createElement('datalist');
+        datalist.id = productDatalistId;
+        productOptions.forEach(function (item) {
+            const option = document.createElement('option');
+            option.value = item.name || item.display_name || item.code || '';
+            option.label = [item.code, item.name, item.specification].filter(Boolean).join(' / ');
+            datalist.appendChild(option);
+        });
+        document.body.appendChild(datalist);
+    }
+    function findProductByText(value) {
+        const text = String(value || '').trim().toLowerCase();
+        if (!text) return null;
+        return productOptions.find(function (item) {
+            return [item.name, item.code, item.specification, item.display_name].some(function (field) {
+                return String(field || '').trim().toLowerCase() === text;
+            });
+        }) || productOptions.find(function (item) {
+            return [item.name, item.code, item.specification, item.display_name].some(function (field) {
+                return String(field || '').toLowerCase().includes(text);
+            });
+        }) || null;
+    }
+    function applyProductToRow(row, product) {
+        const select = row.querySelector('select[name="product_id[]"]');
+        if (select && product) {
+            select.value = String(product.id || '');
+        }
+        setInput(row, '.js-product-code', product ? product.code || '' : '');
+        setInput(row, '.js-product-name', product ? product.name || '' : '');
+        setInput(row, '.js-product-spec', product ? product.specification || '' : '');
+        setInput(row, '.js-product-unit', product ? product.unit || '' : '');
+        const unitCostInput = row.querySelector('.js-unit-cost');
+        if (product && unitCostInput && (!unitCostInput.value || Number(unitCostInput.value) === 0)) {
+            unitCostInput.value = product.unit_cost || product.standard_price || '0';
+        }
+        recalcMovementRow(row);
+    }
+    function clearProductInRow(row) {
+        const select = row.querySelector('select[name="product_id[]"]');
+        if (select) select.value = '';
+        setInput(row, '.js-product-code', '');
+        setInput(row, '.js-product-name', '');
+        setInput(row, '.js-product-spec', '');
+        setInput(row, '.js-product-unit', '');
+        setInput(row, '.js-available-qty', '0');
+        const unitCostInput = row.querySelector('.js-unit-cost');
+        if (unitCostInput) unitCostInput.value = '0';
+        recalcMovementRow(row);
+    }
+    function fillableFieldKey(field) {
+        const name = field && field.getAttribute('name') || '';
+        const keys = [
+            'line_warehouse_id[]',
+            'line_location_id[]',
+            'from_warehouse_id[]',
+            'from_location_id[]',
+            'to_warehouse_id[]',
+            'to_location_id[]',
+            'line_project_code[]',
+            'serial_no[]',
+            'line_serial_no[]',
+            'lot_no[]'
+        ];
+        return keys.indexOf(name) >= 0 ? name : '';
+    }
+    function selectedFillField() {
+        const active = document.activeElement && document.activeElement.closest && document.activeElement.closest('input, select, textarea');
+        if (active && table.contains(active) && fillableFieldKey(active)) return active;
+        const activeCell = table.querySelector('.document-grid-cell-active');
+        const field = activeCell && activeCell.querySelector('input, select, textarea');
+        return field && fillableFieldKey(field) ? field : null;
+    }
+    function sameField(row, field) {
+        const key = fillableFieldKey(field);
+        return key ? row.querySelector('[name="' + CSS.escape(key) + '"]') : null;
+    }
+    function copyFieldValue(source, target) {
+        if (!source || !target || target.disabled || target.readOnly) return;
+        target.value = source.value || '';
+        target.dispatchEvent(new Event('input', {bubbles: true}));
+        target.dispatchEvent(new Event('change', {bubbles: true}));
+    }
+    function fillDownFromCurrentField() {
+        const source = selectedFillField();
+        if (!source) {
+            showToast('请先选中仓库、库位、项目号、机号或批号明细格。', 'warning');
+            return;
+        }
+        const row = source.closest('tr');
+        const rows = Array.from(tbody.querySelectorAll('tr')).filter(function (item) {
+            return item.querySelector('input, select, textarea');
+        });
+        const start = rows.indexOf(row);
+        if (start < 0 || start >= rows.length - 1) {
+            showToast('当前行下面没有可填充的明细行。', 'info');
+            return;
+        }
+        let filled = 0;
+        rows.slice(start + 1).forEach(function (targetRow) {
+            const target = sameField(targetRow, source);
+            if (!target) return;
+            copyFieldValue(source, target);
+            filled += 1;
+        });
+        if (window.filterWarehouseLocations) window.filterWarehouseLocations(table.closest('form') || document);
+        if (window.documentGridApi) window.documentGridApi.refresh();
+        showToast('已向下填充 ' + filled + ' 行。', 'success');
+    }
+    function hideProductColumn() {
+        table.querySelectorAll('[data-column-key="product"]').forEach(function (cell) {
+            cell.classList.add('d-none');
+        });
+    }
+    function enhanceProductNameInputs(row) {
+        ensureProductNameDatalist();
+        row.querySelectorAll('.js-product-name').forEach(function (input) {
+            input.removeAttribute('readonly');
+            input.setAttribute('list', productDatalistId);
+            input.setAttribute('placeholder', '输入物料名称/编码/规格');
+            input.classList.add('js-product-name-search');
+        });
+    }
+    function setInput(row, selector, value) {
+        const input = row.querySelector(selector);
+        if (input) input.value = value == null ? '' : value;
+    }
+    function recalcMovementRow(row) {
+        if (!row) return;
+        const option = getSelectedProduct(row);
+        const qtyInput = row.querySelector('.js-quantity, .js-qty, input[name="quantity[]"], input[name="diff_quantity[]"], input[name="actual_qty[]"], input[name="line_quantity[]"]');
+        const quantity = Number((qtyInput || {}).value || 0);
+        const unitCostInput = row.querySelector('.js-unit-cost');
+        if (option) {
+            setInput(row, '.js-product-code', option.dataset.code || '');
+            setInput(row, '.js-product-name', option.dataset.name || '');
+            setInput(row, '.js-product-spec', option.dataset.specification || '');
+            setInput(row, '.js-product-unit', option.dataset.unit || '');
+            setInput(row, '.js-available-qty', option.dataset.availableQty || '0');
+            if (unitCostInput && (!unitCostInput.value || Number(unitCostInput.value) === 0)) {
+                unitCostInput.value = option.dataset.price || '0';
+            }
+        }
+        const unitCost = Number((unitCostInput || {}).value || 0);
+        setInput(row, '.js-cost-amount', money(quantity * unitCost));
+    }
+    function syncLineProjectFromHeader(row) {
+        if (!row) return;
+        const headerProject = document.querySelector('input[name="project_code"]');
+        const lineProject = row.querySelector('.js-line-project-code');
+        if (headerProject && lineProject && !lineProject.value) lineProject.value = headerProject.value || '';
+    }
+    function resetClonedRow(row) {
+        row.querySelectorAll('input, select, textarea').forEach(function (field) {
+            if (field.type === 'hidden') return;
+            if (field.matches('select')) {
+                field.selectedIndex = 0;
+            } else if (field.matches('[name="quantity[]"], [name="line_quantity[]"]')) {
+                field.value = '1';
+            } else if (field.matches('[name="diff_quantity[]"], [name="actual_qty[]"], [name="unit_cost[]"]')) {
+                field.value = '0';
+            } else if (field.matches('.js-cost-amount')) {
+                field.value = '0.00';
+            } else {
+                field.value = '';
+            }
+        });
+        return row;
+    }
+    function createLine() {
+        const row = document.createElement('tr');
+        const qtyName = quantityField + '[]';
+        const qtyKey = quantityField;
+        const qtyValue = quantityField === 'quantity' ? '1' : '0';
+        if (isMovementGrid) {
+            row.innerHTML = `
+                <td data-column-key="product_name"><select class="form-select form-select-sm d-none js-product-id-source" name="product_id[]" aria-hidden="true" tabindex="-1">${optionHtml()}</select><input class="form-control form-control-sm js-product-name" name="product_name_display[]" readonly required></td>
+                <td data-column-key="product_code"><input class="form-control form-control-sm js-product-code" name="product_code_display[]" readonly></td>
+                <td data-column-key="specification"><input class="form-control form-control-sm js-product-spec" name="specification_display[]" readonly></td>
+                <td data-column-key="unit"><input class="form-control form-control-sm js-product-unit" name="unit_display[]" readonly></td>
+                <td data-column-key="line_warehouse"><select class="form-select form-select-sm js-line-warehouse js-wh-loc-warehouse" name="line_warehouse_id[]" required>${selectOptions(warehouseOptions, '请选择仓库')}</select></td>
+                <td data-column-key="line_location"><select class="form-select form-select-sm js-line-location js-wh-loc-location" name="line_location_id[]" required>${selectOptions(locationOptions, '请选择库位')}</select></td>
+                <td data-column-key="available_qty"><input class="form-control form-control-sm js-available-qty text-end" name="available_qty_display[]" value="0" readonly></td>
+                <td data-column-key="quantity"><input class="form-control form-control-sm js-quantity" type="number" step="0.01" name="quantity[]" value="1" required></td>
+                <td data-column-key="unit_cost"><input class="form-control form-control-sm js-unit-cost" type="number" step="0.01" name="unit_cost[]" value="0" readonly title="由系统按物料库存成本或标准成本带出"></td>
+                <td data-column-key="cost_amount"><input class="form-control form-control-sm js-cost-amount text-end" name="cost_amount_display[]" value="0.00" readonly></td>
+                <td data-column-key="lot_no"><input class="form-control form-control-sm" name="lot_no[]"></td>
+                <td data-column-key="serial_no"><input class="form-control form-control-sm" name="serial_no[]" ${requireSerial ? 'required' : ''}></td>
+                <td data-column-key="line_project_code"><input class="form-control form-control-sm js-line-project-code" name="line_project_code[]" placeholder="留空使用表头项目"></td>
+                <td data-column-key="line_usage"><input class="form-control form-control-sm" name="usage_reason[]" placeholder="用途/原因"></td>
+                <td data-column-key="source_document_no"><input class="form-control form-control-sm" name="source_doc_no[]" placeholder="来源单号"></td>
+                <td data-column-key="source_line_no"><input class="form-control form-control-sm" name="source_line_no[]" placeholder="行号"></td>
+                <td data-column-key="actions"><button class="btn btn-outline-danger btn-sm js-delete-line" type="button">删行</button></td>
+            `;
+            return row;
+        }
+        if (isTransferGrid) {
+            row.innerHTML = `
+                <td data-column-key="product_name"><select class="form-select form-select-sm d-none js-product-id-source" name="product_id[]" aria-hidden="true" tabindex="-1">${optionHtml()}</select><input class="form-control form-control-sm js-product-name" name="product_name_display[]" readonly required></td>
+                <td data-column-key="product_code"><input class="form-control form-control-sm js-product-code" readonly></td>
+                <td data-column-key="specification"><input class="form-control form-control-sm js-product-spec" readonly></td>
+                <td data-column-key="unit"><input class="form-control form-control-sm js-product-unit" readonly></td>
+                <td data-column-key="from_warehouse"><select class="form-select form-select-sm js-wh-loc-warehouse" name="from_warehouse_id[]" data-wh-loc-target=".js-loc-from" required>${selectOptions(warehouseOptions, '请选择调出仓库')}</select></td>
+                <td data-column-key="from_location"><select class="form-select form-select-sm js-wh-loc-location js-loc-from" name="from_location_id[]" required>${selectOptions(locationOptions, '请选择调出库位')}</select></td>
+                <td data-column-key="to_warehouse"><select class="form-select form-select-sm js-wh-loc-warehouse" name="to_warehouse_id[]" data-wh-loc-target=".js-loc-to" required>${selectOptions(warehouseOptions, '请选择调入仓库')}</select></td>
+                <td data-column-key="to_location"><select class="form-select form-select-sm js-wh-loc-location js-loc-to" name="to_location_id[]" required>${selectOptions(locationOptions, '请选择调入库位')}</select></td>
+                <td data-column-key="quantity"><input class="form-control form-control-sm js-qty text-end" type="number" step="0.01" name="quantity[]" value="1" required></td>
+                <td data-column-key="unit_cost"><input class="form-control form-control-sm js-unit-cost text-end" type="number" step="0.01" name="unit_cost[]" value="0"></td>
+                <td data-column-key="cost_amount"><input class="form-control form-control-sm js-cost-amount text-end" value="0.00" readonly></td>
+                <td data-column-key="lot_no"><input class="form-control form-control-sm" name="lot_no[]"></td>
+                <td data-column-key="serial_no"><input class="form-control form-control-sm" name="serial_no[]"></td>
+                <td data-column-key="line_project_code"><input class="form-control form-control-sm js-line-project-code" name="line_project_code[]" placeholder="留空使用表头项目"></td>
+                <td data-column-key="source_line_no"><input class="form-control form-control-sm" name="source_line_no[]"></td>
+                <td data-column-key="remark"><input class="form-control form-control-sm" name="remark[]"></td>
+                <td data-column-key="actions"><button class="btn btn-outline-danger btn-sm js-delete-line" type="button">删行</button></td>
+            `;
+            return row;
+        }
+        row.innerHTML = `
+            <td data-column-key="product_name"><select class="form-select form-select-sm d-none js-product-id-source" name="product_id[]" aria-hidden="true" tabindex="-1">${optionHtml()}</select><input class="form-control form-control-sm js-product-name" name="product_name_display[]" readonly required></td>
+            <td data-column-key="${qtyKey}"><input class="form-control form-control-sm" type="number" step="0.01" name="${qtyName}" value="${qtyValue}" required></td>
+            <td data-column-key="unit_cost"><input class="form-control form-control-sm" type="number" step="0.01" name="unit_cost[]" value="0"></td>
+            <td data-column-key="lot_no"><input class="form-control form-control-sm" name="lot_no[]"></td>
+            ${hasRemarkColumn ? '<td data-column-key="remark"><input class="form-control form-control-sm" name="remark[]"></td>' : '<td data-column-key="serial_no"><input class="form-control form-control-sm" name="serial_no[]"></td>'}
+            <td data-column-key="actions"><button class="btn btn-outline-danger btn-sm js-delete-line" type="button">删行</button></td>
+        `;
+        const firstRow = tbody.querySelector('tr');
+        if (firstRow) return resetClonedRow(firstRow.cloneNode(true));
+        return row;
+    }
+    function prepareLine(row) {
+        if (!row) return row;
+        if (window.enhanceSelectSearch) window.enhanceSelectSearch(row);
+        enhanceProductNameInputs(row);
+        syncLineProjectFromHeader(row);
+        recalcMovementRow(row);
+        hideProductColumn();
+        if (window.filterWarehouseLocations) window.filterWarehouseLocations(row);
+        if (window.documentGridApi) window.documentGridApi.refresh();
+        return row;
+    }
+    const addLineButton = document.getElementById('addLineBtn');
+    if (addLineButton) {
+        addLineButton.addEventListener('click', function () {
+            const row = createLine();
+            tbody.appendChild(row);
+            prepareLine(row);
+        });
+    }
+    tbody.addEventListener('click', function (event) {
+        if (!event.target.classList.contains('js-delete-line')) return;
+        if (tbody.querySelectorAll('tr').length <= 1) return;
+        event.target.closest('tr').remove();
+        if (window.documentGridApi) window.documentGridApi.refresh();
+    });
+    tbody.addEventListener('change', function (event) {
+        const row = event.target.closest('tr');
+        if (!row) return;
+        if (event.target.matches('select[name="product_id[]"]')) recalcMovementRow(row);
+        if (event.target.matches('.js-product-name-search')) {
+            const product = findProductByText(event.target.value);
+            if (product) {
+                applyProductToRow(row, product);
+            } else if (!event.target.value.trim()) {
+                clearProductInRow(row);
+            }
+        }
+        if (event.target.matches('input[name="quantity[]"], input[name="diff_quantity[]"], input[name="actual_qty[]"], input[name="line_quantity[]"], input[name="unit_cost[]"]')) recalcMovementRow(row);
+    });
+    tbody.addEventListener('input', function (event) {
+        const row = event.target.closest('tr');
+        if (row && event.target.matches('input[name="quantity[]"], input[name="diff_quantity[]"], input[name="actual_qty[]"], input[name="line_quantity[]"], input[name="unit_cost[]"]')) recalcMovementRow(row);
+    });
+    const headerProject = document.querySelector('input[name="project_code"]');
+    if (headerProject) {
+        headerProject.addEventListener('change', function () {
+            tbody.querySelectorAll('tr').forEach(syncLineProjectFromHeader);
+        });
+    }
+    document.querySelectorAll('[data-grid-action]').forEach(function (button) {
+        button.addEventListener('click', function () {
+            const api = window.documentGridApi || (window.initDocumentGrid && window.initDocumentGrid(table));
+            if (!api) return;
+            const action = button.dataset.gridAction;
+            if (action === 'columns') api.openColumnPanel(button);
+            if (action === 'custom-field') api.addCustomField();
+            if (action === 'reset') api.reset();
+            if (action === 'sort-help') showToast('点击明细表头可按该列升序/降序排序。', 'info');
+        });
+    });
+    document.querySelectorAll('[data-line-action]').forEach(function (button) {
+        button.addEventListener('click', function () {
+            const api = window.documentGridApi || (window.initDocumentGrid && window.initDocumentGrid(table));
+            if (!api) return;
+            const action = button.dataset.lineAction;
+            if (action === 'insert') prepareLine(api.insertRow(createLine, false));
+            if (action === 'copy') {
+                api.copyCurrentRow();
+                tbody.querySelectorAll('tr').forEach(recalcMovementRow);
+            }
+            if (action === 'paste') {
+                api.pasteToCurrentRow();
+                tbody.querySelectorAll('tr').forEach(recalcMovementRow);
+            }
+            if (action === 'fill-down') fillDownFromCurrentField();
+            if (action === 'up') api.moveCurrentRow(-1);
+            if (action === 'down') api.moveCurrentRow(1);
+            if (action === 'delete') api.deleteCurrentRow();
+        });
+    });
+    tbody.querySelectorAll('tr').forEach(prepareLine);
+    if (window.filterWarehouseLocations) window.filterWarehouseLocations(table.closest('form') || document);
+    hideProductColumn();
+    const form = table.closest('form') || document.getElementById('movementForm');
+    if (form) {
+        form.addEventListener('submit', function () {
+            tbody.querySelectorAll('tr').forEach(function (row) {
+                syncLineProjectFromHeader(row);
+                recalcMovementRow(row);
+            });
+            if (window.documentGridApi) window.documentGridApi.refresh();
+        });
+    }
+})();
+</script>

@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% from "partials/document_line_toolbar.html" import line_toolbar %}
+{% set form_order = order|default({}) %}
+{% set form_items = items if items else [{}] %}
+{% set header_wh_label = '出库仓库' if meta.doc_type == 'disassembly' else '入库仓库' %}
+{% set header_loc_label = '出库库位' if meta.doc_type == 'disassembly' else '入库库位' %}
+{% block title %}{{ ('编辑' if mode == 'edit' else '新增') ~ meta.title }}{% endblock %}
+{% block content %}
+{% if mode == 'edit' and order and order.id %}
+<form data-doc-action="void" method="post" action="{{ action_url|replace('/edit', '/cancel') }}" style="display:none"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+{% endif %}
+<div class="mb-3 d-none"><a class="btn btn-outline-secondary btn-sm" href="{{ meta.list_url }}">返回{{ meta.title }}列表</a></div>
+<div class="page-heading">
+    <h1>{{ ('编辑' if mode == 'edit' else '新增') ~ meta.title }}</h1>
+    <p>{% if meta.doc_type == 'disassembly' %}拆卸单保存后为待过账，确认后生成主件出库和子件入库流水。{% else %}组装单保存后为待过账，确认后生成子件出库和主件入库流水。{% endif %}</p>
+</div>
+<form method="post" action="{{ action_url|default(meta.new_url) }}" id="assemblyForm" data-main-document-form>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="custom_fields_json" id="customFieldsJson" value="">
+    <div class="d-none">保存待过账</div>
+    <div class="page-card mb-3">
+        <div class="section-title"><div><h2>单据信息</h2><span>表头记录主件、日期、{{ header_wh_label }}、{{ header_loc_label }}、项目号和机号。</span></div></div>
+        <div class="row g-3">
+            <div class="col-md-6 col-xl-3"><label class="form-label">单据编号</label><input class="form-control" type="text" value="{{ form_order.assembly_no|default('') }}" placeholder="保存时自动生成" readonly></div>
+            <div class="col-md-6 col-xl-3"><label class="form-label">{{ header_wh_label }} <span class="text-danger">*</span></label><select class="form-select js-wh-loc-warehouse" name="warehouse_id" data-wh-loc-target="#asm_location_id" required><option value="">请选择{{ header_wh_label }}</option>{% for row in warehouses %}<option value="{{ row.id }}" {% if row.id == form_order.warehouse_id %}selected{% endif %}>{{ row.name }}</option>{% endfor %}</select></div>
+            <div class="col-md-6 col-xl-3"><label class="form-label">{{ header_loc_label }}</label><select class="form-select js-wh-loc-location" id="asm_location_id" name="location_id"><option value="">请选择{{ header_loc_label }}</option>{% for row in locations %}<option value="{{ row.id }}" data-warehouse-id="{{ row.warehouse_id or '' }}" {% if row.id == form_order.location_id %}selected{% endif %}>{{ row.code or row.name }}{% if row.code and row.name %} / {{ row.name }}{% endif %}</option>{% endfor %}</select></div>
+            <div class="col-md-6 col-xl-3"><label class="form-label">单据日期</label><input class="form-control" type="date" name="doc_date" value="{{ form_order.doc_date or today().isoformat() }}"></div>
+            <div class="col-md-6 col-xl-3"><label class="form-label">项目号 <span class="text-muted small">建议</span></label><input class="form-control" name="project_code" value="{{ form_order.project_code or '' }}"></div>
+            <div class="col-md-6 col-xl-4">
+                <label class="form-label">{{ meta.parent_label }} <span class="text-danger">*</span></label>
+                <select class="form-select d-none js-parent-product" name="product_id" required aria-hidden="true" tabindex="-1">
+                    <option value="">请选择</option>
+                    {% for row in product_options %}<option value="{{ row.id }}" {% if row.id == form_order.product_id %}selected{% endif %} data-price="{{ row.standard_price or row.unit_cost or 0 }}" data-name="{{ row.name or row.display_name or row.code }}" data-search="{{ row.code or '' }} {{ row.name or '' }} {{ row.specification or '' }}">{{ row.display_name or row.name }}</option>{% endfor %}
+                </select>
+                <input class="form-control js-parent-product-name" list="assemblyParentProductOptions" value="{{ form_order.product_name or form_order.material_name or '' }}" placeholder="输入物料名称/编码/规格" autocomplete="off" required>
+                <datalist id="assemblyParentProductOptions">{% for row in product_options %}<option value="{{ row.name or row.display_name or row.code }}" label="{{ row.display_name or row.name }}"></option>{% endfor %}</datalist>
+            </div>
+            <div class="col-md-6 col-xl-2"><label class="form-label">主件数量 <span class="text-danger">*</span></label><input class="form-control" type="number" step="0.001" min="0.001" name="quantity" value="{{ form_order.quantity or 1 }}" required></div>
+            <div class="col-md-6 col-xl-2"><label class="form-label">库存成本单价</label><input class="form-control" type="number" step="0.0001" name="unit_cost" value="{{ form_order.unit_cost or 0 }}"></div>
+            <div class="col-md-6 col-xl-2"><label class="form-label">批号</label><input class="form-control" name="lot_no" value="{{ form_order.lot_no or '' }}"></div>
+            <div class="col-md-6 col-xl-2"><label class="form-label">机号 <span class="text-muted small">建议</span></label><input class="form-control" name="serial_no" value="{{ form_order.serial_no or '' }}"></div>
+            <div class="col-12"><label class="form-label">备注</label><textarea class="form-control" name="remark" rows="2">{{ form_order.remark or '' }}</textarea></div>
+        </div>
+    </div>
+    <div class="page-card mb-3">
+        <div class="section-title"><div><h2>{{ meta.line_label }}</h2><span>明细行记录子件物料、仓库库位、批号、机号、项目号和来源 BOM 行。</span></div><div class="d-flex flex-wrap gap-2"><button class="btn btn-outline-primary btn-sm" type="button" id="loadBomItems"><i class="bi bi-diagram-3"></i> 按 BOM 带出子件</button>{{ line_toolbar(allow_fill_down=True) }}</div></div>
+        <div class="table-responsive document-grid-scroll">
+            <table class="table table-bordered table-hover table-sm align-middle mb-0 document-entry-grid" id="itemsTable" data-document-grid data-grid-key="inventory_assembly_items">
+                <thead class="table-light"><tr data-grid-header><th data-column-key="product_name">物料名称 <span class="text-danger">*</span></th><th data-column-key="product_code">物料编码</th><th data-column-key="specification">规格型号</th><th data-column-key="unit">单位</th><th data-column-key="line_warehouse">{{ '入库仓库' if meta.doc_type == 'disassembly' else '出库仓库' }}</th><th data-column-key="line_location">{{ '入库库位' if meta.doc_type == 'disassembly' else '出库库位' }}</th><th data-column-key="line_quantity" class="text-end">数量 <span class="text-danger">*</span></th><th data-column-key="unit_cost" class="text-end">库存成本单价</th><th data-column-key="cost_amount" class="text-end">成本金额</th><th data-column-key="lot_no">批号</th><th data-column-key="serial_no">机号</th><th data-column-key="line_project_code">项目号</th><th data-column-key="source_line_no">来源行</th><th data-column-key="remark">行备注</th><th data-column-key="actions">操作</th></tr></thead>
+                <tbody>{% for item in form_items %}<tr>
+                    <td data-column-key="product_name"><select class="form-select form-select-sm d-none js-product-id-source" name="product_id[]" required><option value="">请选择</option>{% for product in product_options %}<option value="{{ product.id }}" {% if product.id == item.product_id %}selected{% endif %} data-code="{{ product.code or '' }}" data-name="{{ product.name or '' }}" data-specification="{{ product.specification or '' }}" data-unit="{{ product.unit or '' }}" data-price="{{ product.unit_cost or product.standard_price or 0 }}">{{ product.display_name or product.name }}</option>{% endfor %}</select><input class="form-control form-control-sm js-product-name" name="product_name_display[]" value="{{ item.product_name or item.material_name or '' }}" readonly></td>
+                    <td data-column-key="product_code"><input class="form-control form-control-sm js-product-code" value="{{ item.product_code or item.material_code or '' }}" readonly></td><td data-column-key="specification"><input class="form-control form-control-sm js-product-spec" value="{{ item.specification or item.material_spec or '' }}" readonly></td><td data-column-key="unit"><input class="form-control form-control-sm js-product-unit" value="{{ item.unit or item.material_unit or '' }}" readonly></td>
+                    <td data-column-key="line_warehouse"><select class="form-select form-select-sm js-wh-loc-warehouse" name="line_warehouse_id[]"><option value="">使用表头仓库</option>{% for row in warehouses %}<option value="{{ row.id }}" {% if row.id == item.line_warehouse_id %}selected{% endif %}>{{ row.name }}</option>{% endfor %}</select></td><td data-column-key="line_location"><select class="form-select form-select-sm js-wh-loc-location" name="line_location_id[]"><option value="">使用表头库位</option>{% for row in locations %}<option value="{{ row.id }}" data-warehouse-id="{{ row.warehouse_id or '' }}" {% if row.id == item.line_location_id %}selected{% endif %}>{{ row.code or row.name }}</option>{% endfor %}</select></td>
+                    <td data-column-key="line_quantity"><input class="form-control form-control-sm js-qty text-end" type="number" step="0.001" min="0.001" name="line_quantity[]" value="{{ item.quantity or 1 }}" required></td><td data-column-key="unit_cost"><input class="form-control form-control-sm js-unit-cost text-end" type="number" step="0.0001" name="unit_cost[]" value="{{ item.unit_cost or 0 }}"></td><td data-column-key="cost_amount"><input class="form-control form-control-sm js-cost-amount text-end" value="0.00" readonly></td>
+                    <td data-column-key="lot_no"><input class="form-control form-control-sm" name="lot_no[]" value="{{ item.lot_no or '' }}"></td><td data-column-key="serial_no"><input class="form-control form-control-sm" name="serial_no[]" value="{{ item.serial_no or '' }}"></td><td data-column-key="line_project_code"><input class="form-control form-control-sm js-line-project-code" name="line_project_code[]" value="{{ item.line_project_code or form_order.project_code or '' }}"></td><td data-column-key="source_line_no"><input class="form-control form-control-sm" name="source_line_no[]" value="{{ item.source_line_no or '' }}"></td><td data-column-key="remark"><input class="form-control form-control-sm" name="remark[]" value="{{ item.remark or '' }}"></td><td data-column-key="actions"><button class="btn btn-outline-danger btn-sm js-delete-line" type="button">删行</button></td>
+                </tr>{% endfor %}</tbody>
+            </table>
+        </div>
+    </div>
+</form>
+{% include "partials/inventory_grid_scripts.html" %}
+{% include "partials/location_filter_script.html" %}
+<script>
+const inventoryBomItems = {{ bom_rows|tojson }};
+function findParentProductOption(text) {
+    const value = String(text || '').trim().toLowerCase();
+    if (!value) return null;
+    const options = Array.from(document.querySelectorAll('.js-parent-product option')).filter(option => option.value);
+    return options.find(option => String(option.dataset.name || option.textContent || '').trim().toLowerCase() === value)
+        || options.find(option => String(option.dataset.search || option.textContent || '').toLowerCase().includes(value))
+        || null;
+}
+function applyParentProductFromName() {
+    const input = document.querySelector('.js-parent-product-name');
+    const select = document.querySelector('.js-parent-product');
+    if (!input || !select) return;
+    const option = findParentProductOption(input.value);
+    if (!option) return;
+    select.value = option.value;
+    input.value = option.dataset.name || option.textContent.trim();
+    const cost = document.querySelector('input[name="unit_cost"]');
+    if (cost && (!cost.value || Number(cost.value) === 0)) cost.value = option.dataset.price || '0';
+}
+document.querySelector('.js-parent-product-name')?.addEventListener('input', applyParentProductFromName);
+document.querySelector('.js-parent-product-name')?.addEventListener('change', applyParentProductFromName);
+document.getElementById("loadBomItems")?.addEventListener("click", function () {
+    applyParentProductFromName();
+    const parentId = parseInt(document.querySelector(".js-parent-product")?.value || "0", 10);
+    const parentQty = parseFloat(document.querySelector('input[name="quantity"]')?.value || "1") || 1;
+    const rows = inventoryBomItems.filter(row => parseInt(row.parent_product_id || "0", 10) === parentId);
+    if (!parentId || !rows.length) { alert("当前主件没有可带出的有效 BOM 子件。"); return; }
+    const tbody = document.querySelector("#itemsTable tbody");
+    const firstRow = tbody?.querySelector("tr");
+    if (!tbody || !firstRow) return;
+    tbody.innerHTML = "";
+    rows.forEach(function (bomRow, index) {
+        const tr = firstRow.cloneNode(true);
+        const product = tr.querySelector('select[name="product_id[]"]');
+        const quantity = tr.querySelector('input[name="line_quantity[]"]');
+        const cost = tr.querySelector('input[name="unit_cost[]"]');
+        const sourceLine = tr.querySelector('input[name="source_line_no[]"]');
+        if (product) product.value = bomRow.product_id || "";
+        const lossRate = parseFloat(bomRow.loss_rate || "0") || 0;
+        if (quantity) quantity.value = ((parseFloat(bomRow.quantity || "0") || 0) * parentQty * (1 + lossRate / 100)).toFixed(3).replace(/\.?0+$/, "");
+        if (cost) cost.value = bomRow.unit_cost || "0";
+        if (sourceLine) sourceLine.value = bomRow.bom_item_id || String(index + 1);
+        tbody.appendChild(tr);
+        tr.querySelector('select[name="product_id[]"]')?.dispatchEvent(new Event("change", {bubbles: true}));
+    });
+});
+</script>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('click', function(event) {
+    var item = event.target.closest('[data-menu-event]');
+    if (!item || item.disabled) return;
+    var action = item.dataset.menuEvent;
+    if (action === 'toolbar-save-new') {
+        event.preventDefault();
+        var form = document.querySelector('.content form');
+        if (form) {
+            var input = form.querySelector('input[name="save_action"]');
+            if (!input) { input = document.createElement('input'); input.type='hidden'; input.name='save_action'; form.appendChild(input); }
+            input.value = 'save_new';
+            if (form.requestSubmit) form.requestSubmit(); else form.submit();
+        }
+    }
+    if (action === 'toolbar-save') {
+        event.preventDefault();
+        var form = document.querySelector('.content form');
+        if (form) { if (form.requestSubmit) form.requestSubmit(); else form.submit(); }
+    }
+});
+</script>
+{% endblock %}

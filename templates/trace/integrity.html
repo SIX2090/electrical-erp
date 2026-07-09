@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}追溯完整性异常{% endblock %}
+{% block header_title %}追溯完整性异常{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+    <h2 class="mb-0"><i class="bi bi-shield-check"></i> 追溯完整性异常</h2>
+    <div class="d-flex gap-2">
+        <form method="post" action="/trace/integrity/scan" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-primary btn-sm" onclick="return confirm('立即扫描追溯完整性并保存新异常？')">
+                <i class="bi bi-radar"></i> 立即扫描
+            </button>
+        </form>
+        <form method="post" action="/trace/integrity/backfill" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-success btn-sm" onclick="return confirm('立即回填缺失的追溯链接与项目号/机号字段？')">
+                <i class="bi bi-magic"></i> P4-B2 追溯回填
+            </button>
+        </form>
+        <a class="btn btn-outline-secondary btn-sm" href="/trace"><i class="bi bi-arrow-left"></i> 返回追溯中心</a>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label small text-muted mb-1">状态</label>
+                <select name="status" class="form-select form-select-sm">
+                    <option value="" {% if not filters.status %}selected{% endif %}>全部状态</option>
+                    <option value="open" {% if filters.status == 'open' %}selected{% endif %}>待处理</option>
+                    <option value="resolved" {% if filters.status == 'resolved' %}selected{% endif %}>已解决</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small text-muted mb-1">级别</label>
+                <select name="severity" class="form-select form-select-sm">
+                    <option value="" {% if not filters.severity %}selected{% endif %}>全部级别</option>
+                    <option value="error" {% if filters.severity == 'error' %}selected{% endif %}>错误</option>
+                    <option value="warning" {% if filters.severity == 'warning' %}selected{% endif %}>警告</option>
+                    <option value="info" {% if filters.severity == 'info' %}selected{% endif %}>提示</option>
+                </select>
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-primary btn-sm flex-fill"><i class="bi bi-funnel"></i> 筛选</button>
+                {% if filters.status or filters.severity %}
+                <a href="/trace/integrity" class="btn btn-outline-secondary btn-sm">清除</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header py-2 d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-list-check"></i> 异常列表</span>
+        <span class="text-muted small">当前筛选 {{ findings|length }} 条</span>
+    </div>
+    <div class="card-body p-0">
+        {% if findings %}
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover table-sm mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th width="60">序号</th>
+                        <th>异常类型</th>
+                        <th>单据类型</th>
+                        <th>单据编号</th>
+                        <th>项目号</th>
+                        <th>机号</th>
+                        <th>说明</th>
+                        <th>级别</th>
+                        <th>状态</th>
+                        <th>创建时间</th>
+                        <th width="90">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in findings %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td><span class="badge text-bg-light border">{{ item.finding_type }}</span></td>
+                        <td>{{ label(item.doc_type) if label is defined else item.doc_type }}</td>
+                        <td>{{ item.doc_no or '-' }}</td>
+                        <td>{{ item.project_code or '-' }}</td>
+                        <td>{{ item.serial_no or '-' }}</td>
+                        <td>{{ item.description or '-' }}</td>
+                        <td>
+                            {% if item.severity == 'error' %}
+                            <span class="badge text-bg-danger">错误</span>
+                            {% elif item.severity == 'warning' %}
+                            <span class="badge text-bg-warning text-dark">警告</span>
+                            {% else %}
+                            <span class="badge text-bg-info">提示</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item.status == 'open' %}
+                            <span class="badge text-bg-warning text-dark">待处理</span>
+                            {% elif item.status == 'resolved' %}
+                            <span class="badge text-bg-success">已解决</span>
+                            {% else %}
+                            <span class="badge text-bg-secondary">{{ item.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-muted small">{{ item.created_at or '-' }}</td>
+                        <td>
+                            {% if item.status == 'open' %}
+                            <form method="post" action="/trace/integrity/{{ item.id }}/resolve" class="d-inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-outline-success btn-sm" onclick="return confirm('确认标记该异常为已解决？')">
+                                    <i class="bi bi-check2"></i> 解决
+                                </button>
+                            </form>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-muted p-3">暂无追溯完整性异常记录。</div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

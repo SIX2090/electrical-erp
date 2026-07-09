@@ -1,0 +1,270 @@
+{% extends "base.html" %}
+
+{% block title %}采购发票勾稽报表{% endblock %}
+
+{% block extra_css %}
+<style>
+    .filter-card {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .data-table {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .summary-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+    .summary-card {
+        background: white;
+        border-radius: 8px;
+        padding: 15px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        text-align: center;
+    }
+    .summary-card h5 {
+        font-size: 0.9rem;
+        color: #6c757d;
+        margin-bottom: 10px;
+    }
+    .summary-card .value {
+        font-size: 1.5rem;
+        font-weight: bold;
+    }
+    .summary-card.normal .value { color: #28a745; }
+    .summary-card.variance .value { color: #dc3545; }
+    .summary-card.info .value { color: #17a2b8; }
+
+    .table-header {
+        background: #f8f9fa;
+        font-weight: 600;
+    }
+    .qty-col { color: #0d6efd; }
+    .amount-col { color: #198754; }
+    .variance-col { color: #dc3545; font-weight: 600; }
+
+    .status-badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+    .status-normal { background: #d1e7dd; color: #0f5132; }
+    .status-over { background: #f8d7da; color: #842029; }
+    .status-under { background: #fff3cd; color: #664d03; }
+
+    @media print {
+        .filter-card, .no-print { display: none !important; }
+        body { font-size: 12px; }
+        .table { font-size: 11px; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-clipboard2-check"></i> 采购发票勾稽报表</h2>
+        <div class="no-print d-none">
+            <a href="javascript:history.back()" class="btn btn-outline-secondary" title="返回上一页">
+                <i class="bi bi-arrow-left"></i> 返回
+            </a>
+            <button onclick="exportReportTable()" class="btn btn-outline-success">
+                <i class="bi bi-file-earmark-excel"></i> 导出Excel
+            </button>
+            <button onclick="window.print()" class="btn btn-outline-primary">
+                <i class="bi bi-printer"></i> 打印
+            </button>
+        </div>
+    </div>
+
+    <!-- 汇总统计卡片 -->
+    <div class="summary-cards">
+        <div class="summary-card info">
+            <h5>总记录数</h5>
+            <div class="value">{{ summary.total_records }}</div>
+        </div>
+        <div class="summary-card normal">
+            <h5>正常记录</h5>
+            <div class="value">{{ summary.normal_count }}</div>
+        </div>
+        <div class="summary-card variance">
+            <h5>差异记录</h5>
+            <div class="value">{{ summary.variance_count }}</div>
+        </div>
+        <div class="summary-card info">
+            <h5>差异率</h5>
+            <div class="value">{{ summary.variance_rate }}</div>
+        </div>
+        <div class="summary-card variance">
+            <h5>金额差异总额</h5>
+            <div class="value">¥{{ "{:,.2f}".format(summary.total_amount_variance) }}</div>
+        </div>
+    </div>
+
+    <!-- 筛选表单 -->
+    <div class="filter-card no-print">
+        <form method="get" id="reportFilterForm" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">供应商</label>
+                <select name="supplier_id" class="form-select">
+                    <option value="">全部供应商</option>
+                    {% for supplier in suppliers %}
+                    <option value="{{ supplier.id }}" {% if filters.supplier_id == supplier.id|string %}selected{% endif %}>
+                        {{ supplier.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">订单号</label>
+                <input type="text" name="order_no" class="form-control"
+                       placeholder="订单号" value="{{ filters.order_no or '' }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">项目号</label>
+                <input type="text" name="project_code" class="form-control"
+                       placeholder="项目号" value="{{ filters.project_code or '' }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">机号</label>
+                <input type="text" name="serial_no" class="form-control"
+                       placeholder="机号" value="{{ filters.serial_no or '' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">订单日期</label>
+                <div class="input-group">
+                    <input type="date" name="start_date" class="form-control"
+                           value="{{ filters.start_date or '' }}">
+                    <span class="input-group-text">至</span>
+                    <input type="date" name="end_date" class="form-control"
+                           value="{{ filters.end_date or '' }}">
+                </div>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">差异筛选</label>
+                <select name="has_variance" class="form-select">
+                    <option value="0" {% if filters.has_variance == '0' %}selected{% endif %}>全部</option>
+                    <option value="1" {% if filters.has_variance == '1' %}selected{% endif %}>仅显示差异</option>
+                </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-search"></i> 查询
+                </button>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <a href="{{ request.path }}" class="btn btn-secondary w-100">
+                    <i class="bi bi-arrow-clockwise"></i> 重置
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- 数据表格 -->
+    <div class="data-table">
+        {% if rows %}
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover table-sm">
+                <thead class="table-header">
+                    <tr>
+                        <th rowspan="2" style="vertical-align: middle;">订单号</th>
+                        <th rowspan="2" style="vertical-align: middle;">订单日期</th>
+                        <th rowspan="2" style="vertical-align: middle;">供应商</th>
+                        <th rowspan="2" style="vertical-align: middle;">项目号</th>
+                        <th rowspan="2" style="vertical-align: middle;">机号</th>
+                        <th rowspan="2" style="vertical-align: middle;">物料编码</th>
+                        <th rowspan="2" style="vertical-align: middle;">物料名称</th>
+                        <th rowspan="2" style="vertical-align: middle;">规格</th>
+                        <th rowspan="2" style="vertical-align: middle;">单位</th>
+                        <th colspan="3" class="text-center" style="background: #e3f2fd;">数量</th>
+                        <th colspan="2" class="text-center" style="background: #e8f5e9;">金额</th>
+                        <th colspan="2" class="text-center" style="background: #ffebee;">差异</th>
+                        <th rowspan="2" style="vertical-align: middle;">状态</th>
+                    </tr>
+                    <tr>
+                        <th class="text-end" style="background: #e3f2fd;">订单</th>
+                        <th class="text-end" style="background: #e3f2fd;">入库</th>
+                        <th class="text-end" style="background: #e3f2fd;">到票</th>
+                        <th class="text-end" style="background: #e8f5e9;">订单金额</th>
+                        <th class="text-end" style="background: #e8f5e9;">发票金额</th>
+                        <th class="text-end" style="background: #ffebee;">数量</th>
+                        <th class="text-end" style="background: #ffebee;">金额</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                    <tr>
+                        <td>{{ row.order_no }}</td>
+                        <td>{{ row.order_date }}</td>
+                        <td>{{ row.supplier_name }}</td>
+                        <td>{{ row.project_code or '-' }}</td>
+                        <td>{{ row.serial_no or '-' }}</td>
+                        <td>{{ row.item_code }}</td>
+                        <td>{{ row.item_name }}</td>
+                        <td>{{ row.specification or '-' }}</td>
+                        <td>{{ row.unit }}</td>
+                        <td class="text-end qty-col">{{ "{:,.2f}".format(row.order_qty) }}</td>
+                        <td class="text-end qty-col">{{ "{:,.2f}".format(row.receipt_qty) }}</td>
+                        <td class="text-end qty-col">{{ "{:,.2f}".format(row.invoice_qty) }}</td>
+                        <td class="text-end amount-col">¥{{ "{:,.2f}".format(row.order_amount) }}</td>
+                        <td class="text-end amount-col">¥{{ "{:,.2f}".format(row.invoice_amount) }}</td>
+                        <td class="text-end variance-col">
+                            {% if row.quantity_variance != 0 %}
+                                {{ "{:+,.2f}".format(row.quantity_variance) }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td class="text-end variance-col">
+                            {% if row.amount_variance != 0 and (row.amount_variance > 1 or row.amount_variance < -1) %}
+                                ¥{{ "{:+,.2f}".format(row.amount_variance) }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if row.variance_status == '正常' %}
+                                <span class="status-badge status-normal">正常</span>
+                            {% elif row.variance_status in ['超到票', '金额超额'] %}
+                                <span class="status-badge status-over">{{ row.variance_status }}</span>
+                            {% else %}
+                                <span class="status-badge status-under">{{ row.variance_status }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+            <p class="mt-3">暂无数据</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function exportReportTable() {
+    var table = document.querySelector('.table');
+    if (!table) return;
+    var html = table.outerHTML;
+    var url = 'data:application/vnd.ms-excel,' + encodeURIComponent(html);
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = '{{ title }}_' + new Date().toISOString().substr(0,10) + '.xls';
+    link.click();
+}
+</script>
+{% endblock %}

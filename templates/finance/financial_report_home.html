@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+
+{% block title %}财务报表{% endblock %}
+
+{% block content %}
+<form id="reportFilterForm" method="get" class="d-none"></form>
+<div class="container-fluid mt-4">
+    <!-- 页面标题 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-chart-bar"></i> 财务报表</h2>
+    </div>
+
+    {% if error %}
+    <div class="alert alert-danger">
+        <i class="fas fa-exclamation-triangle"></i> {{ error }}
+    </div>
+    {% endif %}
+
+    <!-- 期间选择 -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <label class="font-weight-bold">选择报表期间：</label>
+                    <input type="month" class="form-control" id="reportPeriod"
+                           value="{{ current_period }}" max="{{ current_period }}">
+                </div>
+                <div class="col-md-6 text-right">
+                    <button class="btn btn-primary" onclick="updatePeriod()">
+                        <i class="fas fa-sync-alt"></i> 更新期间
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 三大报表入口 -->
+    <div class="row mb-4">
+        <!-- 资产负债表 -->
+        <div class="col-md-4">
+            <div class="card h-100 border-primary">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-balance-scale fa-4x text-primary"></i>
+                    </div>
+                    <h4 class="card-title">资产负债表</h4>
+                    <p class="text-muted">
+                        反映企业在特定日期的财务状况<br>
+                        资产 = 负债 + 所有者权益
+                    </p>
+                    <a href="/finance/reports/balance-sheet?period={{ current_period }}"
+                       class="btn btn-primary btn-block" id="balanceSheetLink">
+                        <i class="fas fa-eye"></i> 查看报表
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 利润表 -->
+        <div class="col-md-4">
+            <div class="card h-100 border-success">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-chart-line fa-4x text-success"></i>
+                    </div>
+                    <h4 class="card-title">利润表</h4>
+                    <p class="text-muted">
+                        反映企业在一定期间的经营成果<br>
+                        净利润 = 收入 - 成本 - 费用
+                    </p>
+                    <a href="/finance/reports/income-statement?period={{ current_period }}"
+                       class="btn btn-success btn-block" id="incomeStatementLink">
+                        <i class="fas fa-eye"></i> 查看报表
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 现金流量表 -->
+        <div class="col-md-4">
+            <div class="card h-100 border-info">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-money-bill-wave fa-4x text-info"></i>
+                    </div>
+                    <h4 class="card-title">现金流量表</h4>
+                    <p class="text-muted">
+                        反映企业在一定期间的现金流入和流出<br>
+                        经营、投资、筹资三大活动
+                    </p>
+                    <a href="/finance/reports/cash-flow-statement?period={{ current_period }}"
+                       class="btn btn-info btn-block" id="cashFlowLink">
+                        <i class="fas fa-eye"></i> 查看报表
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 报表说明 -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="fas fa-info-circle"></i> 报表说明</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <h6 class="text-primary"><i class="fas fa-balance-scale"></i> 资产负债表</h6>
+                            <ul class="small">
+                                <li>报表时点：期末时点</li>
+                                <li>数据来源：科目余额表</li>
+                                <li>关键指标：资产总额、负债总额、所有者权益</li>
+                                <li>平衡关系：资产 = 负债 + 所有者权益</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-4">
+                            <h6 class="text-success"><i class="fas fa-chart-line"></i> 利润表</h6>
+                            <ul class="small">
+                                <li>报表期间：会计期间</li>
+                                <li>数据来源：损益类科目发生额</li>
+                                <li>关键指标：营业收入、营业利润、净利润</li>
+                                <li>计算公式：净利润 = 收入 - 成本 - 费用</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-4">
+                            <h6 class="text-info"><i class="fas fa-money-bill-wave"></i> 现金流量表</h6>
+                            <ul class="small">
+                                <li>报表期间：会计期间</li>
+                                <li>数据来源：现金科目发生额</li>
+                                <li>关键指标：经营活动现金流、现金净增加额</li>
+                                <li>三大活动：经营、投资、筹资</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 最近生成记录 -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="fas fa-history"></i> 最近生成记录</h5>
+                </div>
+                <div class="card-body">
+                    {% if history %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead>
+                                <tr>
+                                    <th>报表类型</th>
+                                    <th>报表期间</th>
+                                    <th>生成人</th>
+                                    <th>生成时间</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for record in history %}
+                                <tr>
+                                    <td>
+                                        {% if record.report_type == '资产负债表' %}
+                                        <span class="badge badge-primary">{{ record.report_type }}</span>
+                                        {% elif record.report_type == '利润表' %}
+                                        <span class="badge badge-success">{{ record.report_type }}</span>
+                                        {% elif record.report_type == '现金流量表' %}
+                                        <span class="badge badge-info">{{ record.report_type }}</span>
+                                        {% else %}
+                                        <span class="badge badge-secondary">{{ record.report_type }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ record.report_period }}</td>
+                                    <td>{{ record.generator_name or '-' }}</td>
+                                    <td>{{ record.generated_at }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-3">
+                        <p class="text-muted mb-0">暂无生成记录</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+function updatePeriod() {
+    const period = $('#reportPeriod').val();
+    if (!period) {
+        alert('请选择报表期间');
+        return;
+    }
+
+    // 更新报表链接
+    const baseUrl = window.location.origin;
+    $('#balanceSheetLink').attr('href', baseUrl + '/finance/reports/balance-sheet?period=' + period);
+    $('#incomeStatementLink').attr('href', baseUrl + '/finance/reports/income-statement?period=' + period);
+    $('#cashFlowLink').attr('href', baseUrl + '/finance/reports/cash-flow-statement?period=' + period);
+
+    alert('期间已更新为：' + period);
+}
+</script>
+{% endblock %}

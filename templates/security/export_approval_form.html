@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}导出审批申请{% endblock %}
+{% block content %}
+<div class="container-fluid py-3">
+  <div class="row">
+    <div class="col-md-8 offset-md-2">
+      <h4 class="mb-3">提交导出审批申请</h4>
+      <form method="post">
+        <div class="mb-3">
+          <label class="form-label">资源类型 <span class="text-danger">*</span></label>
+          <input type="text" name="resource_type" class="form-control" value="{{ form_state.resource_type }}"
+                 placeholder="如：cost_run / bom / trace_graph" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">资源ID</label>
+          <input type="text" name="resource_id" class="form-control" value="{{ form_state.resource_id }}"
+                 placeholder="如：run_id=123">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">资源标签</label>
+          <input type="text" name="resource_label" class="form-control" value="{{ form_state.resource_label }}"
+                 placeholder="如：COST-20260622-001">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">导出格式</label>
+          <select name="export_format" class="form-select">
+            <option value="csv" {% if form_state.export_format=='csv' %}selected{% endif %}>CSV</option>
+            <option value="xlsx" {% if form_state.export_format=='xlsx' %}selected{% endif %}>Excel</option>
+            <option value="pdf" {% if form_state.export_format=='pdf' %}selected{% endif %}>PDF</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">筛选条件摘要</label>
+          <textarea name="filter_summary" class="form-control" rows="2"
+                    placeholder="如：期间=2026-06 项目=GT-TRIAL">{{ form_state.filter_summary }}</textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">提交申请</button>
+        <a href="{{ url_for('export_approvals_page') }}" class="btn btn-secondary">返回</a>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

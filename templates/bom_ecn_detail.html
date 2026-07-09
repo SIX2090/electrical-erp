@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}工程变更单详情{% endblock %}
+{% block content %}
+{% if not ecn %}
+<div class="page-card">未找到工程变更单。</div>
+{% else %}
+{% set status = ecn.status_key %}
+{{ document_menu_bar(actions=[
+    {'label': '修改', 'type': 'link', 'href': url_for('bom_ecn_edit', ecn_key=ecn.ecn_no), 'disabled': status not in ['draft', 'submitted']},
+    {'label': '提交', 'type': 'button', 'button_type': 'submit', 'form': 'ecnSubmitForm', 'disabled': status != 'draft'},
+    {'label': '审核', 'type': 'button', 'button_type': 'submit', 'form': 'ecnApproveForm', 'disabled': status != 'submitted'},
+    {'label': '关闭', 'type': 'button', 'button_type': 'submit', 'form': 'ecnCloseForm', 'disabled': status != 'approved'},
+    {'label': '复制升版BOM', 'type': 'link', 'href': url_for('bom_copy', bom_key=source_bom.bom_no, upgrade=1, ecn_no=ecn.ecn_no) if source_bom else '#', 'disabled': not source_bom or status in ['closed', 'voided']},
+    {'type': 'nav', 'items': [
+        {'label': '首张', 'event': 'doc-nav-first', 'icon': 'bi-chevron-double-left'},
+        {'label': '上一张', 'event': 'doc-nav-prev', 'icon': 'bi-chevron-left'},
+        {'label': '下一张', 'event': 'doc-nav-next', 'icon': 'bi-chevron-right'},
+        {'label': '末张', 'event': 'doc-nav-last', 'icon': 'bi-chevron-double-right'}
+    ]}
+]) }}
+<div id="doc-nav-config" data-nav-table="bom_ecn" data-nav-base="/bom/ecn/" data-doc-id="{{ ecn.id }}" style="display:none"></div>
+<form id="ecnSubmitForm" method="post" action="{{ url_for('bom_ecn_action', ecn_key=ecn.ecn_no, action='submit') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+<form id="ecnApproveForm" method="post" action="{{ url_for('bom_ecn_action', ecn_key=ecn.ecn_no, action='approve') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+<form id="ecnCloseForm" method="post" action="{{ url_for('bom_ecn_action', ecn_key=ecn.ecn_no, action='close') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+<form id="ecnVoidForm" method="post" action="{{ url_for('bom_ecn_action', ecn_key=ecn.ecn_no, action='void') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+
+<div class="page-card mb-3">
+    <div class="d-flex justify-content-between align-items-start gap-3">
+        <div>
+            <h1 class="h4 mb-1">{{ ecn.ecn_no }}</h1>
+            <div class="text-muted">{{ ecn.title|clean_text }}</div>
+        </div>
+        <span class="badge text-bg-primary">{{ ecn.status_label }}</span>
+    </div>
+</div>
+
+<div class="alert alert-info py-2">
+    边界：本单只管理BOM工程变更闭环。影响摘要只读；工单、MRP、采购处理回到各自业务单据，不在工程变更单内执行。
+</div>
+
+<div class="page-card mb-3">
+    <h2 class="h5 mb-3">变更信息</h2>
+    <dl class="row mb-0">
+        <dt class="col-sm-2">ECN编号</dt><dd class="col-sm-10">{{ ecn.ecn_no|clean_text }}</dd>
+        <dt class="col-sm-2">变更原因</dt><dd class="col-sm-10">{{ ecn.change_reason|clean_text }}</dd>
+        <dt class="col-sm-2">影响BOM</dt><dd class="col-sm-4">{% if source_bom %}<a href="{{ url_for('bom_detail', bom_key=source_bom.bom_no) }}">{{ source_bom.bom_no }}</a> / {{ source_bom.version }} / {{ source_bom.product_code }} {{ source_bom.product_name_display }}{% else %}-{% endif %}</dd>
+        <dt class="col-sm-2">升版BOM</dt><dd class="col-sm-4">{% if target_bom %}<a href="{{ url_for('bom_detail', bom_key=target_bom.bom_no) }}">{{ target_bom.bom_no }}</a> / {{ target_bom.version }}{% else %}未关联{% endif %}</dd>
+        <dt class="col-sm-2">负责人</dt><dd class="col-sm-4">{{ ecn.owner|clean_text or '-' }}</dd>
+        <dt class="col-sm-2">申请日期</dt><dd class="col-sm-4">{{ ecn.requested_date or '-' }}</dd>
+        <dt class="col-sm-2">影响提示备注</dt><dd class="col-sm-10">{{ ecn.impact_summary|clean_text or '-' }}</dd>
+    </dl>
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title"><div><h2>只读影响摘要</h2><span>提示受影响的工单、MRP和采购需求，不执行重算或关闭。</span></div></div>
+    {% if impact %}
+    <div class="row g-3 mb-3">
+        <div class="col-md-4"><div class="metric"><div class="label">相关工单</div><div class="value">{{ impact.work_order_summary.order_count or 0 }}</div><div class="text-muted small">未关闭 {{ impact.work_order_summary.open_count or 0 }}</div></div></div>
+        <div class="col-md-4"><div class="metric"><div class="label">MRP需求</div><div class="value">{{ impact.mrp_summary.requirement_count or 0 }}</div><div class="text-muted small">缺料 {{ impact.mrp_summary.shortage_qty|qty }}</div></div></div>
+        <div class="col-md-4"><div class="metric"><div class="label">采购未到</div><div class="value">{{ impact.purchase_summary.pending_qty|qty }}</div><div class="text-muted small">订单 {{ impact.purchase_summary.order_count or 0 }}</div></div></div>
+    </div>
+    <div class="row g-3">
+        <div class="col-lg-4"><h3 class="h6">最近工单</h3><table class="table table-sm"><tbody>{% for row in impact.recent_work_orders %}<tr><td><a href="/work-orders/{{ row.id }}">{{ row.wo_no|clean_text or row.id }}</a></td><td>{{ row.status|erp_value|clean_text or '-' }}</td><td>{{ row.quantity|qty }}</td></tr>{% else %}<tr><td class="text-muted">暂无相关工单。</td></tr>{% endfor %}</tbody></table></div>
+        <div class="col-lg-4"><h3 class="h6">MRP需求</h3><table class="table table-sm"><tbody>{% for row in impact.mrp_rows %}<tr><td>{{ row.product_code|clean_text }} {{ row.product_name|clean_text }}</td><td class="text-end">{{ row.shortage_quantity|qty }}</td><td>{{ row.status|erp_value|clean_text or '-' }}</td></tr>{% else %}<tr><td class="text-muted">暂无MRP需求。</td></tr>{% endfor %}</tbody></table></div>
+        <div class="col-lg-4"><h3 class="h6">采购未到</h3><table class="table table-sm"><tbody>{% for row in impact.purchase_rows %}<tr><td>{% if row.id %}<a href="/purchase_order/{{ row.id }}">{{ row.order_no|clean_text or row.id }}</a>{% else %}-{% endif %}</td><td>{{ row.product_code|clean_text }}</td><td class="text-end">{{ row.pending_qty|qty }}</td></tr>{% else %}<tr><td class="text-muted">暂无采购未到。</td></tr>{% endfor %}</tbody></table></div>
+    </div>
+    {% else %}
+    <div class="text-muted">未选择影响BOM，暂无影响摘要。</div>
+    {% endif %}
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-6">
+        <div class="page-card">
+            <h2 class="h5 mb-3">影响BOM子项</h2>
+            <div class="table-responsive"><table class="table table-sm align-middle"><thead><tr><th>物料</th><th class="text-end">用量</th><th>替代</th><th>说明</th></tr></thead><tbody>{% for item in source_items %}<tr><td>{{ item.product_code|clean_text }} {{ item.product_name_display }}</td><td class="text-end">{{ item.quantity|qty }} {{ item.display_unit_display }}</td><td>{{ '替代标识' if item.is_optional else '-' }}</td><td>{{ item.remark_display }}</td></tr>{% else %}<tr><td colspan="4" class="text-muted">暂无子项。</td></tr>{% endfor %}</tbody></table></div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="page-card">
+            <h2 class="h5 mb-3">升版BOM子项</h2>
+            <div class="table-responsive"><table class="table table-sm align-middle"><thead><tr><th>物料</th><th class="text-end">用量</th><th>替代</th><th>说明</th></tr></thead><tbody>{% for item in target_items %}<tr><td>{{ item.product_code|clean_text }} {{ item.product_name_display }}</td><td class="text-end">{{ item.quantity|qty }} {{ item.display_unit_display }}</td><td>{{ '替代标识' if item.is_optional else '-' }}</td><td>{{ item.remark_display }}</td></tr>{% else %}<tr><td colspan="4" class="text-muted">尚未关联升版BOM。</td></tr>{% endfor %}</tbody></table></div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

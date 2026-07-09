@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}汇率历史{% endblock %}
+{% block header_title %}汇率历史{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+    <h2 class="mb-0"><i class="bi bi-currency-exchange"></i> 汇率历史</h2>
+    <a class="btn btn-outline-secondary btn-sm" href="/finance"><i class="bi bi-arrow-left"></i> 返回财务中心</a>
+    <a class="btn btn-outline-secondary btn-sm" href="/"><i class="bi bi-house"></i> 返回首页</a>
+</div>
+
+<div class="card mb-3">
+    <div class="card-header py-2"><i class="bi bi-plus-circle"></i> 新增/更新汇率</div>
+    <div class="card-body py-2">
+        <form method="post" class="row g-2 align-items-end">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="col-md-2">
+                <label class="form-label small mb-1">币种</label>
+                <select name="currency_code" class="form-select form-select-sm" required>
+                    <option value="">请选择...</option>
+                    {% for c in currencies %}
+                    <option value="{{ c.code }}">{{ c.code }} - {{ c.name }}{% if c.is_base %} (本位币){% endif %}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small mb-1">日期</label>
+                <input type="date" name="rate_date" class="form-control form-control-sm" required>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small mb-1">汇率(对本位币)</label>
+                <input type="number" name="rate_to_base" class="form-control form-control-sm" step="0.00000001" required>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small mb-1">类型</label>
+                <select name="rate_type" class="form-select form-select-sm">
+                    <option value="period_end">期末汇率</option>
+                    <option value="daily">每日汇率</option>
+                    <option value="transaction">交易汇率</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small mb-1">来源</label>
+                <input type="text" name="source" class="form-control form-control-sm" placeholder="央行/银行">
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary btn-sm w-100"><i class="bi bi-save"></i> 保存</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header py-2"><i class="bi bi-list-ul"></i> 汇率历史记录</div>
+    <div class="card-body p-0">
+        {% if rates %}
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover table-sm mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>币种</th>
+                        <th>日期</th>
+                        <th>汇率</th>
+                        <th>类型</th>
+                        <th>来源</th>
+                        <th>备注</th>
+                        <th>创建时间</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in rates %}
+                    <tr>
+                        <td><strong>{{ r.currency_code }}</strong></td>
+                        <td>{{ r.rate_date }}</td>
+                        <td>{{ '%.8f'|format(r.rate_to_base or 0) }}</td>
+                        <td>{{ r.rate_type or '-' }}</td>
+                        <td>{{ r.source or '-' }}</td>
+                        <td>{{ r.remark or '-' }}</td>
+                        <td><small>{{ r.created_at }}</small></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-muted p-3 text-center">暂无汇率历史记录。</div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

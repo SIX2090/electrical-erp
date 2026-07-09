@@ -1,0 +1,348 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+{% set list_meta = request.list_query_meta|default({}) %}
+{% set active_sort = request.args.get('sort', list_meta.get('sort', '')) %}
+{% set active_direction = request.args.get('direction', list_meta.get('direction', 'desc')) %}
+{% set page = list_meta.get('page', request.args.get('page', 1)|int) %}
+{% set page_size = list_meta.get('page_size', request.args.get('page_size', 100)|int) %}
+{% set total = list_meta.get('total', rows|length) %}
+{% set total_pages = list_meta.get('total_pages', 1) %}
+{% set inventory_bulk_enabled = bulk_actions and bulk_actions.endpoint %}
+{% set row_selection_enabled = inventory_bulk_enabled or (bulk_actions and bulk_actions.select) %}
+<div class="page-heading">
+    <h1>{{ title }}</h1>
+    <p>{{ subtitle or '列表' }}</p>
+</div>
+<div class="page-card">
+    <div class="section-title">
+        <div>
+            <h2>{{ title }}</h2>
+            <span>{{ total }} 条记录{% if total_pages > 1 %}，第 {{ page }} / {{ total_pages }} 页{% endif %}</span>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            {% if import_url %}
+            <a class="btn btn-outline-secondary btn-sm" href="{{ import_url }}"><i class="bi bi-upload"></i> 导入</a>
+            {% endif %}
+            {% if template_url %}
+            <a class="btn btn-outline-secondary btn-sm" href="{{ template_url }}"><i class="bi bi-file-earmark-spreadsheet"></i> 模板</a>
+            {% endif %}
+            {% if inventory_bulk_enabled %}
+            <form id="inventoryBulkActionForm" method="post" action="{{ bulk_actions.endpoint }}" class="d-flex flex-wrap gap-2 align-items-center">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="doc_type" value="{{ bulk_actions.doc_type }}">
+                <input type="hidden" name="return_url" value="{{ bulk_actions.return_url }}">
+                <input type="checkbox" class="bulk-row-check d-none" name="ids" value="" disabled aria-hidden="true">
+                <button class="btn btn-outline-secondary btn-sm" type="button" id="bulkSelectAll">
+                    <i class="bi bi-check2-square"></i> 全选当前页
+                </button>
+                {% for action in bulk_actions.actions %}
+                <button class="btn {{ action.class or 'btn-outline-primary' }} btn-sm" type="submit" name="action" value="{{ action.value }}">
+                    {{ action.label }}
+                </button>
+                {% endfor %}
+            </form>
+            {% endif %}
+            {% if bulk_actions and bulk_actions.delete_url %}
+            {% if bulk_actions.select %}
+            <button class="btn btn-outline-secondary btn-sm" type="button" id="simpleListSelectCurrentPage">
+                <i class="bi bi-check2-square"></i> 全选当前页
+            </button>
+            {% endif %}
+            <button class="btn btn-outline-danger btn-sm" type="button" id="simpleListDeleteSelected">
+                <i class="bi bi-trash"></i> 删除所选
+            </button>
+            {% if bulk_actions.clear_filtered %}
+            <button class="btn btn-danger btn-sm" type="button" id="simpleListClearFiltered">
+                <i class="bi bi-trash3"></i> 清空当前筛选结果
+            </button>
+            {% endif %}
+            {% endif %}
+        </div>
+    </div>
+    {% set has_active_filter = request.args.get('keyword') or request.args.get('q') or request.args.get('status') or request.args.get('project') or request.args.get('project_serial') or request.args.get('date_from') or request.args.get('date_start') or request.args.get('date_to') or request.args.get('date_end') %}
+    <form class="row g-2 align-items-end mb-3 {{ '' if has_active_filter else 'd-none' }}" method="get" data-list-filter-form>
+        <input type="hidden" name="sort" value="{{ active_sort }}">
+        <input type="hidden" name="direction" value="{{ active_direction }}">
+        <div class="col-md-3">
+            <label class="form-label small text-muted mb-1">关键字</label>
+            <input class="form-control form-control-sm" name="keyword" value="{{ request.args.get('keyword', request.args.get('q', '')) }}" placeholder="单号、名称、物料、往来单位">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small text-muted mb-1">状态</label>
+            <select class="form-select form-select-sm" name="status">
+                <option value="">全部状态</option>
+                {% set _status_opts = status_options if status_options is defined else [
+                    ('草稿', '草稿'), ('待审核', '待审核'), ('已审核', '已审核'),
+                    ('待处理', '待处理'), ('执行中', '执行中'), ('已完成', '已完成'),
+                    ('已结案', '已结案'), ('已作废', '已作废'), ('已取消', '已取消'),
+                    ('启用', '启用'), ('停用', '停用')
+                ] %}
+                {% for val, label in _status_opts %}
+                <option value="{{ val }}" {% if request.args.get('status', '') == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small text-muted mb-1">项目/机号</label>
+            <input class="form-control form-control-sm" name="project" value="{{ request.args.get('project', request.args.get('project_serial', '')) }}" placeholder="项目号或机号">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small text-muted mb-1">开始日期</label>
+            <input class="form-control form-control-sm" type="date" name="date_from" value="{{ request.args.get('date_from', request.args.get('date_start', '')) }}">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small text-muted mb-1">结束日期</label>
+            <input class="form-control form-control-sm" type="date" name="date_to" value="{{ request.args.get('date_to', request.args.get('date_end', '')) }}">
+        </div>
+        <div class="col-md-1">
+            <label class="form-label small text-muted mb-1">每页</label>
+            <select class="form-select form-select-sm" name="page_size">
+                {% for size in [50, 100, 200, 500] %}
+                <option value="{{ size }}" {% if page_size == size %}selected{% endif %}>{{ size }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-12 d-flex flex-wrap gap-2">
+            <button class="btn btn-outline-primary btn-sm" type="submit"><i class="bi bi-search"></i> 筛选</button>
+            <a class="btn btn-outline-secondary btn-sm" href="{{ request.path }}"><i class="bi bi-arrow-counterclockwise"></i> 重置</a>
+        </div>
+    </form>
+    {% if rows or columns %}
+    <div class="table-responsive">
+        <table class="table table-sm align-middle simple-list-table">
+            <thead>
+            <tr>
+                {% if row_selection_enabled %}
+                <th style="width:42px;" data-column-system="selection" data-column-label="选择">
+                    <input type="checkbox" id="simpleListSelectAll" aria-label="全选">
+                </th>
+                {% endif %}
+                {% for column in columns %}
+                {% set next_direction = 'desc' if active_sort == column.key and active_direction != 'desc' else 'asc' %}
+                <th data-column-key="{{ column.key }}" data-sortable="{{ column.key }}">
+                    <a class="text-decoration-none text-reset" href="{{ request.path }}?keyword={{ request.args.get('keyword', request.args.get('q', ''))|urlencode }}&status={{ request.args.get('status', '')|urlencode }}&project={{ request.args.get('project', request.args.get('project_serial', ''))|urlencode }}&date_from={{ request.args.get('date_from', request.args.get('date_start', ''))|urlencode }}&date_to={{ request.args.get('date_to', request.args.get('date_end', ''))|urlencode }}&page_size={{ page_size }}&sort={{ column.key|urlencode }}&direction={{ next_direction }}">
+                        {{ column.label }}
+                        {% if active_sort == column.key %}
+                        <span class="sort-marker">{{ '↓' if active_direction == 'desc' else '↑' }}</span>
+                        {% endif %}
+                    </a>
+                </th>
+                {% endfor %}
+                {% if detail_base %}<th data-column-system="actions">操作</th>{% endif %}
+            </tr>
+            </thead>
+            <tbody>
+            {% if rows %}
+            {% for row in rows %}
+            <tr>
+                {% if row_selection_enabled %}
+                <td><input type="checkbox" class="simple-list-check bulk-row-check" name="ids" value="{{ row.get('id') }}" form="{{ 'inventoryBulkActionForm' if inventory_bulk_enabled else '' }}" aria-label="选择 {{ row.get('id') }}"></td>
+                {% endif %}
+                {% for column in columns %}
+                {% set value = row.get(column.key) %}
+                {% if column.key == 'issue_action' %}
+                <td><a class="btn btn-outline-primary btn-sm" href="/subcontract_issue/new?subcontract_order_id={{ row.get('id') }}">发料</a></td>
+                {% elif column.key == 'receive_action' %}
+                <td><a class="btn btn-outline-success btn-sm" href="/subcontract_receive/new?subcontract_order_id={{ row.get('id') }}">收货</a></td>
+                {% elif column.key == 'payable_action' %}
+                <td><a class="btn btn-outline-secondary btn-sm" href="/payables?keyword={{ row.get('order_no')|urlencode }}">应付</a></td>
+                {% elif column.key == 'dispatch_action' %}
+                <td><a class="btn btn-outline-primary btn-sm" href="/production-schedules/{{ row.get('id') }}#dispatch-control">派工/改期</a></td>
+                {% elif column.key == 'report_action' %}
+                <td><a class="btn btn-outline-success btn-sm" href="/production/operation-reports/new?work_order_id={{ row.get('work_order_id') or '' }}&work_order_process_id={{ row.get('work_order_process_id') or '' }}">报工</a></td>
+                {% else %}
+                {% set status_keys = ['status', '单据状态', '使用状态', '数据状态'] %}
+                {% if column.key in status_keys and value %}
+                {% set status_norm = (value|string).strip() %}
+                {% set status_class = 'info' %}
+                {% if status_norm in ['已审核','已提交','已完成','已结案','已发货','已入库','已出库','已收款','已付款','已派工','已上线','已启用','已过账','合格','success','completed','done','approved','closed'] %}{% set status_class = 'success' %}
+                {% elif status_norm in ['待审核','待提交','待处理','待派工','待收货','待入库','待发料','待整改','待收款','待付款','pending','draft','open','waiting'] %}{% set status_class = 'warning' %}
+                {% elif status_norm in ['未通过','已驳回','已作废','已取消','停用','danger','rejected','cancelled','void','disabled'] %}{% set status_class = 'danger' %}
+                {% endif %}
+                <td><span class="status-pill {{ status_class }}">{{ value|clean_text }}</span></td>
+                {% else %}
+                <td>{{ value|clean_text }}</td>
+                {% endif %}
+                {% endif %}
+                {% endfor %}
+                {% if detail_base %}
+                <td>
+                    {% set editable_bases = ['/project-master', '/machine-serial-master', '/shipments', '/supplier-quotes', '/sales-returns', '/purchase-returns', '/subcontract', '/subcontract_issue', '/subcontract_receive', '/service-orders', '/service-acceptance', '/service-rmas', '/adjustments', '/transfers', '/inventory_checks', '/assembly-orders', '/disassembly-orders'] %}
+                    {% set editable_statuses = ['', 'draft', 'pending', 'open', '新建', '草稿', '准备', '执行', '启用', '停用', '待过账', '待审核', '待派工', '待处理', '未索赔', '待收货', '待入库', '待发料', '待整改', '客户待确认'] %}
+                    {% set row_state = row.get('status') or row.get('result') or '' %}
+                    {% if detail_base in editable_bases and row_state in editable_statuses %}
+                    <a class="btn btn-outline-secondary btn-sm" href="{{ detail_base }}/{{ row.get('id') }}/edit">编辑</a>
+                    {% endif %}
+                    <a class="btn btn-outline-primary btn-sm" href="{{ row.get('detail_url') or (detail_base ~ '/' ~ row.get('id')) }}">详情</a>
+                    {% set column_keys = columns|map(attribute='key')|list %}
+                    {% if row.get('next_step') and 'next_step' not in column_keys %}
+                    <span class="badge text-bg-light ms-1">{{ row.get('next_step') }}</span>
+                    {% endif %}
+                </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+            {% else %}
+            <tr>
+                <td colspan="{{ columns|length + (1 if detail_base else 0) + (1 if row_selection_enabled else 0) }}" class="text-muted">暂无数据。</td>
+            </tr>
+            {% endif %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-muted">暂无数据。</div>
+    {% endif %}
+    {% if total_pages > 1 %}
+    {% set _qp = 'keyword=' ~ request.args.get('keyword', request.args.get('q', ''))|urlencode ~ '&status=' ~ request.args.get('status', '')|urlencode ~ '&project=' ~ request.args.get('project', request.args.get('project_serial', ''))|urlencode ~ '&date_from=' ~ request.args.get('date_from', request.args.get('date_start', ''))|urlencode ~ '&date_to=' ~ request.args.get('date_to', request.args.get('date_end', ''))|urlencode ~ '&page_size=' ~ page_size ~ '&sort=' ~ active_sort|urlencode ~ '&direction=' ~ active_direction %}
+    <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
+        <div class="text-muted small">共 {{ total }} 条，当前第 {{ page }} / {{ total_pages }} 页</div>
+        <div class="d-flex align-items-center gap-2">
+            <div class="btn-group btn-group-sm">
+                <a class="btn btn-outline-secondary {% if page <= 1 %}disabled{% endif %}" href="{{ request.path }}?{{ _qp }}&page=1">首页</a>
+                <a class="btn btn-outline-secondary {% if page <= 1 %}disabled{% endif %}" href="{{ request.path }}?{{ _qp }}&page={{ page - 1 }}">上一页</a>
+                {% set _start = (page - 2) if page > 2 else 1 %}
+                {% set _end = (page + 2) if page + 2 < total_pages else total_pages %}
+                {% for p in range(_start, _end + 1) %}
+                <a class="btn {% if p == page %}btn-primary{% else %}btn-outline-secondary{% endif %}" href="{{ request.path }}?{{ _qp }}&page={{ p }}">{{ p }}</a>
+                {% endfor %}
+                <a class="btn btn-outline-secondary {% if page >= total_pages %}disabled{% endif %}" href="{{ request.path }}?{{ _qp }}&page={{ page + 1 }}">下一页</a>
+                <a class="btn btn-outline-secondary {% if page >= total_pages %}disabled{% endif %}" href="{{ request.path }}?{{ _qp }}&page={{ total_pages }}">末页</a>
+            </div>
+            <form class="d-inline-flex align-items-center gap-1" method="get" onchange="this.submit()">
+                <input type="hidden" name="keyword" value="{{ request.args.get('keyword', request.args.get('q', '')) }}">
+                <input type="hidden" name="status" value="{{ request.args.get('status', '') }}">
+                <input type="hidden" name="project" value="{{ request.args.get('project', request.args.get('project_serial', '')) }}">
+                <input type="hidden" name="date_from" value="{{ request.args.get('date_from', request.args.get('date_start', '')) }}">
+                <input type="hidden" name="date_to" value="{{ request.args.get('date_to', request.args.get('date_end', '')) }}">
+                <input type="hidden" name="page_size" value="{{ page_size }}">
+                <input type="hidden" name="sort" value="{{ active_sort }}">
+                <input type="hidden" name="direction" value="{{ active_direction }}">
+                <span class="small text-muted">跳转</span>
+                <input class="form-control form-control-sm" type="number" name="page" value="{{ page }}" min="1" max="{{ total_pages }}" style="width:70px;">
+            </form>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% if inventory_bulk_enabled %}
+<script>
+(function () {
+    const selectAll = document.getElementById('simpleListSelectAll');
+    const bulkSelectAll = document.getElementById('bulkSelectAll');
+    const bulkForm = document.getElementById('inventoryBulkActionForm');
+    const rowChecks = () => Array.from(document.querySelectorAll('.bulk-row-check'));
+
+    function selectedCount() {
+        return rowChecks().filter(item => item.checked).length;
+    }
+
+    function syncSelectAll() {
+        const items = rowChecks();
+        if (!selectAll) return;
+        selectAll.checked = items.length > 0 && items.every(item => item.checked);
+        selectAll.indeterminate = items.some(item => item.checked) && !selectAll.checked;
+    }
+
+    selectAll?.addEventListener('change', function () {
+        rowChecks().forEach(item => { item.checked = selectAll.checked; });
+    });
+
+    bulkSelectAll?.addEventListener('click', function () {
+        const items = rowChecks();
+        items.forEach(item => { item.checked = true; });
+        syncSelectAll();
+        showToast('已全选当前页 ' + items.length + ' 张单据', 'success');
+    });
+
+    rowChecks().forEach(item => item.addEventListener('change', syncSelectAll));
+
+    bulkForm?.addEventListener('submit', function (event) {
+        if (!selectedCount()) {
+            event.preventDefault();
+            showToast('请先选择要批量处理的单据', 'warning');
+        }
+    });
+})();
+</script>
+{% endif %}
+{% if bulk_actions and bulk_actions.delete_url %}
+<script>
+(function () {
+    const deleteUrl = {{ bulk_actions.delete_url|tojson }};
+    const selectAll = document.getElementById('simpleListSelectAll');
+    const rowChecks = () => Array.from(document.querySelectorAll('.simple-list-check'));
+    const tokenNode = document.querySelector('meta[name="csrf-token"]');
+    const csrfToken = tokenNode ? tokenNode.getAttribute('content') : '';
+
+    function selectedIds() {
+        return rowChecks().filter(item => item.checked).map(item => item.value).filter(Boolean);
+    }
+
+    async function postDelete(payload) {
+        const response = await fetch(deleteUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify(payload)
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.ok) {
+            throw new Error(data.msg || data.error || '删除失败');
+        }
+        return data;
+    }
+
+    selectAll?.addEventListener('change', function () {
+        rowChecks().forEach(item => { item.checked = selectAll.checked; });
+    });
+
+    document.getElementById('simpleListSelectCurrentPage')?.addEventListener('click', function () {
+        const items = rowChecks();
+        items.forEach(item => { item.checked = true; });
+        if (selectAll) {
+            selectAll.checked = items.length > 0;
+            selectAll.indeterminate = false;
+        }
+        showToast('已全选当前页 ' + items.length + ' 条日志', 'success');
+    });
+
+    document.getElementById('simpleListDeleteSelected')?.addEventListener('click', async function () {
+        const ids = selectedIds();
+        if (!ids.length) {
+            showToast('请先选择要删除的日志', 'warning');
+            return;
+        }
+        const confirmed = await showConfirm('确认删除选中的 ' + ids.length + ' 条操作日志？', {title: '删除操作日志'});
+        if (!confirmed) return;
+        postDelete({mode: 'selected', ids})
+            .then(data => {
+                showToast(data.msg || '删除成功', 'success');
+                setTimeout(() => window.location.reload(), 500);
+            })
+            .catch(error => showToast(error.message || '删除失败', 'danger', 3600));
+    });
+
+    document.getElementById('simpleListClearFiltered')?.addEventListener('click', async function () {
+        const keyword = new URLSearchParams(window.location.search).get('keyword')
+            || new URLSearchParams(window.location.search).get('q')
+            || new URLSearchParams(window.location.search).get('search')
+            || '';
+        const text = keyword ? '确认清空当前筛选结果中的操作日志？关键字：' + keyword : '未输入关键字时，系统只会按保留天数清理过期操作日志。确认继续？';
+        const confirmed = await showConfirm(text, {title: '清空操作日志'});
+        if (!confirmed) return;
+        postDelete({mode: 'filtered', keyword})
+            .then(data => {
+                showToast(data.msg || '清理成功', 'success');
+                setTimeout(() => window.location.reload(), 500);
+            })
+            .catch(error => showToast(error.message || '清理失败', 'danger', 3600));
+    });
+})();
+</script>
+{% endif %}
+{% endblock %}
+

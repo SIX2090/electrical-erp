@@ -1,0 +1,199 @@
+﻿{% extends "base.html" %}
+{% block title %}采购订单列表{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h2 class="mb-0"><i class="bi bi-bag-check"></i> 采购订单列表</h2>
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="/purchase_order/export?status={{ filters.status }}&supplier_id={{ filters.supplier_id }}&search={{ filters.search|urlencode }}&date_start={{ filters.date_start }}&date_end={{ filters.date_end }}" class="btn btn-outline-primary btn-sm">
+                <i class="bi bi-file-earmark-excel"></i> 导出
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row g-2 mb-3">
+    <div class="col-md-3">
+        <div class="border rounded p-2 bg-light">
+            <div class="small text-muted">待入库单据</div>
+            <div class="fs-5 fw-semibold">{{ summary.pending_count + summary.partial_count }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="border rounded p-2 bg-light">
+            <div class="small text-muted">待入库数量</div>
+            <div class="fs-5 fw-semibold">{{ "%.2f"|format(summary.remaining_qty) }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="border rounded p-2 {% if summary.overdue_count > 0 %}border-danger bg-danger-subtle{% else %}bg-light{% endif %}">
+            <div class="small text-muted">逾期未到货</div>
+            <div class="fs-5 fw-semibold {% if summary.overdue_count > 0 %}text-danger{% endif %}">{{ summary.overdue_count }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="border rounded p-2 bg-light">
+            <div class="small text-muted">待入库金额</div>
+            <div class="fs-5 fw-semibold">¥{{ "%.2f"|format(summary.pending_amount + summary.partial_amount) }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <form method="get" class="row g-2 align-items-end">
+            {% if request.args.get('embedded') == '1' %}
+            <input type="hidden" name="embedded" value="1">
+            {% endif %}
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">状态</label>
+                <select name="status" class="form-select form-select-sm">
+                    <option value="" {% if not filters.status %}selected{% endif %}>全部状态</option>
+                    <option value="open" {% if filters.status == 'open' %}selected{% endif %}>待入库+部分入库</option>
+                    <option value="pending" {% if filters.status == 'pending' %}selected{% endif %}>未入库</option>
+                    <option value="partial" {% if filters.status == 'partial' %}selected{% endif %}>部分入库</option>
+                    <option value="completed" {% if filters.status == 'completed' %}selected{% endif %}>已入库</option>
+                    <option value="closed" {% if filters.status == 'closed' %}selected{% endif %}>已关闭</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">供应商</label>
+                <select name="supplier_id" class="form-select form-select-sm">
+                    <option value="" {% if not filters.supplier_id %}selected{% endif %}>全部供应商</option>
+                    {% for supplier in suppliers %}
+                    <option value="{{ supplier.id }}" {% if filters.supplier_id == supplier.id %}selected{% endif %}>{{ supplier.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">开始日期</label>
+                <input type="date" name="date_start" class="form-control form-control-sm" value="{{ filters.date_start }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">结束日期</label>
+                <input type="date" name="date_end" class="form-control form-control-sm" value="{{ filters.date_end }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">关键词</label>
+                <input type="text" name="search" class="form-control form-control-sm" placeholder="采购订单号/供应商/来源申请/备注" value="{{ filters.search }}">
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-primary btn-sm flex-fill"><i class="bi bi-search"></i> 筛选</button>
+                {% if filters.status or filters.search or filters.date_start or filters.date_end or filters.supplier_id %}
+                <a href="/purchase_order{% if request.args.get('embedded') == '1' %}?embedded=1{% endif %}" class="btn btn-outline-secondary btn-sm">清除</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive-wrapper">
+            <table class="table table-bordered table-hover table-sm mb-0" id="purchaseOrderTable">
+                <thead>
+                    <tr>
+                        <th width="70">序号</th>
+                        <th data-sortable="order_no" class="sortable-header">采购订单号 {% if sort_by=='order_no' %}<i class="bi bi-caret-{{ 'up' if sort_order=='asc' else 'down' }}-fill small"></i>{% endif %}</th>
+                        <th data-sortable="date" class="sortable-header">日期 {% if sort_by=='date' %}<i class="bi bi-caret-{{ 'up' if sort_order=='asc' else 'down' }}-fill small"></i>{% endif %}</th>
+                        <th>供应商</th>
+                        <th>来源申请</th>
+                        <th data-sortable="expected_date" class="sortable-header">预计到货 {% if sort_by=='expected_date' %}<i class="bi bi-caret-{{ 'up' if sort_order=='asc' else 'down' }}-fill small"></i>{% endif %}</th>
+                        <th class="text-end">采购数量</th>
+                        <th class="text-end">已下推</th>
+                        <th class="text-end">已入库</th>
+                        <th class="text-end">待入库</th>
+                        <th class="text-end">未下推</th>
+                        <th>执行状态</th>
+                        <th data-sortable="total_amount" class="sortable-header">金额 {% if sort_by=='total_amount' %}<i class="bi bi-caret-{{ 'up' if sort_order=='asc' else 'down' }}-fill small"></i>{% endif %}</th>
+                        <th data-sortable="status" class="sortable-header">状态 {% if sort_by=='status' %}<i class="bi bi-caret-{{ 'up' if sort_order=='asc' else 'down' }}-fill small"></i>{% endif %}</th>
+                        <th width="90">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in pagination.items %}
+                    <tr>
+                        <td>{{ loop.index + (pagination.page - 1) * pagination.per_page }}</td>
+                        <td><a href="/purchase_order/{{ order.id }}">{{ order.order_no }}</a></td>
+                        <td>{{ order.date.strftime('%Y-%m-%d') if order.date else '-' }}</td>
+                        <td>{{ order.supplier.name if order.supplier else '-' }}</td>
+                        <td class="text-nowrap">
+                            {% if order.purchase_request %}
+                            <a href="/purchase_request/{{ order.purchase_request.id }}">{{ order.purchase_request.request_no }}</a>
+                            {% else %}-{% endif %}
+                        </td>
+                        <td>
+                            {{ order.expected_date.strftime('%Y-%m-%d') if order.expected_date else '-' }}
+                            {% if order.expected_date and order.expected_date < today and order.status in ['pending', 'partial'] %}
+                            <span class="badge bg-danger ms-1">逾期</span>
+                            {% endif %}
+                        </td>
+                        {% set stats = qty_stats.get(order.id, {}) %}
+                        <td class="text-end" data-order-quantity="{{ '%.2f'|format(stats.get('total_qty', 0)) }}">{{ "%.2f"|format(stats.get('total_qty', 0)) }}</td>
+                        <td class="text-end" data-pushed-quantity="{{ '%.2f'|format(stats.get('pushed_qty', 0)) }}">{{ "%.2f"|format(stats.get('pushed_qty', 0)) }}</td>
+                        <td class="text-end" data-completed-quantity="{{ '%.2f'|format(stats.get('completed_qty', 0)) }}">{{ "%.2f"|format(stats.get('completed_qty', 0)) }}</td>
+                        <td class="text-end {% if stats.get('pending_receive_qty', 0) > 0 %}text-warning fw-semibold{% endif %}" data-pending-receive-quantity="{{ '%.2f'|format(stats.get('pending_receive_qty', 0)) }}">{{ "%.2f"|format(stats.get('pending_receive_qty', 0)) }}</td>
+                        <td class="text-end {% if stats.get('remaining_to_push', 0) > 0 %}text-primary fw-semibold{% endif %}" data-remaining-to-push="{{ '%.2f'|format(stats.get('remaining_to_push', 0)) }}">{{ "%.2f"|format(stats.get('remaining_to_push', 0)) }}</td>
+                        <td data-execution-status="{{ stats.get('status', 'pending') }}">
+                            {% if stats.get('status') == 'completed' %}
+                            <span class="badge bg-success">已入库</span>
+                            {% elif stats.get('status') == 'partial_completed' %}
+                            <span class="badge bg-info text-dark">部分入库</span>
+                            {% elif stats.get('status') == 'pushed' %}
+                            <span class="badge bg-warning text-dark">已下推</span>
+                            {% elif stats.get('status') == 'closed' %}
+                            <span class="badge bg-secondary">已关闭</span>
+                            {% else %}
+                            <span class="badge bg-light text-dark border">未下推</span>
+                            {% endif %}
+                        </td>
+                        <td>¥{{ "%.2f"|format(order.total_amount or 0) }}</td>
+                        <td>
+                            {% if order.status == 'completed' %}
+                            <span class="badge bg-success">{{ status_label(order.status) }}</span>
+                            {% elif order.status == 'closed' %}
+                            <span class="badge bg-secondary">{{ status_label(order.status) }}</span>
+                            {% elif order.status == 'partial' %}
+                            <span class="badge bg-info text-dark">{{ status_label(order.status) }}</span>
+                            {% else %}
+                            <span class="badge bg-warning text-dark">{{ status_label(order.status) }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="/purchase_order/{{ order.id }}" class="btn btn-sm btn-outline-primary" title="查看详情">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="15" class="text-center text-muted">暂无采购订单</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.sortable-header').forEach(function(th) {
+        th.addEventListener('click', function() {
+            var sortField = this.dataset.sortable;
+            if (!sortField) return;
+            var currentSort = '{{ sort_by }}';
+            var currentOrder = '{{ sort_order }}';
+            var newOrder = (currentSort === sortField && currentOrder === 'asc') ? 'desc' : 'asc';
+            var url = new URL(window.location.href);
+            url.searchParams.set('sort', sortField);
+            url.searchParams.set('order', newOrder);
+            url.searchParams.set('page', '1');
+            window.location.href = url.toString();
+        });
+    });
+});
+
+</script>
+{% endblock %}

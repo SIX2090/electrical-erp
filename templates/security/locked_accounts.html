@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+
+{% block title %}被锁定账号管理{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-lock"></i> 被锁定账号管理
+                    </h5>
+                    <div>
+                        <button id="btnCheckAutoUnlock" class="btn btn-sm btn-secondary me-2">
+                            <i class="bi bi-arrow-clockwise"></i> 检查自动解锁
+                        </button>
+                        <button id="btnRefresh" class="btn btn-sm btn-primary">
+                            <i class="bi bi-arrow-clockwise"></i> 刷新
+                        </button>
+                        <a href="/" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-house"></i> 返回首页
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- 统计信息 -->
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <div class="alert alert-danger">
+                                <strong id="statLockedCount">0</strong> 个账号被锁定
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="alert alert-warning">
+                                <strong id="statFailedCount">0</strong> 个账号有失败登录
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="alert alert-info">
+                                总用户数: <strong id="statTotalCount">0</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 锁定账号列表 -->
+                    <h6 class="border-bottom pb-2 mb-3">被锁定账号</h6>
+                    <div id="lockedAccountsList">
+                        <div class="text-center text-muted py-3">加载中...</div>
+                    </div>
+
+                    <!-- 登录失败记录 -->
+                    <h6 class="border-bottom pb-2 mb-3 mt-4">最近登录失败记录</h6>
+                    <div id="loginFailuresList">
+                        <div class="text-center text-muted py-3">加载中...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    loadStatistics();
+    loadLockedAccounts();
+    loadLoginFailures();
+});
+
+function loadStatistics() {
+    $.ajax({
+        url: '/security/api/account-lock-statistics',
+        method: 'GET',
+        success: function(response) {
+            if (response.status === 'success') {
+                $('#statLockedCount').text(response.statistics.locked_count);
+                $('#statFailedCount').text(response.statistics.failed_login_count);
+                $('#statTotalCount').text(response.statistics.total_count);
+            }
+        }
+    });
+}
+
+function loadLockedAccounts() {
+    $.ajax({
+        url: '/security/api/locked-accounts',
+        method: 'GET',
+        success: function(response) {
+            if (response.status === 'success') {
+                renderLockedAccounts(response.accounts);
+            }
+        }
+    });
+}
+
+function renderLockedAccounts(accounts) {
+    const container = $('#lockedAccountsList');
+
+    if (!accounts || accounts.length === 0) {
+        container.html('<div class="alert alert-success">暂无被锁定账号</div>');
+        return;
+    }
+
+    let html = '<table class="table table-bordered table-hover">';
+    html += '<thead><tr>';
+    html += '<th>用户名</th><th>角色</th><th>锁定时间</th><th>锁定原因</th>';
+    html += '<th>失败次数</th><th>最近登录</th><th>操作</th>';
+    html += '</tr></thead><tbody>';
+
+    accounts.forEach(function(acc) {
+        html += '<tr>';
+        html += '<td>' + acc.username + '</td>';
+        html += '<td>' + acc.role + '</td>';
+        html += '<td>' + (acc.locked_at || '-') + '</td>';
+        html += '<td>' + (acc.locked_reason || '-') + '</td>';
+        html += '<td>' + (acc.failed_login_count || 0) + '</td>';
+        html += '<td>' + (acc.last_login_at || '从未登录') + '</td>';
+        html += '<td>';
+        html += '<button class="btn btn-sm btn-success" onclick="unlockAccount(' + acc.id + ', \'' + acc.username + '\')">';
+        html += '<i class="bi bi-unlock"></i> 解锁</button>';
+        html += '</td>';
+        html += '</tr>';
+    });
+
+    html += '</tbody></table>';
+    container.html(html);
+}
+
+function loadLoginFailures() {
+    $.ajax({
+        url: '/security/api/login-failures',
+        method: 'GET',
+        data: { limit: 20 },
+        success: function(response) {
+            if (response.status === 'success') {
+                renderLoginFailures(response.records);
+            }
+        }
+    });
+}
+
+function renderLoginFailures(records) {
+    const container = $('#loginFailuresList');
+
+    if (!records || records.length === 0) {
+        container.html('<div class="alert alert-success">暂无登录失败记录</div>');
+        return;
+    }
+
+    let html = '<table class="table table-bordered table-sm">';
+    html += '<thead><tr>';
+    html += '<th>用户名</th><th>失败次数</th><th>锁定至</th><th>更新时间</th>';
+    html += '</tr></thead><tbody>';
+
+    records.forEach(function(rec) {
+        html += '<tr>';
+        html += '<td>' + rec.username + '</td>';
+        html += '<td><span class="badge bg-danger">' + rec.failures + '</span></td>';
+        html += '<td>' + (rec.locked_until || '-') + '</td>';
+        html += '<td>' + rec.updated_at + '</td>';
+        html += '</tr>';
+    });
+
+    html += '</tbody></table>';
+    container.html(html);
+}
+
+function unlockAccount(userId, username) {
+    if (!confirm('确定要解锁账号 "' + username + '" 吗？')) {
+        return;
+    }
+
+    const reason = prompt('请输入解锁原因（可选）:', '管理员手动解锁');
+
+    $.ajax({
+        url: '/security/api/unlock-account/' + userId,
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ reason: reason }),
+        success: function(response) {
+            if (response.status === 'success') {
+                alert('账号已解锁');
+                loadStatistics();
+                loadLockedAccounts();
+                loadLoginFailures();
+            } else {
+                alert('解锁失败: ' + response.msg);
+            }
+        },
+        error: function() {
+            alert('网络错误');
+        }
+    });
+}
+
+$('#btnCheckAutoUnlock').click(function() {
+    // 这个功能需要后端支持，暂时刷新页面
+    loadStatistics();
+    loadLockedAccounts();
+    loadLoginFailures();
+});
+
+$('#btnRefresh').click(function() {
+    loadStatistics();
+    loadLockedAccounts();
+    loadLoginFailures();
+});
+</script>
+{% endblock %}

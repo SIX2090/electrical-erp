@@ -1,0 +1,519 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% from "partials/document_line_toolbar.html" import line_toolbar %}
+{% block title %}服务单详情 - {{ service.order_no }}{% endblock %}
+{% block content %}
+{% set is_closed = not can_operate %}
+{{ document_menu_bar(actions=[
+    {'label': '返回列表', 'type': 'link', 'href': back_url or '/service-orders', 'icon': 'bi-arrow-left'},
+    {'label': '编辑', 'type': 'link', 'href': '/service-orders/' ~ service.id ~ '/edit', 'disabled': (service.status or '') not in ['', '待派工', '待处理', 'draft', 'pending', 'open'], 'icon': 'bi-pencil-square'},
+    {'label': '派工', 'type': 'button', 'event': 'focus-dispatch', 'disabled': is_closed},
+    {'label': '处理', 'type': 'button', 'event': 'focus-handle', 'disabled': is_closed},
+    {'label': '备件出库', 'type': 'button', 'event': 'focus-parts', 'disabled': is_closed},
+    {'label': '验收', 'type': 'button', 'event': 'focus-accept', 'disabled': is_closed},
+    {'label': '回访', 'type': 'button', 'event': 'focus-return-visit', 'disabled': is_closed},
+    {'label': '费用', 'type': 'button', 'event': 'focus-fee', 'disabled': is_closed},
+    {'label': '生成RMA', 'type': 'button', 'event': 'focus-rma', 'disabled': is_closed},
+    {'label': '关闭', 'type': 'button', 'event': 'focus-close', 'disabled': is_closed},
+    {'label': '下查', 'type': 'dropdown', 'items': [
+        {'label': '设备服务档案', 'type': 'link', 'href': '/service-cards/' ~ service.service_card_id if service.service_card_id else '/service-cards', 'disabled': not service.service_card_id},
+        {'label': 'RMA列表', 'type': 'link', 'href': '/service-rmas?keyword=' ~ ((service.order_no or service.serial_no or service.project_code or '')|urlencode)},
+        {'label': '库存流水', 'type': 'link', 'href': '/transactions?keyword=' ~ ((service.order_no or service.serial_no or service.project_code or '')|urlencode)},
+        {'label': '应收查询', 'type': 'link', 'href': '/receivables?keyword=' ~ ((service.order_no or service.serial_no or service.project_code or '')|urlencode)},
+        {'label': '项目台账', 'type': 'link', 'href': '/projects?keyword=' ~ ((service.project_code or service.serial_no or service.order_no or '')|urlencode)}
+    ]},
+    {'label': '附件/备注', 'type': 'button', 'event': 'focus-attachments'},
+    {'type': 'nav', 'items': [
+        {'label': '首张', 'event': 'doc-nav-first', 'icon': 'bi-chevron-double-left'},
+        {'label': '上一张', 'event': 'doc-nav-prev', 'icon': 'bi-chevron-left'},
+        {'label': '下一张', 'event': 'doc-nav-next', 'icon': 'bi-chevron-right'},
+        {'label': '末张', 'event': 'doc-nav-last', 'icon': 'bi-chevron-double-right'}
+    ]}
+]) }}
+<div id="doc-nav-config" data-nav-table="service_orders" data-nav-base="{{ (back_url or '/service-orders') }}/" data-doc-id="{{ service.id }}" style="display:none"></div>
+<div class="mb-3 d-none">
+    <a class="btn btn-outline-secondary btn-sm" href="{{ back_url or '/service-orders' }}">返回服务单</a>
+    {% if (service.status or '') in ['', '待派工', '待处理', 'draft', 'pending', 'open'] %}
+    <a class="btn btn-outline-secondary btn-sm ms-2" href="/service-orders/{{ service.id }}/edit">编辑</a>
+    {% endif %}
+    {% if service.service_card_id %}
+    <a class="btn btn-outline-primary btn-sm ms-2" href="/service-cards/{{ service.service_card_id }}">设备服务档案</a>
+    {% endif %}
+</div>
+
+<div class="page-card mb-3">
+    <div class="d-flex justify-content-between align-items-start gap-3">
+        <div>
+            <h1 class="h4 mb-1">服务单：{{ service.order_no }}</h1>
+            <div class="text-muted">{{ service.customer_name or '-' }} / {{ service.card_serial_no or service.serial_no or '-' }} / {{ service.machine_model or '-' }}</div>
+        </div>
+        <span class="badge text-bg-primary">{{ service.status or '-' }}</span>
+    </div>
+</div>
+
+<div class="page-card mb-3" data-testid="service-order-status-flow">
+    <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+        <div>
+            <h2 class="h5 mb-1">服务单状态 / 下一步</h2>
+            <div class="text-muted">{{ next_step }}</div>
+        </div>
+        <span class="badge {{ 'text-bg-secondary' if not can_operate else 'text-bg-info' }}">{{ service.status or '-' }}</span>
+    </div>
+    {% if can_operate %}
+    {% if nav_mode in ['gt_pilot', 'pilot_gtym', 'gtym_pilot'] and (not service.project_code or not (service.serial_no or service.card_serial_no)) %}
+    <div class="alert alert-info mt-3 mb-0">项目号和机号用于售后追溯；系统启用强制项目号/机号时，服务单必须补齐后才能继续流转。</div>
+    {% endif %}
+    <div class="row g-3 mt-2">
+        <div class="col-lg-6">
+            <form class="border rounded p-3 h-100" id="serviceDispatchPanel" method="post" action="/service-orders/{{ service.id }}/dispatch" data-testid="service-dispatch-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <h3 class="h6">派工</h3>
+                <div class="row g-2">
+                    <div class="col-md-6"><input class="form-control" type="date" name="dispatch_date"></div>
+                    <div class="col-md-6"><input class="form-control" type="date" name="planned_service_date"></div>
+                    <div class="col-12"><input class="form-control" name="task_summary" value="{{ service.issue_summary or '' }}"></div>
+                    <div class="col-12 d-grid"><button class="btn btn-primary" type="submit">登记派工</button></div>
+                </div>
+            </form>
+        </div>
+        <div class="col-lg-6">
+            <form class="border rounded p-3 h-100" id="serviceHandlePanel" method="post" action="/service-orders/{{ service.id }}/handle" data-testid="service-handle-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <h3 class="h6">处理 / 检查</h3>
+                <div class="row g-2">
+                    <div class="col-md-6"><input class="form-control" name="check_item" value="现场处理"></div>
+                    <div class="col-md-6"><input class="form-control" name="result" value="已处理"></div>
+                    <div class="col-12"><input class="form-control" name="solution" placeholder="处理方案" value="{{ service.solution or '' }}"></div>
+                    <div class="col-md-4"><input class="form-control" type="number" step="0.01" name="labor_cost" value="{{ service.labor_cost or 0 }}"></div>
+                    <div class="col-md-4"><input class="form-control" type="number" step="0.01" name="travel_cost" value="{{ service.travel_cost or 0 }}"></div>
+                    <div class="col-md-4"><input class="form-control" type="number" step="0.01" name="parts_cost" value="{{ service.parts_cost or 0 }}"></div>
+                    <div class="col-12 d-grid"><button class="btn btn-primary" type="submit">登记处理</button></div>
+                </div>
+            </form>
+        </div>
+        <div class="col-lg-6">
+            <form class="border rounded p-3 h-100" id="serviceAcceptPanel" method="post" action="/service-orders/{{ service.id }}/accept" data-testid="service-accept-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <h3 class="h6">验收</h3>
+                <div class="row g-2">
+                    <div class="col-md-5"><input class="form-control" name="acceptance_result" value="验收通过"></div>
+                    <div class="col-md-5"><input class="form-control" name="remark" placeholder="验收备注"></div>
+                    <div class="col-md-2 d-grid"><button class="btn btn-primary" type="submit">登记</button></div>
+                </div>
+            </form>
+        </div>
+        <div class="col-lg-6">
+            <form class="border rounded p-3 h-100" id="serviceReturnVisitPanel" method="post" action="/service-orders/{{ service.id }}/return-visit" data-testid="service-return-visit-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <h3 class="h6">回访</h3>
+                <div class="row g-2">
+                    <div class="col-md-4"><input class="form-control" type="date" name="visit_date"></div>
+                    <div class="col-md-4"><input class="form-control" name="satisfaction" value="满意"></div>
+                    <div class="col-md-2"><input class="form-control" type="number" min="1" max="5" step="1" name="satisfaction_score" value="5" aria-label="满意度评分"></div>
+                    <div class="col-md-2"><input class="form-control" name="result" value="已闭环"></div>
+                    <div class="col-12"><input class="form-control" name="next_action" placeholder="下一步"></div>
+                    <div class="col-12 d-grid"><button class="btn btn-primary" type="submit">登记回访</button></div>
+                </div>
+            </form>
+        </div>
+        <div class="col-12">
+            <form class="border rounded p-3 h-100" id="servicePartsPanel" method="post" action="/service-orders/{{ service.id }}/issue-part" data-testid="service-issue-part-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="custom_fields_json" id="customFieldsJson" value="">
+                <h3 class="h6">备件出库</h3>
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <select class="form-select" name="warehouse_id">
+                            <option value="">默认仓库</option>
+                            {% for wh in warehouse_options %}
+                            <option value="{{ wh.id }}">{{ wh.code or wh.name }} - {{ wh.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <select class="form-select" name="location_id">
+                            <option value="">默认库位</option>
+                            {% for loc in location_options %}
+                            <option value="{{ loc.id }}">{{ loc.code }} - {{ loc.name or '' }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <div class="d-flex flex-wrap gap-2 mb-2">
+                            {{ line_toolbar() }}
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle" id="itemsTable" data-document-grid data-grid-key="service_order_part_items">
+                                <thead>
+                                <tr data-grid-header>
+                                    <th style="min-width: 220px;" data-column-key="product" data-column-label="备件"><span class="grid-header-text">备件</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                                    <th style="min-width: 120px;" data-column-key="product_code" data-column-label="物料编码"><span class="grid-header-text">物料编码</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                                    <th style="min-width: 140px;" data-column-key="product_name" data-column-label="物料名称"><span class="grid-header-text">物料名称</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                                    <th style="min-width: 120px;" data-column-key="specification" data-column-label="规格型号"><span class="grid-header-text">规格型号</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                                    <th style="min-width: 80px;" data-column-key="unit" data-column-label="单位"><span class="grid-header-text">单位</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                                    <th style="min-width: 140px;" data-column-key="line_warehouse" data-column-label="仓库"><span class="grid-header-text">仓库</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                                    <th style="min-width: 140px;" data-column-key="line_location" data-column-label="库位"><span class="grid-header-text">库位</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                                    <th style="min-width: 120px;" data-column-key="available_qty" data-column-label="可用库存"><span class="grid-header-text">可用库存</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                                    <th style="min-width: 100px;" data-column-key="quantity" data-column-label="数量"><span class="grid-header-text">数量</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                                    <th style="min-width: 110px;" data-column-key="unit_cost" data-column-label="成本"><span class="grid-header-text">成本</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                                    <th style="min-width: 110px;" data-column-key="amount" data-column-label="成本金额"><span class="grid-header-text">成本金额</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                                    <th style="min-width: 120px;" data-column-key="lot_no" data-column-label="批号"><span class="grid-header-text">批号</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                                    <th style="min-width: 120px;" data-column-key="serial_no" data-column-label="机号"><span class="grid-header-text">机号</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                                    <th style="min-width: 120px;" data-column-key="project_code" data-column-label="项目号"><span class="grid-header-text">项目号</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                                    <th style="min-width: 110px;" data-column-key="source_line_no" data-column-label="来源行"><span class="grid-header-text">来源行</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                                    <th style="min-width: 160px;" data-column-key="remark" data-column-label="备注"><span class="grid-header-text">备注</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                                    <th style="min-width: 70px;" data-column-key="actions" data-column-label="操作">操作</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr>
+                                    <td data-column-key="product">{% include "partials/product_select_cell.html" %}</td>
+                                    <td data-column-key="product_code"><input class="form-control form-control-sm js-product-code" name="product_code_display[]" readonly></td>
+                                    <td data-column-key="product_name"><input class="form-control form-control-sm js-product-name" name="product_name_display[]" readonly></td>
+                                    <td data-column-key="specification"><input class="form-control form-control-sm js-product-spec" name="specification_display[]" readonly></td>
+                                    <td data-column-key="unit"><input class="form-control form-control-sm js-product-unit" name="unit_display[]" readonly></td>
+                                    <td data-column-key="line_warehouse">
+                                        <select class="form-select form-select-sm js-line-warehouse" name="line_warehouse_id[]">
+                                            <option value="">按表头仓库</option>
+                                            {% for wh in warehouse_options %}
+                                            <option value="{{ wh.id }}">{{ wh.code or wh.name }} - {{ wh.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+                                    <td data-column-key="line_location">
+                                        <select class="form-select form-select-sm js-line-location" name="line_location_id[]">
+                                            <option value="">按表头库位</option>
+                                            {% for loc in location_options %}
+                                            <option value="{{ loc.id }}">{{ loc.code }} - {{ loc.name or '' }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+                                    <td data-column-key="available_qty">
+                                        <input class="form-control form-control-sm js-available-qty text-end" name="available_qty_display[]" value="0" readonly>
+                                        <div class="form-text js-stock-hint">选择备件后显示</div>
+                                    </td>
+                                    <td data-column-key="quantity"><input class="form-control form-control-sm js-quantity" type="number" step="0.01" name="quantity[]" value="1" required></td>
+                                    <td data-column-key="unit_cost"><input class="form-control form-control-sm js-unit-cost" type="number" step="0.01" name="unit_cost[]" value="0"></td>
+                                    <td data-column-key="amount"><input class="form-control form-control-sm js-cost-amount text-end" name="amount_display[]" value="0.00" readonly></td>
+                                    <td data-column-key="lot_no"><input class="form-control form-control-sm" name="lot_no[]"></td>
+                                    <td data-column-key="serial_no"><input class="form-control form-control-sm" name="serial_no[]" value="{{ service.serial_no or service.card_serial_no or '' }}"></td>
+                                    <td data-column-key="project_code"><input class="form-control form-control-sm js-line-project-code" name="line_project_code[]" value="{{ service.project_code or '' }}"></td>
+                                    <td data-column-key="source_line_no"><input class="form-control form-control-sm" name="source_line_no[]" placeholder="服务领料行"></td>
+                                    <td data-column-key="remark"><input class="form-control form-control-sm" name="remark[]"></td>
+                                    <td data-column-key="actions"><button class="btn btn-outline-danger btn-sm js-delete-line" type="button">删行</button></td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="col-12 d-grid"><button class="btn btn-primary" type="submit">登记备件出库</button></div>
+                </div>
+            </form>
+        </div>
+        <div class="col-lg-6">
+            <form class="border rounded p-3 h-100" id="serviceRmaPanel" method="post" action="/service-orders/{{ service.id }}/create-rma" data-testid="service-create-rma-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <h3 class="h6">生成RMA</h3>
+                <div class="row g-2">
+                    <div class="col-md-4"><input class="form-control" type="date" name="rma_date"></div>
+                    <div class="col-md-4"><input class="form-control" name="warranty_scope" value="待判定"></div>
+                    <div class="col-md-4"><input class="form-control" name="responsibility_type" value="待判定"></div>
+                    <div class="col-12"><input class="form-control" name="fault_summary" placeholder="故障摘要" value="{{ service.issue_summary or '' }}"></div>
+                    <div class="col-md-8"><input class="form-control" name="remark" placeholder="RMA备注"></div>
+                    <div class="col-md-4 form-check d-flex align-items-center gap-2 ps-4">
+                        <input class="form-check-input" type="checkbox" name="return_factory_required" checked>
+                        <label class="form-check-label">需返厂</label>
+                    </div>
+                    <div class="col-12 d-grid"><button class="btn btn-primary" type="submit">生成RMA</button></div>
+                </div>
+            </form>
+        </div>
+        <div class="col-lg-6">
+            <form class="border rounded p-3 h-100" id="serviceFeePanel" method="post" action="/service-orders/{{ service.id }}/fee" data-testid="service-fee-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <h3 class="h6">费用登记</h3>
+                <div class="row g-2">
+                    <div class="col-md-4"><input class="form-control" name="billing_type" value="{{ service.billing_type or '待报价' }}"></div>
+                    <div class="col-md-4"><input class="form-control" type="number" step="0.01" name="billable_amount" value="{{ service.billable_amount or 0 }}"></div>
+                    <div class="col-md-4"><input class="form-control" name="settlement_status" value="{{ service.settlement_status or '已登记费用' }}"></div>
+                    <div class="col-12 d-grid"><button class="btn btn-primary" type="submit">保存费用</button></div>
+                </div>
+            </form>
+        </div>
+        <div class="col-lg-6">
+            <form class="border rounded p-3 h-100" id="serviceClosePanel" method="post" action="/service-orders/{{ service.id }}/close" data-testid="service-close-form" onsubmit="return confirm('确认关闭该服务单？')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <h3 class="h6">关闭</h3>
+                <div class="row g-2">
+                    <div class="col-md-9"><input class="form-control" name="remark" placeholder="关闭说明"></div>
+                    <div class="col-md-3 d-grid"><button class="btn btn-outline-danger" type="submit">关闭服务单</button></div>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-3"><div class="metric"><div class="label">服务日期</div><div class="value h5">{{ service.service_date or '-' }}</div></div></div>
+    <div class="col-md-3"><div class="metric"><div class="label">服务类型</div><div class="value h5">{{ service.service_type or '-' }}</div></div></div>
+    <div class="col-md-3"><div class="metric"><div class="label">总成本</div><div class="value">{{ service.total_cost|money }}</div></div></div>
+    <div class="col-md-3"><div class="metric"><div class="label">可收费</div><div class="value">{{ service.billable_amount|money }}</div></div></div>
+</div>
+
+<div class="page-card mb-3" data-testid="service-cost-finance-basis">
+    <div class="section-title">
+        <div>
+            <h2>售后成本与财务关联</h2>
+            <span>用于服务单、售后成本专题、项目/机号成本和应收核对</span>
+        </div>
+    </div>
+    <div class="row g-3">
+        <div class="col-md-2"><div class="metric"><div class="label">配件成本</div><div class="value">{{ cost_summary.parts_cost|money }}</div></div></div>
+        <div class="col-md-2"><div class="metric"><div class="label">人工成本</div><div class="value">{{ cost_summary.labor_cost|money }}</div></div></div>
+        <div class="col-md-2"><div class="metric"><div class="label">差旅成本</div><div class="value">{{ cost_summary.travel_cost|money }}</div></div></div>
+        <div class="col-md-2"><div class="metric"><div class="label">服务总成本</div><div class="value">{{ cost_summary.total_cost|money }}</div></div></div>
+        <div class="col-md-2"><div class="metric"><div class="label">可收费金额</div><div class="value">{{ cost_summary.billable_amount|money }}</div></div></div>
+        <div class="col-md-2"><div class="metric"><div class="label">应收关联</div><div class="value h6">{{ cost_summary.receivable_no or cost_summary.settlement_status or '-' }}</div></div></div>
+        <div class="col-12 text-muted small">{{ cost_summary.basis }}</div>
+        <div class="col-12 d-flex flex-wrap gap-2">
+            <a class="btn btn-outline-primary btn-sm" href="/service/reports/cost?keyword={{ (service.order_no or service.project_code or service.serial_no or '')|urlencode }}">售后成本专题</a>
+            <a class="btn btn-outline-primary btn-sm" href="/finance/reports/project-cost?keyword={{ (service.project_code or service.serial_no or service.order_no or '')|urlencode }}">项目/机号成本明细</a>
+            <a class="btn btn-outline-primary btn-sm" href="/receivables?keyword={{ (service.receivable_no or service.order_no or service.project_code or '')|urlencode }}">应收查询</a>
+            <a class="btn btn-outline-primary btn-sm" href="/transactions?keyword={{ (service.order_no or service.project_code or service.serial_no or '')|urlencode }}">库存流水核对</a>
+        </div>
+    </div>
+</div>
+
+<div class="page-card mb-3">
+    <h2 class="h5 mb-3">处理信息</h2>
+    <div class="row g-2">
+        <div class="col-md-3"><strong>项目号：</strong>{{ service.project_code or '-' }}</div>
+        <div class="col-md-3"><strong>机号：</strong>{{ service.serial_no or service.card_serial_no or '-' }}</div>
+        <div class="col-md-3"><strong>执行人：</strong>{{ service.performed_by or '-' }}</div>
+        <div class="col-md-3"><strong>结算：</strong>{{ service.settlement_status or '-' }}</div>
+        <div class="col-md-3"><strong>产品分类：</strong>{{ service.product_family|clean_text if service.product_family else '-' }}</div>
+        <div class="col-md-3"><strong>BOM：</strong>{% if service.bom_no %}<a href="/bom/{{ service.bom_no }}">{{ service.bom_display }}</a>{% else %}{{ service.bom_display or '-' }}{% endif %}</div>
+        <div class="col-md-3"><strong>工单：</strong>{{ service.wo_no or '-' }}</div>
+        <div class="col-md-3"><strong>销售订单：</strong>{{ service.sales_order_no or '-' }}</div>
+        <div class="col-md-3"><strong>管控：</strong>{{ service.control_display or '-' }}</div>
+        <div class="col-md-3"><strong>物料：</strong>{{ service.product_code or '-' }} {{ service.product_name or '' }}</div>
+        <div class="col-md-6"><strong>问题：</strong>{{ service.issue_summary or '-' }}</div>
+        <div class="col-md-6"><strong>处理方案：</strong>{{ service.solution or '-' }}</div>
+        <div class="col-md-6"><strong>故障原因：</strong>{{ service.fault_cause or '-' }}</div>
+        <div class="col-md-6"><strong>预防措施：</strong>{{ service.prevention_action or '-' }}</div>
+        <div class="col-md-6"><strong>应收：</strong>{{ service.receivable_no or '-' }} / 余额 {{ service.receivable_balance|money }}</div>
+        <div class="col-md-6"><strong>备注：</strong>{{ service.remark or '-' }}</div>
+    </div>
+</div>
+
+{% set custom_payload = custom_fields_payload or {} %}
+{% if custom_payload.get('fields') %}
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>备件自定义字段</h2>
+            <span>备件出库时随明细提交的扩展字段</span>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+            <tr>
+                <th style="width:80px;">行号</th>
+                {% for field in custom_payload.get('fields', []) %}
+                <th>{{ field.label or field.key }}</th>
+                {% endfor %}
+            </tr>
+            </thead>
+            <tbody>
+            {% for row in custom_payload.get('rows', []) %}
+            <tr>
+                <td>{{ row.row or loop.index }}</td>
+                {% for field in custom_payload.get('fields', []) %}
+                <td>{{ row.get('values', {}).get(field.key) or '-' }}</td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<div class="row g-3">
+    {% set sections = [
+        ('派工记录', dispatches, [('dispatch_no','派工单'),('dispatch_date','日期'),('planned_service_date','计划'),('status','状态'),('task_summary','任务'),('remark','备注')]),
+        ('备件材料', items, [('product_code','物料编码'),('product_name','物料名称'),('specification','规格型号'),('unit_name','单位'),('product_family','产品分类'),('bom_display','BOM版本'),('control_display','管控'),('warehouse_name','仓库'),('location_name','库位'),('stock_qty','账面库存'),('locked_qty','占用'),('available_qty','可用库存'),('quantity','数量'),('unit_cost','库存成本单价'),('amount','成本金额'),('lot_no','批号'),('serial_no','机号'),('project_code','项目号'),('source_line_no','来源行'),('remark','备注')]),
+        ('服务检查', checklists, [('check_item','检查项'),('result','结果'),('remark','备注'),('created_at','时间')]),
+        ('回访记录', return_visits, [('visit_no','回访单号'),('visit_date','日期'),('satisfaction','满意度'),('satisfaction_score','评分'),('result','结果'),('next_action','下一步'),('remark','备注')]),
+        ('RMA', rmas, [('rma_no','RMA'),('rma_date','日期'),('warranty_scope','质保'),('responsibility_type','责任'),('claim_status','索赔'),('status','状态')]),
+        ('服务日志', logs, [('service_date','日期'),('service_type','类型'),('performed_by','执行人'),('status','状态'),('issue_summary','问题'),('solution','方案')])
+    ] %}
+    {% for title, rows, columns in sections %}
+    <div class="col-lg-6">
+        <div class="page-card h-100" id="serviceAttachmentsPanel">
+            <h2 class="h5 mb-3">{{ title }}</h2>
+            {% if rows %}
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead><tr>{% for key, label in columns %}<th>{{ label }}</th>{% endfor %}</tr></thead>
+                    <tbody>
+                    {% for row in rows %}
+                    <tr>{% for key, label in columns %}<td>{{ row.get(key, '-') }}</td>{% endfor %}</tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-muted">暂无记录。</div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="row g-3 mt-1">
+    <div class="col-lg-6">
+        <div class="page-card h-100">
+            <div class="section-title">
+                <div>
+                    <h2>服务单附件</h2>
+                    <span>保存维修照片、客户签字、报价确认和现场报告</span>
+                </div>
+            </div>
+            <form class="row g-2 align-items-end mb-3" method="post" action="/service-orders/{{ service.id }}/attachments" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="col-md-5">
+                    <label class="form-label">选择文件</label>
+                    <input class="form-control" type="file" name="file" required>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label">备注</label>
+                    <input class="form-control" name="remark" placeholder="例如：现场照片、客户签字、报价确认">
+                </div>
+                <div class="col-md-2 d-grid">
+                    <button class="btn btn-primary" type="submit"><i class="bi bi-upload"></i> 上传</button>
+                </div>
+            </form>
+            {% if attachments %}
+            <div class="list-group list-group-flush">
+                {% for file in attachments %}
+                <div class="list-group-item px-0">
+                    <div class="d-flex justify-content-between gap-3">
+                        <div class="min-w-0">
+                            <div class="fw-semibold text-truncate">
+                                <i class="bi {{ 'bi-image' if file.attachment_type == 'image' else 'bi-file-earmark-text' }} text-primary"></i>
+                                <a href="{{ url_for('static', filename=file.stored_path) }}" target="_blank">{{ file.file_name }}</a>
+                            </div>
+                            <div class="text-muted small">{{ file.remark or '-' }}</div>
+                            <div class="text-muted small">{{ file.uploaded_at or '-' }} / {{ ((file.file_size or 0) / 1024)|round(1) }} KB</div>
+                        </div>
+                        <form method="post" action="/service-orders/{{ service.id }}/attachments/{{ file.id }}/delete">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="btn btn-outline-danger btn-sm" type="submit">删除</button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-muted">暂无附件。</div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="page-card h-100">
+            <div class="section-title">
+                <div>
+                    <h2>备注/操作记录</h2>
+                    <span>记录故障处理、客户确认、收费沟通和内部交接</span>
+                </div>
+            </div>
+            <form class="row g-2 align-items-end mb-3" method="post" action="/service-orders/{{ service.id }}/notes">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="col-md-9">
+                    <label class="form-label">新增备注</label>
+                    <input class="form-control" name="note" placeholder="输入故障处理、客户确认或收费沟通说明" required>
+                </div>
+                <div class="col-md-3 d-grid">
+                    <button class="btn btn-primary" type="submit"><i class="bi bi-clock-history"></i> 记录</button>
+                </div>
+            </form>
+            {% if activity_logs %}
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead><tr><th>时间</th><th>人员</th><th>操作</th><th>说明</th></tr></thead>
+                    <tbody>
+                    {% for log in activity_logs %}
+                    <tr>
+                        <td class="text-muted small">{{ log.created_at or '-' }}</td>
+                        <td>{{ log.username or '-' }}</td>
+                        <td>{{ log.action or '-' }}</td>
+                        <td>{{ log.remark or log.target or '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-muted">暂无操作记录。</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% include "partials/inventory_grid_scripts.html" %}
+<script>
+document.addEventListener('click', function(event) {
+    const action = event.target.closest('[data-menu-event]');
+    if (!action) return;
+    const targets = {
+        'focus-dispatch': '#serviceDispatchPanel',
+        'focus-handle': '#serviceHandlePanel',
+        'focus-parts': '#servicePartsPanel',
+        'focus-accept': '#serviceAcceptPanel',
+        'focus-return-visit': '#serviceReturnVisitPanel',
+        'focus-fee': '#serviceFeePanel',
+        'focus-rma': '#serviceRmaPanel',
+        'focus-close': '#serviceClosePanel',
+        'focus-attachments': '#serviceAttachmentsPanel'
+    };
+    const target = document.querySelector(targets[action.dataset.menuEvent] || '');
+    if (target) {
+        target.scrollIntoView({behavior: 'smooth', block: 'start'});
+        target.querySelector('input, select, textarea, button')?.focus({preventScroll: true});
+    }
+});
+document.addEventListener('input', function(event) {
+    const row = event.target.closest('#itemsTable tbody tr');
+    if (!row || !event.target.matches('.js-quantity')) return;
+    updateServiceStockHint(row);
+});
+document.addEventListener('change', function(event) {
+    const row = event.target.closest('#itemsTable tbody tr');
+    if (!row || !event.target.matches('select[name="product_id[]"]')) return;
+    updateServiceStockHint(row);
+});
+function updateServiceStockHint(row) {
+    const availableInput = row.querySelector('.js-available-qty');
+    const qtyInput = row.querySelector('.js-quantity');
+    const hint = row.querySelector('.js-stock-hint');
+    if (!availableInput || !qtyInput || !hint) return;
+    const available = Number(availableInput.value || 0);
+    const qty = Number(qtyInput.value || 0);
+    const shortage = qty - available;
+    if (!qty) {
+        hint.textContent = '选择备件后显示';
+        hint.className = 'form-text js-stock-hint';
+    } else if (shortage > 0) {
+        hint.textContent = '短缺 ' + shortage.toFixed(2);
+        hint.className = 'form-text js-stock-hint text-danger fw-semibold';
+    } else {
+        hint.textContent = '可用';
+        hint.className = 'form-text js-stock-hint text-success';
+    }
+}
+document.querySelectorAll('#itemsTable tbody tr').forEach(updateServiceStockHint);
+</script>
+{% endblock %}

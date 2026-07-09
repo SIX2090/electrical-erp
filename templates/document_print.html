@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ doc.title }} - {{ doc.number }}</title>
+    <link href="{{ url_for('static', filename='cdn/bootstrap-icons-1.10.0.css') }}" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: #f3f4f6;
+            color: #111827;
+            font-family: "Microsoft YaHei", SimSun, serif;
+            font-size: 13px;
+        }
+        .no-print {
+            background: #fff;
+            border-bottom: 1px solid #d1d5db;
+            padding: 12px 18px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .btn {
+            height: 34px;
+            border: 1px solid #cbd5e1;
+            background: #fff;
+            color: #111827;
+            border-radius: 5px;
+            padding: 0 14px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-primary { background: #2563eb; border-color: #2563eb; color: #fff; }
+        .sheet {
+            position: relative;
+            width: 210mm;
+            min-height: 297mm;
+            margin: 16px auto;
+            background: #fff;
+            padding: 16mm 14mm;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, .12);
+        }
+        .print-void-stamp {
+            position: absolute;
+            top: 26mm;
+            right: 18mm;
+            z-index: 2;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 132px;
+            height: 62px;
+            border: 4px double #b91c1c;
+            border-radius: 50%;
+            color: #b91c1c;
+            font-size: 26px;
+            font-weight: 800;
+            letter-spacing: 0;
+            line-height: 1;
+            transform: rotate(-15deg);
+            opacity: .86;
+            background: rgba(255, 255, 255, .18);
+            box-shadow: inset 0 0 0 2px rgba(185, 28, 28, .14);
+            pointer-events: none;
+            user-select: none;
+            white-space: nowrap;
+        }
+        .title { text-align: center; font-size: 24px; font-weight: 700; letter-spacing: 0; margin-bottom: 4px; }
+        .subtitle { text-align: center; color: #6b7280; margin-bottom: 18px; }
+        .topline {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            border-top: 2px solid #111827;
+            border-bottom: 1px solid #111827;
+            padding: 9px 0;
+            margin-bottom: 12px;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px 16px;
+            margin-bottom: 14px;
+        }
+        .field-label { color: #374151; font-weight: 700; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: auto;
+        }
+        th, td {
+            border: 1px solid #111827;
+            padding: 6px 7px;
+            vertical-align: middle;
+            word-break: break-word;
+        }
+        th {
+            background: #f3f4f6;
+            font-weight: 700;
+            text-align: center;
+        }
+        .center { text-align: center; }
+        .right { text-align: right; }
+        .summary {
+            margin-top: 10px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 22px;
+            font-weight: 700;
+        }
+        .remark {
+            margin-top: 12px;
+            min-height: 22px;
+        }
+        .signatures {
+            display: grid;
+            grid-template-columns: repeat({{ doc.signatures|length if doc.signatures else 4 }}, 1fr);
+            gap: 20px;
+            margin-top: 38px;
+        }
+        .signature-line {
+            border-bottom: 1px solid #111827;
+            height: 28px;
+            margin-left: 48px;
+        }
+        .footer {
+            color: #6b7280;
+            font-size: 12px;
+            margin-top: 26px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .template-print-grid {
+            display: grid;
+            width: 100%;
+            font-size: 12px;
+            align-items: stretch;
+        }
+        .template-print-cell {
+            min-height: 28px;
+            padding: 6px 7px;
+            overflow: hidden;
+            white-space: normal;
+            word-break: break-word;
+            line-height: 1.25;
+        }
+        .template-print-title {
+            font-size: 22px;
+            font-weight: 700;
+            text-align: center;
+        }
+        .template-print-cell.numeric {
+            white-space: nowrap;
+            text-align: right;
+        }
+        @media print {
+            @page { size: A4; margin: 10mm; }
+            body { background: #fff; }
+            .no-print { display: none !important; }
+            .sheet {
+                width: auto;
+                min-height: auto;
+                margin: 0;
+                padding: 0;
+                box-shadow: none;
+            }
+            th { background: #f3f4f6 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .print-void-stamp {
+                color: #b91c1c !important;
+                border-color: #b91c1c !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="no-print">
+        <button class="btn btn-primary" onclick="window.print()"><i class="bi bi-printer"></i> 打印</button>
+        <button class="btn" onclick="window.close()"><i class="bi bi-x-lg"></i> 关闭</button>
+        <button class="btn" onclick="history.back()"><i class="bi bi-arrow-left"></i> 返回</button>
+    </div>
+    <main class="sheet">
+        {% set print_status = doc.status_label or doc.status or '' %}
+        {% if print_status in ['已作废', '作废', '已取消', '取消', 'void', 'voided', 'cancelled', 'canceled'] %}
+        <div class="print-void-stamp" aria-label="已作废">已作废</div>
+        {% endif %}
+        {% if template_grid %}
+        <div class="template-print-grid" style="grid-template-columns:{{ template_grid.columns }}">
+            {% for cell in template_grid.cells %}
+            <div class="template-print-cell {% if cell.row == 1 and cell.col == 1 %}template-print-title{% endif %} {% if cell.numeric %}numeric{% endif %}"
+                 style="grid-row:{{ cell.row }};{{ cell.css }}">
+                {{ cell.value }}
+            </div>
+            {% endfor %}
+        </div>
+        <div class="footer">
+            <span>{{ template_grid.template.template_name }}</span>
+            <span>打印时间：{{ doc.print_time.strftime('%Y-%m-%d %H:%M') if doc.print_time else '' }}</span>
+        </div>
+        {% else %}
+        <div class="title">{{ doc.title }}</div>
+        <div class="subtitle">{{ doc.subtitle or '' }}</div>
+
+        <div class="topline">
+            <div><span class="field-label">{{ doc.number_label or '单据编号' }}：</span>{{ doc.number }}</div>
+            <div><span class="field-label">{{ doc.date_label or '日期' }}：</span>{{ doc.date }}</div>
+            <div><span class="field-label">状态：</span>{{ doc.status_label }}</div>
+        </div>
+
+        {% if doc.info %}
+        <section class="info-grid">
+            {% for label, value in doc.info %}
+            <div><span class="field-label">{{ label }}：</span>{{ value or '' }}</div>
+            {% endfor %}
+        </section>
+        {% endif %}
+
+        <table>
+            <thead>
+                <tr>
+                    <th style="width:42px;">序号</th>
+                    {% for field, title, class_name in doc.columns %}
+                    <th>{{ title }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in doc.rows %}
+                <tr>
+                    <td class="center">{{ loop.index }}</td>
+                    {% for field, title, class_name in doc.columns %}
+                    {% set value = row.get(field, '') %}
+                    <td class="{{ class_name }}">
+                        {% if 'money' in class_name %}{{ '%.2f'|format(value or 0) }}
+                        {% elif class_name == 'right' and value is number %}{{ '%.2f'|format(value or 0) }}
+                        {% else %}{{ value }}{% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% else %}
+                <tr>
+                    <td class="center" colspan="{{ (doc.columns|length) + 1 }}">暂无明细</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="summary">
+            <div>数量合计：{{ '%.2f'|format(doc.total_quantity or 0) }}</div>
+            {% if doc.total_amount is not none %}
+            <div>金额合计：{{ '%.2f'|format(doc.total_amount or 0) }}</div>
+            {% endif %}
+        </div>
+
+        <div class="remark"><span class="field-label">备注：</span>{{ doc.remark or '' }}</div>
+
+        <section class="signatures">
+            {% for label in doc.signatures or ['制单', '审核', '仓库', '财务'] %}
+            <div>
+                <span class="field-label">{{ label }}：</span>
+                <div class="signature-line"></div>
+            </div>
+            {% endfor %}
+        </section>
+
+        <div class="footer">
+            <span>仓库管理系统默认打印模板</span>
+            <span>打印时间：{{ doc.print_time.strftime('%Y-%m-%d %H:%M') if doc.print_time else '' }}</span>
+        </div>
+        {% endif %}
+    </main>
+</body>
+</html>

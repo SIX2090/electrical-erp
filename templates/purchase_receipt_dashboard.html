@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}{{ title|clean_text }}{% endblock %}
+{% block content %}
+<div class="page-heading erp-list-heading">
+    <div>
+        <h1>{{ title|clean_text }}</h1>
+        {% if subtitle %}<p>{{ subtitle|clean_text }}</p>{% endif %}
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-outline-primary btn-sm" href="/purchase-orders"><i class="bi bi-bag-check"></i> 采购订单列表</a>
+        <a class="btn btn-outline-primary btn-sm" href="/transactions"><i class="bi bi-arrow-left-right"></i> 库存流水</a>
+        <a class="btn btn-outline-primary btn-sm" href="/payables"><i class="bi bi-wallet2"></i> 应付账款</a>
+    </div>
+</div>
+
+<div class="page-card erp-list-card mb-3">
+    <form class="row g-2" method="get" action="/purchase_receipts">
+        <div class="col-lg-4">
+            <input class="form-control" name="keyword" value="{{ filters.keyword }}" placeholder="入库单、采购订单、供应商、项目号、机号">
+        </div>
+        <div class="col-lg-2">
+            <select class="form-select" name="status">
+                <option value="">全部收货状态</option>
+                {% for row in statuses %}
+                <option value="{{ row.status }}" {% if filters.status == row.status %}selected{% endif %}>{{ row.status|clean_text }} ({{ row.count }})</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-lg-2">
+            <select class="form-select" name="qc_state">
+                <option value="">全部质检状态</option>
+                <option value="pending" {% if qc_state == 'pending' %}selected{% endif %}>质检待检</option>
+                <option value="checked" {% if qc_state == 'checked' %}selected{% endif %}>质检已检</option>
+            </select>
+        </div>
+        <div class="col-lg-2">
+            <select class="form-select" name="stock_state">
+                <option value="">全部入库状态</option>
+                <option value="posted" {% if stock_state == 'posted' %}selected{% endif %}>已入库记账</option>
+                <option value="unposted" {% if stock_state == 'unposted' %}selected{% endif %}>未见库存流水</option>
+            </select>
+        </div>
+        <div class="col-lg-2 d-grid">
+            <button class="btn btn-primary" type="submit"><i class="bi bi-search"></i> 查询</button>
+        </div>
+    </form>
+</div>
+
+<div class="page-card erp-list-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>可入库采购订单</h2>
+            {% if pending_orders %}<span>{{ pending_orders|length }} 条可从订单详情下推入库</span>{% else %}<span>暂无记录</span>{% endif %}
+        </div>
+        <a class="btn btn-outline-secondary btn-sm" href="/purchase-orders?risk=pending_receive">进入待收货订单</a>
+    </div>
+    {% if pending_orders %}
+    <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle erp-list-table">
+            <thead>
+            <tr>
+                <th>采购订单</th>
+                <th>采购日期</th>
+                <th>预计到货</th>
+                <th>供应商</th>
+                <th>项目号</th>
+                <th>机号</th>
+                <th>状态</th>
+                <th class="text-end">未收数量</th>
+                <th class="text-end">未收金额</th>
+                <th class="text-end">操作</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for row in pending_orders %}
+            <tr>
+                <td><a href="/purchase_order/{{ row.id }}">{{ row.order_no|clean_text }}</a></td>
+                <td>{{ row.order_date or '-' }}</td>
+                <td>{{ row.expected_date or '-' }}</td>
+                <td>{{ row.supplier_name|clean_text }}</td>
+                <td>{{ row.project_code|clean_text }}</td>
+                <td>{{ row.serial_no|clean_text }}</td>
+                <td>{{ row.status|clean_text }}</td>
+                <td class="text-end fw-semibold">{{ row.pending_qty|qty }}</td>
+                <td class="text-end">{{ row.pending_amount|money }}</td>
+                <td class="text-end"><a class="btn btn-outline-primary btn-sm" href="/purchase_order/{{ row.id }}">订单详情</a></td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="erp-empty-line">暂无可入库采购订单。</div>
+    {% endif %}
+</div>
+
+<div class="page-card erp-list-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>采购入库单列表</h2>
+            {% if receipts %}<span>{{ receipts|length }} 条记录</span>{% else %}<span>暂无记录</span>{% endif %}
+        </div>
+    </div>
+    {% if receipts %}
+    <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle erp-list-table">
+            <thead>
+            <tr>
+                <th>采购入库单</th>
+                <th>收货日期</th>
+                <th>采购订单</th>
+                <th>供应商</th>
+                <th>收货仓库</th>
+                <th>项目号</th>
+                <th>机号</th>
+                <th>质检状态</th>
+                <th>入库状态</th>
+                <th class="text-end">收货数量</th>
+                <th class="text-end">收货金额</th>
+                <th>单据状态</th>
+                <th class="text-end">操作</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for row in receipts %}
+            <tr>
+                <td><a href="/purchase_receipts/{{ row.id }}">{{ row.receipt_no|clean_text }}</a></td>
+                <td>{{ row.receipt_date or '-' }}</td>
+                <td>{% if row.order_id %}<a href="/purchase_order/{{ row.order_id }}">{{ row.order_no|clean_text }}</a>{% else %}-{% endif %}</td>
+                <td>{{ row.supplier_name|clean_text }}</td>
+                <td>{{ row.warehouse_name|clean_text }}</td>
+                <td>{{ row.project_code|clean_text }}</td>
+                <td>{{ row.serial_no|clean_text }}</td>
+                <td>{{ row.qc_state_label|clean_text }}</td>
+                <td>{{ row.stock_state_label|clean_text }}</td>
+                <td class="text-end">{{ row.received_qty|qty }}</td>
+                <td class="text-end">{{ row.received_amount|money }}</td>
+                <td>{{ row.status|clean_text }}</td>
+                <td class="text-end text-nowrap">
+                    <a class="btn btn-outline-secondary btn-sm" href="/purchase_receipts/{{ row.id }}/edit">编辑</a>
+                    <a class="btn btn-outline-primary btn-sm" href="/purchase_receipts/{{ row.id }}">详情</a>
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="erp-empty-line">没有匹配的采购入库单。</div>
+    {% endif %}
+</div>
+{% endblock %}

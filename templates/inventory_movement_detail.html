@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% from "partials/document_void_stamp.html" import void_stamp %}
+{% macro safe_value(value) -%}
+    {%- set text = (value|string).strip() if value is not none else '' -%}
+    {%- set clean_length = text|replace('?', '')|length -%}
+    {{- '-' if not text or (text|length - clean_length) >= 3 else text -}}
+{%- endmacro %}
+{% block title %}{{ title }} - {{ doc_no }}{% endblock %}
+{% block content %}
+<div id="doc-nav-config" data-nav-table="inventory_movement_documents" data-entry-nav-kind="{{ 'inventory_inbound' if is_inbound else 'inventory_outbound' }}" data-nav-base="{{ back_url }}/" data-doc-id="{{ header.reference_no }}" data-list-url="{{ back_url }}" style="display:none"></div>
+
+{{ document_menu_bar(actions=[
+    {'label': '返回列表', 'type': 'link', 'href': back_url, 'icon': 'bi-arrow-left'},
+    {'label': '打印', 'type': 'button', 'event': 'doc-print'},
+    {'type': 'divider'},
+    {'label': '复制', 'type': 'button', 'button_type': 'submit', 'form': 'copyForm', 'icon': 'bi-copy', 'title': '复制为新的草稿单据'},
+    {'label': '审核', 'type': 'button', 'button_type': 'submit', 'form': 'auditForm', 'icon': 'bi-check2-square', 'disabled': not can_audit, 'title': audit_disabled_reason if not can_audit else '审核并写入库存流水'},
+    {'label': '反审', 'type': 'button', 'button_type': 'submit', 'form': 'unauditForm', 'icon': 'bi-arrow-counterclockwise', 'disabled': not can_unaudit, 'title': unaudit_disabled_reason if not can_unaudit else '反审并回滚库存影响'},
+    {'label': '删除', 'type': 'button', 'button_type': 'submit', 'form': 'deleteForm', 'icon': 'bi-trash', 'disabled': not can_delete, 'title': delete_disabled_reason if not can_delete else '删除草稿单据'},
+    {'label': '工具', 'type': 'dropdown', 'items': [
+        {'label': '下查库存流水', 'type': 'link', 'href': '/transactions?keyword=' ~ (doc_no|urlencode)},
+        {'label': '批次/机号追溯', 'type': 'link', 'href': '/batch/tracking?keyword=' ~ ((header.serial_no or header.project_code or doc_no)|urlencode)},
+        {'label': '返回列表', 'type': 'link', 'href': back_url}
+    ]}
+], aria_label=tx_type ~ '单据操作菜单', doc_status={'code': status, 'label': status_label} if status else None) }}
+
+<div class="erp-document-container">
+    <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">{{ title }}</h5>
+            <div class="document-title-stamp">
+                {{ void_stamp(status) }}
+                <span class="badge {{ status_badge_class }}">{{ status_label }}</span>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row g-3 mb-3">
+                <div class="col-md-3">
+                    <label class="form-label text-muted">单据编号</label>
+                    <div class="form-control-static">{{ safe_value(header.reference_no) }}</div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-muted">单据类型</label>
+                    <div class="form-control-static">{{ safe_value(header.transaction_type) }}</div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-muted">日期</label>
+                    <div class="form-control-static">{{ header.tx_date }}</div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-muted">仓库</label>
+                    <div class="form-control-static">{{ safe_value(warehouse.code) }} {{ safe_value(warehouse.name) }}</div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-muted">项目号</label>
+                    <div class="form-control-static">{{ safe_value(header.project_code) }}</div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-muted">机号</label>
+                    <div class="form-control-static">{{ safe_value(header.serial_no) }}</div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-muted">备注</label>
+                    <div class="form-control-static">{{ safe_value(header.remark) }}</div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label text-muted">明细行数</label>
+                    <div class="form-control-static">{{ header.line_count }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">明细行</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th style="width:40px">#</th>
+                            <th>物料编码</th>
+                            <th>物料名称</th>
+                            <th>规格</th>
+                            <th class="text-end">数量</th>
+                            <th>单位</th>
+                            <th class="text-end">单价</th>
+                            <th class="text-end">金额</th>
+                            <th>仓库</th>
+                            <th>库位</th>
+                            <th>批次号</th>
+                            <th>机号</th>
+                            <th>项目号</th>
+                            <th>备注</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for line in lines %}
+                        <tr>
+                            <td>{{ loop.index }}</td>
+                            <td>{{ safe_value(line.product_code) }}</td>
+                            <td>{{ safe_value(line.product_name) }}</td>
+                            <td>{{ safe_value(line.specification) }}</td>
+                            <td class="text-end">{{ '%.4f'|format(line.quantity|float) }}</td>
+                            <td>{{ safe_value(line.product_unit) }}</td>
+                            <td class="text-end">{{ '%.4f'|format(line.unit_cost|float) }}</td>
+                            <td class="text-end">{{ '%.2f'|format(line.amount|float) }}</td>
+                            <td>{{ safe_value(warehouse.name) }}</td>
+                            <td>{{ safe_value(line.location) }}</td>
+                            <td>{{ safe_value(line.lot_no) }}</td>
+                            <td>{{ safe_value(line.serial_no) }}</td>
+                            <td>{{ safe_value(line.project_code) }}</td>
+                            <td>{{ safe_value(line.remark) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr class="table-active fw-bold">
+                            <td colspan="4" class="text-end">合计</td>
+                            <td class="text-end">{{ '%.4f'|format(header.total_qty|float) }}</td>
+                            <td colspan="2"></td>
+                            <td class="text-end">{{ '%.2f'|format(header.total_amount|float) }}</td>
+                            <td colspan="2"></td>
+                            <td colspan="4"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <form id="copyForm" method="post" action="{{ copy_url }}" class="d-none">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    </form>
+    <form id="auditForm" method="post" action="{{ audit_url }}" class="d-none" onsubmit="return confirm('确认审核并写入库存流水？');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    </form>
+    <form id="unauditForm" method="post" action="{{ unaudit_url }}" class="d-none" onsubmit="return confirm('确认反审这张已过账库存单据？系统将回滚对应库存流水。');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    </form>
+    <form id="deleteForm" data-doc-action="delete" method="post" action="{{ delete_url }}" class="d-none" onsubmit="return confirm('确认删除这张草稿单据？此操作不可恢复。');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    </form>
+
+</div>
+{% endblock %}

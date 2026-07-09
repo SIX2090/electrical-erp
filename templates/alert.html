@@ -1,0 +1,324 @@
+{% extends "base.html" %}
+{% from '_list_macros.html' import sort_th %}
+{% block title %}库存预警{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-exclamation-triangle"></i> 库存预警</h2>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-danger text-white">
+            <div class="card-body">
+                <h5 class="card-title">低于最低库存</h5>
+                <h2>{{ low_stock_count }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-dark">
+            <div class="card-body">
+                <h5 class="card-title">低于安全库存</h5>
+                <h2>{{ danger_stock_count }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <h5 class="card-title">库存正常</h5>
+                <h2>{{ normal_stock_count }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-secondary text-white">
+            <div class="card-body">
+                <h5 class="card-title">未启用预警</h5>
+                <h2>{{ disabled_stock_count }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <form method="get" class="row g-2 align-items-end">
+            {% if request.args.get('embedded') == '1' %}
+            <input type="hidden" name="embedded" value="1">
+            {% endif %}
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">预警状态</label>
+                <select name="status" class="form-select form-select-sm">
+                    <option value="" {% if not filters.status %}selected{% endif %}>全部预警</option>
+                    <option value="low" {% if filters.status == 'low' %}selected{% endif %}>低于最低库存</option>
+                    <option value="danger" {% if filters.status == 'danger' %}selected{% endif %}>低于安全库存</option>
+                    <option value="normal" {% if filters.status == 'normal' %}selected{% endif %}>库存正常</option>
+                    <option value="disabled" {% if filters.status == 'disabled' %}selected{% endif %}>未启用预警</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">分类</label>
+                <select name="category_id" class="form-select form-select-sm">
+                    <option value="0" {% if not filters.category_id %}selected{% endif %}>全部分类</option>
+                    {% for category in categories %}
+                    <option value="{{ category.id }}" {% if filters.category_id == category.id %}selected{% endif %}>{{ category.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">供应商</label>
+                <select name="supplier_id" class="form-select form-select-sm">
+                    <option value="0" {% if not filters.supplier_id %}selected{% endif %}>全部供应商</option>
+                    {% for supplier in suppliers %}
+                    <option value="{{ supplier.id }}" {% if filters.supplier_id == supplier.id %}selected{% endif %}>{{ supplier.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small text-muted mb-1">关键词</label>
+                <input type="text" name="search" class="form-control form-control-sm" placeholder="编码、名称、规格、分类、供应商、库存不足" value="{{ filters.search }}">
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-primary btn-sm flex-fill">筛选</button>
+                {% if filters.search or filters.status or filters.category_id or filters.supplier_id %}
+                <a href="/alert{% if request.args.get('embedded') == '1' %}?embedded=1{% endif %}" class="btn btn-outline-secondary btn-sm">清除</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header py-2">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <h5 class="mb-0">预警物料列表</h5>
+            <span class="text-muted small">当前列表 {{ alert_materials|length }} 条</span>
+        </div>
+    </div>
+    <div class="card-body border-bottom py-2">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label small text-muted mb-1">批量范围</label>
+                <div class="form-control form-control-sm bg-light" id="selectedAlertCount">已选择 0 个物料</div>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">最低库存</label>
+                <input type="number" class="form-control form-control-sm" id="batchMinStock" min="0" step="0.01" placeholder="不改可留空">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">安全库存</label>
+                <input type="number" class="form-control form-control-sm" id="batchSafetyStock" min="0" step="0.01" placeholder="不改可留空">
+            </div>
+            <div class="col-md-5 d-flex gap-2 flex-wrap">
+                <button type="button" class="btn btn-warning btn-sm" id="batchUpdateAlertBtn">
+                    <i class="bi bi-sliders"></i> 批量设置预警值
+                </button>
+                <button type="button" class="btn btn-outline-danger btn-sm" id="disableAlertBtn">
+                    <i class="bi bi-bell-slash"></i> 取消所选预警
+                </button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="clearAlertSelectionBtn">取消选择</button>
+            </div>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover table-sm mb-0" id="alertTable">
+                <thead>
+                    <tr>
+                        <th style="width: 42px;"><input type="checkbox" id="checkAll"></th>
+                        <th>序号</th>
+                        {{ sort_th('物料编码', 'code', sort_by, sort_order) }}
+                        {{ sort_th('物料名称', 'name', sort_by, sort_order) }}
+                        {{ sort_th('规格型号', 'spec', sort_by, sort_order) }}
+                        {{ sort_th('分类', 'category', sort_by, sort_order) }}
+                        {{ sort_th('供应商', 'supplier', sort_by, sort_order) }}
+                        {{ sort_th('当前库存', 'stock', sort_by, sort_order) }}
+                        {{ sort_th('最低库存', 'min_stock', sort_by, sort_order) }}
+                        {{ sort_th('安全库存', 'safety_stock', sort_by, sort_order) }}
+                        {{ sort_th('预警状态', 'status', sort_by, sort_order) }}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for material in alert_materials %}
+                    <tr>
+                        <td><input type="checkbox" class="check-item alert-check" value="{{ material.id }}"></td>
+                        <td>{{ loop.index }}</td>
+                        <td>{{ material.code }}</td>
+                        <td>{{ material.name }}</td>
+                        <td>{{ material.spec or '-' }}</td>
+                        <td>{{ material.category or '-' }}</td>
+                        <td>{{ material.supplier or '-' }}</td>
+                        <td>{{ material.stock }}</td>
+                        <td>{{ material.min_stock }}</td>
+                        <td>{{ material.safety_stock }}</td>
+                        <td>
+                            {% if material.status == 'low' %}
+                            <span class="badge bg-danger">低于最低库存</span>
+                            {% elif material.status == 'danger' %}
+                            <span class="badge bg-warning">低于安全库存</span>
+                            {% elif material.status == 'disabled' %}
+                            <span class="badge bg-secondary">未启用预警</span>
+                            {% else %}
+                            <span class="badge bg-success">正常</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="11" class="text-center text-muted">暂无预警物料</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function getSelectedAlertIds() {
+    return Array.from(document.querySelectorAll('#alertTable .alert-check:checked')).map(function(item) {
+        return item.value;
+    });
+}
+
+function updateSelectedAlertCount() {
+    var countNode = document.getElementById('selectedAlertCount');
+    if (!countNode) return;
+    var selected = getSelectedAlertIds().length;
+    countNode.textContent = '已选择 ' + selected + ' 个物料';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    initCheckAll('alertTable');
+    updateSelectedAlertCount();
+
+    document.querySelectorAll('#alertTable .alert-check').forEach(function(item) {
+        item.addEventListener('change', updateSelectedAlertCount);
+    });
+    var checkAll = document.querySelector('#alertTable #checkAll');
+    if (checkAll) {
+        checkAll.addEventListener('change', function() {
+            setTimeout(updateSelectedAlertCount, 0);
+        });
+    }
+
+    var clearBtn = document.getElementById('clearAlertSelectionBtn');
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function() {
+            document.querySelectorAll('#alertTable .alert-check').forEach(function(item) {
+                item.checked = false;
+                item.dispatchEvent(new Event('change'));
+            });
+            if (checkAll) {
+                checkAll.checked = false;
+                checkAll.indeterminate = false;
+            }
+            updateSelectedAlertCount();
+        });
+    }
+
+    var batchBtn = document.getElementById('batchUpdateAlertBtn');
+    if (batchBtn) {
+        batchBtn.addEventListener('click', async function() {
+            var ids = getSelectedAlertIds();
+            var minStock = document.getElementById('batchMinStock').value.trim();
+            var safetyStock = document.getElementById('batchSafetyStock').value.trim();
+            if (!ids.length) {
+                showToast('请先勾选要设置的物料', 'warning');
+                return;
+            }
+            if (!minStock && !safetyStock) {
+                showToast('最低库存和安全库存至少填写一项', 'warning');
+                return;
+            }
+            if (minStock && Number(minStock) < 0 || safetyStock && Number(safetyStock) < 0) {
+                showToast('库存预警值不能小于 0', 'warning');
+                return;
+            }
+            if (minStock && safetyStock && Number(safetyStock) < Number(minStock)) {
+                showToast('安全库存不能低于最低库存', 'warning');
+                return;
+            }
+            var confirmed = await showConfirm('确定更新选中的 ' + ids.length + ' 个物料预警值吗？', { title: '批量设置预警值' });
+            if (!confirmed) return;
+
+            batchBtn.disabled = true;
+            batchBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>设置中';
+            fetch('/alert/batch_update_thresholds', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': (document.querySelector('meta[name="csrf-token"]') || {}).content || ''
+                },
+                body: JSON.stringify({
+                    ids: ids,
+                    min_stock: minStock,
+                    safety_stock: safetyStock
+                })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(res) {
+                if (res.status === 'success') {
+                    showToast(res.msg || '设置成功', 'success');
+                    setTimeout(function() { location.reload(); }, 700);
+                } else {
+                    showToast(res.msg || '设置失败', 'danger', 4200);
+                }
+            })
+            .catch(function(err) {
+                showToast('设置失败：' + err.message, 'danger', 4200);
+            })
+            .finally(function() {
+                batchBtn.disabled = false;
+                batchBtn.innerHTML = '<i class="bi bi-sliders"></i> 批量设置预警值';
+            });
+        });
+    }
+
+    var disableBtn = document.getElementById('disableAlertBtn');
+    if (disableBtn) {
+        disableBtn.addEventListener('click', async function() {
+            var ids = getSelectedAlertIds();
+            if (!ids.length) {
+                showToast('请先勾选要取消预警的物料', 'warning');
+                return;
+            }
+            var confirmed = await showConfirm('确定取消选中的 ' + ids.length + ' 个物料库存预警吗？', { title: '取消库存预警' });
+            if (!confirmed) return;
+
+            disableBtn.disabled = true;
+            disableBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>处理中';
+            fetch('/alert/batch_update_thresholds', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': (document.querySelector('meta[name="csrf-token"]') || {}).content || ''
+                },
+                body: JSON.stringify({
+                    ids: ids,
+                    action: 'disable'
+                })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(res) {
+                if (res.status === 'success') {
+                    showToast(res.msg || '已取消预警', 'success');
+                    setTimeout(function() { location.reload(); }, 700);
+                } else {
+                    showToast(res.msg || '取消失败', 'danger', 4200);
+                }
+            })
+            .catch(function(err) {
+                showToast('取消失败：' + err.message, 'danger', 4200);
+            })
+            .finally(function() {
+                disableBtn.disabled = false;
+                disableBtn.innerHTML = '<i class="bi bi-bell-slash"></i> 取消所选预警';
+            });
+        });
+    }
+});
+</script>
+{% endblock %}

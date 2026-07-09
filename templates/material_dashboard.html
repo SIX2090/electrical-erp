@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+{% macro hidden_filters(skip_page=False) -%}
+    {% if filters.keyword %}<input type="hidden" name="keyword" value="{{ filters.keyword }}">{% endif %}
+    {% if filters.category %}<input type="hidden" name="category" value="{{ filters.category }}">{% endif %}
+    {% if filters.item_type %}<input type="hidden" name="item_type" value="{{ filters.item_type }}">{% endif %}
+    {% if filters.status %}<input type="hidden" name="status" value="{{ filters.status }}">{% endif %}
+    {% if filters.unit %}<input type="hidden" name="unit" value="{{ filters.unit }}">{% endif %}
+    {% if filters.control %}<input type="hidden" name="control" value="{{ filters.control }}">{% endif %}
+    {% if filters.supplier_state %}<input type="hidden" name="supplier_state" value="{{ filters.supplier_state }}">{% endif %}
+    {% if filters.sort %}<input type="hidden" name="sort" value="{{ filters.sort }}">{% endif %}
+    {% if filters.order %}<input type="hidden" name="order" value="{{ filters.order }}">{% endif %}
+    {% if not skip_page %}<input type="hidden" name="page" value="{{ pagination.page }}">{% endif %}
+{%- endmacro %}
+{% set filter_base = back_url ~ '?keyword=' ~ (filters.keyword|urlencode) ~ '&category=' ~ (filters.category|urlencode) ~ '&item_type=' ~ (filters.item_type|urlencode) ~ '&status=' ~ (filters.status|urlencode) ~ '&unit=' ~ (filters.unit|urlencode) ~ '&control=' ~ (filters.control|urlencode) ~ '&supplier_state=' ~ (filters.supplier_state|urlencode) ~ '&per_page=' ~ pagination.per_page %}
+{% macro sort_link(key, label) -%}
+    {% set active = filters.sort == key %}
+    {% set next_order = 'desc' if active and filters.order == 'asc' else 'asc' %}
+    <a class="material-sort-link {% if active %}active{% endif %}" href="{{ filter_base }}&sort={{ key }}&order={{ next_order }}&page=1">
+        {{ label }}{% if active %}<span>{{ '↑' if filters.order == 'asc' else '↓' }}</span>{% endif %}
+    </a>
+{%- endmacro %}
+<div class="material-master-shell">
+    <aside class="material-class-panel">
+        <div class="material-class-title">正式物料分类</div>
+        <form class="material-class-search" method="get" action="{{ back_url }}">
+            <input class="form-control form-control-sm" name="keyword" value="{{ filters.keyword }}" placeholder="搜索名称">
+            <input type="hidden" name="per_page" value="{{ pagination.per_page }}">
+            {{ hidden_filters(True) }}
+        </form>
+        <a class="material-class-link {% if not filters.category and not filters.item_type %}active{% endif %}" href="{{ back_url }}?keyword={{ filters.keyword|urlencode }}&status={{ filters.status|urlencode }}&unit={{ filters.unit|urlencode }}&control={{ filters.control|urlencode }}&supplier_state={{ filters.supplier_state|urlencode }}&per_page={{ pagination.per_page }}&sort={{ filters.sort }}&order={{ filters.order }}&page=1">全部物料</a>
+        {% for row in categories %}
+        <a class="material-class-link {% if filters.category|string == row.id|string %}active{% endif %}" href="{{ back_url }}?category={{ row.id }}&keyword={{ filters.keyword|urlencode }}&status={{ filters.status|urlencode }}&unit={{ filters.unit|urlencode }}&control={{ filters.control|urlencode }}&supplier_state={{ filters.supplier_state|urlencode }}&per_page={{ pagination.per_page }}&sort={{ filters.sort }}&order={{ filters.order }}&page=1">{{ row.category|clean_text }} <span>{{ row.count }}</span></a>
+        {% endfor %}
+        {% if item_types %}
+        <div class="material-class-title mt-3">物料类型</div>
+        {% endif %}
+        {% for row in item_types %}
+        <a class="material-class-link {% if filters.item_type == row.item_type %}active{% endif %}" href="{{ back_url }}?item_type={{ row.item_type|urlencode }}&keyword={{ filters.keyword|urlencode }}&status={{ filters.status|urlencode }}&unit={{ filters.unit|urlencode }}&control={{ filters.control|urlencode }}&supplier_state={{ filters.supplier_state|urlencode }}&per_page={{ pagination.per_page }}&sort={{ filters.sort }}&order={{ filters.order }}&page=1">{{ row.item_type|clean_text }} <span>{{ row.count }}</span></a>
+        {% endfor %}
+    </aside>
+
+    <section class="material-list-panel">
+        <div class="material-master-header">
+            <div>
+                <h1>{{ title }}</h1>
+                <div class="text-muted small">{{ subtitle }}</div>
+            </div>
+            <form class="material-master-search" method="get" action="{{ back_url }}">
+                <input class="form-control form-control-sm" name="keyword" value="{{ filters.keyword }}" placeholder="搜索编码/名称">
+                <input type="hidden" name="per_page" value="{{ pagination.per_page }}">
+                {{ hidden_filters(True) }}
+                <button class="btn btn-outline-primary btn-sm" type="submit">搜索</button>
+            </form>
+        </div>
+
+        <div class="material-toolbar">
+            <a class="btn btn-primary btn-sm" href="/material/new">新增物料</a>
+            <button class="btn btn-primary btn-sm d-none" type="button" disabled>提交</button>
+            <button class="btn btn-primary btn-sm d-none" type="button" disabled>审核</button>
+            <button class="btn btn-primary btn-sm d-none" type="button" disabled>禁用</button>
+            <button class="btn btn-primary btn-sm d-none" type="button" disabled>删除</button>
+            <a class="btn btn-outline-primary btn-sm" href="/material/import">导入</a>
+            <a class="btn btn-outline-primary btn-sm" href="/export/products">导出</a>
+            <a class="btn btn-outline-secondary btn-sm" href="/material/import-template">模板</a>
+            <a class="btn btn-outline-secondary btn-sm" href="{{ back_url }}">刷新</a>
+        </div>
+
+        <form class="material-filter-bar" method="get" action="{{ back_url }}">
+            <input type="hidden" name="keyword" value="{{ filters.keyword }}">
+            <input type="hidden" name="category" value="{{ filters.category }}">
+            <input type="hidden" name="item_type" value="{{ filters.item_type }}">
+            <input type="hidden" name="per_page" value="{{ pagination.per_page }}">
+            <input type="hidden" name="sort" value="{{ filters.sort }}">
+            <input type="hidden" name="order" value="{{ filters.order }}">
+            <label>
+                <span>状态</span>
+                <select class="form-select form-select-sm" name="status">
+                    <option value="">全部</option>
+                    <option value="audited" {% if filters.status == 'audited' %}selected{% endif %}>已审核</option>
+                    <option value="draft" {% if filters.status == 'draft' %}selected{% endif %}>草稿/未提交</option>
+                    {% for row in filter_options.statuses %}
+                    <option value="{{ row.status }}" {% if filters.status == row.status %}selected{% endif %}>{{ row.status|clean_text }}（{{ row.count }}）</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>
+                <span>单位</span>
+                <select class="form-select form-select-sm" name="unit">
+                    <option value="">全部</option>
+                    {% for row in filter_options.units %}
+                    <option value="{{ row.unit }}" {% if filters.unit == row.unit %}selected{% endif %}>{{ row.unit|clean_text }}（{{ row.count }}）</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>
+                <span>控制属性</span>
+                <select class="form-select form-select-sm" name="control">
+                    <option value="">全部</option>
+                    {% for row in filter_options.controls %}
+                    <option value="{{ row.value }}" {% if filters.control == row.value %}selected{% endif %}>{{ row.label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>
+                <span>供应商</span>
+                <select class="form-select form-select-sm" name="supplier_state">
+                    <option value="">全部</option>
+                    {% for row in filter_options.supplier_states %}
+                    <option value="{{ row.value }}" {% if filters.supplier_state == row.value %}selected{% endif %}>{{ row.label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <button class="btn btn-outline-primary btn-sm" type="submit">筛选</button>
+            <a class="btn btn-outline-secondary btn-sm" href="{{ back_url }}?keyword={{ filters.keyword|urlencode }}&per_page={{ pagination.per_page }}">清除筛选</a>
+        </form>
+
+        <div class="material-active-filters">
+            <span>物料列表</span>
+            <span>共{{ pagination.total_count }}条</span>
+            <span>第{{ pagination.page }}/{{ pagination.total_pages }}页</span>
+            <form class="d-inline-flex align-items-center gap-1" method="get" action="{{ back_url }}">
+                <span>每页</span>
+                <select class="form-select form-select-sm" name="per_page" onchange="this.form.submit()">
+                    {% for option in pagination.per_page_options %}
+                    <option value="{{ option }}" {% if option == pagination.per_page %}selected{% endif %}>{{ option }}</option>
+                    {% endfor %}
+                </select>
+                {{ hidden_filters(True) }}
+            </form>
+            {% if filters.category %}<span>分类：{{ filters.category }}</span>{% endif %}
+            {% if filters.item_type %}<span>类型：{{ filters.item_type }}</span>{% endif %}
+            {% if filters.status %}<span>状态：{{ filters.status }}</span>{% endif %}
+            {% if filters.unit %}<span>单位：{{ filters.unit }}</span>{% endif %}
+            {% if filters.control %}<span>控制：{{ filters.control }}</span>{% endif %}
+            {% if filters.supplier_state %}<span>供应商：{{ filters.supplier_state }}</span>{% endif %}
+            <span>排序：{{ filters.sort }} {{ filters.order }}</span>
+        </div>
+
+        <div class="material-grid-wrap">
+            <table class="table table-sm align-middle material-master-table">
+                <thead>
+                <tr>
+                    <th><input type="checkbox" id="checkAll" aria-label="全选"></th>
+                    <th>#</th>
+                    <th>{{ sort_link('code', '编码') }}</th>
+                    <th>{{ sort_link('name', '名称') }}</th>
+                    <th>{{ sort_link('specification', '规格型号') }}</th>
+                    <th>{{ sort_link('status', '使用状态') }}</th>
+                    <th>数据状态</th>
+                    <th>{{ sort_link('unit', '基本单位') }}</th>
+                    <th>{{ sort_link('category', '物料分类名称') }}</th>
+                    <th>图号</th>
+                    <th>材质</th>
+                    <th>品牌</th>
+                    <th>{{ sort_link('tax', '默认税率(%)') }}</th>
+                    <th>可采购</th>
+                    <th>可销售</th>
+                    <th>批次</th>
+                    <th>序列号</th>
+                    <th>入库检验</th>
+                    <th>默认供应商</th>
+                    <th>默认仓库</th>
+                    <th>默认库位</th>
+                    <th>操作</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for row in products %}
+                <tr>
+                    <td><input type="checkbox" aria-label="选择{{ row.code }}"></td>
+                    <td>{{ pagination.offset + loop.index }}</td>
+                    <td><a href="{{ back_url }}/{{ row.id }}">{{ (row.code or row.id)|clean_text }}</a></td>
+                    <td>{{ row.name|clean_text }}</td>
+                    <td>{{ row.specification|clean_text }}</td>
+                    <td>{{ (row.display_status or row.status or '可用')|clean_text }}</td>
+                    <td>{{ ('已审核' if (row.display_status or row.status) not in ['未提交', '草稿'] else (row.display_status or row.status))|clean_text }}</td>
+                    <td>{{ row.unit|clean_text }}</td>
+                    <td>{{ (row.display_category or row.category or row.item_type)|clean_text }}</td>
+                    <td>{{ row.drawing_no|clean_text }}</td>
+                    <td>{{ row.material_grade|clean_text }}</td>
+                    <td>{{ row.brand|clean_text }}</td>
+                    <td>{{ row.default_tax_rate or '-' }}</td>
+                    <td class="text-center text-success">✓</td>
+                    <td class="text-center text-success">✓</td>
+                    <td class="text-center">{{ '✓' if row.batch_control else '' }}</td>
+                    <td class="text-center">{{ '✓' if row.serial_control else '' }}</td>
+                    <td class="text-center">{{ '✓' if row.inspection_required else '' }}</td>
+                    <td>{{ (row.default_supplier_display or row.default_supplier_name)|clean_text }}</td>
+                    <td>{{ row.default_warehouse_display|clean_text }}</td>
+                    <td>{{ row.default_location_display|clean_text }}</td>
+                    <td><a class="btn btn-outline-secondary btn-sm" href="/material/{{ row.id }}/edit">编辑</a></td>
+                </tr>
+                {% else %}
+                <tr><td colspan="22" class="text-muted text-center py-4">没有匹配物料。</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% set page_base = filter_base ~ '&sort=' ~ filters.sort ~ '&order=' ~ filters.order %}
+        <nav class="material-pagination" aria-label="物料分页">
+            <a class="btn btn-outline-secondary btn-sm {% if not pagination.has_prev %}disabled{% endif %}" href="{{ page_base }}&page=1">首页</a>
+            <a class="btn btn-outline-secondary btn-sm {% if not pagination.has_prev %}disabled{% endif %}" href="{{ page_base }}&page={{ pagination.prev_page }}">上一页</a>
+            {% for page_num in pagination.page_window %}
+            <a class="btn btn-sm {% if page_num == pagination.page %}btn-primary{% else %}btn-outline-secondary{% endif %}" href="{{ page_base }}&page={{ page_num }}">{{ page_num }}</a>
+            {% endfor %}
+            <a class="btn btn-outline-secondary btn-sm {% if not pagination.has_next %}disabled{% endif %}" href="{{ page_base }}&page={{ pagination.next_page }}">下一页</a>
+            <a class="btn btn-outline-secondary btn-sm {% if not pagination.has_next %}disabled{% endif %}" href="{{ page_base }}&page={{ pagination.total_pages }}">末页</a>
+            <form class="material-page-jump" method="get" action="{{ back_url }}">
+                <span>跳至</span>
+                <input class="form-control form-control-sm" type="number" name="page" min="1" max="{{ pagination.total_pages }}" value="{{ pagination.page }}">
+                <input type="hidden" name="per_page" value="{{ pagination.per_page }}">
+                {{ hidden_filters(True) }}
+                <button class="btn btn-outline-primary btn-sm" type="submit">跳转</button>
+            </form>
+        </nav>
+    </section>
+</div>
+{% endblock %}

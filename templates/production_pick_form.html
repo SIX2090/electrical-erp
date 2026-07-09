@@ -1,0 +1,319 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}{{ '编辑' if edit_mode else '新增' }}{{ meta.title }}{% endblock %}
+{% block content %}
+{% if edit_mode and doc and doc.id %}
+<form data-doc-action="void" method="post" action="{{ meta.detail_prefix ~ '/' ~ doc.id ~ '/void' }}" style="display:none"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+{% endif %}
+
+{% if not edit_mode %}
+<div class="page-card mb-3">
+    <form class="row g-2 align-items-end" method="get">
+        <div class="col-lg-8">
+            <label class="form-label">来源生产工单</label>
+            <select class="form-select" name="work_order_id" required onchange="this.form.submit()">
+                <option value="">请选择生产工单</option>
+                {% for wo in work_orders %}
+                <option value="{{ wo.id }}" {% if work_order_id|string == wo.id|string %}selected{% endif %}>
+                    {{ wo.wo_no|clean_text }} / 项目 {{ wo.project_code|clean_text or '-' }} / 机号 {{ wo.serial_no|clean_text or '-' }} / 可处理 {{ wo.available_quantity|qty }} / {{ wo.line_count }} 行
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-lg-2 d-grid">
+            <button class="btn btn-outline-primary" type="submit">载入用料</button>
+        </div>
+        <div class="col-lg-2 d-grid">
+            <a class="btn btn-outline-secondary" href="{{ meta.new_url }}">重选</a>
+        </div>
+    </form>
+</div>
+{% endif %}
+
+<form id="pickEditForm" method="post" action="{{ form_action or '' }}" data-main-document-form>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="work_order_id" value="{{ work_order_id or '' }}">
+
+    <div class="page-card mb-3">
+        <div class="row g-2">
+            <div class="col-md-3">
+                <label class="form-label">领料单号</label>
+                <input class="form-control form-control-sm" type="text" value="{{ (doc.doc_no or doc.pick_no) if doc else '' }}" placeholder="保存时自动生成" readonly>
+            </div>
+            <div class="col-md-3">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text">单据日期</span>
+                    <input class="form-control" type="date" name="doc_date" value="{{ doc.doc_date if doc else '' }}">
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text">项目号</span>
+                    <input class="form-control" value="{{ source_order.project_code|clean_text if source_order else '' }}" readonly>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text">机号</span>
+                    <input class="form-control" value="{{ source_order.serial_no|clean_text if source_order else '' }}" readonly>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text">来源工单状态</span>
+                    <input class="form-control" value="{{ source_order.status|clean_text if source_order else '' }}" readonly>
+                </div>
+            </div>
+            <div class="col-md-9">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text">备注</span>
+                    <input class="form-control" name="remark" value="{{ doc.remark|clean_text if doc else '' }}" placeholder="可填写领退料原因、班组或异常说明">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="page-card">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+            <div>
+                <h2 class="h6 mb-0">用料明细</h2>
+                <span class="text-muted small">来源工单带出；未发放、不需要本次处理的物料可删行，保存后只保留当前明细。</span>
+            </div>
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                <select class="form-select form-select-sm" id="bulkWarehouseSelect" style="width: 180px;">
+                    <option value="">选择填充仓库</option>
+                    {% for warehouse in warehouses %}
+                    <option value="{{ warehouse.id }}">{{ warehouse.name|clean_text }}</option>
+                    {% endfor %}
+                </select>
+                <button class="btn btn-outline-primary btn-sm" type="button" data-line-action="fill-warehouse"><i class="bi bi-box-seam"></i> 填充仓库</button>
+                <button class="btn btn-outline-secondary btn-sm" type="button" data-grid-action="columns"><i class="bi bi-layout-three-columns"></i> 列设置</button>
+                <button class="btn btn-outline-secondary btn-sm" type="button" data-grid-action="reset"><i class="bi bi-arrow-counterclockwise"></i> 重置列</button>
+                <button class="btn btn-outline-secondary btn-sm" type="button" data-grid-action="sort-help"><i class="bi bi-sort-down"></i> 排序</button>
+                <button class="btn btn-outline-secondary btn-sm" type="button" data-line-action="copy"><i class="bi bi-files"></i> 复制行</button>
+                <button class="btn btn-outline-secondary btn-sm" type="button" data-line-action="paste"><i class="bi bi-clipboard"></i> 粘贴行</button>
+                <button class="btn btn-outline-secondary btn-sm" type="button" data-line-action="fill-down" title="将当前明细格向下填充到后续行"><i class="bi bi-arrow-down-square"></i> 向下填充</button>
+                <button class="btn btn-outline-secondary btn-sm" type="button" data-line-action="up"><i class="bi bi-arrow-up"></i> 上移</button>
+                <button class="btn btn-outline-secondary btn-sm" type="button" data-line-action="down"><i class="bi bi-arrow-down"></i> 下移</button>
+                <button class="btn btn-outline-danger btn-sm" type="button" data-line-action="delete"><i class="bi bi-trash"></i> 删行</button>
+            </div>
+        </div>
+        {% if not preview_lines %}
+        <div class="alert alert-light border py-2 px-3 mb-2 text-muted small">请选择生产工单后带出可领或可退明细；表格区仅保留空白电子表格行。</div>
+        {% endif %}
+        <div class="table-responsive document-grid-scroll">
+            <table class="table table-bordered table-hover table-sm align-middle mb-0 document-entry-grid" id="pickLinesTable" data-document-grid data-grid-key="production_pick_source_lines">
+                <thead class="table-light">
+                    <tr data-grid-header>
+                        <th data-column-key="material_code">物料编码</th>
+                        <th data-column-key="material_name">物料名称</th>
+                        <th data-column-key="specification">规格型号</th>
+                        <th data-column-key="unit">单位</th>
+                        <th data-column-key="required_qty" class="text-end">需求</th>
+                        <th data-column-key="issued_qty" class="text-end">已领</th>
+                        <th data-column-key="returned_qty" class="text-end">已退</th>
+                        <th data-column-key="available_qty" class="text-end">可用数量</th>
+                        <th data-column-key="quantity" style="min-width:120px">本次{{ meta.quantity_short_label }}</th>
+                        <th data-column-key="warehouse" style="min-width:150px">仓库</th>
+                        <th data-column-key="location" style="min-width:120px">库位</th>
+                        <th data-column-key="lot_no" style="min-width:110px">批号</th>
+                        <th data-column-key="source_line_no">来源行</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% set filler_rows = 16 - (preview_lines|length) %}
+                {% for line in preview_lines %}
+                    <tr>
+                        <td data-column-key="material_code">{{ line.material_code_display|clean_text or '-' }}</td>
+                        <td data-column-key="material_name">
+                            {{ line.material_name_display|clean_text }}
+                            <input type="hidden" name="item_id[]" value="{{ line.id }}">
+                        </td>
+                        <td data-column-key="specification">{{ line.material_spec_display|clean_text or '-' }}</td>
+                        <td data-column-key="unit">{{ line.material_unit_display|clean_text or '-' }}</td>
+                        <td data-column-key="required_qty" class="text-end">{{ '%.2f'|format(line.required_qty or 0) }}</td>
+                        <td data-column-key="issued_qty" class="text-end">{{ '%.2f'|format(line.issued_qty or 0) }}</td>
+                        <td data-column-key="returned_qty" class="text-end">{{ '%.2f'|format(line.returned_qty or 0) }}</td>
+                        <td data-column-key="available_qty" class="text-end fw-semibold">{{ '%.2f'|format(line.max_quantity or 0) }}</td>
+                        <td data-column-key="quantity">
+                            <input class="form-control form-control-sm text-end" type="number" name="quantity[]" min="0" step="0.01" max="{{ line.max_quantity }}" value="{{ '%.2f'|format((line.quantity if edit_mode else line.max_quantity) or 0) }}">
+                        </td>
+                        <td data-column-key="warehouse">
+                            <select class="form-select form-select-sm js-wh-loc-warehouse" name="line_warehouse_id[]">
+                                {% for warehouse in warehouses %}
+                                <option value="{{ warehouse.id }}" {% if line.line_warehouse_id|string == warehouse.id|string or (not line.line_warehouse_id and default_warehouse_id|string == warehouse.id|string) %}selected{% endif %}>{{ warehouse.name|clean_text }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td data-column-key="location">
+                            <select class="form-select form-select-sm js-wh-loc-location" name="line_location_id[]">
+                                <option value="">-</option>
+                                {% for location in locations %}
+                                <option value="{{ location.id }}" data-warehouse-id="{{ location.warehouse_id or '' }}" {% if line.line_location_id|string == location.id|string %}selected{% endif %}>{{ location.code|clean_text or location.name|clean_text }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td data-column-key="lot_no"><input class="form-control form-control-sm" name="lot_no[]" value="{{ line.lot_no|clean_text if line.lot_no else '' }}"></td>
+                        <td data-column-key="source_line_no">{{ line.source_line_no|clean_text or '-' }}</td>
+                    </tr>
+                {% else %}
+                {% endfor %}
+                {% if filler_rows > 0 %}
+                    {% for _ in range(filler_rows) %}
+                    <tr class="document-grid-filler-row" data-visual-row="true" aria-hidden="true">
+                        <td data-column-key="material_code">&nbsp;</td>
+                        <td data-column-key="material_name">&nbsp;</td>
+                        <td data-column-key="specification">&nbsp;</td>
+                        <td data-column-key="unit">&nbsp;</td>
+                        <td data-column-key="required_qty" class="text-end">&nbsp;</td>
+                        <td data-column-key="issued_qty" class="text-end">&nbsp;</td>
+                        <td data-column-key="returned_qty" class="text-end">&nbsp;</td>
+                        <td data-column-key="available_qty" class="text-end">&nbsp;</td>
+                        <td data-column-key="quantity">&nbsp;</td>
+                        <td data-column-key="warehouse">&nbsp;</td>
+                        <td data-column-key="location">&nbsp;</td>
+                        <td data-column-key="lot_no">&nbsp;</td>
+                        <td data-column-key="source_line_no">&nbsp;</td>
+                    </tr>
+                    {% endfor %}
+                {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/document_grid.js') }}"></script>
+<script>
+document.addEventListener('click', function(event) {
+    var item = event.target.closest('[data-menu-event]');
+    if (!item || item.disabled) return;
+    var action = item.dataset.menuEvent;
+    if (action === 'global-submit-main-form-new' || action === 'toolbar-save-new') {
+        event.preventDefault();
+        var form = document.getElementById('pickEditForm');
+        if (form) {
+            var input = form.querySelector('input[name="save_action"]');
+            if (!input) { input = document.createElement('input'); input.type='hidden'; input.name='save_action'; form.appendChild(input); }
+            input.value = 'save_new';
+            if (form.requestSubmit) form.requestSubmit(); else form.submit();
+        }
+    }
+    if (action === 'global-submit-main-form' || action === 'toolbar-save') {
+        event.preventDefault();
+        var form = document.getElementById('pickEditForm');
+        if (form) {
+            var input = form.querySelector('input[name="save_action"]');
+            if (input) input.value = '';
+            if (form.requestSubmit) form.requestSubmit(); else form.submit();
+        }
+    }
+});
+
+document.addEventListener('DOMContentLoaded', function () {
+    const table = document.getElementById('pickLinesTable');
+    const bulkWarehouseSelect = document.getElementById('bulkWarehouseSelect');
+    let selectedRow = null;
+    function rememberRow(event) {
+        const row = event.target.closest && event.target.closest('tbody tr');
+        if (row && table && table.contains(row)) selectedRow = row;
+    }
+    function focusSelectedRow() {
+        if (!selectedRow || !table || !table.contains(selectedRow)) return;
+        const field = selectedRow.querySelector('input:not([type=hidden]), select, textarea');
+        if (field) field.focus();
+    }
+    function fillableFieldKey(field) {
+        const name = field?.getAttribute?.('name') || '';
+        return ['line_warehouse_id[]', 'line_location_id[]', 'lot_no[]'].includes(name) ? name : '';
+    }
+    function selectedFillField() {
+        const active = document.activeElement?.closest?.('input, select, textarea');
+        if (active && table?.contains(active) && fillableFieldKey(active)) return active;
+        const activeCell = table?.querySelector('.document-grid-cell-active');
+        const field = activeCell?.querySelector?.('input, select, textarea');
+        return field && fillableFieldKey(field) ? field : null;
+    }
+    function fillDownFromCurrentField() {
+        const source = selectedFillField();
+        if (!source) {
+            showToast('请先选中仓库、库位或批号明细格。', 'warning');
+            return;
+        }
+        const row = source.closest('tr');
+        const rows = Array.from(table?.querySelectorAll('tbody tr') || []).filter(item => !item.dataset.visualRow && item.querySelector('input, select, textarea'));
+        const start = rows.indexOf(row);
+        if (start < 0 || start >= rows.length - 1) {
+            showToast('当前行下面没有可填充的明细行。', 'info');
+            return;
+        }
+        const key = fillableFieldKey(source);
+        let filled = 0;
+        rows.slice(start + 1).forEach(function (targetRow) {
+            const target = targetRow.querySelector('[name="' + CSS.escape(key) + '"]');
+            if (!target || target.disabled || target.readOnly) return;
+            target.value = source.value || '';
+            target.dispatchEvent(new Event('input', {bubbles: true}));
+            target.dispatchEvent(new Event('change', {bubbles: true}));
+            filled += 1;
+        });
+        if (window.filterWarehouseLocations) window.filterWarehouseLocations(table.closest('form') || document);
+        showToast('已向下填充 ' + filled + ' 行。', 'success');
+    }
+    if (table) {
+        table.addEventListener('click', rememberRow);
+        table.addEventListener('focusin', rememberRow);
+    }
+    document.querySelectorAll('[data-grid-action]').forEach(function (button) {
+        button.addEventListener('click', function () {
+            const api = window.documentGridApi || (window.initDocumentGrid && window.initDocumentGrid(table));
+            if (!api) return;
+            const action = button.dataset.gridAction;
+            if (action === 'columns') api.openColumnPanel(button);
+            if (action === 'reset') api.reset();
+            if (action === 'sort-help') showToast('点击明细表头可按该列升序/降序排序。', 'info');
+        });
+    });
+    document.querySelectorAll('[data-line-action]').forEach(function (button) {
+        button.addEventListener('click', function () {
+            const api = window.documentGridApi || (window.initDocumentGrid && window.initDocumentGrid(table));
+            const action = button.dataset.lineAction;
+            if (!api || !table) return;
+            if (action === 'fill-warehouse') {
+                const warehouseId = bulkWarehouseSelect ? bulkWarehouseSelect.value : '';
+                if (!warehouseId) {
+                    showToast('请先选择要填充的仓库。', 'warning');
+                    return;
+                }
+                table.querySelectorAll('tbody select[name="line_warehouse_id[]"]').forEach(function (select) {
+                    select.value = warehouseId;
+                    select.dispatchEvent(new Event('change', {bubbles: true}));
+                });
+                showToast('已将仓库填充到当前明细。', 'success');
+                return;
+            }
+            focusSelectedRow();
+            if (action === 'copy') {
+                api.copyCurrentRow();
+                showToast('已复制当前行的可编辑字段。', 'success');
+            }
+            if (action === 'paste') api.pasteToCurrentRow();
+            if (action === 'fill-down') fillDownFromCurrentField();
+            if (action === 'up') api.moveCurrentRow(-1);
+            if (action === 'down') api.moveCurrentRow(1);
+            if (action === 'delete') {
+                const rowCount = table.querySelectorAll('tbody tr:not([data-visual-row="true"])').length;
+                if (rowCount <= 1) {
+                    showToast('至少保留一行明细。', 'warning');
+                    return;
+                }
+                api.deleteCurrentRow();
+            }
+        });
+    });
+});
+</script>
+{% include "partials/location_filter_script.html" %}
+{% endblock %}

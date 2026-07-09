@@ -1,0 +1,528 @@
+﻿{% extends "base.html" %}
+{% block title %}ERP首页{% endblock %}
+{% block header_title %}ERP首页{% endblock %}
+{% block content %}
+{% if nav_mode in ['gt_pilot', 'pilot_gtym', 'gtym_pilot'] %}
+{% set role = current_user.role %}
+{% set see_all = role in ['admin', 'manager'] %}
+{% set can_projects = home_permissions.can_projects %}
+{% set can_purchase = home_permissions.can_purchase %}
+{% set can_production = home_permissions.can_production %}
+{% set can_tech_or_production = home_permissions.can_tech_or_production %}
+{% set can_finance = home_permissions.can_finance %}
+{% set can_service = home_permissions.can_service %}
+{% if data_source_errors and see_all %}
+<div class="alert alert-warning">首页部分指标查询失败，请检查数据源；异常指标已避免按 0 显示。</div>
+{% endif %}
+<section class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>滚筒研磨机试点队列</h2>
+            <span>按项目号、机号、BOM、缺料、采购、委外、工单、发货、售后跟进一台设备的闭环，优先处理项目/机号风险</span>
+        </div>
+    </div>
+    <div class="quick-grid">
+        {% if can_projects %}
+        <a class="quick-link" href="/projects">
+            <i class="bi bi-kanban"></i>
+            <span><strong>项目/机号台账</strong><span>按机号查看全生命周期</span></span>
+        </a>
+        {% endif %}
+        {% if can_tech_or_production %}
+        <a class="quick-link" href="/production-enhance/mrp-requirements">
+            <i class="bi bi-exclamation-triangle"></i>
+            <span><strong>MRP缺料</strong><span>BOM、库存、采购在途缺口</span></span>
+        </a>
+        {% endif %}
+        {% if see_all or role == 'purchase' %}
+        <a class="quick-link" href="/subcontract">
+            <i class="bi bi-arrow-left-right"></i>
+            <span><strong>委外跟进</strong><span>发料、收货、加工费和异常</span></span>
+        </a>
+        {% endif %}
+    </div>
+</section>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-6 col-xl-3">
+        <div class="metric">
+            <div class="label">未关闭项目</div>
+            <div class="value">{% if metric_errors.active_projects %}--{% else %}{{ operating.active_projects }}{% endif %}</div>
+            <div class="metric-hint">按项目号去重</div>
+        </div>
+    </div>
+    <div class="col-md-6 col-xl-3">
+        <div class="metric">
+            <div class="label">缺料行</div>
+            <div class="value">{% if metric_errors.shortage_lines %}--{% else %}{{ operating.shortage_lines }}{% endif %}</div>
+            <div class="metric-hint">MRP仍有缺口</div>
+        </div>
+    </div>
+    <div class="col-md-6 col-xl-3">
+        <div class="metric">
+            <div class="label">待收采购</div>
+            <div class="value">{% if metric_errors.pending_receipts %}--{% else %}{{ operating.pending_receipts }}{% endif %}</div>
+            <div class="metric-hint">采购订单未收行</div>
+        </div>
+    </div>
+    <div class="col-md-6 col-xl-3">
+        <div class="metric">
+            <div class="label">在制工单</div>
+            <div class="value">{% if metric_errors.open_work_orders %}--{% else %}{{ operating.open_work_orders }}{% endif %}</div>
+            <div class="metric-hint">未完工生产工单</div>
+        </div>
+    </div>
+</div>
+
+<div class="work-grid">
+    <section class="page-card span-12">
+        <div class="section-title">
+            <div>
+                <h2>试点业务入口</h2>
+                <span>鼎捷式工作台先看下一步和堵点</span>
+            </div>
+        </div>
+        <div class="quick-grid">
+            {% if see_all or role in ['sales', 'purchase', 'production'] %}
+            <a class="quick-link" href="/sales-orders">
+                <i class="bi bi-clipboard-check"></i>
+                <span><strong>待技术确认</strong><span>订单、项目号、机号、交期</span></span>
+            </a>
+            {% endif %}
+            {% if can_tech_or_production %}
+            <a class="quick-link" href="/engineering/kitting">
+                <i class="bi bi-diagram-3"></i>
+                <span><strong>待BOM/齐套</strong><span>BOM版本、齐套状态</span></span>
+            </a>
+            {% endif %}
+            {% if see_all or role == 'purchase' %}
+            <a class="quick-link" href="/purchase_request">
+                <i class="bi bi-lightbulb"></i>
+                <span><strong>待采购</strong><span>缺料转采购申请</span></span>
+            </a>
+            {% endif %}
+            {% if can_purchase or role == 'warehouse' %}
+            <a class="quick-link" href="/purchase_receipts">
+                <i class="bi bi-box-arrow-in-down"></i>
+                <span><strong>待到货</strong><span>采购未收和逾期</span></span>
+            </a>
+            {% endif %}
+            {% if can_purchase or role == 'warehouse' %}
+            <a class="quick-link" href="/subcontract_issue">
+                <i class="bi bi-upload"></i>
+                <span><strong>待委外发料</strong><span>加工商、来源工单</span></span>
+            </a>
+            <a class="quick-link" href="/subcontract_receive">
+                <i class="bi bi-download"></i>
+                <span><strong>待委外收货</strong><span>收货、报废、短收</span></span>
+            </a>
+            {% endif %}
+            {% if see_all or role in ['warehouse', 'production'] %}
+            <a class="quick-link" href="/requisition">
+                <i class="bi bi-list-check"></i>
+                <span><strong>待领料</strong><span>工单BOM需求和缺料</span></span>
+            </a>
+            {% endif %}
+            {% if can_production %}
+            <a class="quick-link" href="/production-enhance/quality-inspections">
+                <i class="bi bi-clipboard-data"></i>
+                <span><strong>待调试/终检</strong><span>精度、试运行、验收</span></span>
+            </a>
+            {% endif %}
+            {% if see_all or role in ['sales', 'warehouse'] %}
+            <a class="quick-link" href="/shipments">
+                <i class="bi bi-truck"></i>
+                <span><strong>待发货</strong><span>销售订单到发货</span></span>
+            </a>
+            {% endif %}
+            {% if see_all or role == 'finance' %}
+            <a class="quick-link" href="/receivables">
+                <i class="bi bi-cash-stack"></i>
+                <span><strong>待回款</strong><span>应收余额和账龄</span></span>
+            </a>
+            <a class="quick-link" href="/payables">
+                <i class="bi bi-wallet2"></i>
+                <span><strong>待付款</strong><span>采购/委外应付</span></span>
+            </a>
+            {% endif %}
+            {% if see_all or role == 'service' %}
+            <a class="quick-link" href="/service-orders">
+                <i class="bi bi-wrench-adjustable"></i>
+                <span><strong>待售后处理</strong><span>服务单、RMA、备件</span></span>
+            </a>
+            {% endif %}
+        </div>
+    </section>
+
+    <section class="page-card span-12 erp-home-section erp-home-section-queue">
+        <div class="section-title">
+            <div>
+                <h2>阻塞事项</h2>
+                <span>只显示需要处理的异常入口，完整明细进入对应列表页查询</span>
+            </div>
+        </div>
+        <div class="erp-workbench-card-grid">
+            {% set visible_blocked_cards = namespace(count=0) %}
+            {% for card in blocked_items %}
+            {% if role in card.roles and home_permissions.can_path(card.url) %}
+            {% set visible_blocked_cards.count = visible_blocked_cards.count + 1 %}
+            <a class="erp-workbench-task-card" href="{{ card.url }}">
+                <div class="erp-workbench-task-head">
+                    <span>{{ card.title }}</span>
+                    <strong>{{ card.count|money if card.title == '财务收付款提醒' else card.count }}</strong>
+                </div>
+                <dl>
+                    <div>
+                        <dt>责任人</dt>
+                        <dd>{{ card.owner }}</dd>
+                    </div>
+                    <div>
+                        <dt>下一步</dt>
+                        <dd>{{ card.next_step }}</dd>
+                    </div>
+                    <div>
+                        <dt>影响范围</dt>
+                        <dd>{{ card.downstream_impact }}</dd>
+                    </div>
+                </dl>
+            </a>
+            {% endif %}
+            {% endfor %}
+            {% if visible_blocked_cards.count == 0 %}
+            <div class="erp-empty-line">暂无阻塞事项。</div>
+            {% endif %}
+        </div>
+    </section>
+
+    <section class="page-card span-12">
+        <div class="section-title">
+            <div>
+                <h2>列表承接</h2>
+                <span>工作台不展示完整记录，业务明细到列表页筛选处理</span>
+            </div>
+        </div>
+        <div class="quick-grid">
+            {% if can_purchase %}
+            <a class="quick-link" href="/purchase-orders">
+                <i class="bi bi-bag-check"></i>
+                <span><strong>采购订单列表</strong><span>筛选未收、逾期和项目料</span></span>
+            </a>
+            {% endif %}
+            {% if can_production %}
+            <a class="quick-link" href="/work-orders">
+                <i class="bi bi-tools"></i>
+                <span><strong>生产工单列表</strong><span>筛选在制、缺料和计划完成</span></span>
+            </a>
+            {% endif %}
+            {% if can_finance %}
+            <a class="quick-link" href="/receivables">
+                <i class="bi bi-cash-stack"></i>
+                <span><strong>应收列表</strong><span>客户应收余额和账龄</span></span>
+            </a>
+            <a class="quick-link" href="/payables">
+                <i class="bi bi-wallet2"></i>
+                <span><strong>应付列表</strong><span>供应商应付余额和付款</span></span>
+            </a>
+            {% endif %}
+        </div>
+    </section>
+
+    {% if can_finance %}
+    <section class="page-card span-6 erp-home-section erp-home-section-entry">
+        <div class="section-title">
+            <div>
+                <h2>财务提醒</h2>
+                <span>应收应付要能追溯到来源单据</span>
+            </div>
+        </div>
+        <div class="row g-3">
+            <div class="col-6">
+                <div class="metric">
+                    <div class="label">应收余额</div>
+                    <div class="value">{% if metric_errors.receivable_balance %}--{% else %}{{ operating.receivable_balance|money }}{% endif %}</div>
+                    <div class="metric-hint">客户未收</div>
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="metric">
+                    <div class="label">应付余额</div>
+                    <div class="value">{% if metric_errors.payable_balance %}--{% else %}{{ operating.payable_balance|money }}{% endif %}</div>
+                    <div class="metric-hint">供应商未付</div>
+                </div>
+            </div>
+        </div>
+    </section>
+    {% endif %}
+
+</div>
+{% else %}
+{% set role = current_user.role %}
+{% set see_all = role in ['admin', 'manager'] %}
+{% set can_projects = home_permissions.can_projects %}
+{% set can_pending_documents = home_permissions.can_pending_documents %}
+{% set can_reports = home_permissions.can_reports %}
+{% set can_sales = home_permissions.can_sales %}
+{% set can_purchase = home_permissions.can_purchase %}
+{% set can_purchase_entry = home_permissions.can_purchase_entry %}
+{% set can_inventory = home_permissions.can_inventory %}
+{% set can_production = home_permissions.can_production %}
+{% set can_tech_or_production = home_permissions.can_tech_or_production %}
+{% set can_finance = home_permissions.can_finance %}
+{% set can_master = home_permissions.can_master %}
+{% if data_source_errors and see_all %}
+<div class="alert alert-warning">首页部分指标查询失败，请检查数据源；异常指标已避免按 0 显示。</div>
+{% endif %}
+<div class="erp-home-shell">
+    <main class="erp-home-main">
+        <section class="erp-home-command page-card">
+            <div>
+                <div class="erp-home-kicker">机床制造 ERP 工作台</div>
+                <h1>项目交付 · 机号追溯 · 齐套协同</h1>
+                <p>围绕项目号和机号处理销售、BOM、采购、委外、生产、库存、发货、售后和财务闭环。</p>
+            </div>
+        </section>
+
+        <section class="page-card erp-home-launch">
+            <div class="section-title">
+                <div>
+                    <h2>快速发起</h2>
+                    <span>高频业务单据独立录入，列表查询从下方进入</span>
+                </div>
+            </div>
+            <div class="erp-home-launch-grid">
+                {% if can_sales %}
+                <a class="erp-launch-tile" href="/sales/new"><i class="bi bi-receipt"></i><span>销售订单</span></a>
+                <a class="erp-launch-tile" href="/shipments/new"><i class="bi bi-truck"></i><span>销售发货</span></a>
+                {% endif %}
+                {% if can_purchase_entry %}
+                <a class="erp-launch-tile" href="/purchase_order/new"><i class="bi bi-bag-check"></i><span>采购订单</span></a>
+                <a class="erp-launch-tile" href="/subcontract/new"><i class="bi bi-arrow-left-right"></i><span>委外订单</span></a>
+                {% endif %}
+                {% if can_production %}
+                <a class="erp-launch-tile" href="/work-orders/new"><i class="bi bi-tools"></i><span>生产工单</span></a>
+                {% endif %}
+                {% if can_inventory %}
+                <a class="erp-launch-tile" href="/transfers/new"><i class="bi bi-arrow-left-right"></i><span>库存调拨</span></a>
+                {% endif %}
+                {% if can_finance %}
+                <a class="erp-launch-tile" href="/customer-receipts/new"><i class="bi bi-cash-stack"></i><span>收款单</span></a>
+                <a class="erp-launch-tile" href="/payments/new"><i class="bi bi-wallet2"></i><span>付款单</span></a>
+                {% endif %}
+                {% if can_master %}
+                <a class="erp-launch-tile" href="/project-master/new"><i class="bi bi-folder-plus"></i><span>新建项目档案</span></a>
+                <a class="erp-launch-tile" href="/machine-serial-master/new"><i class="bi bi-upc-scan"></i><span>新建机号档案</span></a>
+                {% endif %}
+            </div>
+        </section>
+
+        <div class="erp-home-metrics">
+            {% if can_projects %}
+            <a class="erp-home-stat" href="/projects">
+                <span>未关闭项目</span>
+                <strong>{% if metric_errors.active_projects %}--{% else %}{{ operating.active_projects }}{% endif %}</strong>
+                <small>按项目号去重</small>
+            </a>
+            {% endif %}
+            {% if can_tech_or_production %}
+            <a class="erp-home-stat is-warning" href="/production-enhance/mrp-requirements">
+                <span>缺料行</span>
+                <strong>{% if metric_errors.shortage_lines %}--{% else %}{{ operating.shortage_lines }}{% endif %}</strong>
+                <small>MRP仍有缺口</small>
+            </a>
+            {% endif %}
+            {% if can_purchase %}
+            <a class="erp-home-stat" href="/purchase-orders">
+                <span>待收采购</span>
+                <strong>{% if metric_errors.pending_receipts %}--{% else %}{{ operating.pending_receipts }}{% endif %}</strong>
+                <small>采购订单未收行</small>
+            </a>
+            {% endif %}
+            {% if can_production %}
+            <a class="erp-home-stat" href="/work-orders">
+                <span>在制工单</span>
+                <strong>{% if metric_errors.open_work_orders %}--{% else %}{{ operating.open_work_orders }}{% endif %}</strong>
+                <small>未完工生产工单</small>
+            </a>
+            {% endif %}
+        </div>
+
+        <section class="page-card erp-home-section erp-home-chart-section">
+            <div class="section-title">
+                <div>
+                    <h2>经营图表</h2>
+                    <span>销售、发货、交付与异常的趋势分析</span>
+                </div>
+                {% if can_reports %}
+                <a class="btn btn-outline-secondary btn-sm" href="/reports"><i class="bi bi-bar-chart-line"></i> 报表中心</a>
+                {% endif %}
+            </div>
+            <div class="erp-home-chart-grid">
+                <div class="erp-home-chart-card erp-home-chart-card-wide">
+                    <div class="erp-home-chart-head">
+                        <div>
+                            <h3>近7天销售/发货趋势</h3>
+                            <span>按含税金额统计</span>
+                        </div>
+                        <div class="erp-home-chart-legend">
+                            <span><i class="is-sales"></i>销售</span>
+                            <span><i class="is-shipment"></i>发货</span>
+                        </div>
+                    </div>
+                    <div class="erp-home-bar-chart" aria-label="近7天销售和发货趋势">
+                        {% for row in home_charts.trend_rows %}
+                        <div class="erp-home-bar-day">
+                            <div class="erp-home-bar-pair">
+                                <span class="erp-home-bar is-sales" style="height: {{ row.sales_height }}%; min-height: 3px;" title="销售 {{ row.sales|money }}"></span>
+                                <span class="erp-home-bar is-shipment" style="height: {{ row.shipment_height }}%; min-height: 3px;" title="发货 {{ row.shipment|money }}"></span>
+                            </div>
+                            <span class="erp-home-bar-label">{{ row.label }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="erp-home-chart-card">
+                    <div class="erp-home-chart-head">
+                        <div>
+                            <h3>交付余额概览</h3>
+                            <span>订单、已发货、未交付余额</span>
+                        </div>
+                    </div>
+                    <div class="erp-home-progress-list">
+                        {% for row in home_charts.delivery_rows %}
+                        <a class="erp-home-progress-row" href="{{ row.url }}">
+                            <div>
+                                <span>{{ row.label }}{% if row.count is not none %} <em class="text-muted small">{{ row.count }} {{ row.count_unit or '单' }}</em>{% endif %}</span>
+                                <strong>{% if row.value_type == 'qty' %}{{ row.value|qty }}{% else %}{{ row.value|money }}{% endif %}</strong>
+                            </div>
+                            <em><i class="tone-{{ row.tone }}" style="width: {{ row.percent }}%;"></i></em>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="erp-home-chart-card">
+                    <div class="erp-home-chart-head">
+                        <div>
+                            <h3>异常分布</h3>
+                            <span>影响齐套、生产和项目追溯</span>
+                        </div>
+                    </div>
+                    <div class="erp-home-risk-bars">
+                        {% for row in home_charts.risk_rows %}
+                        <a class="erp-home-risk-row" href="{{ row.url }}">
+                            <span>{{ row.label }}</span>
+                            <strong>{{ row.value }}</strong>
+                            <em><i style="width: {{ row.percent }}%;"></i></em>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <aside class="erp-home-aside" aria-label="首页提醒">
+            <section class="page-card erp-home-side-card">
+                <div class="erp-home-side-title">
+                    <h2>指标预警</h2>
+                    {% if see_all %}
+                    <a href="/system/data-health">数据健康</a>
+                    {% endif %}
+                </div>
+                {% if can_tech_or_production %}
+                <a class="erp-home-alert-row" href="/production-enhance/mrp-requirements"><strong>{% if metric_errors.shortage_lines %}--{% else %}{{ operating.shortage_lines }}{% endif %}</strong><span>MRP缺料行</span><i class="bi bi-chevron-right"></i></a>
+                {% endif %}
+                {% if can_purchase %}
+                <a class="erp-home-alert-row" href="/purchase-orders"><strong>{% if metric_errors.pending_receipts %}--{% else %}{{ operating.pending_receipts }}{% endif %}</strong><span>采购未收行</span><i class="bi bi-chevron-right"></i></a>
+                {% endif %}
+                {% if can_production %}
+                <a class="erp-home-alert-row" href="/work-orders"><strong>{% if metric_errors.open_work_orders %}--{% else %}{{ operating.open_work_orders }}{% endif %}</strong><span>未完工单</span><i class="bi bi-chevron-right"></i></a>
+                {% endif %}
+                {% if can_master %}
+                <a class="erp-home-alert-row" href="/project-master"><strong>{% if metric_errors.projects_without_machine %}--{% else %}{{ operating.projects_without_machine }}{% endif %}</strong><span>项目未建机号</span><i class="bi bi-chevron-right"></i></a>
+                {% endif %}
+            </section>
+
+            {% if can_master or can_tech_or_production %}
+            <section class="page-card erp-home-side-card">
+                <div class="erp-home-side-title">
+                    <h2>追溯主数据</h2>
+                    {% if can_master %}
+                    <a href="/project-master">维护</a>
+                    {% endif %}
+                </div>
+                {% if can_master %}
+                <div class="erp-home-master-mini">
+                    <a href="/project-master"><span>项目档案</span><strong>{% if metric_errors.project_master_count %}--{% else %}{{ operating.project_master_count }}{% endif %}</strong></a>
+                    <a href="/machine-serial-master"><span>机号档案</span><strong>{% if metric_errors.machine_serial_count %}--{% else %}{{ operating.machine_serial_count }}{% endif %}</strong></a>
+                </div>
+                {% endif %}
+                <div class="erp-home-mini-links">
+                    {% if can_master %}
+                    <a href="/material">物料</a>
+                    <a href="/supplier">供应商/委外商</a>
+                    {% endif %}
+                    {% if can_tech_or_production %}
+                    <a href="/bom">BOM</a>
+                    <a href="/production-routings">工艺路线</a>
+                    {% endif %}
+                </div>
+            </section>
+            {% endif %}
+
+            {% if can_finance %}
+            <section class="page-card erp-home-side-card">
+                <div class="erp-home-side-title">
+                    <h2>资金提醒</h2>
+                    <a href="/receivables">明细</a>
+                </div>
+                <a class="erp-home-money-row" href="/receivables"><span>应收余额</span><strong>{% if metric_errors.receivable_balance %}--{% else %}{{ operating.receivable_balance|money }}{% endif %}</strong></a>
+                <a class="erp-home-money-row" href="/payables"><span>应付余额</span><strong>{% if metric_errors.payable_balance %}--{% else %}{{ operating.payable_balance|money }}{% endif %}</strong></a>
+            </section>
+            {% endif %}
+        </aside>
+
+        <section class="page-card erp-home-section">
+            <div class="section-title">
+                <div>
+                    <h2>业务关注事项</h2>
+                    <span>按影响项目交付、齐套、发货和收付款的业务口径汇总</span>
+                </div>
+            </div>
+            <div class="erp-workbench-card-grid erp-home-task-grid">
+                {% set visible_task_cards = namespace(count=0) %}
+                {% for card in blocked_items %}
+                {% if role in card.roles and home_permissions.can_path(card.url) %}
+                {% set visible_task_cards.count = visible_task_cards.count + 1 %}
+                <a class="erp-workbench-task-card" href="{{ card.url }}">
+                    <div class="erp-workbench-task-head">
+                        <span>{{ card.title }}</span>
+                        <strong>{{ card.count|money if card.title == '财务收付款提醒' else card.count }}</strong>
+                    </div>
+                    <dl>
+                        <div>
+                            <dt>责任</dt>
+                            <dd>{{ card.owner }}</dd>
+                        </div>
+                        <div>
+                            <dt>下一步</dt>
+                            <dd>{{ card.next_step }}</dd>
+                        </div>
+                        <div>
+                            <dt>影响范围</dt>
+                            <dd>{{ card.downstream_impact }}</dd>
+                        </div>
+                    </dl>
+                </a>
+                {% endif %}
+                {% endfor %}
+                {% if visible_task_cards.count == 0 %}
+                <div class="erp-empty-line">暂无业务关注事项。</div>
+                {% endif %}
+            </div>
+        </section>
+
+    </main>
+</div>
+{% endif %}
+{% endblock %}

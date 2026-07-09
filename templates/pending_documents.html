@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}未处理单据{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <h2 class="mb-0"><i class="bi bi-inboxes"></i> 未处理单据</h2>
+    <span class="badge bg-warning text-dark fs-6">共 {{ total_count }} 张</span>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-muted small">待审核/待处理</div>
+                <div class="display-6">{{ status_counts.pending }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-muted small">已审批待完成</div>
+                <div class="display-6">{{ status_counts.approved }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="text-muted small">处理中</div>
+                <div class="display-6">{{ status_counts.processing }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <form method="get" class="row g-2 align-items-end">
+            {% if request.args.get('embedded') == '1' %}
+            <input type="hidden" name="embedded" value="1">
+            {% endif %}
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">单据类型</label>
+                <select name="module" class="form-select form-select-sm">
+                    <option value="" {% if not filters.module %}selected{% endif %}>全部类型</option>
+                    {% for item in module_counts %}
+                    <option value="{{ item.key }}" {% if filters.module == item.key %}selected{% endif %}>{{ item.label }}（{{ item.count }}）</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">状态</label>
+                <select name="status" class="form-select form-select-sm">
+                    <option value="" {% if not filters.status %}selected{% endif %}>全部状态</option>
+                    <option value="pending" {% if filters.status == 'pending' %}selected{% endif %}>待审核/待处理</option>
+                    <option value="approved" {% if filters.status == 'approved' %}selected{% endif %}>已审批待完成</option>
+                    <option value="processing" {% if filters.status == 'processing' %}selected{% endif %}>处理中</option>
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label small text-muted mb-1">关键词</label>
+                <input type="text" name="search" class="form-control form-control-sm" placeholder="单号/未审核/客户/供应商/物料/用途" value="{{ filters.search }}">
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-primary btn-sm flex-fill"><i class="bi bi-search"></i> 筛选</button>
+                {% if filters.module or filters.status or filters.search %}
+                <a href="/pending_documents{% if request.args.get('embedded') == '1' %}?embedded=1{% endif %}" class="btn btn-outline-secondary btn-sm">清除</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header py-2 d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-list-check"></i> 待处理列表</span>
+        <span class="text-muted small">当前筛选 {{ rows|length }} 张</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover table-sm mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th width="60">序号</th>
+                        <th>单据类型</th>
+                        <th>单据编号</th>
+                        <th>日期</th>
+                        <th>摘要</th>
+                        <th>状态</th>
+                        <th>处理事项</th>
+                        <th width="90">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td><i class="bi {{ row.icon }}"></i> {{ row.module_label }}</td>
+                        <td><a href="{{ row.detail_url }}">{{ row.number }}</a></td>
+                        <td>{{ row.date_text or '-' }}</td>
+                        <td>{{ row.title or '-' }}</td>
+                        <td>
+                            {% if row.status == 'pending' %}
+                            <span class="badge bg-warning text-dark">{{ row.status_label }}</span>
+                            {% elif row.status == 'approved' %}
+                            <span class="badge bg-info text-dark">{{ row.status_label }}</span>
+                            {% elif row.status == 'processing' %}
+                            <span class="badge bg-primary">{{ row.status_label }}</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{{ row.status_label }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ row.action_label }}</td>
+                        <td>
+                            <a class="btn btn-sm btn-outline-primary" href="{{ row.detail_url }}">
+                                <i class="bi bi-arrow-right"></i> 进入
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="8" class="text-center text-muted py-3">暂无未处理单据</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}工单领料查询{% endblock %}
+
+{% block content %}
+{{ document_menu_bar(actions=[
+    {'label': '查找', 'type': 'link', 'href': '/requisition'},
+    {'label': '工具', 'type': 'dropdown', 'items': [
+        {'label': '生产领料单列表', 'type': 'link', 'href': '/production-issues'},
+        {'label': '生产退料单列表', 'type': 'link', 'href': '/production-returns'},
+        {'label': '生产工单列表', 'type': 'link', 'href': '/work-orders'},
+        {'label': '齐套查询', 'type': 'link', 'href': '/engineering/kitting'},
+        {'label': 'MRP缺料查询', 'type': 'link', 'href': '/production-enhance/mrp-requirements'}
+    ]}
+]) }}
+<div class="page-heading">
+    <h1>工单领料查询</h1>
+    <p>此页只读保留工单用料、已领、已退和待领查询。正式出库请使用生产领料单，退料请使用生产退料单。</p>
+</div>
+
+<div class="row g-3 mb-3">
+    {% for metric in metrics %}
+    <div class="col-md-6 col-xl-3">
+        <div class="metric h-100">
+            <div class="label">{{ metric.label|clean_text }}</div>
+            <div class="value">{{ metric.value|clean_text }}</div>
+            <div class="text-muted small mt-1">{{ metric.hint|clean_text }}</div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="page-card mb-3">
+    <form method="get" class="row g-2 align-items-end">
+        <div class="col-md-3">
+            <label class="form-label small text-muted mb-1">状态</label>
+            <select name="status" class="form-select form-select-sm">
+                <option value="" {% if not filters.status %}selected{% endif %}>全部</option>
+                <option value="can_start" {% if filters.status == 'can_start' %}selected{% endif %}>齐套可投产</option>
+                <option value="cannot_start" {% if filters.status == 'cannot_start' %}selected{% endif %}>缺料不可投产</option>
+                <option value="pending" {% if filters.status == 'pending' %}selected{% endif %}>待领料</option>
+                <option value="completed" {% if filters.status == 'completed' %}selected{% endif %}>已领齐</option>
+                <option value="no_material" {% if filters.status == 'no_material' %}selected{% endif %}>无领料明细</option>
+            </select>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label small text-muted mb-1">关键字</label>
+            <input class="form-control form-control-sm" name="keyword" value="{{ filters.keyword }}" placeholder="工单号 / 项目号 / 机号 / 成品编码 / 成品名称">
+        </div>
+        <div class="col-md-3 d-flex gap-2">
+            <button class="btn btn-primary btn-sm flex-fill" type="submit">查询</button>
+            <a class="btn btn-outline-secondary btn-sm" href="/requisition">清除</a>
+        </div>
+    </form>
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>工单用料状态</h2>
+            <span>{{ rows|length }} 张工单。此处不直接生成领料单。</span>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+            <tr>
+                <th>工单号</th>
+                <th>成品</th>
+                <th>项目/机号</th>
+                <th class="text-end">需求</th>
+                <th class="text-end">已领</th>
+                <th class="text-end">已退</th>
+                <th class="text-end">待领</th>
+                <th>齐套结果</th>
+                <th>领料状态</th>
+                <th>下一步</th>
+                <th>责任</th>
+                <th>预计补齐</th>
+                <th>下游影响</th>
+                <th>操作</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for row in rows %}
+            <tr>
+                <td><a class="fw-semibold" href="/work-orders/{{ row.id }}">{{ row.wo_no }}</a></td>
+                <td>
+                    <div>{{ row.product_code or '-' }} {{ row.product_name or '' }}</div>
+                    <div class="text-muted small">{{ row.product_family|clean_text if row.product_family else '-' }} / {{ row.bom_display|clean_text if row.bom_display else '-' }}</div>
+                </td>
+                <td>{{ row.project_code or '-' }} / {{ row.serial_no or '-' }}</td>
+                <td class="text-end">{{ row.required_qty|clean_text }}</td>
+                <td class="text-end">{{ row.issued_qty|clean_text }}</td>
+                <td class="text-end">{{ row.returned_qty|clean_text }}</td>
+                <td class="text-end {% if row.pending_qty %}fw-semibold text-primary{% endif %}">{{ row.pending_qty|clean_text }}</td>
+                <td>{{ row.kit_check_result|clean_text or '-' }}</td>
+                <td>{{ row.issue_status|clean_text or '-' }}</td>
+                <td>{{ row.next_step|clean_text or '-' }}</td>
+                <td>{{ row.owner_role|clean_text or '-' }}</td>
+                <td>{{ row.estimated_ready_date or '-' }}</td>
+                <td class="small">{{ row.downstream_impact|clean_text or '-' }}</td>
+                <td>
+                    <div class="d-flex flex-wrap gap-1">
+                        <a class="btn btn-outline-primary btn-sm" href="/work-orders/{{ row.id }}">工单详情</a>
+                        {% if row.kit_action_url %}
+                        <a class="btn btn-outline-secondary btn-sm" href="{{ row.kit_action_url }}">进入处理</a>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="14" class="text-muted">暂无工单领料数据。</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="page-card">
+    <div class="section-title">
+        <div>
+            <h2>待领物料明细</h2>
+            <span>仅供查询。实际出库请从生产领料单过账。</span>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+            <tr>
+                <th>工单号</th>
+                <th>项目/机号</th>
+                <th>物料</th>
+                <th>规格</th>
+                <th>单位</th>
+                <th class="text-end">需求</th>
+                <th class="text-end">已领</th>
+                <th class="text-end">已退</th>
+                <th class="text-end">待领</th>
+                <th class="text-end">可用</th>
+                <th class="text-end">缺料</th>
+                <th>齐套结果</th>
+                <th>操作</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for line in material_lines %}
+            <tr>
+                <td>{{ line.wo_no }}</td>
+                <td>{{ line.project_code or '-' }} / {{ line.serial_no or '-' }}</td>
+                <td>{{ line.product_code or '-' }} / {{ line.product_name or '-' }}</td>
+                <td>{{ line.specification or '-' }}</td>
+                <td>{{ line.unit or '-' }}</td>
+                <td class="text-end">{{ line.required_qty|clean_text }}</td>
+                <td class="text-end">{{ line.issued_qty|clean_text }}</td>
+                <td class="text-end">{{ line.returned_qty|clean_text }}</td>
+                <td class="text-end fw-semibold">{{ line.pending_qty|clean_text }}</td>
+                <td class="text-end">{{ line.available_qty|clean_text }}</td>
+                <td class="text-end {% if line.stock_shortage_qty %}text-danger fw-semibold{% endif %}">{{ line.stock_shortage_qty|clean_text }}</td>
+                <td>{{ line.kit_line_result|clean_text or '-' }}</td>
+                <td><a class="btn btn-outline-primary btn-sm" href="/work-orders/{{ line.work_order_id }}">工单详情</a></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="13" class="text-muted">暂无待领物料。</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

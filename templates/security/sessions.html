@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+
+{% block title %}会话管理{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-person-lines-fill"></i> 会话管理
+                    </h5>
+                    <div>
+                        <button id="btnCleanExpired" class="btn btn-sm btn-warning me-2">
+                            <i class="bi bi-trash"></i> 清理过期会话
+                        </button>
+                        <button id="btnRefresh" class="btn btn-sm btn-primary">
+                            <i class="bi bi-arrow-clockwise"></i> 刷新
+                        </button>
+                        <a href="/" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-house"></i> 返回首页
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- 统计信息 -->
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <div class="alert alert-success">
+                                <strong id="statActiveCount">0</strong> 个活跃会话
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="alert alert-info">
+                                <strong id="statActiveUsers">0</strong> 个活跃用户
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="alert alert-secondary">
+                                <strong id="statInactiveCount">0</strong> 个已过期
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="alert alert-light">
+                                总计: <strong id="statTotalCount">0</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 筛选器 -->
+                    <div class="mb-3">
+                        <div class="btn-group" role="group">
+                            <input type="radio" class="btn-check" name="filterType" id="filterActive" value="active" checked>
+                            <label class="btn btn-outline-primary" for="filterActive">活跃会话</label>
+
+                            <input type="radio" class="btn-check" name="filterType" id="filterAll" value="all">
+                            <label class="btn btn-outline-primary" for="filterAll">全部会话</label>
+                        </div>
+
+                        <div class="ms-3 d-inline-block">
+                            <label>按用户筛选:</label>
+                            <input type="text" id="filterUsername" class="form-control d-inline-block" style="width: 200px;" placeholder="输入用户名">
+                        </div>
+                    </div>
+
+                    <!-- 会话列表 -->
+                    <div id="sessionsList">
+                        <div class="text-center text-muted py-3">加载中...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentFilter = 'active';
+
+$(document).ready(function() {
+    loadStatistics();
+    loadSessions();
+});
+
+function loadStatistics() {
+    $.ajax({
+        url: '/security/api/session-statistics',
+        method: 'GET',
+        success: function(response) {
+            if (response.status === 'success') {
+                $('#statActiveCount').text(response.statistics.active_count);
+                $('#statActiveUsers').text(response.statistics.active_users);
+                $('#statInactiveCount').text(response.statistics.inactive_count);
+                $('#statTotalCount').text(response.statistics.total_count);
+            }
+        }
+    });
+}
+
+function loadSessions() {
+    const url = currentFilter === 'active' ? '/security/api/active-sessions' : '/security/api/all-sessions';
+
+    $.ajax({
+        url: url,
+        method: 'GET',
+        data: { limit: 100 },
+        success: function(response) {
+            if (response.status === 'success') {
+                renderSessions(response.sessions);
+            }
+        }
+    });
+}
+
+function renderSessions(sessions) {
+    const container = $('#sessionsList');
+    const filterUsername = $('#filterUsername').val().toLowerCase();
+
+    // 按用户名筛选
+    let filtered = sessions;
+    if (filterUsername) {
+        filtered = sessions.filter(s => s.username.toLowerCase().includes(filterUsername));
+    }
+
+    if (!filtered || filtered.length === 0) {
+        container.html('<div class="alert alert-info">暂无会话</div>');
+        return;
+    }
+
+    let html = '<table class="table table-bordered table-hover table-sm">';
+    html += '<thead><tr>';
+    html += '<th>用户名</th><th>IP地址</th><th>浏览器</th><th>登录时间</th>';
+    html += '<th>最后活动</th><th>状态</th><th>操作</th>';
+    html += '</tr></thead><tbody>';
+
+    filtered.forEach(function(sess) {
+        const isActive = sess.is_active;
+        const statusClass = isActive ? 'success' : 'secondary';
+        const statusText = isActive ? '活跃' : '已过期';
+
+        html += '<tr' + (isActive ? '' : ' class="table-secondary"') + '>';
+        html += '<td>' + sess.username + '</td>';
+        html += '<td>' + (sess.ip_address || '-') + '</td>';
+        html += '<td style="max-width:200px; overflow:hidden; text-overflow:ellipsis;">' + (sess.user_agent || '-') + '</td>';
+        html += '<td>' + sess.created_at + '</td>';
+        html += '<td>' + sess.last_activity + '</td>';
+        html += '<td><span class="badge bg-' + statusClass + '">' + statusText + '</span></td>';
+        html += '<td>';
+
+        if (isActive) {
+            html += '<button class="btn btn-sm btn-danger" onclick="terminateSession(\'' + sess.session_id + '\', \'' + sess.username + '\')">';
+            html += '<i class="bi bi-x-circle"></i> 终止</button>';
+        } else {
+            html += '<span class="text-muted">-</span>';
+        }
+
+        html += '</td>';
+        html += '</tr>';
+    });
+
+    html += '</tbody></table>';
+    container.html(html);
+}
+
+function terminateSession(sessionId, username) {
+    if (!confirm('确定要终止用户 "' + username + '" 的会话吗？')) {
+        return;
+    }
+
+    const reason = prompt('请输入终止原因（可选）:', '管理员强制终止');
+
+    $.ajax({
+        url: '/security/api/terminate-session',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            session_id: sessionId,
+            reason: reason
+        }),
+        success: function(response) {
+            if (response.status === 'success') {
+                alert('会话已终止');
+                loadStatistics();
+                loadSessions();
+            } else {
+                alert('终止失败: ' + response.msg);
+            }
+        },
+        error: function() {
+            alert('网络错误');
+        }
+    });
+}
+
+$('#btnCleanExpired').click(function() {
+    if (!confirm('确定要清理所有过期会话吗？')) {
+        return;
+    }
+
+    const hours = prompt('清理多少小时前的会话？', '24');
+    if (!hours) return;
+
+    $.ajax({
+        url: '/security/api/clean-expired-sessions',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ inactive_hours: parseInt(hours) }),
+        success: function(response) {
+            if (response.status === 'success') {
+                alert(response.msg);
+                loadStatistics();
+                loadSessions();
+            }
+        },
+        error: function() {
+            alert('网络错误');
+        }
+    });
+});
+
+$('#btnRefresh').click(function() {
+    loadStatistics();
+    loadSessions();
+});
+
+$('input[name="filterType"]').change(function() {
+    currentFilter = $(this).val();
+    loadSessions();
+});
+
+$('#filterUsername').on('input', function() {
+    loadSessions();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,1333 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% from "partials/document_line_toolbar.html" import line_toolbar %}
+{% block title %}工单详情 - {{ order.wo_no }}{% endblock %}
+{% block content %}
+{% set status = order.status or '' %}
+{% set display_next_step = (next_step or '')|replace('下一步：', '')|replace('下一步:', '')|trim %}
+{% set custom_payload = custom_fields_payload or {} %}
+{% set is_closed = not can_operate %}
+{{ document_menu_bar(actions=[
+    {'label': '修改', 'type': 'link', 'href': '/work-orders/' ~ order.id ~ '/edit'},
+    {'label': '生成BOM用料', 'type': 'button', 'event': 'generate-bom-materials', 'disabled': is_closed or not order.bom_id},
+    {'label': '生成领料单', 'type': 'button', 'event': 'focus-issue', 'disabled': is_closed or not material_items},
+    {'label': '生成退料单', 'type': 'button', 'event': 'focus-return', 'disabled': is_closed or not returnable_material_items},
+    {'label': '补料', 'type': 'button', 'event': 'focus-extra', 'disabled': is_closed},
+    {'label': '完工入库', 'type': 'link', 'href': '/production-completions/new?work_order_id=' ~ order.id, 'disabled': is_closed},
+    {'label': '质检', 'type': 'button', 'event': 'focus-quality', 'disabled': is_closed},
+    {'label': '打印', 'type': 'dropdown', 'items': [
+        {'label': '打印领料单', 'type': 'link', 'href': '/work-orders/' ~ order.id ~ '/issue-print'},
+        {'label': '打印完工单', 'type': 'link', 'href': '/work-orders/' ~ order.id ~ '/complete-print'}
+    ]},
+    {'label': '下查', 'type': 'dropdown', 'items': [
+        {'label': '工单领料看板', 'type': 'link', 'href': '/requisition?keyword=' ~ (order.wo_no|urlencode)},
+        {'label': '生产领料单', 'type': 'link', 'href': '/production-issues?keyword=' ~ (order.wo_no|urlencode)},
+        {'label': '生产退料单', 'type': 'link', 'href': '/production-returns?keyword=' ~ (order.wo_no|urlencode)},
+        {'label': '完工入库单', 'type': 'link', 'href': '/production-completions?keyword=' ~ (order.wo_no|urlencode)},
+        {'label': 'MRP缺料', 'type': 'link', 'href': '/production-enhance/mrp-requirements?keyword=' ~ ((order.project_code or order.serial_no or order.wo_no)|urlencode)},
+        {'label': '齐套检查', 'type': 'link', 'href': '/engineering/kitting?keyword=' ~ ((order.project_code or order.serial_no or order.wo_no)|urlencode)},
+        {'label': '工序/工艺执行', 'type': 'button', 'event': 'focus-process'},
+        {'label': '库存流水', 'type': 'button', 'event': 'focus-stock'},
+        {'label': '委外加工', 'type': 'button', 'event': 'focus-subcontract'},
+        {'label': '质量检验列表', 'type': 'link', 'href': '/production-enhance/quality-inspections?keyword=' ~ ((order.project_code or order.serial_no or order.wo_no)|urlencode)},
+        {'label': '成本明细', 'type': 'button', 'event': 'focus-cost'},
+        {'label': '项目台账', 'type': 'link', 'href': '/projects?keyword=' ~ ((order.project_code or order.serial_no or order.wo_no)|urlencode)}
+    ]},
+    {'label': '工具', 'type': 'dropdown', 'items': [
+        {'label': '查看BOM', 'type': 'link', 'href': '/bom/' ~ order.bom_no if order.bom_no else '/bom', 'disabled': not order.bom_no},
+        {'label': '生产排程', 'type': 'link', 'href': '/production-schedules?keyword=' ~ ((order.project_code or order.serial_no or order.wo_no)|urlencode)},
+        {'label': '工单变更控制', 'type': 'button', 'event': 'focus-change-control'},
+        {'label': '工单执行追溯', 'type': 'button', 'event': 'focus-cost'}
+    ]},
+    {'label': '附件/备注', 'type': 'button', 'event': 'focus-attachments'}
+]) }}
+<div id="doc-nav-config" data-nav-table="work_orders" data-nav-base="/work-orders/" data-doc-id="{{ order.id }}" data-list-url="/work-orders" style="display:none"></div>
+{% if can_operate and order.bom_id %}
+<form id="generateBomMaterialsForm" method="post" action="/work-orders/{{ order.id }}/generate-bom-material-requirements">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+</form>
+{% endif %}
+
+<div class="alert alert-info mb-3">
+    <strong>当前状态：</strong>{{ status|erp_value|clean_text or '未定' }}。
+    <span>下一步：{{ display_next_step }}</span>
+</div>
+
+<div class="page-card mb-3">
+    <div class="d-flex flex-wrap justify-content-between gap-3 align-items-start">
+        <div>
+            <h2 class="h5 mb-2">生产进度</h2>
+            <div class="d-flex flex-wrap gap-2">
+                {% for item in stage_items or [] %}
+                <span class="badge {% if item.state == 'current' %}text-bg-primary{% elif item.state == 'done' %}text-bg-success{% else %}text-bg-light text-dark{% endif %}">
+                    {{ item.label }}
+                </span>
+                {% endfor %}
+            </div>
+            <div class="text-muted small mt-2">{{ order.schedule_compare }}</div>
+        </div>
+        <div class="text-end">
+            <div class="small text-muted">交期预警</div>
+            <div class="{% if order.delivery_warning and order.delivery_warning != '无交期预警' %}text-danger fw-semibold{% else %}text-muted{% endif %}">
+                {{ order.delivery_warning or '无交期预警' }}
+            </div>
+        </div>
+    </div>
+    {% if can_operate %}
+    <form class="row g-2 align-items-end mt-3" method="post" action="/work-orders/{{ order.id }}/status">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="col-md-3">
+            <label class="form-label">下一阶段</label>
+            <select class="form-select form-select-sm" name="next_stage">
+                {% for stage in production_stages %}
+                <option value="{{ stage }}" {% if stage == order.production_stage %}selected{% endif %}>{{ stage }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-7">
+            <label class="form-label">流转说明</label>
+            <input class="form-control form-control-sm" name="remark" placeholder="例如：齐套完成，进入装配">
+        </div>
+        <div class="col-md-2 d-grid">
+            <button class="btn btn-outline-primary btn-sm" type="submit">更新阶段</button>
+        </div>
+    </form>
+    {% endif %}
+    {% if status_logs %}
+    <div class="table-responsive mt-3">
+        <table class="table table-sm align-middle mb-0">
+            <thead><tr><th>时间</th><th>操作人</th><th>原阶段</th><th>新阶段</th><th>说明</th></tr></thead>
+            <tbody>
+            {% for log in status_logs %}
+            <tr>
+                <td>{{ log.changed_at or '-' }}</td>
+                <td>{{ log.operator_name or '-' }}</td>
+                <td>{{ log.from_stage or '-' }}</td>
+                <td>{{ log.to_stage or '-' }}</td>
+                <td>{{ log.remark or '-' }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+
+<div class="page-card mb-3">
+    <div class="d-flex justify-content-between align-items-start gap-3">
+        <div>
+            <h1 class="h4 mb-1">工单：{{ order.wo_no }}</h1>
+            <div class="text-muted">
+                {{ order.product_code or order.product_id }} / {{ order.product_name or '-' }}
+                {% if order.specification %} / {{ order.specification }}{% endif %}
+            </div>
+        </div>
+        <span class="badge text-bg-primary">{{ order.status|erp_value|clean_text or '未定义' }}</span>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    {% for metric in metrics %}
+    <div class="col-md-6 col-xl-3">
+        <div class="metric h-100">
+            <div class="label">{{ metric.label }}</div>
+            <div class="value">{{ metric.value }}</div>
+            <div class="text-muted small mt-1">{{ metric.hint }}</div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="page-card mb-3" id="workOrderCostReconciliation" data-production-section="工单成本核对">
+    <div class="section-title">
+        <div>
+            <h2>工单成本明细</h2>
+            <span>按材料、退料、委外、人工、制造费用和完工入库分项核对，不以单一总成本替代明细。</span>
+        </div>
+        <span class="badge {% if cost_reconciliation.reconcile_status == '已平衡' %}text-bg-success{% elif cost_reconciliation.reconcile_status in ['差异待核', '委外待收'] %}text-bg-warning{% else %}text-bg-primary{% endif %}">
+            {{ cost_reconciliation.reconcile_status }}
+        </span>
+    </div>
+    <div class="row g-2 mb-3">
+        <div class="col-md-3"><strong>归集成本合计：</strong>{{ cost_reconciliation.reference_total_cost|money }}</div>
+        <div class="col-md-3"><strong>完工入库成本：</strong>{{ cost_reconciliation.completion_inbound_cost|money }}</div>
+        <div class="col-md-3"><strong>差异/待核金额：</strong>{{ cost_reconciliation.variance|money }}</div>
+        <div class="col-md-3"><strong>责任：</strong>{{ cost_reconciliation.owner }}</div>
+        <div class="col-md-3"><strong>归集动作：</strong>{{ cost_reconciliation.collection_status }}</div>
+        <div class="col-md-3"><strong>结转建议：</strong>{{ cost_reconciliation.settlement_status }}</div>
+        <div class="col-md-3"><strong>报工单：</strong>{{ cost_reconciliation.operation_report_count }} 张</div>
+        <div class="col-md-3"><strong>待审报工：</strong>{{ cost_reconciliation.operation_report_pending_count }} 张</div>
+        <div class="col-md-3"><strong>人工工时：</strong>{{ cost_reconciliation.operation_labor_hours|qty }}</div>
+        <div class="col-md-3"><strong>设备工时：</strong>{{ cost_reconciliation.operation_equipment_hours|qty }}</div>
+        <div class="col-md-6"><strong>待核原因：</strong>{{ cost_reconciliation.pending_reason }}</div>
+        <div class="col-md-6"><strong>下一步：</strong>{{ cost_reconciliation.next_action }}</div>
+        <div class="col-md-6"><strong>归集处理：</strong>{{ cost_reconciliation.collection_action }}</div>
+        <div class="col-md-6"><strong>阻断原因：</strong>{{ cost_reconciliation.settlement_blocked_reason }}</div>
+        <div class="col-md-6"><strong>差异调整建议：</strong>{{ cost_reconciliation.variance_adjustment_suggestion }}</div>
+        <div class="col-md-6"><strong>财务结转说明：</strong>{{ cost_reconciliation.settlement_advice }}</div>
+        <div class="col-12"><strong>下游影响：</strong>{{ cost_reconciliation.downstream_impact }}</div>
+        <div class="col-12 text-muted small">{{ cost_reconciliation.finance_control_note }}</div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+            <thead>
+            <tr>
+                <th>成本项目</th>
+                <th class="text-end">成本金额</th>
+                <th>状态</th>
+                <th>核算依据</th>
+                <th>责任</th>
+                <th>下一步</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for row in cost_reconciliation.rows %}
+            <tr>
+                <td>{{ row.label }}</td>
+                <td class="text-end {% if row.amount < 0 %}text-success{% elif row.label == '差异/待核金额' and row.amount != 0 %}text-danger fw-semibold{% endif %}">{{ row.amount|money }}</td>
+                <td>{{ row.status or '-' }}</td>
+                <td>{{ row.basis }}</td>
+                <td>{{ row.owner }}</td>
+                <td>{{ row.next_action or '-' }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if cost_reconciliation.last_calculated_at %}
+    <div class="text-muted small mt-2">最近成本归集：{{ cost_reconciliation.last_calculated_at }}</div>
+    {% endif %}
+</div>
+
+<div class="page-card mb-3">
+    <h2 class="h5 mb-3">上游来源</h2>
+    <div class="row g-2">
+        <div class="col-md-3"><strong>来源单据：</strong>{{ order.source_document or '未关联来源' }}</div>
+        <div class="col-md-3"><strong>项目号：</strong>{{ order.project_code or '-' }}</div>
+        <div class="col-md-3"><strong>机号：</strong>{{ order.serial_no or '-' }}</div>
+        <div class="col-md-3"><strong>来源行：</strong>{{ order.source_line_display or order.source_line_no or '-' }}</div>
+        <div class="col-md-3"><strong>BOM：</strong>{{ order.source_bom_display or order.bom_display or '-' }}</div>
+        <div class="col-md-3"><strong>来源状态：</strong>{{ order.source_trace_status or '-' }}</div>
+        <div class="col-md-3"><strong>责任：</strong>{{ order.source_owner_role or order.owner_role or '生产计划' }}</div>
+        <div class="col-md-3"><strong>下一步：</strong>{{ order.source_next_step or next_step }}</div>
+    </div>
+</div>
+
+<div class="page-card mb-3">
+    <h2 class="h5 mb-3">基本信息</h2>
+    <div class="row g-2">
+        <div class="col-md-3"><strong>工单日期：</strong>{{ order.wo_date or '-' }}</div>
+        <div class="col-md-3"><strong>项目号：</strong>{{ order.project_code or '-' }}</div>
+        <div class="col-md-3"><strong>机号：</strong>{{ order.serial_no or '-' }}</div>
+        <div class="col-md-3"><strong>入库仓库：</strong>{{ order.warehouse_name or '-' }}</div>
+        <div class="col-md-3"><strong>物料编码：</strong>{{ order.material_code or order.product_code or '-' }}</div>
+        <div class="col-md-3"><strong>物料名称：</strong>{{ order.material_name or order.product_name or '-' }}</div>
+        <div class="col-md-3"><strong>规格型号：</strong>{{ order.material_spec or order.specification or '-' }}</div>
+        <div class="col-md-3"><strong>单位：</strong>{{ order.material_unit or order.product_unit or '-' }}</div>
+        <div class="col-md-3"><strong>数量：</strong>{{ order.quantity|qty }}</div>
+        <div class="col-md-3"><strong>库存成本单价：</strong>{{ order.unit_cost|money if order.unit_cost is defined else '-' }}</div>
+        <div class="col-md-3"><strong>成本金额：</strong>{{ order.amount|money if order.amount is defined else '-' }}</div>
+        <div class="col-md-3"><strong>批号：</strong>{{ order.lot_no or '-' }}</div>
+        <div class="col-md-3"><strong>来源行：</strong>{{ order.source_line_no or '-' }}</div>
+        <div class="col-md-3"><strong>计划开始：</strong>{{ order.planned_start_date or '-' }}</div>
+        <div class="col-md-3"><strong>计划结束：</strong>{{ order.planned_end_date or '-' }}</div>
+        <div class="col-md-3"><strong>实际开始：</strong>{{ order.actual_start_date or '-' }}</div>
+        <div class="col-md-3"><strong>实际结束：</strong>{{ order.actual_end_date or '-' }}</div>
+        <div class="col-md-6"><strong>BOM：</strong>{% if order.bom_no %}<a href="/bom/{{ order.bom_no }}">{{ order.bom_no }}</a> / {{ order.bom_version or '-' }}{% else %}-{% endif %}</div>
+        <div class="col-md-6"><strong>备注：</strong>{{ order.remark or '-' }}</div>
+    </div>
+</div>
+
+<div class="page-card mb-3" id="workOrderExecutionSnapshot" data-production-section="工单执行快照">
+    <div class="section-title">
+        <div>
+            <h2>工单执行快照</h2>
+            <span>BOM、工艺和图纸依据只读固化；领料需求优先按快照生成。</span>
+        </div>
+        <span class="badge {% if execution_snapshot.exists %}text-bg-success{% else %}text-bg-warning{% endif %}">
+            {{ execution_snapshot.status }}
+        </span>
+    </div>
+    <div class="row g-2">
+        <div class="col-md-3"><strong>快照时间：</strong>{{ execution_snapshot.snapshot_at or '-' }}</div>
+        <div class="col-md-3"><strong>BOM版本：</strong>{% if execution_snapshot.bom_no %}{{ execution_snapshot.bom_no }} / {{ execution_snapshot.bom_version or '-' }}{% else %}-{% endif %}</div>
+        <div class="col-md-3"><strong>BOM行数：</strong>{{ execution_snapshot.bom_line_count }}</div>
+        <div class="col-md-3"><strong>BOM状态：</strong>{{ execution_snapshot.bom_status or '-' }}</div>
+        <div class="col-md-3"><strong>工艺路线：</strong>{% if execution_snapshot.routing_no %}{{ execution_snapshot.routing_no }} / {{ execution_snapshot.routing_name or '-' }}{% else %}-{% endif %}</div>
+        <div class="col-md-3"><strong>工序数：</strong>{{ execution_snapshot.routing_operation_count }}</div>
+        <div class="col-md-3"><strong>图纸数：</strong>{{ execution_snapshot.drawing_count }}</div>
+        <div class="col-md-3"><strong>快照号：</strong>{{ execution_snapshot.snapshot_id or '-' }}</div>
+        <div class="col-12"><strong>下一步：</strong>{{ execution_snapshot.next_action }}</div>
+    </div>
+</div>
+
+<div class="page-card mb-3" id="workOrderChangeControl" data-production-section="工单变更控制">
+    <div class="section-title">
+        <div>
+            <h2>工单变更控制</h2>
+            <span>用于已建工单的数量、计划日期、BOM、用料和工艺路线变更评估；不替代大型 ECN。</span>
+        </div>
+        <span class="badge {% if change_control.blocked %}text-bg-warning{% else %}text-bg-success{% endif %}">
+            {{ change_control.status }}
+        </span>
+    </div>
+    <div class="row g-2 mb-3">
+        <div class="col-md-3"><strong>责任：</strong>{{ change_control.owner_role }}</div>
+        <div class="col-md-3"><strong>已领料：</strong>{{ change_control.issued_qty|qty }}</div>
+        <div class="col-md-3"><strong>已报工：</strong>{{ change_control.operation_report_count }}</div>
+        <div class="col-md-3"><strong>已入库：</strong>{{ change_control.completed_qty|qty }}</div>
+        <div class="col-12"><strong>下一步：</strong>{{ change_control.next_action }}</div>
+        <div class="col-12"><strong>下游影响：</strong>{{ change_control.downstream_impact }}</div>
+    </div>
+    {% if change_control.blockers %}
+    <div class="alert alert-warning py-2">
+        <div class="fw-semibold">阻断原因</div>
+        <ul class="mb-0 mt-1">
+            {% for reason in change_control.blockers %}
+            <li>{{ reason }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+    {% if can_operate %}
+    <form class="row g-2 align-items-end mb-3" method="post" action="/work-orders/{{ order.id }}/changes">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="col-md-3">
+            <label class="form-label">变更类型</label>
+            <select class="form-select form-select-sm" name="change_type">
+                <option value="数量变更">数量变更</option>
+                <option value="计划日期变更">计划日期变更</option>
+                <option value="BOM/用料变更">BOM/用料变更</option>
+                <option value="工艺路线变更">工艺路线变更</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">责任</label>
+            <select class="form-select form-select-sm" name="owner_role">
+                <option value="生产计划/技术">生产计划/技术</option>
+                <option value="生产计划">生产计划</option>
+                <option value="技术">技术</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">变更内容</label>
+            <input class="form-control form-control-sm" name="proposed_change" placeholder="填写目标数量、日期、BOM、用料或工艺路线变化" required>
+        </div>
+        <div class="col-md-2 d-grid">
+            <button class="btn btn-outline-primary btn-sm" type="submit">登记评估</button>
+        </div>
+    </form>
+    {% endif %}
+    {% if change_control.records %}
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+            <thead>
+            <tr>
+                <th>变更单</th>
+                <th>类型</th>
+                <th>状态</th>
+                <th>责任</th>
+                <th>变更内容</th>
+                <th>阻断/评估</th>
+                <th>下一步</th>
+                <th>登记人</th>
+                <th>时间</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for row in change_control.records %}
+            <tr>
+                <td>{{ row.change_no }}</td>
+                <td>{{ row.change_type }}</td>
+                <td>{{ row.status }}</td>
+                <td>{{ row.owner_role }}</td>
+                <td>{{ row.proposed_change }}</td>
+                <td>{{ row.blocked_reason or row.impact_assessment or '-' }}</td>
+                <td>{{ row.next_action or '-' }}</td>
+                <td>{{ row.requested_by_name or '-' }}</td>
+                <td>{{ row.requested_at or row.created_at or '-' }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-muted">暂无变更评估记录。</div>
+    {% endif %}
+</div>
+
+{% if can_operate %}
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>工单动作</h2>
+            <span>领退料先生成正式单据，提交过账后写库存；完工入库受领料、工序和质检门禁控制。</span>
+        </div>
+    </div>
+    <div class="row g-2 align-items-end">
+        <div class="col-lg-6">
+            <form id="issueActionPanel" class="row g-2 align-items-end" method="get" action="/production-picks/new" aria-label="旧领料动作已停用，请使用正式生产领料单">
+                <input type="hidden" name="work_order_id" value="{{ order.id }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="col-md-4">
+                    <label class="form-label">单据日期</label>
+                    <input class="form-control form-control-sm" type="date" name="doc_date" value="">
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label">备注</label>
+                    <input class="form-control form-control-sm" name="remark" value="工单领料 {{ order.wo_no }}">
+                </div>
+                <div class="col-md-3 d-grid">
+                    <button class="btn btn-outline-primary btn-sm" type="submit">生成领料单</button>
+                </div>
+            </form>
+        </div>
+        <div class="col-lg-6">
+            <div id="completeActionPanel" class="row g-2 align-items-end">
+                <div class="col-12">
+                    <div class="alert {% if completion_gate.can_complete %}alert-success{% else %}alert-warning{% endif %} py-2 mb-0">
+                        <div><strong>完工入库门禁：</strong>{{ completion_gate.status_label }}；责任：{{ completion_gate.owner }}；下一步：{{ completion_gate.next_action }}</div>
+                        <div class="small mt-1">下游影响：{{ completion_gate.downstream_impact }}</div>
+                        {% if completion_gate.blockers %}
+                        <div class="small fw-semibold mt-1">阻断原因</div>
+                        <ul class="mb-0 mt-1">{% for reason in completion_gate.blockers %}<li>{{ reason }}</li>{% endfor %}</ul>
+                        {% endif %}
+                        {% if completion_gate.warnings %}
+                        <div class="small mt-1">提示：{{ completion_gate.warnings|join('；') }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-md-12">
+                    <div class="form-text">完工入库已改为独立正式单据。草稿、提交、过账、作废都在完工入库单详情中完成；过账后写入库存流水、库存余额和工单完工明细。</div>
+                </div>
+                <div class="col-md-4 d-grid">
+                    <a class="btn btn-primary btn-sm {% if not completion_gate.can_complete %}disabled{% endif %}" href="/production-completions/new?work_order_id={{ order.id }}">生成完工入库单</a>
+                </div>
+                <div class="col-md-4 d-grid">
+                    <a class="btn btn-outline-secondary btn-sm" href="/production-completions?keyword={{ order.wo_no|urlencode }}">查看完工入库单</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if material_items %}
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>退料登记</h2>
+            <span>把已领未用物料退回库存，并回写工单领料明细。</span>
+        </div>
+    </div>
+    {% if returnable_material_items %}
+    <form id="returnActionPanel" class="row g-2 align-items-end" method="get" action="/production-returns/new" aria-label="旧退料动作已停用，请使用正式生产退料单">
+        <input type="hidden" name="work_order_id" value="{{ order.id }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="col-md-4">
+            <label class="form-label">退料物料</label>
+            <select class="form-select form-select-sm" name="material_item_id" required>
+                {% for item in returnable_material_items %}
+                <option value="{{ item.id }}">{{ item.product_code or item.id }} / {{ item.product_name or '-' }}，已领 {{ item.issued_qty|qty }}，已退 {{ item.returned_qty|qty }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">退料数量</label>
+            <input class="form-control form-control-sm" type="number" step="0.01" name="quantity" value="1" min="0.01">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">退料日期</label>
+            <input class="form-control form-control-sm" type="date" name="return_date" value="">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">备注</label>
+            <input class="form-control form-control-sm" name="remark" value="工单退料{{ order.wo_no }}">
+        </div>
+        <div class="col-md-1 d-grid">
+            <button class="btn btn-outline-primary btn-sm" type="submit">生成退料单</button>
+        </div>
+    </form>
+    {% else %}
+    <div class="alert alert-light border mb-0">暂无可退物料。物料领用后，未退数量会显示在这里。</div>
+    {% endif %}
+</div>
+{% else %}
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>工单动作</h2>
+            <span>当前状态不可执行领料、退料、补料、完工、质检等写入动作。</span>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>手工新增需求物料</h2>
+            <span>BOM不匹配、漏料或临时替代时加入工单领料需求，不立即扣减库存。</span>
+        </div>
+    </div>
+    <div class="d-flex flex-wrap gap-2 mb-2">
+        <button class="btn btn-outline-secondary btn-sm" type="button" data-requirement-grid-action="columns"><i class="bi bi-layout-three-columns"></i> 列设置</button>
+        <button class="btn btn-outline-secondary btn-sm" type="button" data-requirement-grid-action="custom-field"><i class="bi bi-input-cursor-text"></i> 自定义字段</button>
+        <button class="btn btn-outline-secondary btn-sm" type="button" data-requirement-grid-action="reset"><i class="bi bi-arrow-counterclockwise"></i> 重置列</button>
+        <button class="btn btn-outline-secondary btn-sm" type="button" data-requirement-grid-action="sort-help"><i class="bi bi-sort-down"></i> 排序</button>
+        <button class="btn btn-outline-primary btn-sm" type="button" id="addRequirementLineBtn"><i class="bi bi-plus-lg"></i> 增行</button>
+        <button class="btn btn-outline-primary btn-sm" type="button" data-requirement-line-action="insert"><i class="bi bi-plus-square"></i> 插入行</button>
+        <button class="btn btn-outline-secondary btn-sm" type="button" data-requirement-line-action="copy"><i class="bi bi-files"></i> 复制行</button>
+        <button class="btn btn-outline-secondary btn-sm" type="button" data-requirement-line-action="paste"><i class="bi bi-clipboard"></i> 粘贴行</button>
+        <button class="btn btn-outline-secondary btn-sm" type="button" data-requirement-line-action="up"><i class="bi bi-arrow-up"></i> 上移</button>
+        <button class="btn btn-outline-secondary btn-sm" type="button" data-requirement-line-action="down"><i class="bi bi-arrow-down"></i> 下移</button>
+        <button class="btn btn-outline-danger btn-sm" type="button" data-requirement-line-action="delete"><i class="bi bi-trash"></i> 删行</button>
+    </div>
+    <form method="post" action="/work-orders/{{ order.id }}/material-requirements" id="requirementForm" data-testid="work-order-material-requirement-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="table-responsive">
+            <table class="table table-sm align-middle" id="requirementItemsTable" data-document-grid data-grid-key="work_order_requirement_items">
+                <thead>
+                <tr data-grid-header>
+                    <th style="min-width:260px;" data-column-key="product">物料</th>
+                    <th style="min-width:110px;" data-column-key="quantity">需求数量</th>
+                    <th style="min-width:120px;" data-column-key="unit_cost">参考成本</th>
+                    <th style="min-width:180px;" data-column-key="source_line_no">来源行</th>
+                    <th style="min-width:220px;" data-column-key="remark">原因/备注</th>
+                    <th style="width:80px;" data-column-key="actions">操作</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td data-column-key="product">{% include "partials/product_select_cell.html" %}</td>
+                    <td data-column-key="quantity"><input class="form-control form-control-sm" type="number" step="0.01" min="0.01" name="quantity[]" value="1" required></td>
+                    <td data-column-key="unit_cost"><input class="form-control form-control-sm" type="number" step="0.01" name="unit_cost[]" value="0"></td>
+                    <td data-column-key="source_line_no"><input class="form-control form-control-sm" name="source_line_no[]" value="manual-1"></td>
+                    <td data-column-key="remark"><input class="form-control form-control-sm" name="remark[]" value="手工新增领料需求 {{ order.wo_no }}"></td>
+                    <td data-column-key="actions"><button class="btn btn-outline-danger btn-sm js-delete-line" type="button">删行</button></td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="d-flex justify-content-end mt-2">
+            <button class="btn btn-outline-primary btn-sm" type="submit">加入需求</button>
+        </div>
+    </form>
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>补料登记</h2>
+            <span>现场超耗、返工或临时替换物料时，追加工单领料并立即扣减库存。</span>
+        </div>
+    </div>
+    <form method="post" action="/work-orders/{{ order.id }}/extra-material" id="movementForm" data-testid="work-order-extra-material-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="custom_fields_json" id="customFieldsJson" value="">
+        <div class="row g-2 mb-2">
+            <div class="col-md-3">
+                <label class="form-label">补料日期</label>
+                <input class="form-control form-control-sm" type="date" name="issue_date" value="">
+            </div>
+            <div class="col-md-9 d-flex flex-wrap gap-2 align-items-end justify-content-md-end">
+                {{ line_toolbar() }}
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm align-middle" id="itemsTable" data-document-grid data-grid-key="work_order_extra_material_items">
+                <thead>
+                <tr data-grid-header>
+                    <th style="min-width:240px;" data-column-key="product" data-column-label="物料"><span class="grid-header-text">物料</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                    <th style="min-width:110px;" data-column-key="material_code" data-column-label="物料编码"><span class="grid-header-text">物料编码</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                    <th style="min-width:140px;" data-column-key="material_name" data-column-label="物料名称"><span class="grid-header-text">物料名称</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                    <th style="min-width:140px;" data-column-key="specification" data-column-label="规格型号"><span class="grid-header-text">规格型号</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                    <th style="min-width:80px;" data-column-key="unit" data-column-label="单位"><span class="grid-header-text">单位</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                    <th style="min-width:110px;" data-column-key="quantity" data-column-label="数量"><span class="grid-header-text">数量</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                    <th style="min-width:120px;" data-column-key="unit_cost" data-column-label="成本"><span class="grid-header-text">成本</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                    <th style="min-width:120px;" data-column-key="cost_amount" data-column-label="成本金额"><span class="grid-header-text">成本金额</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                    <th style="min-width:120px;" data-column-key="lot_no" data-column-label="批号"><span class="grid-header-text">批号</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                    <th style="min-width:140px;" data-column-key="source_line_no" data-column-label="来源行"><span class="grid-header-text">来源行</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                    <th style="min-width:180px;" data-column-key="remark" data-column-label="备注"><span class="grid-header-text">备注</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                    <th style="width:80px;" data-column-key="actions" data-column-label="操作">操作</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td data-column-key="product">{% include "partials/product_select_cell.html" %}</td>
+                    <td data-column-key="material_code"><input class="form-control form-control-sm js-product-code" name="product_code_display[]" readonly></td>
+                    <td data-column-key="material_name"><input class="form-control form-control-sm js-product-name" name="product_name_display[]" readonly></td>
+                    <td data-column-key="specification"><input class="form-control form-control-sm js-product-spec" name="specification_display[]" readonly></td>
+                    <td data-column-key="unit"><input class="form-control form-control-sm js-product-unit" name="unit_display[]" readonly></td>
+                    <td data-column-key="quantity"><input class="form-control form-control-sm js-quantity" type="number" step="0.01" name="quantity[]" value="1" required></td>
+                    <td data-column-key="unit_cost"><input class="form-control form-control-sm js-unit-cost" type="number" step="0.01" name="unit_cost[]" value="0"></td>
+                    <td data-column-key="cost_amount"><input class="form-control form-control-sm js-cost-amount text-end" name="cost_amount_display[]" value="0.00" readonly></td>
+                    <td data-column-key="lot_no"><input class="form-control form-control-sm" name="lot_no[]"></td>
+                    <td data-column-key="source_line_no"><input class="form-control form-control-sm" name="source_line_no[]" value="extra-1"></td>
+                    <td data-column-key="remark"><input class="form-control form-control-sm" name="remark[]" value="工单补料 {{ order.wo_no }}"></td>
+                    <td data-column-key="actions"><button class="btn btn-outline-danger btn-sm js-delete-line" type="button">删行</button></td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="d-flex justify-content-end mt-2">
+            <button class="btn btn-outline-primary btn-sm" type="submit">补料</button>
+        </div>
+    </form>
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>质检登记</h2>
+            <span>记录工单完工检验结果，关联项目号、机号和工单来源。</span>
+        </div>
+    </div>
+    <form id="qualityActionPanel" class="row g-2 align-items-end" method="post" action="/work-orders/{{ order.id }}/quality">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="col-md-2">
+            <label class="form-label">检验日期</label>
+            <input class="form-control form-control-sm" type="date" name="inspection_date" value="">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">类型</label>
+            <input class="form-control form-control-sm" name="inspection_type" value="完工检验">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">样本数</label>
+            <input class="form-control form-control-sm" type="number" name="sample_size" value="{{ order.quantity|int if order.quantity else 1 }}" min="1">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">合格</label>
+            <input class="form-control form-control-sm" type="number" name="passed_quantity" value="{{ order.quantity|int if order.quantity else 1 }}" min="0">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">不合格</label>
+            <input class="form-control form-control-sm" type="number" name="failed_quantity" value="0" min="0">
+        </div>
+        <div class="col-md-2 d-grid">
+            <button class="btn btn-outline-primary btn-sm" type="submit">登记质检</button>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">缺陷描述</label>
+            <input class="form-control form-control-sm" name="defect_description" placeholder="不合格时填写问题描述">
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">处理措施</label>
+            <input class="form-control form-control-sm" name="corrective_action" placeholder="返工、让步接收、报废等">
+        </div>
+    </form>
+</div>
+{% endif %}
+
+{% if custom_payload.get('fields') %}
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>质检自定义字段</h2>
+            <span>质检登记时随明细提交的扩展字段。</span>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+            <tr>
+                <th style="width:80px;">序号</th>
+                {% for field in custom_payload.get('fields', []) %}
+                <th>{{ field.label or field.key }}</th>
+                {% endfor %}
+            </tr>
+            </thead>
+            <tbody>
+            {% for row in custom_payload.get('rows', []) %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                {% for field in custom_payload.get('fields', []) %}
+                <td>{{ row.get(field.key, '') }}</td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<div class="page-card mb-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-2">
+        <div>
+            <h2 class="h5 mb-1">领料需求</h2>
+            <div class="text-muted" id="issueDemandCount"></div>
+        </div>
+        <div class="d-flex flex-wrap gap-2 align-items-end">
+            {% if can_operate and order.bom_id %}
+            <form method="post" action="/work-orders/{{ order.id }}/generate-bom-material-requirements">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="btn btn-outline-primary btn-sm" type="submit">按BOM生成需求</button>
+            </form>
+            {% endif %}
+            <div>
+                <label class="form-label small mb-1" for="issueDemandKeyword">快速查找</label>
+                <input class="form-control form-control-sm" id="issueDemandKeyword" type="search" placeholder="编码 / 名称 / 规格 / 备注">
+            </div>
+            <div>
+                <label class="form-label small mb-1" for="issueDemandState">领料状态</label>
+                <select class="form-select form-select-sm" id="issueDemandState">
+                    <option value="">全部</option>
+                    <option value="pending">待领</option>
+                    <option value="done">已领齐</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    {% if bom_requirement_summary %}
+    <div class="small mb-2 {% if bom_requirement_summary.can_generate %}text-muted{% else %}text-warning{% endif %}">
+        {{ bom_requirement_summary.reason }}
+        {% if bom_requirement_summary.total_bom_count %}
+        BOM行 {{ bom_requirement_summary.total_bom_count }}；可生成 {{ bom_requirement_summary.available_count }}；已存在 {{ bom_requirement_summary.skipped_count }}；无效 {{ bom_requirement_summary.invalid_count }}。
+        {% endif %}
+    </div>
+    {% endif %}
+    {% if material_items %}
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+            <tr>
+                <th>来源行</th>
+                <th>物料编码/名称</th>
+                <th>规格型号</th>
+                <th>单位</th>
+                <th class="text-end">BOM&#29992;&#37327;</th>
+                <th class="text-end">&#25439;&#32791;&#29575;%</th>
+                <th class="text-end">需求数量</th>
+                <th class="text-end">已领</th>
+                <th class="text-end">退料</th>
+                <th class="text-end">未领</th>
+                <th>仓库</th>
+                <th>库位</th>
+                <th>批号</th>
+                <th>项目号/机号</th>
+                <th class="text-end">库存成本单价</th>
+                <th class="text-end">成本金额</th>
+                <th>缺料原因/备注</th>
+                {% if can_operate %}<th style="width:260px;">本次领料</th>{% endif %}
+            </tr>
+            </thead>
+            <tbody>
+            {% for item in material_items %}
+            {% set issue_status = 'pending' if item.shortage_qty else 'done' %}
+            {% set search_text = ((item.product_code or '') ~ ' ' ~ (item.product_name or '') ~ ' ' ~ (item.specification or '') ~ ' ' ~ (item.remark or ''))|lower %}
+            <tr data-issue-demand-row data-issue-status="{{ issue_status }}" data-search="{{ search_text }}">
+                <td>{{ item.source_line_no or item.id }}</td>
+                <td>{{ item.material_code or item.product_code or '-' }} / {{ item.material_name or item.product_name or '-' }}</td>
+                <td>{{ item.material_spec or item.specification or '-' }}</td>
+                <td>{{ item.material_unit or item.unit or '' }}</td>
+                <td class="text-end">{{ item.bom_base_qty|qty if item.bom_base_qty is defined and item.bom_base_qty is not none else '-' }}</td>
+                <td class="text-end">{{ item.bom_loss_rate|qty if item.bom_loss_rate is defined and item.bom_loss_rate is not none else '-' }}</td>
+                <td class="text-end">{{ item.required_qty|qty }}</td>
+                <td class="text-end">{{ item.issued_qty|qty }}</td>
+                <td class="text-end">{{ item.returned_qty|qty }}</td>
+                <td class="text-end {% if item.shortage_qty %}fw-semibold text-primary{% endif %}">{{ item.shortage_qty|qty }}</td>
+                <td>{{ item.line_warehouse_name or order.warehouse_name or '-' }}</td>
+                <td>{{ item.line_location_name or order.location_name or '-' }}</td>
+                <td>{{ item.lot_no or '-' }}</td>
+                <td>{{ item.line_project_code or order.project_code or '-' }} / {{ item.line_serial_no or order.serial_no or '-' }}</td>
+                <td class="text-end">{{ item.unit_cost|money }}</td>
+                <td class="text-end">{{ (item.required_qty * item.unit_cost)|money if item.required_qty is defined and item.unit_cost is defined else '-' }}</td>
+                <td>{{ item.remark or '' }}</td>
+                {% if can_operate %}
+                <td>
+                    {% if item.shortage_qty %}
+                    <form class="d-flex gap-2" method="get" action="/production-picks/new">
+                        <input type="hidden" name="work_order_id" value="{{ order.id }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="material_item_id" value="{{ item.id }}">
+                        <input type="hidden" name="source_line_no" value="{{ item.source_line_no or item.id }}">
+                        <input type="number" class="form-control form-control-sm" name="issue_quantity" min="0.01" step="0.01" max="{{ item.shortage_qty }}" value="{{ item.shortage_qty|qty }}">
+                        <button class="btn btn-outline-primary btn-sm" type="submit">领料</button>
+                    </form>
+                    {% else %}
+                    <span class="text-muted">已领齐</span>
+                    {% endif %}
+                </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-muted">暂无领料需求。</div>
+    {% endif %}
+</div>
+
+<div class="page-card mb-3" id="workOrderProcessExecution" data-production-section="工序执行">
+    <div class="section-title">
+        <div>
+            <h2>工序完工汇报</h2>
+            <span>按工序查看工作中心、计划/报工数量、状态、责任和下一步；没有独立工序报工单时先展示完工汇报状态。</span>
+        </div>
+        <div class="d-flex gap-2">
+            {% if can_operate %}
+            <form method="post" action="/work-orders/{{ order.id }}/generate-processes">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="btn btn-outline-primary btn-sm" type="submit">生成工序</button>
+            </form>
+            <a class="btn btn-outline-primary btn-sm" href="/production/operation-reports/new?work_order_id={{ order.id }}">新增报工</a>
+            {% endif %}
+        </div>
+    </div>
+    {% if processes %}
+    {% if processes_from_routing %}
+    <div class="alert alert-warning py-2 mb-3">
+        当前工单尚未生成工序执行计划，以下为产品工艺路线参考。请先维护工艺路线/工序计划，再按工序推进生产。
+    </div>
+    {% endif %}
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+            <thead>
+            <tr>
+                <th style="width:70px;">序号</th>
+                <th style="min-width:180px;">工序</th>
+                <th style="min-width:160px;">工作中心</th>
+                <th class="text-end" style="width:110px;">计划数量</th>
+                <th class="text-end" style="width:110px;">报工数量</th>
+                <th style="width:110px;">状态</th>
+                <th style="min-width:120px;">责任</th>
+                <th style="min-width:180px;">下一步</th>
+                <th style="min-width:180px;">计划/实际日期</th>
+                <th class="text-end" style="width:120px;">操作</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for row in processes %}
+            <tr>
+                <td>{{ row.line_no or loop.index }}</td>
+                <td>
+                    <div class="fw-semibold">{{ row.operation_display or '-' }}</div>
+                    {% if row.operation_remark %}<div class="text-muted small">{{ row.operation_remark }}</div>{% endif %}
+                </td>
+                <td>{{ row.work_center_display or '-' }}</td>
+                <td class="text-end">{{ row.planned_quantity|qty }}</td>
+                <td class="text-end {% if row.actual_quantity and row.actual_quantity < row.planned_quantity %}text-primary fw-semibold{% endif %}">{{ row.actual_quantity|qty }}</td>
+                <td><span class="badge text-bg-light text-dark">{{ row.status|erp_value|clean_text or '未定' }}</span></td>
+                <td>{{ row.owner_display or '-' }}</td>
+                <td>{{ row.next_action or '-' }}</td>
+                <td class="small">
+                    计划：{{ row.planned_start_date or '-' }} 至 {{ row.planned_end_date or '-' }}<br>
+                    实际：{{ row.actual_start_date or '-' }} 至 {{ row.actual_end_date or '-' }}
+                </td>
+                <td class="text-end">
+                    {% if can_operate and not processes_from_routing %}
+                    <a class="btn btn-outline-primary btn-sm" href="/production/operation-reports/new?work_order_id={{ order.id }}&process_id={{ row.id }}&type=complete">报工</a>
+                    {% else %}-{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="alert alert-warning mb-0">
+        当前工单没有工序执行记录。请先维护工艺路线/工序计划，明确工作中心、责任人、计划数量和交接顺序后再推进生产。
+    </div>
+    {% endif %}
+</div>
+
+<div class="page-card mb-3" data-production-section="质量放行">
+    <div class="section-title">
+        <div>
+            <h2>质量节点与放行条件</h2>
+            <span>按调试、终检、关键控制点记录核对合格/不合格数量、放行状态、未放行原因、责任和下一步。</span>
+        </div>
+    </div>
+    <div class="row g-2 mb-3">
+        <div class="col-md-3">
+            <div class="border rounded p-2 h-100">
+                <div class="text-muted small">放行状态</div>
+                <div class="fw-semibold">{{ quality_summary.release_status }}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="border rounded p-2 h-100">
+                <div class="text-muted small">合格 / 不合格</div>
+                <div class="fw-semibold">{{ quality_summary.passed_quantity|qty }} / {{ quality_summary.failed_quantity|qty }}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="border rounded p-2 h-100">
+                <div class="text-muted small">责任</div>
+                <div class="fw-semibold">{{ quality_summary.owner_role }}</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="border rounded p-2 h-100">
+                <div class="text-muted small">抽检数量</div>
+                <div class="fw-semibold">{{ quality_summary.sample_size|qty }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="alert {% if quality_summary.release_status == '已放行' %}alert-success{% else %}alert-warning{% endif %} py-2">
+        <div><strong>未放行原因：</strong>{{ quality_summary.unreleased_reason or '无' }}</div>
+        <div><strong>下一步：</strong>{{ quality_summary.next_step }}</div>
+        <div><strong>下游影响：</strong>{{ quality_summary.downstream_impact }}</div>
+    </div>
+    {% if quality_rows %}
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+            <thead>
+            <tr>
+                <th>质检单号</th>
+                <th>日期</th>
+                <th>节点</th>
+                <th class="text-end">样本</th>
+                <th class="text-end">合格</th>
+                <th class="text-end">不合格</th>
+                <th>结果</th>
+                <th>放行状态</th>
+                <th>未放行原因</th>
+                <th>责任</th>
+                <th>下一步</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for row in quality_rows %}
+            <tr class="{% if row.release_status == '未放行' %}table-warning{% endif %}">
+                <td>{{ row.inspection_no or '-' }}</td>
+                <td>{{ row.inspection_date or '-' }}</td>
+                <td>{{ row.inspection_type_display }}</td>
+                <td class="text-end">{{ row.sample_size|qty }}</td>
+                <td class="text-end">{{ row.passed_quantity|qty }}</td>
+                <td class="text-end {% if row.failed_quantity %}fw-semibold text-danger{% endif %}">{{ row.failed_quantity|qty }}</td>
+                <td>{{ row.inspection_result_display }}</td>
+                <td>{{ row.release_status }}</td>
+                <td>{{ row.unreleased_reason or '-' }}</td>
+                <td>{{ row.owner_role }}</td>
+                <td>{{ row.next_step }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-muted">暂无质量记录。完工入库前/后需要登记调试、终检或关键控制点质检，本提示不改变现有工单操作规则。</div>
+    {% endif %}
+</div>
+
+<div class="row g-3">
+    <div class="col-12">
+        <div class="page-card h-100" id="workOrderSubcontractPanel" data-production-section="委外加工">
+            <h2 class="h5 mb-3">委外执行联动</h2>
+            {% if subcontract_rows %}
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead>
+                    <tr>
+                        <th>委外订单</th>
+                        <th>要求到货</th>
+                        <th>供应商</th>
+                        <th class="text-end">委外数量</th>
+                        <th class="text-end">发出数量</th>
+                        <th class="text-end">收到数量</th>
+                        <th class="text-end">报废/短收</th>
+                        <th class="text-end">缺口</th>
+                        <th>逾期预警</th>
+                        <th>下一步</th>
+                        <th>责任</th>
+                        <th>下游影响</th>
+                        <th>状态</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for row in subcontract_rows %}
+                    <tr class="{% if row.overdue_days %}table-warning{% endif %}">
+                        <td>
+                            <a href="/subcontract/{{ row.id }}">{{ row.order_no or '-' }}</a>
+                            <div class="text-muted small">{{ row.order_date or '-' }}</div>
+                        </td>
+                        <td>{{ row.required_date or '-' }}</td>
+                        <td>{{ row.supplier_name or '-' }}</td>
+                        <td class="text-end">{{ row.quantity|qty }}</td>
+                        <td class="text-end">{{ row.issued_qty|qty }}</td>
+                        <td class="text-end">{{ row.received_qty|qty }}</td>
+                        <td class="text-end">{{ row.scrap_qty|qty }} / {{ row.short_receipt_qty|qty }}</td>
+                        <td class="text-end {% if row.gap_qty %}fw-semibold text-primary{% endif %}">{{ row.gap_qty|qty }}</td>
+                        <td>
+                            {{ row.arrival_warning or '无' }}
+                            {% if row.overdue_days %}<div class="text-danger small">逾期 {{ row.overdue_days }} 天</div>{% endif %}
+                        </td>
+                        <td>{{ row.next_step or '-' }}</td>
+                        <td>{{ row.owner_role or '-' }}</td>
+                        <td>{{ row.downstream_impact or '-' }}</td>
+                        <td>{{ row.arrival_status or row.status or '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-muted">暂无委外订单，工单当前不涉及委外发料/到货联动。</div>
+            {% endif %}
+        </div>
+    </div>
+    {% set sections = [
+        ('齐套准备', component_items, [('product_code','物料编码'),('product_name','物料名称'),('specification','规格型号'),('unit','单位'),('required_qty','需求数量'),('ready_qty','已齐套'),('not_ready_qty','未齐套'),('supply_mode','供应方式'),('status','状态')]),
+        ('报工/完工汇报记录', completions, [('complete_date','完工日期'),('product_code','物料编码'),('product_name','物料名称'),('specification','规格'),('unit','单位'),('qty','合格数量'),('unit_cost','入库成本'),('lot_no','批号'),('serial_no','机号'),('warehouse_name','仓库'),('location_name','库位')]),
+        ('MRP缺料', mrp_rows, [('requirement_date','需求日期'),('product_code','物料编码'),('product_name','物料名称'),('quantity','需求数量'),('available_quantity','可用数量'),('shortage_quantity','缺料数量'),('supply_mode','供应方式'),('status','状态')]),
+        ('成本明细', cost_lines, [('cost_type','成本类型'),('source_type','来源类型'),('source_no','来源单号'),('quantity','数量'),('unit_cost','单位成本'),('amount','成本金额'),('remark','备注')]),
+        ('库存流水', stock_rows, [('transaction_date','日期'),('transaction_type','类型'),('product_code','物料编码'),('product_name','物料名称'),('quantity','数量'),('unit_cost','单位成本'),('amount','库存金额'),('reference_no','来源单据'),('source_line_no','来源行')])
+    ] %}
+    <div class="col-12">
+        <div class="page-card h-100" id="workOrderMrpPreview" data-production-section="MRP净需求预览">
+            <div class="section-title">
+                <div>
+                    <h2>MRP净需求预览</h2>
+                    <span>基于工单执行快照只读计算；不自动生成采购、生产或委外单。</span>
+                </div>
+                <span class="badge {% if mrp_preview.summary.shortage_line_count %}text-bg-warning{% else %}text-bg-success{% endif %}">
+                    缺口行 {{ mrp_preview.summary.shortage_line_count or 0 }}
+                </span>
+            </div>
+            <div class="row g-2 mb-3">
+                <div class="col-md-3"><strong>BOM行：</strong>{{ mrp_preview.summary.line_count or 0 }}</div>
+                <div class="col-md-3"><strong>毛需求：</strong>{{ mrp_preview.summary.gross_qty|qty }}</div>
+                <div class="col-md-3"><strong>可用库存：</strong>{{ mrp_preview.summary.available_qty|qty }}</div>
+                <div class="col-md-3"><strong>采购覆盖：</strong>{{ mrp_preview.summary.purchase_cover_qty|qty }}</div>
+                <div class="col-md-3"><strong>净缺口：</strong>{{ mrp_preview.summary.net_shortage_qty|qty }}</div>
+                <div class="col-md-9"><strong>计算依据：</strong>快照BOM、库存可用量、请购数量、采购在途、已领/退料。</div>
+            </div>
+            {% if mrp_preview.rows %}
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead>
+                    <tr>
+                        <th>来源行</th>
+                        <th>物料编码/名称</th>
+                        <th>规格</th>
+                        <th>单位</th>
+                        <th class="text-end">毛需求</th>
+                        <th class="text-end">可用库存</th>
+                        <th class="text-end">锁定</th>
+                        <th class="text-end">请购</th>
+                        <th class="text-end">采购在途</th>
+                        <th class="text-end">已领/退料</th>
+                        <th class="text-end">净缺口</th>
+                        <th>建议</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for row in mrp_preview.rows %}
+                    <tr class="{% if row.net_shortage_qty %}table-warning{% endif %}">
+                        <td>{{ row.source_line_no }}</td>
+                        <td>{{ row.material_code or '-' }} / {{ row.material_name or '-' }}</td>
+                        <td>{{ row.material_spec or '-' }}</td>
+                        <td>{{ row.material_unit or '-' }}</td>
+                        <td class="text-end">{{ row.gross_qty|qty }}</td>
+                        <td class="text-end">{{ row.available_qty|qty }}</td>
+                        <td class="text-end">{{ row.locked_qty|qty }}</td>
+                        <td class="text-end">{{ row.requisition_qty|qty }}</td>
+                        <td class="text-end">{{ row.purchase_on_order_qty|qty }}</td>
+                        <td class="text-end">{{ row.issued_qty|qty }} / {{ row.returned_qty|qty }}</td>
+                        <td class="text-end {% if row.net_shortage_qty %}fw-semibold text-primary{% endif %}">{{ row.net_shortage_qty|qty }}</td>
+                        <td>{{ row.suggestion_label }}</td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-muted">暂无快照BOM行，无法生成净需求预览。</div>
+            {% endif %}
+        </div>
+    </div>
+    {% for title, rows, columns in sections %}
+    <div class="col-lg-6">
+        <div class="page-card h-100" {% if title == '库存流水' %}id="workOrderStockPanel"{% endif %} data-production-section="{{ title }}">
+            <h2 class="h5 mb-3">{{ title }}</h2>
+            {% if rows %}
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead>
+                    <tr>{% for key, label in columns %}<th>{{ label }}</th>{% endfor %}</tr>
+                    </thead>
+                    <tbody>
+                    {% for row in rows %}
+                    <tr>{% for key, label in columns %}<td>{{ row.get(key, '-') }}</td>{% endfor %}</tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-muted">暂无记录。</div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="row g-3 mt-1">
+    <div class="col-lg-6">
+        <div class="page-card h-100" id="workOrderAttachmentsPanel">
+            <div class="section-title">
+                <div>
+                    <h2>工单附件</h2>
+                    <span>保存生产图纸、工艺文件、检验记录和现场照片。</span>
+                </div>
+            </div>
+            <form class="row g-2 align-items-end mb-3" method="post" action="/work-orders/{{ order.id }}/attachments" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="col-md-5">
+                    <label class="form-label">选择文件</label>
+                    <input class="form-control" type="file" name="file" required>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label">备注</label>
+                    <input class="form-control" name="remark" placeholder="例如：工艺图、检验记录、现场照片">
+                </div>
+                <div class="col-md-2 d-grid">
+                    <button class="btn btn-primary" type="submit"><i class="bi bi-upload"></i> 上传</button>
+                </div>
+            </form>
+            {% if attachments %}
+            <div class="list-group list-group-flush">
+                {% for file in attachments %}
+                <div class="list-group-item px-0">
+                    <div class="d-flex justify-content-between gap-3">
+                        <div class="min-w-0">
+                            <div class="fw-semibold text-truncate">
+                                <a href="{{ url_for('static', filename=file.stored_path) }}" target="_blank">{{ file.file_name }}</a>
+                            </div>
+                            <div class="text-muted small">{{ file.remark or '-' }}</div>
+                            <div class="text-muted small">{{ file.uploaded_at or '-' }} / {{ ((file.file_size or 0) / 1024)|round(1) }} KB</div>
+                        </div>
+                        <form method="post" action="/work-orders/{{ order.id }}/attachments/{{ file.id }}/delete">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="btn btn-outline-danger btn-sm" type="submit">删除</button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-muted">暂无附件。</div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="page-card h-100">
+            <div class="section-title">
+                <div>
+                    <h2>备注/操作记录</h2>
+                    <span>记录生产异常、改单原因、领料完工和内部处理意见。</span>
+                </div>
+            </div>
+            <form class="row g-2 align-items-end mb-3" method="post" action="/work-orders/{{ order.id }}/notes">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="col-md-9">
+                    <label class="form-label">新增备注</label>
+                    <input class="form-control" name="note" placeholder="输入本次生产沟通、异常或处理说明" required>
+                </div>
+                <div class="col-md-3 d-grid">
+                    <button class="btn btn-primary" type="submit"><i class="bi bi-clock-history"></i> 记录</button>
+                </div>
+            </form>
+            {% if activity_logs %}
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead>
+                    <tr>
+                        <th>时间</th>
+                        <th>人员</th>
+                        <th>操作</th>
+                        <th>说明</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for log in activity_logs %}
+                    <tr>
+                        <td class="text-muted small">{{ log.created_at or '-' }}</td>
+                        <td>{{ log.username or '-' }}</td>
+                        <td>{{ log.action or '-' }}</td>
+                        <td>{{ log.remark or log.target or '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-muted">暂无操作记录。</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% include "partials/inventory_grid_scripts.html" %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const focusTargets = {
+        'focus-issue': '#issueActionPanel',
+        'focus-return': '#returnActionPanel',
+        'focus-extra': '#movementForm',
+        'focus-complete': '#completeActionPanel',
+        'focus-quality': '#qualityActionPanel',
+        'focus-process': '#workOrderProcessExecution',
+        'focus-stock': '#workOrderStockPanel',
+        'focus-subcontract': '#workOrderSubcontractPanel',
+        'focus-cost': '#workOrderCostReconciliation',
+        'focus-change-control': '#workOrderChangeControl',
+        'focus-attachments': '#workOrderAttachmentsPanel'
+    };
+    document.addEventListener('click', function (event) {
+        const action = event.target.closest('[data-menu-event]');
+        if (!action) return;
+        const selector = focusTargets[action.dataset.menuEvent];
+        const target = selector ? document.querySelector(selector) : null;
+    if (target) {
+            target.scrollIntoView({behavior: 'smooth', block: 'start'});
+            target.querySelector('input, select, textarea, button')?.focus({preventScroll: true});
+        }
+    });
+    const issuePanel = document.getElementById('issueActionPanel');
+    if (issuePanel) {
+        issuePanel.querySelectorAll('button[type="submit"]').forEach(function (button) {
+            button.classList.add('d-none');
+            button.disabled = true;
+        });
+        if (!issuePanel.querySelector('[data-formal-production-pick-link]')) {
+            const link = document.createElement('a');
+            link.className = 'btn btn-outline-primary btn-sm';
+            link.href = '/production-picks/new?work_order_id={{ order.id }}';
+            link.setAttribute('data-formal-production-pick-link', '1');
+            link.textContent = '新增生产领料单';
+            issuePanel.querySelector('.d-grid')?.appendChild(link);
+        }
+    }
+    const returnPanel = document.getElementById('returnActionPanel');
+    if (returnPanel) {
+        returnPanel.querySelectorAll('button[type="submit"]').forEach(function (button) {
+            button.classList.add('d-none');
+            button.disabled = true;
+        });
+        if (!returnPanel.querySelector('[data-formal-production-return-link]')) {
+            const link = document.createElement('a');
+            link.className = 'btn btn-outline-secondary btn-sm';
+            link.href = '/production-returns/new?work_order_id={{ order.id }}';
+            link.setAttribute('data-formal-production-return-link', '1');
+            link.textContent = '新增生产退料单';
+            returnPanel.querySelector('.d-grid')?.appendChild(link);
+        }
+    }
+    document.querySelectorAll('[data-menu-event="generate-bom-materials"]').forEach(function (button) {
+        button.addEventListener('click', function () {
+            const form = document.getElementById('generateBomMaterialsForm');
+            if (form) form.submit();
+        });
+    });
+    const requirementTable = document.getElementById('requirementItemsTable');
+    function prepareRequirementLine(row) {
+        if (!requirementTable || !row) return;
+        row.querySelectorAll('select.form-select').forEach(function (select) {
+            select.name = 'product_id[]';
+            if (window.enhanceSelectSearch) window.enhanceSelectSearch(select);
+        });
+        row.querySelectorAll('.js-delete-line').forEach(function (button) {
+            button.addEventListener('click', function () {
+                if (requirementTable.tBodies[0].rows.length > 1) row.remove();
+            });
+        });
+    }
+    function createRequirementLine() {
+        if (!requirementTable) return null;
+        const template = requirementTable.tBodies[0].rows[0].cloneNode(true);
+        template.querySelectorAll('input').forEach(function (input) {
+            if (input.name === 'quantity[]') input.value = '1';
+            else if (input.name === 'unit_cost[]') input.value = '0';
+            else if (input.name === 'source_line_no[]') input.value = 'manual-' + (requirementTable.tBodies[0].rows.length + 1);
+            else if (input.name === 'remark[]') input.value = '手工新增领料需求{{ order.wo_no }}';
+            else input.value = '';
+        });
+        template.querySelectorAll('select').forEach(function (select) { select.value = ''; });
+        prepareRequirementLine(template);
+        return template;
+    }
+    if (requirementTable) {
+        requirementTable.querySelectorAll('tbody tr').forEach(prepareRequirementLine);
+        const requirementGridApi = typeof initDocumentGrid === 'function' ? initDocumentGrid(requirementTable) : null;
+        window.requirementGridApi = requirementGridApi;
+        document.getElementById('addRequirementLineBtn')?.addEventListener('click', function () {
+            const row = createRequirementLine();
+            if (!row) return;
+            requirementTable.tBodies[0].appendChild(row);
+            row.querySelector('select, input')?.focus();
+            requirementGridApi?.refresh();
+        });
+        document.querySelectorAll('[data-requirement-line-action]').forEach(function (button) {
+            button.addEventListener('click', function () {
+                const action = button.dataset.requirementLineAction;
+                const row = requirementGridApi?.currentRow ? requirementGridApi.currentRow() : requirementTable.tBodies[0].rows[0];
+                if (action === 'insert') {
+                    const next = createRequirementLine();
+                    if (next) requirementTable.tBodies[0].insertBefore(next, row || requirementTable.tBodies[0].firstChild);
+                }
+                if (action === 'copy' && requirementGridApi) requirementGridApi.copyCurrentRow();
+                if (action === 'paste' && requirementGridApi) requirementGridApi.pasteToCurrentRow();
+                if (action === 'up' && requirementGridApi) requirementGridApi.moveCurrentRow(-1);
+                if (action === 'down' && requirementGridApi) requirementGridApi.moveCurrentRow(1);
+                if (action === 'delete' && row && requirementTable.tBodies[0].rows.length > 1) row.remove();
+                requirementGridApi?.refresh();
+            });
+        });
+        document.querySelectorAll('[data-requirement-grid-action]').forEach(function (button) {
+            button.addEventListener('click', function () {
+                if (!requirementGridApi) return;
+                const action = button.dataset.requirementGridAction;
+                if (action === 'columns') requirementGridApi.openColumnPanel(button);
+                if (action === 'custom-field') requirementGridApi.addCustomField();
+                if (action === 'reset') requirementGridApi.reset();
+            });
+        });
+        if (typeof registerDetailRowActions === 'function') {
+            registerDetailRowActions({
+                tableSelector: '#requirementItemsTable',
+                rowSelector: '#requirementItemsTable tbody tr',
+                add: function () {
+                    const row = createRequirementLine();
+                    if (!row) return;
+                    requirementTable.tBodies[0].appendChild(row);
+                    row.querySelector('select, input')?.focus();
+                },
+                insert: function (row) {
+                    const next = createRequirementLine();
+                    if (!next) return;
+                    requirementTable.tBodies[0].insertBefore(next, row || requirementTable.tBodies[0].firstChild);
+                    next.querySelector('select, input')?.focus();
+                },
+                remove: function (row) {
+                    if (row && requirementTable.tBodies[0].rows.length > 1) row.remove();
+                }
+            });
+        }
+    }
+
+    const issueKeyword = document.getElementById('issueDemandKeyword');
+    const issueState = document.getElementById('issueDemandState');
+    const issueCount = document.getElementById('issueDemandCount');
+    const issueRows = Array.from(document.querySelectorAll('[data-issue-demand-row]'));
+    function filterIssueDemandRows() {
+        const keyword = (issueKeyword?.value || '').trim().toLowerCase();
+        const state = issueState?.value || '';
+        let visible = 0;
+        issueRows.forEach(function (row) {
+            const matchesKeyword = !keyword || (row.dataset.search || '').includes(keyword);
+            const matchesState = !state || row.dataset.issueStatus === state;
+            const show = matchesKeyword && matchesState;
+            row.classList.toggle('d-none', !show);
+            if (show) visible += 1;
+        });
+        if (issueCount) issueCount.textContent = issueRows.length ? '显示 ' + visible + ' / ' + issueRows.length + ' 行' : '';
+    }
+    issueKeyword?.addEventListener('input', filterIssueDemandRows);
+    issueState?.addEventListener('change', filterIssueDemandRows);
+    filterIssueDemandRows();
+});
+</script>
+{% endblock %}

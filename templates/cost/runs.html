@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}{{ title }}{% endblock %}
+{% block header_title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <h1>{{ title }}</h1>
+    <p>{{ subtitle }}</p>
+</div>
+
+{{ document_menu_bar(actions=[
+    {'label': '查询', 'type': 'button', 'button_type': 'submit', 'form': 'costRunsFilterForm'},
+    {'label': '重置', 'type': 'link', 'href': request.path},
+    {'label': '发起成本计算', 'type': 'link', 'href': '/cost'},
+    {'label': '成本对账', 'type': 'link', 'href': '/cost/reconciliation'}
+], aria_label='成本运行列表操作菜单') }}
+
+<div class="row g-3 mb-3">
+    {% for metric in metrics %}
+    <div class="col-md-6 col-xl-6">
+        <div class="metric">
+            <div class="label">{{ metric.label }}</div>
+            <div class="value">{{ metric.value }}</div>
+            <div class="metric-hint">{{ metric.hint }}</div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>查询条件</h2>
+            <span>支持运行编号、期间、项目号、机号、状态筛选。</span>
+        </div>
+        <span class="badge text-bg-light">readonly / 只读</span>
+    </div>
+    <form id="costRunsFilterForm" class="row g-2" method="get">
+        <div class="col-lg-3">
+            <input class="form-control" name="keyword" value="{{ filters.keyword }}" placeholder="运行编号">
+        </div>
+        <div class="col-lg-2">
+            <input class="form-control" name="period" value="{{ filters.period }}" placeholder="期间">
+        </div>
+        <div class="col-lg-2">
+            <input class="form-control" name="project_code" value="{{ filters.project_code }}" placeholder="项目号">
+        </div>
+        <div class="col-lg-2">
+            <input class="form-control" name="serial_no" value="{{ filters.serial_no }}" placeholder="机号">
+        </div>
+        <div class="col-lg-2">
+            <select class="form-select" name="status">
+                <option value="">全部状态</option>
+                <option value="draft" {% if filters.status == 'draft' %}selected{% endif %}>草稿</option>
+                <option value="completed" {% if filters.status == 'completed' %}selected{% endif %}>已完成</option>
+            </select>
+        </div>
+        <div class="col-lg-1 d-grid">
+            <button class="btn btn-primary" type="submit"><i class="bi bi-search"></i> 查询</button>
+        </div>
+    </form>
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>成本运行列表</h2>
+            <span>点击运行编号查看明细。</span>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>运行编号</th>
+                    <th>期间</th>
+                    <th>项目号</th>
+                    <th>机号</th>
+                    <th>工单</th>
+                    <th>状态</th>
+                    <th class="text-end">材料</th>
+                    <th class="text-end">人工</th>
+                    <th class="text-end">制造费用</th>
+                    <th class="text-end">委外</th>
+                    <th class="text-end">售后</th>
+                    <th class="text-end">质量</th>
+                    <th class="text-end">总成本</th>
+                    <th>创建时间</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for run in runs %}
+                <tr>
+                    <td><a href="/cost/runs/{{ run.id }}">{{ run.run_no }}</a></td>
+                    <td>{{ run.period or '-' }}</td>
+                    <td>{{ run.project_code or '-' }}</td>
+                    <td>{{ run.serial_no or '-' }}</td>
+                    <td>{{ run.work_order_id or '-' }}</td>
+                    <td>
+                        {% if run.status == 'completed' %}
+                        <span class="badge text-bg-success">已完成</span>
+                        {% elif run.status == 'draft' %}
+                        <span class="badge text-bg-secondary">草稿</span>
+                        {% else %}
+                        <span class="badge text-bg-light">{{ run.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">{{ money(run.total_material_cost) }}</td>
+                    <td class="text-end">{{ money(run.total_labor_cost) }}</td>
+                    <td class="text-end">{{ money(run.total_overhead_cost) }}</td>
+                    <td class="text-end">{{ money(run.total_outsource_cost) }}</td>
+                    <td class="text-end">{{ money(run.total_service_cost) }}</td>
+                    <td class="text-end">{{ money(run.total_quality_cost) }}</td>
+                    <td class="text-end"><strong>{{ money(run.total_cost) }}</strong></td>
+                    <td>{{ run.created_at }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="14" class="text-center text-muted">暂无成本运行记录</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

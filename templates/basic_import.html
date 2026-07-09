@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="mb-3">
+    <a class="btn btn-outline-secondary btn-sm" href="{{ back_url }}">返回</a>
+</div>
+
+<div class="page-heading">
+    <h1>{{ title }}</h1>
+    <p>{{ subtitle }}</p>
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>导入文件</h2>
+            <span>支持 UTF-8 或 Excel CSV；请先下载模板，按表头填写后导入。</span>
+        </div>
+        <a class="btn btn-outline-primary btn-sm" href="{{ template_url }}">下载模板</a>
+    </div>
+    <form method="post" action="{{ import_url }}" enctype="multipart/form-data" class="row g-3 align-items-end">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="col-lg-7">
+            <label class="form-label">CSV 文件</label>
+            <input class="form-control" type="file" name="file" accept=".csv,text/csv" required>
+            <div class="form-text">字段：{{ columns|join('、') }}。</div>
+        </div>
+        <div class="col-lg-3">
+            <label class="form-label">导入方式</label>
+            <select class="form-select" name="mode">
+                <option value="upsert">按关键字段新增或更新</option>
+                <option value="insert_only">只新增，已存在跳过</option>
+            </select>
+        </div>
+        <div class="col-lg-2 d-grid gap-2">
+            <button class="btn btn-outline-primary" type="submit" name="action" value="precheck"><i class="bi bi-clipboard-check"></i> 预检</button>
+            <button class="btn btn-primary" type="submit" name="action" value="import"><i class="bi bi-upload"></i> 开始导入</button>
+        </div>
+    </form>
+</div>
+
+{% if precheck_report %}
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>预检报告</h2>
+            <span>本次只校验文件，不写入数据库。</span>
+        </div>
+        <span class="badge bg-{{ 'success' if precheck_report.error_count == 0 else 'warning text-dark' }}">{{ '可导入' if precheck_report.error_count == 0 else '需修正' }}</span>
+    </div>
+    <div class="row g-3 mb-3">
+        <div class="col-6 col-lg-3"><div class="border rounded p-2"><div class="text-muted small">读取行数</div><div class="fs-5 fw-semibold">{{ precheck_report.total_rows }}</div></div></div>
+        <div class="col-6 col-lg-3"><div class="border rounded p-2"><div class="text-muted small">预计新增</div><div class="fs-5 fw-semibold">{{ precheck_report.created }}</div></div></div>
+        <div class="col-6 col-lg-3"><div class="border rounded p-2"><div class="text-muted small">预计更新</div><div class="fs-5 fw-semibold">{{ precheck_report.updated }}</div></div></div>
+        <div class="col-6 col-lg-3"><div class="border rounded p-2"><div class="text-muted small">需跳过/修正</div><div class="fs-5 fw-semibold">{{ precheck_report.skipped }}</div></div></div>
+    </div>
+    {% if precheck_report.errors %}
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead><tr><th style="width: 100px;">行号</th><th style="width: 160px;">类型</th><th>问题</th></tr></thead>
+            <tbody>
+                {% for item in precheck_report.errors %}
+                <tr>
+                    <td>{{ item.line_no or '-' }}</td>
+                    <td>{{ item.category }}</td>
+                    <td>{{ item.message }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="alert alert-success mb-0">预检通过，未发现重复、无效引用、停用资料或格式错误。</div>
+    {% endif %}
+</div>
+{% endif %}
+
+<div class="page-card">
+    <h2 class="h5 mb-3">导入规则</h2>
+    <ul class="mb-0">
+        <li>系统按编码或名称识别已有记录，避免重复建档。</li>
+        <li>空白字段不会覆盖已有资料。</li>
+        <li>导入完成后会返回对应档案页面，可用关键字搜索检查结果。</li>
+    </ul>
+</div>
+{% endblock %}

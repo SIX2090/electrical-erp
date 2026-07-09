@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% block title %}项目/机号台账{% endblock %}
+{% block header_title %}项目/机号台账{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <h1>项目/机号台账</h1>
+    <p>{{ subtitle }}</p>
+</div>
+
+<div class="row g-3 mb-3">
+    {% for metric in metrics %}
+    <div class="col-md-6 col-xl">
+        <div class="metric {% if metric.label in ['缺料项目','逾期交付','需关注'] %}is-alert{% endif %}">
+            <div class="label">{{ metric.label }}</div>
+            <div class="value">{{ metric.value }}</div>
+            <div class="metric-hint">{{ metric.hint }}</div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>项目筛选</h2>
+            <span>按销售订单、项目号、机号、客户、风险、责任归口和首要责任过滤。</span>
+        </div>
+        <a class="btn btn-outline-primary btn-sm" href="/engineering/kitting">
+            <i class="bi bi-ui-checks-grid"></i> 齐套检查
+        </a>
+    </div>
+    {% set export_args = [] %}
+    {% if filters.keyword %}{% set _ = export_args.append('keyword=' ~ filters.keyword|urlencode) %}{% endif %}
+    {% if filters.status %}{% set _ = export_args.append('status=' ~ filters.status|urlencode) %}{% endif %}
+    {% if filters.risk %}{% set _ = export_args.append('risk=' ~ filters.risk|urlencode) %}{% endif %}
+    {% if filters.owner %}{% set _ = export_args.append('owner=' ~ filters.owner|urlencode) %}{% endif %}
+    {% if filters.primary_owner %}{% set _ = export_args.append('primary_owner=' ~ filters.primary_owner|urlencode) %}{% endif %}
+    {% set export_prefix = export_args|join('&') %}
+    {% set export_connector = '&' if export_prefix else '' %}
+    <form class="row g-2" method="get" action="/projects">
+        <div class="col-lg-3">
+            <input class="form-control" name="keyword" value="{{ filters.keyword }}" placeholder="销售订单、项目号、机号、客户">
+        </div>
+        <div class="col-lg-2">
+            <select class="form-select" name="status">
+                <option value="">全部状态</option>
+                {% for row in status_rows %}
+                <option value="{{ row.status }}" {% if filters.status == row.status %}selected{% endif %}>{{ row.status|clean_text }} ({{ row.count }})</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-lg-2">
+            <select class="form-select" name="risk">
+                <option value="">全部风险</option>
+                <option value="acceptance_blocked" {% if filters.risk == 'acceptance_blocked' %}selected{% endif %}>验收需关注</option>
+                <option value="acceptance_ready" {% if filters.risk == 'acceptance_ready' %}selected{% endif %}>可验收</option>
+                <option value="shortage" {% if filters.risk == 'shortage' %}selected{% endif %}>有缺料</option>
+                <option value="overdue" {% if filters.risk == 'overdue' %}selected{% endif %}>交付逾期</option>
+                <option value="receivable" {% if filters.risk == 'receivable' %}selected{% endif %}>有应收余额</option>
+                <option value="open_work" {% if filters.risk == 'open_work' %}selected{% endif %}>有未完工单</option>
+                <option value="blocked" {% if filters.risk == 'blocked' %}selected{% endif %}>有待处理动作</option>
+            </select>
+        </div>
+        <div class="col-lg-2">
+            <select class="form-select" name="owner">
+                <option value="">全部责任归口</option>
+                {% for option in owner_options %}
+                <option value="{{ option }}" {% if filters.owner == option %}selected{% endif %}>{{ option }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-lg-2">
+            <select class="form-select" name="primary_owner">
+                <option value="">全部首要责任</option>
+                {% for option in owner_options %}
+                <option value="{{ option }}" {% if filters.primary_owner == option %}selected{% endif %}>{{ option }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-lg-1 d-grid">
+            <button class="btn btn-primary" type="submit">查询</button>
+        </div>
+    </form>
+    <div class="d-flex justify-content-end mt-2">
+        <a class="btn btn-outline-secondary btn-sm" href="/projects?{{ export_prefix }}{{ export_connector }}export=csv"><i class="bi bi-download"></i> 导出验收清单</a>
+    </div>
+</div>
+
+<div class="page-card">
+    <div class="section-title">
+        <div>
+            <h2>项目主线</h2>
+            <span>当前候选 {{ pagination.result_count }} 个重点项目，显示 {{ pagination.showing_start }}-{{ pagination.showing_end }}，按风险和交期排序。</span>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-outline-primary btn-sm" href="/procurement/suggestions">缺料转采购</a>
+            <a class="btn btn-outline-primary btn-sm" href="/work-orders">生产工单</a>
+        </div>
+    </div>
+    {% if rows %}
+    <div class="project-card-list">
+        {% for row in rows %}
+        <article class="project-card">
+            <div class="project-card-main">
+                <div class="project-title-row">
+                    <a class="project-title" href="/projects/{{ row.id }}">{{ (row.project_code or row.order_no or '未编号项目')|clean_text }}</a>
+                    <span class="status-pill {{ row.risk_class }}">{{ row.risk_level|clean_text }}</span>
+                </div>
+                <div class="project-subtitle">
+                    <span>{{ row.order_no|clean_text }}</span>
+                    <span>{{ row.customer_name|clean_text }}</span>
+                    <span>机号 {{ row.serial_no|clean_text }}</span>
+                    <span>交期 {{ row.delivery_date or '-' }}</span>
+                    <span class="status-pill {{ row.delivery_class }}">{{ row.delivery_state|clean_text }}</span>
+                    <span>状态 {{ row.status|clean_text }}</span>
+                    <span class="status-pill {{ row.acceptance_class }}">验收状态 {{ row.acceptance_status }}</span>
+                </div>
+                <div class="project-flow">
+                    {% set stages = ['销售', '齐套/采购', '生产', '发货', '回款', '售后'] %}
+                    {% for stage in stages %}
+                    <span class="{% if row.project_stage == stage %}active{% endif %}">{{ stage }}</span>
+                    {% endfor %}
+                </div>
+                <div class="text-muted small mt-2">
+                    下一步：{{ row.next_action|clean_text }} / 责任：{{ row.owner_role|clean_text }} / 原因：{{ row.blocked_reason|clean_text }}
+                </div>
+                <div class="text-muted small mt-1">
+                    验收缺口：{{ row.acceptance_gaps|clean_text }} / 责任归口：{{ row.acceptance_owner_roles|clean_text }}
+                </div>
+                <div class="text-muted small mt-1">
+                    首要处理项：{{ row.acceptance_primary_gap|clean_text }} / 首要责任归口：{{ row.acceptance_primary_owner|clean_text }}
+                </div>
+                <div class="d-flex flex-wrap gap-1 mt-2">
+                    {% if row.is_overdue %}<span class="status-pill danger">逾期</span>{% endif %}
+                    {% if row.shortage_lines %}<span class="status-pill warning">缺料</span>{% endif %}
+                    {% if row.pending_purchase_qty|float > 0 %}<span class="status-pill warning">采购未到</span>{% endif %}
+                    {% if row.open_work_order_count %}<span class="status-pill warning">未完工单</span>{% endif %}
+                    {% if row.receivable_balance|float > 0 %}<span class="status-pill warning">应收未清</span>{% endif %}
+                    {% if row.service_order_count %}<span class="status-pill secondary">售后处理中</span>{% endif %}
+                </div>
+            </div>
+            <div class="project-card-side">
+                <a class="btn btn-primary btn-sm" href="/projects/{{ row.id }}">进入台账</a>
+            </div>
+        </article>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">没有匹配的项目。</div>
+    {% endif %}
+    {% if pagination.total_pages > 1 %}
+    <div class="ledger-pager">
+        {% set args = [] %}
+        {% if filters.keyword %}{% set _ = args.append('keyword=' ~ filters.keyword|urlencode) %}{% endif %}
+        {% if filters.status %}{% set _ = args.append('status=' ~ filters.status|urlencode) %}{% endif %}
+        {% if filters.risk %}{% set _ = args.append('risk=' ~ filters.risk|urlencode) %}{% endif %}
+        {% if filters.owner %}{% set _ = args.append('owner=' ~ filters.owner|urlencode) %}{% endif %}
+        {% if filters.primary_owner %}{% set _ = args.append('primary_owner=' ~ filters.primary_owner|urlencode) %}{% endif %}
+        {% set prefix = args|join('&') %}
+        {% set connector = '&' if prefix else '' %}
+        {% if pagination.has_prev %}
+        <a class="btn btn-light btn-sm" href="/projects?{{ prefix }}{{ connector }}page={{ pagination.page - 1 }}">上一页</a>
+        {% else %}
+        <span class="btn btn-light btn-sm disabled" aria-disabled="true">上一页</span>
+        {% endif %}
+        <span>第 {{ pagination.page }} / {{ pagination.total_pages }} 页</span>
+        {% if pagination.has_next %}
+        <a class="btn btn-light btn-sm" href="/projects?{{ prefix }}{{ connector }}page={{ pagination.page + 1 }}">下一页</a>
+        {% else %}
+        <span class="btn btn-light btn-sm disabled" aria-disabled="true">下一页</span>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

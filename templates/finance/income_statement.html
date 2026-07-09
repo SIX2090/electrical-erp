@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+
+{% block title %}利润表{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <form id="reportFilterForm" method="get" class="d-none">
+        <input type="hidden" name="period" value="{{ period or '' }}">
+    </form>
+    <!-- 页面标题 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-chart-line"></i> 利润表</h2>
+        <div class="d-none">
+            <button class="btn btn-primary" onclick="window.print()">
+                <i class="fas fa-print"></i> 打印
+            </button>
+            <button class="btn btn-success" onclick="exportReportTable()">
+                <i class="fas fa-file-excel"></i> 导出Excel
+            </button>
+            <a href="/finance/reports/" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> 返回
+            </a>
+        </div>
+    </div>
+
+    {% if error %}
+    <div class="alert alert-danger">
+        <i class="fas fa-exclamation-triangle"></i> {{ error }}
+    </div>
+    {% endif %}
+
+    <!-- 报表头部 -->
+    <div class="card mb-4">
+        <div class="card-body text-center">
+            <h3>利润表</h3>
+            <p class="mb-1">编制单位：[企业名称]</p>
+            <p class="mb-1">报表期间：{{ period }} ({{ period|replace('-', '年')|replace('年', '年', 1) }}月)</p>
+            <p class="mb-0">生成时间：{{ report_data.generated_at if report_data.generated_at else '' }}</p>
+        </div>
+    </div>
+
+    {% if report_data and report_data.revenue %}
+    <!-- 报表主体 -->
+    <div class="card">
+        <div class="card-body">
+            <table class="table table-bordered">
+                <thead class="thead-light">
+                    <tr>
+                        <th style="width: 60%">项目</th>
+                        <th class="text-right" style="width: 20%">本期金额</th>
+                        <th class="text-right" style="width: 20%">上期金额</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- 营业收入 -->
+                    <tr class="table-active">
+                        <td><strong>一、营业收入</strong></td>
+                        <td class="text-right"><strong>{{ "{:,.2f}".format(report_data.revenue['营业收入合计']) }}</strong></td>
+                        <td class="text-right">-</td>
+                    </tr>
+                    <tr>
+                        <td class="pl-4">主营业务收入</td>
+                        <td class="text-right">{{ "{:,.2f}".format(report_data.revenue['主营业务收入']) }}</td>
+                        <td class="text-right">-</td>
+                    </tr>
+                    <tr>
+                        <td class="pl-4">其他业务收入</td>
+                        <td class="text-right">{{ "{:,.2f}".format(report_data.revenue['其他业务收入']) }}</td>
+                        <td class="text-right">-</td>
+                    </tr>
+
+                    <!-- 营业成本 -->
+                    <tr class="table-active">
+                        <td><strong>减：营业成本</strong></td>
+                        <td class="text-right"><strong>{{ "{:,.2f}".format(report_data.cost['营业成本合计']) }}</strong></td>
+                        <td class="text-right">-</td>
+                    </tr>
+                    <tr>
+                        <td class="pl-4">主营业务成本</td>
+                        <td class="text-right">{{ "{:,.2f}".format(report_data.cost['主营业务成本']) }}</td>
+                        <td class="text-right">-</td>
+                    </tr>
+                    <tr>
+                        <td class="pl-4">其他业务成本</td>
+                        <td class="text-right">{{ "{:,.2f}".format(report_data.cost['其他业务成本']) }}</td>
+                        <td class="text-right">-</td>
+                    </tr>
+
+                    <!-- 税金及附加 -->
+                    <tr>
+                        <td><strong>税金及附加</strong></td>
+                        <td class="text-right">{{ "{:,.2f}".format(report_data.taxes) }}</td>
+                        <td class="text-right">-</td>
+                    </tr>
+
+                    <!-- 期间费用 -->
+                    <tr class="table-active">
+                        <td><strong>减：期间费用</strong></td>
+                        <td class="text-right"><strong>{{ "{:,.2f}".format(report_data.expenses['期间费用合计']) }}</strong></td>
+                        <td class="text-right">-</td>
+                    </tr>
+                    <tr>
+                        <td class="pl-4">销售费用</td>
+                        <td class="text-right">{{ "{:,.2f}".format(report_data.expenses['销售费用']) }}</td>
+                        <td class="text-right">-</td>
+                    </tr>
+                    <tr>
+                        <td class="pl-4">管理费用</td>
+                        <td class="text-right">{{ "{:,.2f}".format(report_data.expenses['管理费用']) }}</td>
+                        <td class="text-right">-</td>
+                    </tr>
+                    <tr>
+                        <td class="pl-4">财务费用</td>
+                        <td class="text-right">{{ "{:,.2f}".format(report_data.expenses['财务费用']) }}</td>
+                        <td class="text-right">-</td>
+                    </tr>
+
+                    <!-- 其他收益 -->
+                    <tr>
+                        <td><strong>加：其他收益</strong></td>
+                        <td class="text-right">{{ "{:,.2f}".format(report_data.other['其他收益']) }}</td>
+                        <td class="text-right">-</td>
+                    </tr>
+
+                    <!-- 营业利润 -->
+                    <tr class="table-success font-weight-bold">
+                        <td><strong>二、营业利润</strong></td>
+                        <td class="text-right">
+                            {% if report_data.profit['营业利润'] >= 0 %}
+                            <span class="text-success">{{ "{:,.2f}".format(report_data.profit['营业利润']) }}</span>
+                            {% else %}
+                            <span class="text-danger">{{ "{:,.2f}".format(report_data.profit['营业利润']) }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-right">-</td>
+                    </tr>
+
+                    <!-- 营业外收支 -->
+                    <tr>
+                        <td><strong>加：营业外收入</strong></td>
+                        <td class="text-right">{{ "{:,.2f}".format(report_data.other['营业外收入']) }}</td>
+                        <td class="text-right">-</td>
+                    </tr>
+                    <tr>
+                        <td><strong>减：营业外支出</strong></td>
+                        <td class="text-right">{{ "{:,.2f}".format(report_data.other['营业外支出']) }}</td>
+                        <td class="text-right">-</td>
+                    </tr>
+
+                    <!-- 利润总额 -->
+                    <tr class="table-info font-weight-bold">
+                        <td><strong>三、利润总额</strong></td>
+                        <td class="text-right">
+                            {% if report_data.profit['利润总额'] >= 0 %}
+                            <span class="text-success">{{ "{:,.2f}".format(report_data.profit['利润总额']) }}</span>
+                            {% else %}
+                            <span class="text-danger">{{ "{:,.2f}".format(report_data.profit['利润总额']) }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-right">-</td>
+                    </tr>
+
+                    <!-- 所得税费用 -->
+                    <tr>
+                        <td><strong>减：所得税费用</strong></td>
+                        <td class="text-right">{{ "{:,.2f}".format(report_data.profit['所得税费用']) }}</td>
+                        <td class="text-right">-</td>
+                    </tr>
+
+                    <!-- 净利润 -->
+                    <tr class="table-primary font-weight-bold">
+                        <td><strong>四、净利润</strong></td>
+                        <td class="text-right">
+                            {% if report_data.profit['净利润'] >= 0 %}
+                            <span class="text-success"><strong>{{ "{:,.2f}".format(report_data.profit['净利润']) }}</strong></span>
+                            {% else %}
+                            <span class="text-danger"><strong>{{ "{:,.2f}".format(report_data.profit['净利润']) }}</strong></span>
+                            {% endif %}
+                        </td>
+                        <td class="text-right">-</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 利润分析 -->
+    <div class="row mt-4">
+        <div class="col-md-3">
+            <div class="card border-success">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">营业收入</h6>
+                    <h4 class="text-success">{{ "{:,.2f}".format(report_data.revenue['营业收入合计']) }}</h4>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-danger">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">营业成本</h6>
+                    <h4 class="text-danger">{{ "{:,.2f}".format(report_data.cost['营业成本合计']) }}</h4>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-warning">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">期间费用</h6>
+                    <h4 class="text-warning">{{ "{:,.2f}".format(report_data.expenses['期间费用合计']) }}</h4>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-primary">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">净利润</h6>
+                    {% if report_data.profit['净利润'] >= 0 %}
+                    <h4 class="text-success">{{ "{:,.2f}".format(report_data.profit['净利润']) }}</h4>
+                    {% else %}
+                    <h4 class="text-danger">{{ "{:,.2f}".format(report_data.profit['净利润']) }}</h4>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i> 暂无报表数据
+    </div>
+    {% endif %}
+
+</div>
+
+<style>
+@media print {
+    .btn, .alert, .row.mt-4 { display: none; }
+}
+</style>
+
+<script>
+function exportReportTable() {
+    var table = document.querySelector('.table');
+    if (!table) return;
+    var html = table.outerHTML;
+    var url = 'data:application/vnd.ms-excel,' + encodeURIComponent(html);
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = '{{ title }}_' + new Date().toISOString().substr(0,10) + '.xls';
+    link.click();
+}
+</script>
+{% endblock %}

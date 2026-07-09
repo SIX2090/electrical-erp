@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}批量导出{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <h1>批量导出</h1>
+    <p>按日期、项目号或关键字批量导出业务单据为 CSV 文件。</p>
+</div>
+
+<div class="page-card">
+    <div class="section-title">
+        <div>
+            <h2>导出条件</h2>
+            <span>选择单据类型并设置筛选条件，点击导出下载 CSV 文件</span>
+        </div>
+    </div>
+    <form method="post" action="{{ url_for('export_batch_submit') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="row g-3 mb-3">
+            <div class="col-md-4">
+                <label class="form-label">单据类型</label>
+                <select class="form-select" name="doc_type">
+                    {% for key, spec in doc_types.items() %}
+                    <option value="{{ key }}" {% if filters.doc_type == key %}selected{% endif %}>{{ spec.label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">日期从</label>
+                <input class="form-control" type="date" name="date_from" value="{{ filters.date_from }}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">日期至</label>
+                <input class="form-control" type="date" name="date_to" value="{{ filters.date_to }}">
+            </div>
+        </div>
+        <div class="row g-3 mb-3">
+            <div class="col-md-4">
+                <label class="form-label">项目号</label>
+                <input class="form-control" type="text" name="project_code" value="{{ filters.project_code }}" placeholder="支持模糊匹配">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">关键字</label>
+                <input class="form-control" type="text" name="keyword" value="{{ filters.keyword }}" placeholder="单据编号或备注">
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <button class="btn btn-primary w-100" type="submit">
+                    <i class="bi bi-download"></i> 导出 CSV
+                </button>
+            </div>
+        </div>
+    </form>
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle"></i>
+        导出范围限制为最近 5000 条记录。如需更大范围，请缩小日期或项目条件。
+    </div>
+</div>
+{% endblock %}

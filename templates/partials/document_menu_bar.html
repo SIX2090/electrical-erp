@@ -1,0 +1,219 @@
+{% macro document_menu_bar(actions=None, aria_label='单据操作菜单', doc_status=None) -%}
+{% set default_actions = [
+    {'label': '新增', 'type': 'link', 'href': '#'},
+    {'label': '保存', 'type': 'button', 'button_type': 'submit'},
+    {'label': '复制', 'type': 'button'},
+    {'label': '查找', 'type': 'button'},
+    {'label': '工具', 'type': 'dropdown', 'items': []},
+    {'label': '导出', 'type': 'button'},
+    {'label': '刷新', 'type': 'button'},
+    {'label': '退出', 'type': 'link', 'href': '#'}
+] %}
+{% set menu_actions = actions if actions is not none else default_actions %}
+{% set export_action_labels = ['导出', '导出 CSV', '导出页面 CSV', '导出 Excel', '导出 XLSX', 'XLSX', 'CSV', 'Excel', 'PDF', '导出 PDF'] %}
+{% set grouped = namespace(primary=[], more=[]) %}
+{% for action in menu_actions %}
+    {% set action_label = action.label|default('') %}
+    {% set action_type = action.type|default('button') %}
+    {% if action_type == 'dropdown' and action_label == '更多' %}
+        {% for item in action['items']|default([]) %}
+            {% set _ = grouped.more.append(item) %}
+        {% endfor %}
+    {% elif action_label in export_action_labels %}
+        {% set _ = grouped.more.append(action) %}
+    {% else %}
+        {% set _ = grouped.primary.append(action) %}
+    {% endif %}
+{% endfor %}
+{% if grouped.more %}
+    {% set _ = grouped.primary.append({'label': '更多', 'type': 'dropdown', 'items': grouped.more}) %}
+{% endif %}
+{% set menu_actions = grouped.primary %}
+{% set icon_map = {
+    '新增': 'bi-plus-lg',
+    '保存': 'bi-save',
+    '保存并新增': 'bi-save2',
+    '复制': 'bi-files',
+    '查找': 'bi-search',
+    '查询': 'bi-search',
+    '筛选': 'bi-funnel',
+    '筛选条件': 'bi-funnel',
+    '重置': 'bi-arrow-counterclockwise',
+    '工具': 'bi-tools',
+    '更多': 'bi-three-dots',
+    '导出': 'bi-download',
+    '导出 CSV': 'bi-download',
+    '导出页面 CSV': 'bi-download',
+    '导出 Excel': 'bi-download',
+    '导出 XLSX': 'bi-download',
+    '导出 PDF': 'bi-file-earmark-pdf',
+    'XLSX': 'bi-file-earmark-spreadsheet',
+    '导入': 'bi-upload',
+    '模板': 'bi-file-earmark-spreadsheet',
+    '打印': 'bi-printer',
+    '刷新': 'bi-arrow-clockwise',
+    '刷新报表': 'bi-arrow-clockwise',
+    '操作日志': 'bi-journal-text',
+    '退出': 'bi-box-arrow-left',
+    '返回': 'bi-arrow-left',
+    '返回首页': 'bi-house',
+    '返回列表': 'bi-arrow-left',
+    '返回报表中心': 'bi-box-arrow-left',
+    '编辑': 'bi-pencil-square',
+    '删除': 'bi-trash',
+    '作废': 'bi-x-circle',
+    '关闭': 'bi-stop-circle',
+    '重新打开': 'bi-arrow-counterclockwise',
+    '提交': 'bi-send',
+    '审核': 'bi-check2-square',
+    '弃审': 'bi-arrow-counterclockwise',
+    '判定': 'bi-clipboard-check',
+    '变更': 'bi-pencil',
+    '联查': 'bi-diagram-3',
+    '下查': 'bi-diagram-3',
+    '下推': 'bi-box-arrow-in-down',
+    '下游报工': 'bi-box-arrow-in-down',
+    '选单': 'bi-list-check',
+    '生单': 'bi-arrow-right-square',
+    '操作手册': 'bi-journal-bookmark',
+    '数据健康': 'bi-heart-pulse',
+    '待办单据': 'bi-clipboard-check',
+    '报表中心': 'bi-bar-chart',
+    '首张': 'bi-chevron-double-left',
+    '上一张': 'bi-chevron-left',
+    '下一张': 'bi-chevron-right',
+    '末张': 'bi-chevron-double-right',
+    '批量操作': 'bi-stack',
+    '分享': 'bi-share',
+    '附件': 'bi-paperclip',
+    '附件/备注': 'bi-paperclip',
+    '历史记录': 'bi-clock-history'
+} %}
+{% set status_class_map = {
+    'draft': 'document-menu-bar__status--draft',
+    'pending': 'document-menu-bar__status--pending',
+    'approved': 'document-menu-bar__status--approved',
+    'completed': 'document-menu-bar__status--completed',
+    'closed': 'document-menu-bar__status--closed',
+    'void': 'document-menu-bar__status--void',
+    '草稿': 'document-menu-bar__status--draft',
+    '待提交': 'document-menu-bar__status--pending',
+    '待审核': 'document-menu-bar__status--pending',
+    '已审核': 'document-menu-bar__status--approved',
+    '已完成': 'document-menu-bar__status--completed',
+    '已关闭': 'document-menu-bar__status--closed',
+    '已作废': 'document-menu-bar__status--void',
+    '已取消': 'document-menu-bar__status--void'
+} %}
+<nav class="document-menu-bar" aria-label="{{ aria_label }}">
+    <div class="document-menu-bar__inner">
+        {% if doc_status %}
+        <span class="document-menu-bar__status {{ status_class_map.get(doc_status.code|default(''), 'document-menu-bar__status--default') }}">{{ doc_status.label|default(doc_status) }}</span>
+        <span class="document-menu-bar__divider"></span>
+        {% endif %}
+        {% for action in menu_actions %}
+            {% set action_type = action.type|default('button') %}
+            {% set is_disabled = action.disabled|default(false) or action_type == 'disabled' %}
+            {% set action_icon = action.icon|default(icon_map.get(action.label, '')) %}
+            {% if action_type == 'divider' %}
+                <span class="document-menu-bar__divider"></span>
+            {% elif action_type == 'nav' %}
+                <span class="document-menu-bar__nav">
+                    {% for nav_item in action['items']|default([]) %}
+                        {% set nav_disabled = nav_item.disabled|default(false) %}
+                        <button class="document-menu-bar__nav-btn"
+                                type="button"
+                                {% if nav_item.event is defined %}data-menu-event="{{ nav_item.event }}"{% endif %}
+                                {% if nav_item.href is defined %}data-nav-href="{{ nav_item.href }}"{% endif %}
+                                {% if nav_disabled %}disabled aria-disabled="true"{% endif %}
+                                title="{{ nav_item.label }}">
+                            {% set nav_icon = nav_item.icon|default(icon_map.get(nav_item.label, '')) %}
+                            {% if nav_icon %}<i class="bi {{ nav_icon }}" aria-hidden="true"></i>{% endif %}
+                        </button>
+                    {% endfor %}
+                </span>
+            {% elif action_type == 'dropdown' %}
+                <div class="document-menu-bar__dropdown">
+                    <button class="document-menu-bar__item document-menu-bar__item--dropdown"
+                            type="button"
+                            data-bs-toggle="dropdown"
+                            aria-expanded="false"
+                            {% if action.event is defined %}data-menu-event="{{ action.event }}"{% endif %}
+                            {% if action.form is defined %}form="{{ action.form }}"{% endif %}
+                            {% if action.title is defined %}title="{{ action.title }}"{% endif %}
+                            {% if is_disabled %}disabled aria-disabled="true"{% endif %}>
+                        {% if action_icon %}<i class="bi {{ action_icon }}" aria-hidden="true"></i>{% endif %}
+                        {{ action.label }}
+                    </button>
+                    <ul class="dropdown-menu document-menu-bar__dropdown-menu">
+                        {% set dropdown_items = action['items']|default([]) %}
+                        {% for item in dropdown_items %}
+                            {% if item.type == 'divider' %}
+                                <li><hr class="dropdown-divider"></li>
+                            {% else %}
+                                {% set item_type = item.type|default('link') %}
+                                {% set item_disabled = item.disabled|default(false) or item_type == 'disabled' %}
+                                <li>
+                                    {% if item_type == 'button' %}
+                                        <button class="dropdown-item"
+                                                type="{{ item.button_type|default('button') }}"
+                                                {% if item.name is defined %}name="{{ item.name }}"{% endif %}
+                                                {% if item.value is defined %}value="{{ item.value }}"{% endif %}
+                                                {% if item.id is defined %}id="{{ item.id }}"{% endif %}
+                                                {% if item.event is defined %}data-menu-event="{{ item.event }}"{% endif %}
+                                                {% if item.form is defined %}form="{{ item.form }}"{% endif %}
+                                                {% if item.title is defined %}title="{{ item.title }}"{% endif %}
+                                                {% if item_disabled %}disabled aria-disabled="true"{% endif %}>
+                                            {% set item_icon = item.icon|default(icon_map.get(item.label, '')) %}
+                                            {% if item_icon %}<i class="bi {{ item_icon }}" aria-hidden="true"></i>{% endif %}
+                                            {{ item.label }}
+                                        </button>
+                                    {% else %}
+                                        <a class="dropdown-item{% if item_disabled %} disabled{% endif %}"
+                                           href="{{ item.href|default('#') }}"
+                                           {% if item.id is defined %}id="{{ item.id }}"{% endif %}
+                                           {% if item.event is defined %}data-menu-event="{{ item.event }}"{% endif %}
+                                           {% if item.target is defined %}target="{{ item.target }}"{% endif %}
+                                           {% if item.title is defined %}title="{{ item.title }}"{% endif %}
+                                           {% if item_disabled %}aria-disabled="true" tabindex="-1"{% endif %}>
+                                            {% set item_icon = item.icon|default(icon_map.get(item.label, '')) %}
+                                            {% if item_icon %}<i class="bi {{ item_icon }}" aria-hidden="true"></i>{% endif %}
+                                            {{ item.label }}
+                                        </a>
+                                    {% endif %}
+                                </li>
+                            {% endif %}
+                        {% else %}
+                            <li><span class="dropdown-item disabled" aria-disabled="true">暂无可用工具</span></li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% elif action_type == 'link' %}
+                <a class="document-menu-bar__item{% if is_disabled %} document-menu-bar__item--disabled{% endif %}"
+                   href="{{ action.href|default('#') }}"
+                   {% if action.id is defined %}id="{{ action.id }}"{% endif %}
+                   {% if action.event is defined %}data-menu-event="{{ action.event }}"{% endif %}
+                   {% if action.target is defined %}target="{{ action.target }}"{% endif %}
+                   {% if action.title is defined %}title="{{ action.title }}"{% endif %}
+                   {% if is_disabled %}aria-disabled="true" tabindex="-1"{% endif %}>
+                    {% if action_icon %}<i class="bi {{ action_icon }}" aria-hidden="true"></i>{% endif %}
+                    {{ action.label }}
+                </a>
+            {% else %}
+                <button class="document-menu-bar__item"
+                        type="{{ action.button_type|default('button') }}"
+                        {% if action.name is defined %}name="{{ action.name }}"{% endif %}
+                        {% if action.value is defined %}value="{{ action.value }}"{% endif %}
+                        {% if action.id is defined %}id="{{ action.id }}"{% endif %}
+                        {% if action.event is defined %}data-menu-event="{{ action.event }}"{% endif %}
+                        {% if action.form is defined %}form="{{ action.form }}"{% endif %}
+                        {% if action.title is defined %}title="{{ action.title }}"{% endif %}
+                        {% if is_disabled %}disabled aria-disabled="true"{% endif %}>
+                    {% if action_icon %}<i class="bi {{ action_icon }}" aria-hidden="true"></i>{% endif %}
+                    {{ action.label }}
+                </button>
+            {% endif %}
+        {% endfor %}
+    </div>
+</nav>
+{%- endmacro %}

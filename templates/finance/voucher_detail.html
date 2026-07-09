@@ -1,0 +1,306 @@
+{% extends "base.html" %}
+
+{% block title %}凭证详情 - {{ voucher.voucher_no }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .voucher-header {
+        background: #f8f9fa;
+        padding: 1.5rem;
+        border-radius: 0.25rem;
+        margin-bottom: 1.5rem;
+    }
+    .info-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2rem;
+        margin-bottom: 0.5rem;
+    }
+    .info-item {
+        flex: 1;
+        min-width: 200px;
+    }
+    .info-label {
+        font-weight: 600;
+        color: #666;
+        margin-bottom: 0.25rem;
+    }
+    .info-value {
+        font-size: 1.1rem;
+    }
+    .voucher-lines-table {
+        font-size: 0.95rem;
+    }
+    .voucher-lines-table th {
+        background: #e9ecef;
+        font-weight: 600;
+    }
+    .amount-debit {
+        color: #dc3545;
+    }
+    .amount-credit {
+        color: #28a745;
+    }
+    .total-row {
+        font-weight: 700;
+        background: #f8f9fa;
+    }
+    .status-badge {
+        padding: 0.35rem 0.75rem;
+        border-radius: 0.25rem;
+        font-size: 0.9rem;
+        font-weight: 600;
+    }
+    .status-draft { background: #ffc107; color: #000; }
+    .status-reviewed { background: #17a2b8; color: #fff; }
+    .status-posted { background: #28a745; color: #fff; }
+    .action-buttons {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    .balance-check {
+        padding: 1rem;
+        border-radius: 0.25rem;
+        margin-top: 1rem;
+    }
+    .balance-ok {
+        background: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+    }
+    .balance-error {
+        background: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{{ document_menu_bar(actions=[
+    {'type': 'nav', 'items': [
+        {'label': '首张', 'event': 'doc-nav-first', 'icon': 'bi-chevron-double-left'},
+        {'label': '上一张', 'event': 'doc-nav-prev', 'icon': 'bi-chevron-left'},
+        {'label': '下一张', 'event': 'doc-nav-next', 'icon': 'bi-chevron-right'},
+        {'label': '末张', 'event': 'doc-nav-last', 'icon': 'bi-chevron-double-right'}
+    ]}
+], aria_label='凭证操作菜单') }}
+<div id="doc-nav-config" data-nav-table="finance_vouchers" data-nav-base="/finance/vouchers/" data-doc-id="{{ voucher.id }}" style="display:none"></div>
+<div class="container-fluid mt-4">
+    <!-- 页面标题和操作按钮 -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>凭证详情</h2>
+        <div class="action-buttons">
+            <a href="/finance/vouchers" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> 返回列表
+            </a>
+            {% if voucher.status == 'draft' %}
+            <form method="post" action="/finance/vouchers/{{ voucher.id }}/post" style="display: inline;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-success" onclick="return confirm('确定要过账吗？')">
+                    <i class="bi bi-check-circle"></i> 过账
+                </button>
+            </form>
+            {% endif %}
+            {% if voucher.status == 'posted' %}
+            <form method="post" action="/finance/vouchers/{{ voucher.id }}/reverse" style="display: inline;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-warning" onclick="return confirm('确定要反过账吗？')">
+                    <i class="bi bi-arrow-counterclockwise"></i> 反过账
+                </button>
+            </form>
+            {% endif %}
+            <button onclick="window.print()" class="btn btn-outline-primary">
+                <i class="bi bi-printer"></i> 打印
+            </button>
+        </div>
+    </div>
+
+    <!-- 凭证基本信息 -->
+    <div class="voucher-header">
+        <div class="info-row">
+            <div class="info-item">
+                <div class="info-label">凭证号</div>
+                <div class="info-value">{{ voucher.voucher_no }}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">凭证日期</div>
+                <div class="info-value">{{ voucher.voucher_date }}</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">会计期间</div>
+                <div class="info-value">{{ voucher.period_year }}年{{ '%02d'|format(voucher.period_month) }}月</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">凭证状态</div>
+                <div class="info-value">
+                    {% if voucher.status == 'draft' %}
+                        <span class="status-badge status-draft">草稿</span>
+                    {% elif voucher.status == 'audited' %}
+                        <span class="status-badge status-reviewed">已复核</span>
+                    {% elif voucher.status == 'posted' %}
+                        <span class="status-badge status-posted">已过账</span>
+                    {% elif voucher.status == 'closed' %}
+                        <span class="status-badge status-closed">已作废</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="info-row mt-3">
+            <div class="info-item">
+                <div class="info-label">凭证类型</div>
+                <div class="info-value">{{ voucher.voucher_type or '记账凭证' }}</div>
+            </div>
+            {% if voucher.source_type and voucher.source_no %}
+            <div class="info-item">
+                <div class="info-label">源单据</div>
+                <div class="info-value">
+                    {% if voucher.source_type == 'sales_invoice' %}销售发票{% endif %}
+                    {% if voucher.source_type == 'purchase_invoice' %}采购发票{% endif %}
+                    {% if voucher.source_type == 'customer_receipt' %}收款单{% endif %}
+                    {% if voucher.source_type == 'supplier_payment' %}付款单{% endif %}
+                    : {{ voucher.source_no }}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% if voucher.summary %}
+        <div class="info-row mt-3">
+            <div class="info-item" style="flex: 100%;">
+                <div class="info-label">摘要</div>
+                <div class="info-value">{{ voucher.summary }}</div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- 凭证分录 -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">凭证分录</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-bordered voucher-lines-table mb-0">
+                    <thead>
+                        <tr>
+                            <th style="width: 5%;">行号</th>
+                            <th style="width: 12%;">科目代码</th>
+                            <th style="width: 18%;">科目名称</th>
+                            <th style="width: 25%;">摘要</th>
+                            <th style="width: 12%;">借方金额</th>
+                            <th style="width: 12%;">贷方金额</th>
+                            <th style="width: 8%;">项目号</th>
+                            <th style="width: 8%;">机号</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for line in lines %}
+                        <tr>
+                            <td class="text-center">{{ line.line_no }}</td>
+                            <td>{{ line.account_code }}</td>
+                            <td>{{ line.account_name }}</td>
+                            <td>
+                                {{ line.summary }}
+                                {% if line.partner_type and line.partner_id %}
+                                    <br>
+                                    <small class="text-muted">
+                                        {% if line.partner_type == 'customer' %}客户: {{ line.customer_name }}{% endif %}
+                                        {% if line.partner_type == 'supplier' %}供应商: {{ line.supplier_name }}{% endif %}
+                                    </small>
+                                {% endif %}
+                            </td>
+                            <td class="text-end amount-debit">
+                                {% if line.debit_amount > 0 %}
+                                    {{ '%.2f'|format(line.debit_amount) }}
+                                {% endif %}
+                            </td>
+                            <td class="text-end amount-credit">
+                                {% if line.credit_amount > 0 %}
+                                    {{ '%.2f'|format(line.credit_amount) }}
+                                {% endif %}
+                            </td>
+                            <td>{{ line.project_code or '' }}</td>
+                            <td>{{ line.serial_no or '' }}</td>
+                        </tr>
+                        {% endfor %}
+                        <!-- 合计行 -->
+                        <tr class="total-row">
+                            <td colspan="4" class="text-end">合计：</td>
+                            <td class="text-end amount-debit">{{ '%.2f'|format(voucher.total_debit) }}</td>
+                            <td class="text-end amount-credit">{{ '%.2f'|format(voucher.total_credit) }}</td>
+                            <td colspan="2"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 借贷平衡检查 -->
+    {% set balance_diff = voucher.total_debit - voucher.total_credit %}
+    {% set is_balanced = balance_diff|abs < 0.01 %}
+    <div class="balance-check {% if is_balanced %}balance-ok{% else %}balance-error{% endif %}">
+        <strong>
+            {% if is_balanced %}
+                <i class="bi bi-check-circle"></i> 借贷平衡
+            {% else %}
+                <i class="bi bi-exclamation-triangle"></i> 借贷不平衡
+            {% endif %}
+        </strong>
+        - 借方合计：{{ '%.2f'|format(voucher.total_debit) }} 元，
+        贷方合计：{{ '%.2f'|format(voucher.total_credit) }} 元，
+        差异：{{ '%.2f'|format(balance_diff|abs) }} 元
+    </div>
+
+    <!-- 审核信息 -->
+    <div class="card mt-3">
+        <div class="card-header">
+            <h5 class="mb-0">审核信息</h5>
+        </div>
+        <div class="card-body">
+            <div class="info-row">
+                <div class="info-item">
+                    <div class="info-label">制单人</div>
+                    <div class="info-value">
+                        {{ voucher.prepared_by_name or '-' }}
+                        {% if voucher.prepared_at %}
+                        <br><small class="text-muted">{{ voucher.prepared_at }}</small>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">审核人</div>
+                    <div class="info-value">
+                        {{ voucher.reviewed_by_name or '-' }}
+                        {% if voucher.reviewed_at %}
+                        <br><small class="text-muted">{{ voucher.reviewed_at }}</small>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">过账人</div>
+                    <div class="info-value">
+                        {{ voucher.posted_by_name or '-' }}
+                        {% if voucher.posted_at %}
+                        <br><small class="text-muted">{{ voucher.posted_at }}</small>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<style type="text/css" media="print">
+    .action-buttons, .btn, .card-header, nav, footer {
+        display: none !important;
+    }
+    .voucher-header {
+        border: 1px solid #000;
+    }
+</style>
+{% endblock %}

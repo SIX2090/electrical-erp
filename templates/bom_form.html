@@ -1,0 +1,348 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% set is_edit = mode == 'edit' %}
+{% set is_copy = mode == 'copy' %}
+{% block title %}{{ '修改BOM' if is_edit else ('复制升版BOM' if is_copy else '新增BOM') }}{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <h1>{{ '修改BOM' if is_edit else ('复制升版BOM' if is_copy else '新增BOM') }}</h1>
+    <p>维护BOM表头、版本有效期、组成物料、损耗和替代标识；本页不执行库存、工单、采购或成本业务。</p>
+</div>
+
+<form method="post" id="bomForm" action="{{ url_for('bom_edit', bom_key=bom.bom_no) if is_edit and bom else url_for('bom_new') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="source_bom_no" value="{{ form_state.source_bom_no or '' }}">
+    <input type="hidden" name="ecn_no" value="{{ ecn_no or '' }}">
+
+    {% set document_menu_actions = [
+        {'label': '保存', 'type': 'button', 'button_type': 'submit'},
+        {'label': '新增BOM', 'type': 'link', 'href': '/bom/new'},
+        {'label': 'BOM清单', 'type': 'link', 'href': '/bom'},
+        {'label': '退出', 'type': 'link', 'href': url_for('bom_detail', bom_key=bom.bom_no) if bom else '/bom'}
+    ] %}
+    {{ document_menu_bar(document_menu_actions) }}
+
+    <div class="page-card mb-3">
+        {% if form_errors %}
+        <div class="alert alert-warning">
+            <div class="fw-semibold mb-1">BOM保存校验未通过</div>
+            <ul class="mb-0 ps-3">
+                {% for error in form_errors %}
+                <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        {% if is_copy and form_state.source_bom_no %}
+        <div class="alert alert-info py-2">当前从 {{ form_state.source_bom_no }} 复制升版，新BOM先保存为草稿，发布前请核对版本有效期和替代物料。</div>
+        {% endif %}
+        {% if ecn_no %}
+        <div class="alert alert-warning py-2">本次复制升版关联工程变更单 {{ ecn_no }}；保存后仅回填升版BOM关联，不触发工单、MRP或采购重算。</div>
+        {% endif %}
+
+        <div class="section-title"><div><h2>BOM表头</h2><span>产品、版本、类型、状态和有效期决定工单/MRP取用范围。</span></div></div>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label">适用产品 <span class="text-danger">*</span></label>
+                <select class="form-select" name="product_id" required>
+                    <option value="">请选择产品</option>
+                    {% for product in products %}
+                    <option value="{{ product.id }}" {% if form_state.product_id|string == product.id|string %}selected{% endif %}>
+                        {{ product.code }} - {{ product.name }}{% if product.specification %} / {{ product.specification }}{% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">BOM编号 <span class="text-danger">*</span></label>
+                <input class="form-control" name="bom_no" required value="{{ form_state.bom_no or '' }}" {% if form_state.status and form_state.status not in ['draft', 'pending', ''] %}readonly{% endif %}>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">版本 <span class="text-danger">*</span></label>
+                <input class="form-control" name="version" required value="{{ form_state.version or 'V1.0' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">BOM类型</label>
+                <select class="form-select" name="bom_type">
+                    {% for value, label in bom_type_options %}
+                    <option value="{{ value }}" {% if form_state.bom_type == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">状态</label>
+                <select class="form-select" name="status">
+                    {% for value, label in status_options %}
+                    <option value="{{ value }}" {% if form_state.status == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">生效日期</label>
+                <input class="form-control" type="date" name="effective_date" value="{{ form_state.effective_date or '' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">失效日期</label>
+                <input class="form-control" type="date" name="expiry_date" value="{{ form_state.expiry_date or '' }}">
+            </div>
+            <div class="col-12">
+                <label class="form-label">{{ '升版说明' if is_copy else ('变更原因' if is_edit else '变更说明') }}</label>
+                <textarea class="form-control" name="change_reason" rows="2" placeholder="说明版本变更、替代原因或适用范围">{{ form_state.change_reason or '' }}</textarea>
+            </div>
+            <div class="col-12">
+                <label class="form-label">备注</label>
+                <textarea class="form-control" name="remark" rows="2">{{ form_state.remark or '' }}</textarea>
+            </div>
+        </div>
+    </div>
+
+    <div class="page-card">
+        <div class="section-title">
+            <div><h2>组成物料</h2><span>至少录入一行有效子件；“替代标识”用于提示可替代物料，正式替代规则后续单独建边界。</span></div>
+            <div class="btn-toolbar gap-2" role="toolbar" aria-label="BOM明细工具栏">
+                <button class="btn btn-outline-primary btn-sm" type="button" data-bom-action="add"><i class="bi bi-plus-lg"></i> 增行</button>
+                <button class="btn btn-outline-secondary btn-sm" type="button" data-bom-action="insert"><i class="bi bi-arrow-return-right"></i> 插行</button>
+                <button class="btn btn-outline-secondary btn-sm" type="button" data-bom-action="copy"><i class="bi bi-files"></i> 复制行</button>
+                <button class="btn btn-outline-secondary btn-sm" type="button" data-bom-action="clear"><i class="bi bi-eraser"></i> 清空行</button>
+                <button class="btn btn-outline-danger btn-sm" type="button" data-bom-action="delete"><i class="bi bi-trash"></i> 删行</button>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm align-middle" id="bomItemsTable">
+                <thead>
+                <tr>
+                    <th style="width:72px;">行号</th>
+                    <th style="min-width:260px;">物料编码</th>
+                    <th style="min-width:160px;">物料名称</th>
+                    <th style="min-width:150px;">规格</th>
+                    <th style="width:120px;">单位</th>
+                    <th style="width:120px;">用量</th>
+                    <th style="width:120px;">损耗率%</th>
+                    <th style="width:130px;">含损耗用量</th>
+                    <th style="width:100px;">替代标识</th>
+                    <th style="min-width:160px;">备注</th>
+                    <th style="width:190px;">行操作</th>
+                </tr>
+                </thead>
+                <tbody id="bomItemsBody">
+                {% for item in form_state['items'] %}
+                {% set i = loop.index0 %}
+                <tr>
+                    <td class="text-muted text-center" data-bom-row-no>{{ item.source_line_no or loop.index }}</td>
+                    <td>
+                        <select class="form-select form-select-sm" name="item_product_id">
+                            <option value="">请选择物料</option>
+                            {% for product in products %}
+                            <option value="{{ product.id }}" data-code="{{ product.code or '' }}" data-name="{{ product.name or '' }}" data-specification="{{ product.specification or '' }}" data-unit="{{ product.unit or '' }}" {% if item.product_id|string == product.id|string %}selected{% endif %}>
+                                {{ product.code }} - {{ product.name }}{% if product.specification %} / {{ product.specification }}{% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td class="text-nowrap" data-bom-product-name>{{ item.product_name or '-' }}</td>
+                    <td class="text-nowrap" data-bom-product-spec>{{ item.specification or '-' }}</td>
+                    <td><input class="form-control form-control-sm" name="item_unit" value="{{ item.unit or '' }}"></td>
+                    <td><input class="form-control form-control-sm text-end" name="item_quantity" type="number" step="0.0001" min="0" value="{{ item.quantity or '' }}"></td>
+                    <td><input class="form-control form-control-sm text-end" name="item_loss_rate" type="number" step="0.01" min="0" value="{{ item.loss_rate if item.loss_rate is not none else '0' }}"></td>
+                    <td class="text-end text-nowrap" data-bom-requirement-with-loss>{{ item.requirement_with_loss or '' }}</td>
+                    <td class="text-center"><input class="form-check-input" type="checkbox" name="item_optional" value="{{ i }}" {% if item.is_optional %}checked{% endif %}></td>
+                    <td><input class="form-control form-control-sm" name="item_remark" value="{{ item.remark or '' }}" placeholder="替代料/工艺说明"></td>
+                    <td>
+                        <div class="btn-group btn-group-sm" role="group" aria-label="明细行操作">
+                            <button class="btn btn-outline-secondary" type="button" data-bom-row-action="insert" title="插行"><i class="bi bi-arrow-return-right"></i></button>
+                            <button class="btn btn-outline-secondary" type="button" data-bom-row-action="copy" title="复制行"><i class="bi bi-files"></i></button>
+                            <button class="btn btn-outline-secondary" type="button" data-bom-row-action="clear" title="清空行"><i class="bi bi-eraser"></i></button>
+                            <button class="btn btn-outline-secondary" type="button" data-bom-row-action="up" title="上移"><i class="bi bi-arrow-up"></i></button>
+                            <button class="btn btn-outline-secondary" type="button" data-bom-row-action="down" title="下移"><i class="bi bi-arrow-down"></i></button>
+                            <button class="btn btn-outline-danger" type="button" data-bom-row-action="delete" title="删行"><i class="bi bi-trash"></i></button>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td class="text-muted text-center" data-bom-row-no>1</td>
+                    <td>
+                        <select class="form-select form-select-sm" name="item_product_id">
+                            <option value="">请选择物料</option>
+                            {% for product in products %}
+                            <option value="{{ product.id }}" data-code="{{ product.code or '' }}" data-name="{{ product.name or '' }}" data-specification="{{ product.specification or '' }}" data-unit="{{ product.unit or '' }}">
+                                {{ product.code }} - {{ product.name }}{% if product.specification %} / {{ product.specification }}{% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td class="text-nowrap" data-bom-product-name>-</td>
+                    <td class="text-nowrap" data-bom-product-spec>-</td>
+                    <td><input class="form-control form-control-sm" name="item_unit" value=""></td>
+                    <td><input class="form-control form-control-sm text-end" name="item_quantity" type="number" step="0.0001" min="0" value=""></td>
+                    <td><input class="form-control form-control-sm text-end" name="item_loss_rate" type="number" step="0.01" min="0" value="0"></td>
+                    <td class="text-end text-nowrap" data-bom-requirement-with-loss></td>
+                    <td class="text-center"><input class="form-check-input" type="checkbox" name="item_optional" value="0"></td>
+                    <td><input class="form-control form-control-sm" name="item_remark" value="" placeholder="替代料/工艺说明"></td>
+                    <td>
+                        <div class="btn-group btn-group-sm" role="group" aria-label="明细行操作">
+                            <button class="btn btn-outline-secondary" type="button" data-bom-row-action="insert" title="插行"><i class="bi bi-arrow-return-right"></i></button>
+                            <button class="btn btn-outline-secondary" type="button" data-bom-row-action="copy" title="复制行"><i class="bi bi-files"></i></button>
+                            <button class="btn btn-outline-secondary" type="button" data-bom-row-action="clear" title="清空行"><i class="bi bi-eraser"></i></button>
+                            <button class="btn btn-outline-secondary" type="button" data-bom-row-action="up" title="上移"><i class="bi bi-arrow-up"></i></button>
+                            <button class="btn btn-outline-secondary" type="button" data-bom-row-action="down" title="下移"><i class="bi bi-arrow-down"></i></button>
+                            <button class="btn btn-outline-danger" type="button" data-bom-row-action="delete" title="删行"><i class="bi bi-trash"></i></button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="alert alert-info py-2 mt-3 mb-0">
+            <strong>有效期规则：</strong>
+            同一适用产品下，非作废BOM的生效日期和失效日期不能重叠；复制升版后先检查有效期，再发布。
+        </div>
+        <div class="d-flex gap-2 mt-3">
+            <button class="btn btn-primary" type="submit"><i class="bi bi-save"></i> 保存</button>
+            <a class="btn btn-outline-secondary" href="{{ url_for('bom_detail', bom_key=bom.bom_no) if bom else '/bom' }}">返回</a>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('bomForm');
+    const tbody = document.getElementById('bomItemsBody');
+    if (!form || !tbody) return;
+
+    function getRows() { return Array.from(tbody.querySelectorAll('tr')); }
+    function formatQty(value) {
+        if (!Number.isFinite(value) || value === 0) return '';
+        return value.toFixed(4).replace(/\.?0+$/, '');
+    }
+    function selectedProduct(row) {
+        const select = row.querySelector('select[name="item_product_id"]');
+        return select && select.selectedOptions.length ? select.selectedOptions[0] : null;
+    }
+    function refreshRow(row) {
+        const option = selectedProduct(row);
+        const nameCell = row.querySelector('[data-bom-product-name]');
+        const specCell = row.querySelector('[data-bom-product-spec]');
+        const unitInput = row.querySelector('input[name="item_unit"]');
+        const quantityInput = row.querySelector('input[name="item_quantity"]');
+        const lossInput = row.querySelector('input[name="item_loss_rate"]');
+        const requirementCell = row.querySelector('[data-bom-requirement-with-loss]');
+        if (nameCell) nameCell.textContent = option && option.value ? (option.dataset.name || '-') : '-';
+        if (specCell) specCell.textContent = option && option.value ? (option.dataset.specification || '-') : '-';
+        if (unitInput && !unitInput.value && option && option.dataset.unit) unitInput.value = option.dataset.unit;
+        if (requirementCell) {
+            const qty = parseFloat(quantityInput ? quantityInput.value : '0') || 0;
+            const loss = parseFloat(lossInput ? lossInput.value : '0') || 0;
+            requirementCell.textContent = formatQty(qty * (1 + loss / 100));
+        }
+    }
+    function renumberRows() {
+        getRows().forEach(function (row, index) {
+            const rowNo = row.querySelector('[data-bom-row-no]');
+            const optional = row.querySelector('input[name="item_optional"]');
+            if (rowNo) rowNo.textContent = String(index + 1);
+            if (optional) optional.value = String(index);
+            refreshRow(row);
+        });
+    }
+    function clearRow(row) {
+        row.querySelectorAll('input, select, textarea').forEach(function (field) {
+            if (field.type === 'checkbox' || field.type === 'radio') field.checked = false;
+            else if (field.name === 'item_loss_rate') field.value = '0';
+            else field.value = '';
+        });
+        refreshRow(row);
+    }
+    function makeRow(sourceRow, keepValues) {
+        const baseRow = sourceRow || getRows()[0];
+        if (!baseRow) return null;
+        const newRow = baseRow.cloneNode(true);
+        if (!keepValues) clearRow(newRow);
+        return newRow;
+    }
+    function focusRow(row) {
+        const firstField = row ? row.querySelector('select, input, textarea') : null;
+        if (firstField) firstField.focus();
+    }
+    function addRow() {
+        const row = makeRow(null, false);
+        if (!row) return;
+        tbody.appendChild(row);
+        renumberRows();
+        focusRow(row);
+    }
+    function insertRow(currentRow) {
+        const rows = getRows();
+        const targetRow = currentRow || rows[rows.length - 1];
+        const row = makeRow(targetRow, false);
+        if (!row) return;
+        targetRow.after(row);
+        renumberRows();
+        focusRow(row);
+    }
+    function copyRow(currentRow) {
+        const row = makeRow(currentRow, true);
+        if (!row) return;
+        currentRow.after(row);
+        renumberRows();
+        focusRow(row);
+    }
+    function deleteRow(currentRow) {
+        const rows = getRows();
+        if (rows.length <= 1) clearRow(currentRow);
+        else currentRow.remove();
+        renumberRows();
+    }
+    function moveRow(currentRow, direction) {
+        if (direction === 'up' && currentRow.previousElementSibling) tbody.insertBefore(currentRow, currentRow.previousElementSibling);
+        if (direction === 'down' && currentRow.nextElementSibling) tbody.insertBefore(currentRow.nextElementSibling, currentRow);
+        renumberRows();
+        focusRow(currentRow);
+    }
+    document.querySelectorAll('[data-bom-action]').forEach(function (button) {
+        button.addEventListener('click', function () {
+            const action = button.dataset.bomAction;
+            const activeRow = document.activeElement ? document.activeElement.closest('#bomItemsBody tr') : null;
+            const targetRow = activeRow || getRows()[getRows().length - 1];
+            if (action === 'add') addRow();
+            if (action === 'insert') insertRow(targetRow);
+            if (action === 'copy' && targetRow) copyRow(targetRow);
+            if (action === 'clear' && targetRow) clearRow(targetRow);
+            if (action === 'delete' && targetRow) deleteRow(targetRow);
+            renumberRows();
+        });
+    });
+    tbody.addEventListener('click', function (event) {
+        const button = event.target.closest('[data-bom-row-action]');
+        if (!button) return;
+        const row = button.closest('tr');
+        const action = button.dataset.bomRowAction;
+        if (!row) return;
+        if (action === 'insert') insertRow(row);
+        if (action === 'copy') copyRow(row);
+        if (action === 'clear') clearRow(row);
+        if (action === 'delete') deleteRow(row);
+        if (action === 'up') moveRow(row, 'up');
+        if (action === 'down') moveRow(row, 'down');
+        renumberRows();
+    });
+    tbody.addEventListener('input', function (event) {
+        if (event.target.matches('input[name="item_quantity"], input[name="item_loss_rate"], input[name="item_unit"]')) refreshRow(event.target.closest('tr'));
+    });
+    tbody.addEventListener('change', function (event) {
+        if (event.target.matches('select[name="item_product_id"]')) {
+            const row = event.target.closest('tr');
+            const unitInput = row.querySelector('input[name="item_unit"]');
+            if (unitInput) unitInput.value = '';
+            refreshRow(row);
+        }
+    });
+    form.addEventListener('submit', renumberRows);
+    renumberRows();
+});
+</script>
+{% endblock %}

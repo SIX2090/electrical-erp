@@ -1,0 +1,6 @@
+{% macro void_stamp(status, label='已作废') -%}
+{% set normalized = (status or '')|string|trim %}
+{% if normalized in ['已作废', '作废', '已取消', '取消', 'void', 'voided', 'cancelled', 'canceled'] %}
+<div class="document-void-stamp" aria-label="{{ label }}">{{ label }}</div>
+{% endif %}
+{%- endmacro %}

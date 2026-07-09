@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}委外订单详情{% endblock %}
+{% block content %}
+{% set can_edit = (order.status or '') in ['', 'draft', 'pending', '新建', '草稿'] %}
+{{ document_menu_bar(actions=[
+    {'type': 'nav', 'items': [
+        {'label': '首张', 'event': 'doc-nav-first', 'icon': 'bi-chevron-double-left'},
+        {'label': '上一张', 'event': 'doc-nav-prev', 'icon': 'bi-chevron-left'},
+        {'label': '下一张', 'event': 'doc-nav-next', 'icon': 'bi-chevron-right'},
+        {'label': '末张', 'event': 'doc-nav-last', 'icon': 'bi-chevron-double-right'}
+    ]},
+    {'label': '编辑', 'type': 'link', 'href': '/subcontract/' ~ order.id ~ '/edit', 'disabled': not can_edit, 'icon': 'bi-pencil-square'},
+    {'label': '下达', 'type': 'button', 'button_type': 'submit', 'form': 'subcontractReleaseForm', 'icon': 'bi-send'},
+    {'label': '关闭', 'type': 'button', 'button_type': 'submit', 'form': 'subcontractCloseForm', 'icon': 'bi-lock'},
+    {'label': '工具', 'type': 'dropdown', 'items': [
+        {'label': '外协发料', 'type': 'link', 'href': '/subcontract_issue/new?subcontract_order_id=' ~ order.id},
+        {'label': '委外收货', 'type': 'link', 'href': '/subcontract_receive/new?subcontract_order_id=' ~ order.id},
+        {'label': '应付查询', 'type': 'link', 'href': '/payables?keyword=' ~ (order.order_no|urlencode)},
+        {'label': '在制报表', 'type': 'link', 'href': '/inventory/reports/subcontract-wip?keyword=' ~ (order.order_no|urlencode)},
+        {'label': '发料记录', 'type': 'link', 'href': '#subcontractIssueRows'},
+        {'label': '收货记录', 'type': 'link', 'href': '#subcontractReceiveRows'}
+    ]}
+], aria_label='委外订单操作菜单') }}
+<div id="doc-nav-config" data-nav-table="subcontract_orders" data-nav-base="/subcontract/" data-doc-id="{{ order.id }}" style="display:none"></div>
+<div class="page-heading">
+    <h1>委外订单详情</h1>
+    <p>{{ order.order_no|clean_text }}，按发料、收货、未回、应付余额推进委外闭环。</p>
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>{{ order.order_no|clean_text }}</h2>
+            <span>{{ order.supplier_name|clean_text }} / {{ order.project_code|clean_text }} / {{ order.serial_no|clean_text }}</span>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-outline-secondary btn-sm" href="{{ back_url or '/subcontract' }}">返回列表</a>
+            {% if (order.status or '') in ['', 'draft', 'pending', '新建', '草稿'] %}
+            <a class="btn btn-outline-secondary btn-sm" href="/subcontract/{{ order.id }}/edit">编辑</a>
+            {% endif %}
+            <a class="btn btn-primary btn-sm" href="/subcontract_issue/new?subcontract_order_id={{ order.id }}">
+                <i class="bi bi-box-arrow-up"></i> 发委外发料
+            </a>
+            <a class="btn btn-success btn-sm" href="/subcontract_receive/new?subcontract_order_id={{ order.id }}">
+                <i class="bi bi-box-arrow-in-down"></i> 委外收货
+            </a>
+            <a class="btn btn-outline-primary btn-sm" href="/payables?keyword={{ order.order_no|urlencode }}">应付查询</a>
+            <a class="btn btn-outline-primary btn-sm" href="/inventory/reports/subcontract-wip?keyword={{ order.order_no|urlencode }}">在制报表</a>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-md-3"><div class="metric"><div class="label">单据状态</div><div class="value">{{ order.status_label|clean_text }}</div><div class="metric-hint">{{ order.execution_status|clean_text }}</div></div></div>
+        <div class="col-md-3"><div class="metric"><div class="label">委外数量</div><div class="value">{{ order.quantity|qty }}</div><div class="metric-hint">{{ order.product_code|clean_text }} {{ order.product_name|clean_text }}</div></div></div>
+        <div class="col-md-3"><div class="metric"><div class="label">已发 / 已收</div><div class="value">{{ order.issued_qty|qty }} / {{ order.received_qty|qty }}</div><div class="metric-hint">报废 {{ order.scrap_qty|qty }}</div></div></div>
+        <div class="col-md-3"><div class="metric {% if order.open_qty %}is-alert{% endif %}"><div class="label">未回数量</div><div class="value">{{ order.open_qty|qty }}</div><div class="metric-hint">应付余额 {{ order.payable_balance|money }}</div></div></div>
+    </div>
+
+    <dl class="row mt-3 mb-0">
+        <dt class="col-sm-2">要求回厂</dt><dd class="col-sm-4">{{ order.required_date or '-' }}</dd>
+        <dt class="col-sm-2">规格型号</dt><dd class="col-sm-4">{{ order.specification|clean_text or '-' }}</dd>
+        <dt class="col-sm-2">下一步</dt><dd class="col-sm-4">{{ order.next_step|clean_text }}</dd>
+        <dt class="col-sm-2">责任</dt><dd class="col-sm-4">{{ order.owner_role|clean_text }}</dd>
+        <dt class="col-sm-2">备注</dt><dd class="col-sm-10">{{ order.remark|clean_text or '-' }}</dd>
+    </dl>
+
+    <div class="d-flex flex-wrap gap-2 mt-3">
+        <form id="subcontractReleaseForm" method="post" action="/subcontract/{{ order.id }}/release">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-outline-primary btn-sm" type="submit">下达</button>
+        </form>
+        <form id="subcontractCloseForm" method="post" action="/subcontract/{{ order.id }}/close">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-outline-secondary btn-sm" type="submit">关闭</button>
+        </form>
+        <form id="subcontractVoidForm" method="post" action="/subcontract/{{ order.id }}/void" onsubmit="return confirm('确认作废该委外订单？已有发料或收货时系统会拦截。');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-outline-danger btn-sm" type="submit">作废</button>
+        </form>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-4">
+        <div class="page-card h-100" id="subcontractIssueRows">
+            <div class="section-title"><div><h2>发料记录</h2><span>{{ issue_rows|length }} 条</span></div><a class="btn btn-outline-primary btn-sm" href="/subcontract_issue?keyword={{ order.order_no|urlencode }}">查看</a></div>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead><tr><th>发料单</th><th>日期</th><th class="text-end">数量</th><th>状态</th></tr></thead>
+                    <tbody>
+                    {% for row in issue_rows %}
+                    <tr><td>{{ row.issue_no|clean_text }}</td><td>{{ row.date or '-' }}</td><td class="text-end">{{ row.total_quantity|qty }}</td><td>{{ row.status|erp_value|clean_text }}</td></tr>
+                    {% else %}
+                    <tr><td colspan="4" class="text-muted">暂无发料记录。</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="page-card h-100" id="subcontractReceiveRows">
+            <div class="section-title"><div><h2>收货记录</h2><span>{{ receive_rows|length }} 条</span></div><a class="btn btn-outline-primary btn-sm" href="/subcontract_receive?keyword={{ order.order_no|urlencode }}">查看</a></div>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead><tr><th>收货单</th><th>日期</th><th class="text-end">收货</th><th class="text-end">报废</th></tr></thead>
+                    <tbody>
+                    {% for row in receive_rows %}
+                    <tr><td>{{ row.receive_no|clean_text }}</td><td>{{ row.date or '-' }}</td><td class="text-end">{{ row.total_quantity|qty }}</td><td class="text-end">{{ row.total_scrap|qty }}</td></tr>
+                    {% else %}
+                    <tr><td colspan="4" class="text-muted">暂无收货记录。</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="page-card h-100">
+            <div class="section-title"><div><h2>应付记录</h2><span>{{ payable_rows|length }} 条</span></div><a class="btn btn-outline-primary btn-sm" href="/payables?keyword={{ order.order_no|urlencode }}">查看</a></div>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead><tr><th>应付单</th><th class="text-end">金额</th><th class="text-end">余额</th><th>状态</th></tr></thead>
+                    <tbody>
+                    {% for row in payable_rows %}
+                    <tr><td>{{ row.doc_no|clean_text }}</td><td class="text-end">{{ row.amount|money }}</td><td class="text-end">{{ row.balance|money }}</td><td>{{ row.status|erp_value|clean_text }}</td></tr>
+                    {% else %}
+                    <tr><td colspan="4" class="text-muted">暂无应付记录。</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,356 @@
+{% extends "base.html" %}
+{% from '_list_macros.html' import sort_th %}
+{% block title %}会计科目表{% endblock %}
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>会计科目表</h2>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addModal">新增科目</button>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <form method="get" class="row g-2 align-items-end mb-3">
+                <div class="col-md-2">
+                    <label class="form-label small text-muted mb-1">科目类别</label>
+                    <select name="account_type" class="form-select form-select-sm">
+                        <option value="" {% if not filters.account_type %}selected{% endif %}>全部类别</option>
+                        <option value="资产类" {% if filters.account_type == '资产类' %}selected{% endif %}>资产类</option>
+                        <option value="负债类" {% if filters.account_type == '负债类' %}selected{% endif %}>负债类</option>
+                        <option value="权益类" {% if filters.account_type == '权益类' %}selected{% endif %}>权益类</option>
+                        <option value="成本类" {% if filters.account_type == '成本类' %}selected{% endif %}>成本类</option>
+                        <option value="损益类" {% if filters.account_type == '损益类' %}selected{% endif %}>损益类</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small text-muted mb-1">状态</label>
+                    <select name="status" class="form-select form-select-sm">
+                        <option value="" {% if not filters.status %}selected{% endif %}>全部状态</option>
+                        <option value="active" {% if filters.status == 'active' %}selected{% endif %}>启用</option>
+                        <option value="inactive" {% if filters.status == 'inactive' %}selected{% endif %}>停用</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label small text-muted mb-1">关键词</label>
+                    <input type="text" name="search" class="form-control form-control-sm" placeholder="搜索科目编码、名称、备注" value="{{ filters.search }}">
+                </div>
+                <div class="col-md-2 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary btn-sm flex-fill">筛选</button>
+                    {% if filters.account_type or filters.status or filters.search %}
+                    <a href="/chart-of-accounts" class="btn btn-outline-secondary btn-sm">清除</a>
+                    {% endif %}
+                </div>
+            </form>
+
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th width="80">科目编码</th>
+                        <th>科目名称</th>
+                        <th width="80">科目类别</th>
+                        <th width="60">方向</th>
+                        <th width="60">末级</th>
+                        <th width="60">状态</th>
+                        <th>备注</th>
+                        <th width="120">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for acct in accounts %}
+                    <tr>
+                        <td>{{ acct.code }}</td>
+                        <td>
+                            {% if acct.parent_id %}
+                            <span class="text-muted">&nbsp;&nbsp;|--</span>
+                            {% endif %}
+                            {{ acct.name }}
+                        </td>
+                        <td>{{ acct.account_type }}</td>
+                        <td>{{ acct.balance_direction }}</td>
+                        <td>
+                            {% if acct.is_leaf %}
+                            <span class="badge bg-info">是</span>
+                            {% else %}
+                            <span class="badge bg-warning">否</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if acct.status == 'active' %}
+                            <span class="badge bg-success">启用</span>
+                            {% else %}
+                            <span class="badge bg-secondary">停用</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ acct.remark or '' }}</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" onclick="editAccount({{ acct.id }})">编辑</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteAccount({{ acct.id }})">删除</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            {% if pagination.pages > 1 %}
+            <nav>
+                <ul class="pagination">
+                    {% if pagination.has_prev %}
+                    <li class="page-item"><a class="page-link" href="{{ url_with_query(page=pagination.prev_num) }}">上一页</a></li>
+                    {% endif %}
+                    {% for p in pagination.iter_pages() %}
+                        {% if p %}
+                            <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                                <a class="page-link" href="{{ url_with_query(page=p) }}">{{ p }}</a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled"><span class="page-link">...</span></li>
+                        {% endif %}
+                    {% endfor %}
+                    {% if pagination.has_next %}
+                    <li class="page-item"><a class="page-link" href="{{ url_with_query(page=pagination.next_num) }}">下一页</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- 新增科目模态框 -->
+<div class="modal fade" id="addModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">新增会计科目</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addForm">
+                    <div class="mb-3">
+                        <label class="form-label">科目编码 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="code" required placeholder="例如：1001">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">科目名称 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="name" required placeholder="例如：库存现金">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">上级科目</label>
+                        <select class="form-select" name="parent_id">
+                            <option value="">无（一级科目）</option>
+                            {% for p in parent_accounts %}
+                            <option value="{{ p.id }}">{{ p.code }} {{ p.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">科目类别 <span class="text-danger">*</span></label>
+                        <select class="form-select" name="account_type" required>
+                            <option value="资产类">资产类</option>
+                            <option value="负债类">负债类</option>
+                            <option value="权益类">权益类</option>
+                            <option value="成本类">成本类</option>
+                            <option value="损益类">损益类</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">余额方向</label>
+                        <select class="form-select" name="balance_direction">
+                            <option value="借方">借方</option>
+                            <option value="贷方">贷方</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="is_leaf" value="1" checked>
+                            <label class="form-check-label">末级科目</label>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">备注</label>
+                        <textarea class="form-control" name="remark" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="submitAdd()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 编辑科目模态框 -->
+<div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">编辑会计科目</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editForm">
+                    <input type="hidden" name="id">
+                    <div class="mb-3">
+                        <label class="form-label">科目编码 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="code" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">科目名称 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">上级科目</label>
+                        <select class="form-select" name="parent_id">
+                            <option value="">无（一级科目）</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">科目类别 <span class="text-danger">*</span></label>
+                        <select class="form-select" name="account_type" required>
+                            <option value="资产类">资产类</option>
+                            <option value="负债类">负债类</option>
+                            <option value="权益类">权益类</option>
+                            <option value="成本类">成本类</option>
+                            <option value="损益类">损益类</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">余额方向</label>
+                        <select class="form-select" name="balance_direction">
+                            <option value="借方">借方</option>
+                            <option value="贷方">贷方</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="is_leaf" value="1">
+                            <label class="form-check-label">末级科目</label>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">状态</label>
+                        <select class="form-select" name="status">
+                            <option value="active">启用</option>
+                            <option value="inactive">停用</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">备注</label>
+                        <textarea class="form-control" name="remark" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="submitEdit()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function getCsrfToken() {
+    const el = document.querySelector('meta[name="csrf-token"]');
+    return el ? el.content : '';
+}
+
+function submitAdd() {
+    const form = document.getElementById('addForm');
+    const formData = new FormData(form);
+    formData.set('is_leaf', form.querySelector('[name="is_leaf"]').checked ? '1' : '0');
+
+    fetch('/chart-of-accounts/add', {
+        method: 'POST',
+        body: formData,
+        headers: { 'X-CSRFToken': getCsrfToken() }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.ok) {
+            showToast('新增成功', 'success');
+            setTimeout(() => location.reload(), 800);
+        } else {
+            showToast(data.error || '新增失败', 'danger', 3600);
+        }
+    })
+    .catch(err => showToast('新增失败：' + err.message, 'danger', 3600));
+}
+
+function editAccount(id) {
+    fetch('/chart-of-accounts/' + id + '/json')
+    .then(res => res.json())
+    .then(data => {
+        if (data.account) {
+            const acct = data.account;
+            const form = document.getElementById('editForm');
+            form.querySelector('[name="id"]').value = acct.id;
+            form.querySelector('[name="code"]').value = acct.code;
+            form.querySelector('[name="name"]').value = acct.name;
+            form.querySelector('[name="account_type"]').value = acct.account_type;
+            form.querySelector('[name="balance_direction"]').value = acct.balance_direction;
+            form.querySelector('[name="is_leaf"]').checked = acct.is_leaf;
+            form.querySelector('[name="status"]').value = acct.status;
+            form.querySelector('[name="remark"]').value = acct.remark || '';
+            // 填充上级科目下拉
+            const parentSelect = form.querySelector('[name="parent_id"]');
+            parentSelect.innerHTML = '<option value="">无（一级科目）</option>';
+            if (data.parent_accounts) {
+                data.parent_accounts.forEach(function(p) {
+                    var safeCode = String(p.code || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+                    var safeName = String(p.name || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+                    parentSelect.innerHTML += '<option value="' + p.id + '">' + safeCode + ' ' + safeName + '</option>';
+                });
+            }
+            parentSelect.value = acct.parent_id || '';
+            new bootstrap.Modal(document.getElementById('editModal')).show();
+        } else {
+            showToast(data.error || '获取数据失败', 'danger', 3600);
+        }
+    })
+    .catch(err => showToast('获取数据失败：' + err.message, 'danger', 3600));
+}
+
+function submitEdit() {
+    const form = document.getElementById('editForm');
+    const formData = new FormData(form);
+    const id = formData.get('id');
+    formData.set('is_leaf', form.querySelector('[name="is_leaf"]').checked ? '1' : '0');
+
+    fetch('/chart-of-accounts/' + id + '/edit', {
+        method: 'POST',
+        body: formData,
+        headers: { 'X-CSRFToken': getCsrfToken() }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.ok) {
+            showToast('编辑成功', 'success');
+            setTimeout(() => location.reload(), 800);
+        } else {
+            showToast(data.error || '编辑失败', 'danger', 3600);
+        }
+    })
+    .catch(err => showToast('编辑失败：' + err.message, 'danger', 3600));
+}
+
+function deleteAccount(id) {
+    if (!confirm('确定要删除这个会计科目吗？')) return;
+
+    fetch('/chart-of-accounts/' + id + '/delete', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCsrfToken() }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.ok) {
+            showToast('删除成功', 'success');
+            setTimeout(() => location.reload(), 800);
+        } else {
+            showToast(data.error || '删除失败', 'danger', 3600);
+        }
+    })
+    .catch(err => showToast('删除失败：' + err.message, 'danger', 3600));
+}
+</script>
+{% endblock %}

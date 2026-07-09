@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}图纸台账导入{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <h1>图纸台账导入</h1>
+    <p>批量导入受控图纸版本和初始业务引用；这里只登记台账，不上传或解析 CAD/PDM 源文件。</p>
+</div>
+
+<div class="page-card">
+    <div class="section-title">
+        <div>
+            <h2>导入CSV</h2>
+            <span>同一图号和版本唯一；同一图纸多业务引用可使用多行重复图号和版本。</span>
+        </div>
+        <a class="btn btn-outline-secondary btn-sm" href="/engineering/drawings/import-template"><i class="bi bi-file-earmark-spreadsheet"></i> 下载模板</a>
+    </div>
+    <form method="post" enctype="multipart/form-data" class="row g-3 align-items-end">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="col-md-4">
+            <label class="form-label">导入方式</label>
+            <select class="form-select" name="mode">
+                <option value="upsert">已存在则更新台账字段</option>
+                <option value="insert_only">已存在则跳过</option>
+            </select>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">CSV文件</label>
+            <input class="form-control" type="file" name="file" accept=".csv,text/csv" required>
+        </div>
+        <div class="col-md-2 d-grid">
+            <button class="btn btn-primary" type="submit"><i class="bi bi-upload"></i> 导入</button>
+        </div>
+    </form>
+    <div class="alert alert-light border mt-3 mb-0 small">
+        必填字段：图号、版本、图纸名称、图纸类型。图纸类型使用 part、assembly、electrical、hydraulic、process、inspection、other；状态使用 draft、released、changing、obsolete；受控等级使用 normal、internal、restricted。
+    </div>
+</div>
+{% endblock %}

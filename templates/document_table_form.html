@@ -1,0 +1,830 @@
+{% extends "base.html" %}
+{% from "partials/document_line_toolbar.html" import line_toolbar %}
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.doc-page { background:#fff; min-height:calc(100vh - 80px); }
+.doc-header { background:#fff; padding:12px 16px; border-bottom:1px solid #d9d9d9; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; }
+.doc-header h2 { font-size:15px; font-weight:600; color:#333; margin:0; display:flex; align-items:center; gap:6px; }
+.doc-body { padding:12px 16px; }
+.doc-form .form-label { font-size:12px; color:#666; margin-bottom:3px; font-weight:400; }
+.doc-form .form-control, .doc-form .form-select { border:1px solid #d9d9d9; border-radius:2px; padding:3px 8px; font-size:12px; height:28px; background:#fff; }
+.doc-form textarea.form-control { height:auto; min-height:28px; resize:vertical; }
+.doc-form .form-control:focus, .doc-form .form-select:focus, .doc-grid input:focus, .doc-grid select:focus { border-color:#1890ff !important; box-shadow:0 0 0 2px rgba(24,144,255,.1); outline:none; }
+.doc-toolbar { display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin:6px 0; }
+.doc-toolbar .btn, .footer-bar .btn { height:34px; border-radius:5px; font-size:12px; line-height:1; display:inline-flex; align-items:center; gap:5px; padding:0 14px; font-weight:500; }
+.doc-grid-wrapper { border:1px solid #d9d9d9; overflow:visible; background:#fff; }
+.doc-grid { width:100%; border-collapse:collapse; margin:0; table-layout:auto; }
+.doc-grid thead th { background:#fafafa; color:#333; font-weight:500; padding:7px 8px; border:1px solid #e8e8e8; font-size:12px; white-space:nowrap; text-align:center; height:34px; }
+.doc-grid tbody td { padding:0 4px; vertical-align:middle; font-size:12px; border:1px solid #e8e8e8; height:30px; color:#333; }
+.doc-grid tbody tr:nth-child(even) td { background:#fafafa; }
+.doc-grid tbody tr:nth-child(odd) td { background:#fff; }
+.doc-grid tbody tr:hover td { background:#e6f7ff; border-color:#91d5ff; }
+.doc-grid .row-num { width:42px; text-align:center; color:#999; font-size:12px; padding:0 2px; }
+.doc-grid .action-col { width:86px; text-align:center; white-space:nowrap; }
+.doc-grid .num-col { text-align:right; }
+.doc-grid input, .doc-grid select { width:100%; border:1px solid transparent; background:transparent; padding:2px 4px; height:26px; font-size:12px; border-radius:2px; color:#333; }
+.doc-grid input:hover:not([readonly]), .doc-grid select:hover:not(:disabled) { border-color:#d9d9d9; background:#fafafa; }
+.doc-grid input[readonly] { cursor:default; color:#333; }
+.doc-grid .num-col input { text-align:right; }
+.material-input { position:relative; }
+.material-select-btn { position:absolute; right:1px; top:50%; transform:translateY(-50%); background:transparent; border:none; padding:1px 4px; cursor:pointer; font-size:9px; color:#888; height:20px; line-height:1; }
+.material-select-btn:hover { color:#1890ff; }
+.material-dropdown { position:fixed; min-width:420px; max-height:280px; overflow-y:auto; background:#fff; border:1px solid #d9d9d9; border-radius:3px; z-index:99999; box-shadow:0 2px 12px rgba(0,0,0,.12); }
+.material-dropdown-item { padding:6px 10px; cursor:pointer; border-bottom:1px solid #f0f0f0; font-size:12px; }
+.material-dropdown-item:hover { background:#e6f7ff; }
+.material-dropdown-item .code { font-weight:600; color:#1890ff; }
+.material-dropdown-item .meta { color:#999; font-size:11px; margin-left:6px; }
+.doc-grid tfoot td { padding:8px; font-size:12px; border:1px solid #ffe58f; font-weight:600; color:#333; background:#fffbe6; }
+.footer-bar { background:#fff; padding:12px 16px; border-top:1px solid #d9d9d9; display:flex; justify-content:flex-end; gap:8px; position:sticky; bottom:0; z-index:5; }
+.readonly-mask input:not([type="hidden"]), .readonly-mask select, .readonly-mask textarea { pointer-events:none; background:#f5f5f5 !important; color:#666 !important; }
+@media (max-width:768px) { .doc-body{padding:10px;} .material-dropdown{min-width:300px; left:10px !important; right:10px;} }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="doc-page">
+    <div class="doc-header">
+        <h2>
+            <i class="bi {{ icon }}"></i>
+            {{ page_title }}
+            {% if order_id %}
+            <span class="badge {{ 'bg-warning text-dark' if status == 'pending' else ('bg-success' if status in ['completed', 'active'] else 'bg-secondary') }}">
+                {% if status == 'pending' %}草稿{% elif status == 'completed' %}已完成{% elif status == 'active' %}激活{% elif status == 'inactive' %}停用{% else %}{{ status }}{% endif %}
+            </span>
+            {% endif %}
+        </h2>
+        <div class="d-flex gap-2 flex-wrap">
+            {% if can_save %}
+            <button type="button" class="btn btn-primary btn-sm" onclick="submitForm(false)"><i class="bi bi-save"></i> 保存</button>
+            {% if complete_url %}
+            <button type="button" class="btn btn-success btn-sm" onclick="submitForm(true)"><i class="bi bi-check-circle"></i> 保存并完成</button>
+            {% endif %}
+            {% endif %}
+            {% if can_complete %}
+            <button type="button" class="btn btn-success btn-sm" onclick="completeDocument()"><i class="bi bi-check-circle"></i> {{ complete_label }}</button>
+            {% endif %}
+            {% if can_revert %}
+            <button type="button" class="btn btn-warning btn-sm" onclick="revertDocument()"><i class="bi bi-arrow-counterclockwise"></i> {{ revert_label or '反提交' }}</button>
+            {% endif %}
+            {% if order_id and doc_type in ['bom', 'requisition', 'transfer', 'check'] %}
+            <a href="{{ detail_url }}/{{ order_id }}/print" target="_blank" class="btn btn-outline-primary btn-sm"><i class="bi bi-printer"></i> 打印</a>
+            {% endif %}
+            <a href="{{ list_url }}" class="btn btn-secondary btn-sm"><i class="bi bi-arrow-left"></i> 返回列表</a>
+        </div>
+    </div>
+
+    <div class="doc-body">
+        <form id="docForm" class="doc-form {{ 'readonly-mask' if readonly else '' }}">
+            <input type="hidden" name="order_id" value="{{ order_id }}">
+            <input type="hidden" name="order_no" value="{{ order_no }}">
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <div class="mb-2">
+                        <label class="form-label">{{ order_no_label }}</label>
+                        <input type="text" class="form-control" value="{{ order_no }}" readonly>
+                    </div>
+                </div>
+                {% if doc_type != 'bom' %}
+                <div class="col-md-3">
+                    <div class="mb-2">
+                        <label class="form-label">日期</label>
+                        <input type="date" class="form-control" name="date" value="{{ date_value }}" {% if readonly %}readonly{% endif %}>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if doc_type == 'transfer' %}
+                <div class="col-md-3">
+                    <div class="mb-2">
+                        <label class="form-label">调出仓库</label>
+                        <select class="form-select" name="from_location" {% if readonly %}disabled{% endif %}>
+                            <option value="">请选择调出仓库</option>
+                            {% for warehouse in warehouses %}
+                            <option value="{{ warehouse.name }}" {% if header.from_location == warehouse.name %}selected{% endif %}>{{ warehouse.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="mb-2">
+                        <label class="form-label">调入仓库</label>
+                        <select class="form-select" name="to_location" {% if readonly %}disabled{% endif %}>
+                            <option value="">请选择调入仓库</option>
+                            {% for warehouse in warehouses %}
+                            <option value="{{ warehouse.name }}" {% if header.to_location == warehouse.name %}selected{% endif %}>{{ warehouse.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                {% elif doc_type == 'bom' %}
+                <div class="col-md-3">
+                    <div class="mb-2">
+                        <label class="form-label">产品编码</label>
+                        <input type="text" class="form-control" name="product_code" value="{{ header.product_code }}" autocomplete="off">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="mb-2">
+                        <label class="form-label">产品名称</label>
+                        <input type="text" class="form-control" name="product_name" value="{{ header.product_name }}">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="mb-2">
+                        <label class="form-label">版本</label>
+                        <input type="text" class="form-control" name="version" value="{{ header.version }}">
+                    </div>
+                </div>
+                <div class="col-md-1">
+                    <div class="mb-2">
+                        <label class="form-label">状态</label>
+                        <select class="form-select" name="status">
+                            <option value="active" {% if header.status == 'active' %}selected{% endif %}>激活</option>
+                            <option value="inactive" {% if header.status == 'inactive' %}selected{% endif %}>停用</option>
+                        </select>
+                    </div>
+                </div>
+                {% elif doc_type == 'requisition' %}
+                <div class="col-md-3">
+                    <div class="mb-2">
+                        <label class="form-label">关联BOM</label>
+                        <select class="form-select" name="bom_id" {% if readonly %}disabled{% endif %}>
+                            <option value="">请选择BOM</option>
+                            {% for bom in boms %}
+                            <option value="{{ bom.id }}" {% if header.bom_id == bom.id %}selected{% endif %}>{{ bom.bom_no }} - {{ bom.product_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="mb-2">
+                        <label class="form-label">工单</label>
+                        <input type="text" class="form-control" name="production_order" value="{{ header.production_order }}" {% if readonly %}readonly{% endif %}>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="mb-2">
+                        <label class="form-label">工单领料用途</label>
+                        <input type="text" class="form-control" name="purpose" value="{{ header.purpose }}" {% if readonly %}readonly{% endif %}>
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="{{ 'col-md-12' if doc_type in ['transfer', 'check'] else 'col-md-12' }}">
+                    <div class="mb-2">
+                        <label class="form-label">备注</label>
+                        <textarea class="form-control" name="remark" rows="2" {% if readonly %}readonly{% endif %}>{{ header.remark }}</textarea>
+                    </div>
+                </div>
+            </div>
+
+            {% if can_save %}
+            <div class="doc-toolbar">
+                {{ line_toolbar('增行') }}
+                <button type="button" class="btn btn-outline-success" onclick="showPasteModal()"><i class="bi bi-clipboard"></i> 粘贴导入</button>
+                <button type="button" class="btn btn-outline-secondary" onclick="refreshMaterials()"><i class="bi bi-arrow-clockwise"></i> 刷新物料</button>
+            </div>
+            {% endif %}
+
+            <div class="table-responsive doc-grid-wrapper">
+                <table class="doc-grid" id="docTable" data-document-grid data-grid-key="{{ doc_type }}_legacy_document_items">
+                    <thead>
+                        <tr data-grid-header>
+                            <th class="row-num" data-column-key="row_no">序号</th>
+                            <th style="width:150px;" data-column-key="material_code">物料编码</th>
+                            <th data-column-key="material_name">物料名称</th>
+                            <th style="width:110px;" data-column-key="specification">规格</th>
+                            <th style="width:75px;" data-column-key="unit">单位</th>
+                            {% if doc_type in ['transfer', 'requisition', 'check'] %}
+                            <th style="width:95px;" data-column-key="stock">当前库存</th>
+                            {% endif %}
+                            {% if doc_type == 'check' %}
+                            <th style="width:100px;" data-column-key="system_stock">系统库存</th>
+                            <th style="width:100px;" data-column-key="actual_stock">实际库存</th>
+                            <th style="width:100px;" data-column-key="diff">差异</th>
+                            <th style="width:180px;" data-column-key="reason">差异原因</th>
+                            {% elif doc_type == 'bom' %}
+                            <th style="width:100px;" data-column-key="quantity">用量</th>
+                            <th style="width:100px;" data-column-key="price">单价</th>
+                            <th style="width:110px;" data-column-key="amount">成本</th>
+                            <th style="width:140px;" data-column-key="usage">用途</th>
+                            <th style="width:180px;" data-column-key="remark">备注</th>
+                            {% else %}
+                            <th style="width:100px;" data-column-key="quantity">数量</th>
+                            {% if doc_type == 'transfer' %}
+                            <th style="width:100px;" data-column-key="price">单价</th>
+                            <th style="width:110px;" data-column-key="amount">金额</th>
+                            {% endif %}
+                            <th style="width:200px;" data-column-key="remark">备注</th>
+                            {% endif %}
+                            {% if can_save %}<th class="action-col" data-column-key="actions">操作</th>{% endif %}
+                        </tr>
+                    </thead>
+                    <tbody id="docTableBody"></tbody>
+                    <tfoot>
+                        <tr>
+                            {% if doc_type == 'check' %}
+                            <td colspan="8" class="text-end">合计：</td>
+                            <td class="text-end" id="totalQty">0.00</td>
+                            <td colspan="{{ 2 if can_save else 1 }}"></td>
+                            {% elif doc_type == 'transfer' %}
+                            <td colspan="6" class="text-end">合计：</td>
+                            <td class="text-end" id="totalQty">0.00</td>
+                            <td colspan="{{ 4 if can_save else 3 }}"></td>
+                            {% elif doc_type == 'requisition' %}
+                            <td colspan="6" class="text-end">合计：</td>
+                            <td class="text-end" id="totalQty">0.00</td>
+                            <td colspan="{{ 2 if can_save else 1 }}"></td>
+                            {% else %}
+                            <td colspan="5" class="text-end">合计：</td>
+                            <td class="text-end" id="totalQty">0.00</td>
+                            <td colspan="{{ 5 if can_save else 4 }}"></td>
+                            {% endif %}
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/document_grid.js') }}"></script>
+<script>
+const docType = {{ doc_type|tojson }};
+const saveUrl = {{ save_url|tojson }};
+const completeUrl = {{ complete_url|tojson }};
+const revertUrl = {{ (revert_url or '')|tojson }};
+const detailUrl = {{ detail_url|tojson }};
+const readonly = {{ readonly|tojson }};
+const materials = {{ materials|tojson }};
+const units = {{ units|tojson }};
+const existingItems = {{ existing_items|tojson }};
+const minRowCount = 15;
+let activeDropdown = null;
+
+function formatQty(value) {
+    const num = parseFloat(value);
+    return Number.isFinite(num) ? num.toFixed(2) : '0.00';
+}
+function getMaterialUnit(material) {
+    if (!material || !material.unit) return '';
+    return typeof material.unit === 'object' ? (material.unit.name || '') : material.unit;
+}
+function getMaterialUnitId(material) {
+    if (!material || !material.unit) return '';
+    return typeof material.unit === 'object' ? (material.unit.id || '') : '';
+}
+function findMaterialByCode(code) {
+    const normalized = String(code || '').trim().toLowerCase();
+    if (!normalized) return null;
+    return materials.find(m => String(m.code || '').toLowerCase() === normalized) || null;
+}
+function escapeHtml(value) {
+    return String(value || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function unitOptions(selectedId) {
+    let html = '<option value="">-</option>';
+    units.forEach(function(unit) {
+        html += '<option value="' + unit.id + '"' + (String(selectedId || '') === String(unit.id) ? ' selected' : '') + '>' + escapeHtml(unit.name) + '</option>';
+    });
+    return html;
+}
+function trimDecimalInput(input) {
+    const val = input.value;
+    if (val.includes('.')) {
+        const parts = val.split('.');
+        if (parts[1].length > 2) input.value = parts[0] + '.' + parts[1].substring(0, 2);
+    }
+}
+function fillMaterialFields(row, material) {
+    row.dataset.materialId = material.id || '';
+    row.querySelector('.material-code').value = material.code || '';
+    row.querySelector('.material-name').value = material.name || '';
+    row.querySelector('.material-spec').value = material.spec || '';
+    row.querySelector('.material-unit').value = getMaterialUnit(material);
+    const unitSelect = row.querySelector('.unit-id');
+    if (unitSelect && getMaterialUnitId(material)) unitSelect.value = getMaterialUnitId(material);
+    const stockInput = row.querySelector('.material-stock');
+    if (stockInput) stockInput.value = formatQty(material.stock);
+    const priceInput = row.querySelector('.line-price');
+    if (priceInput && (!priceInput.value || Number(priceInput.value) === 0)) {
+        priceInput.value = formatQty(material.price);
+    }
+    const usageInput = row.querySelector('.line-usage');
+    if (usageInput && !usageInput.value.trim() && material.purpose) {
+        usageInput.value = material.purpose;
+    }
+    if (docType === 'check') {
+        row.querySelector('.system-stock').value = formatQty(material.stock);
+        if (!row.querySelector('.actual-stock').value) row.querySelector('.actual-stock').value = formatQty(material.stock);
+        updateCheckDiff(row);
+    }
+    calcRow(row);
+}
+function clearMaterialFields(row) {
+    row.dataset.materialId = '';
+    row.querySelector('.material-name').value = '';
+    row.querySelector('.material-spec').value = '';
+    row.querySelector('.material-unit').value = '';
+    row.querySelector('.material-stock') && (row.querySelector('.material-stock').value = '');
+}
+function rowCells(item) {
+    const readonlyAttr = readonly ? 'readonly' : '';
+    const disabledAttr = readonly ? 'disabled' : '';
+    const unitId = item && item.unit_id ? item.unit_id : '';
+    let html = `
+        <td class="row-num" data-column-key="row_no"></td>
+        <td data-column-key="material_code">
+            <div class="material-input">
+                <input type="text" class="material-code" ${readonlyAttr}>
+                ${readonly ? '' : '<button type="button" class="material-select-btn">▼</button><div class="material-dropdown" style="display:none;"></div>'}
+            </div>
+        </td>
+        <td data-column-key="material_name"><input type="text" class="material-name" readonly></td>
+        <td data-column-key="specification"><input type="text" class="material-spec" readonly></td>
+        <td data-column-key="unit"><input type="text" class="material-unit" readonly><select class="unit-id d-none" ${disabledAttr}>${unitOptions(unitId)}</select></td>`;
+    if (docType === 'transfer' || docType === 'requisition' || docType === 'check') {
+        html += '<td class="num-col" data-column-key="stock"><input type="text" class="material-stock" readonly></td>';
+    }
+    if (docType === 'check') {
+        html += `
+            <td class="num-col" data-column-key="system_stock"><input type="number" class="system-stock" step="0.01" ${readonlyAttr}></td>
+            <td class="num-col" data-column-key="actual_stock"><input type="number" class="actual-stock" step="0.01" ${readonlyAttr}></td>
+            <td class="num-col" data-column-key="diff"><input type="text" class="line-diff" readonly></td>
+            <td data-column-key="reason"><input type="text" class="line-reason" ${readonlyAttr}></td>`;
+    } else if (docType === 'bom') {
+        html += `
+            <td class="num-col" data-column-key="quantity"><input type="number" class="line-qty" min="0" step="0.01" ${readonlyAttr}></td>
+            <td class="num-col" data-column-key="price"><input type="number" class="line-price" min="0" step="0.01" ${readonlyAttr}></td>
+            <td class="num-col" data-column-key="amount"><input type="text" class="line-amount" readonly></td>
+            <td data-column-key="usage"><input type="text" class="line-usage" ${readonlyAttr}></td>
+            <td data-column-key="remark"><input type="text" class="line-remark" ${readonlyAttr}></td>`;
+    } else {
+        html += '<td class="num-col" data-column-key="quantity"><input type="number" class="line-qty" min="0" step="0.01" ' + readonlyAttr + '></td>';
+        if (docType === 'transfer') {
+            html += '<td class="num-col" data-column-key="price"><input type="number" class="line-price" min="0" step="0.01" ' + readonlyAttr + '></td><td class="num-col" data-column-key="amount"><input type="text" class="line-amount" readonly></td>';
+        }
+        html += '<td data-column-key="remark"><input type="text" class="line-remark" ' + readonlyAttr + '></td>';
+    }
+    if (!readonly) {
+        html += `<td class="action-col" data-column-key="actions">
+            <button type="button" class="btn btn-sm btn-outline-primary me-1" onclick="insertRowBefore(this)" title="插入行"><i class="bi bi-plus-circle"></i></button>
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteRow(this)" title="删除行"><i class="bi bi-trash"></i></button>
+        </td>`;
+    }
+    return html;
+}
+function createRow(item) {
+    const tbody = document.getElementById('docTableBody');
+    const row = tbody.insertRow();
+    row.dataset.materialId = item && item.material_id ? item.material_id : '';
+    row.innerHTML = rowCells(item);
+    if (item) {
+        row.querySelector('.material-code').value = item.code || '';
+        row.querySelector('.material-name').value = item.name || '';
+        row.querySelector('.material-spec').value = item.spec || '';
+        row.querySelector('.material-unit').value = item.unit || '';
+        row.querySelector('.unit-id').value = item.unit_id || '';
+        row.querySelector('.material-stock') && (row.querySelector('.material-stock').value = formatQty(item.stock));
+        if (docType === 'check') {
+            row.querySelector('.system-stock').value = formatQty(item.system_stock);
+            row.querySelector('.actual-stock').value = formatQty(item.actual_stock);
+            row.querySelector('.line-reason').value = item.reason || '';
+            updateCheckDiff(row);
+        } else {
+            row.querySelector('.line-qty').value = item.quantity ? formatQty(item.quantity) : '';
+            row.querySelector('.line-price') && (row.querySelector('.line-price').value = formatQty(item.price));
+            row.querySelector('.line-usage') && (row.querySelector('.line-usage').value = item.usage || '');
+            row.querySelector('.line-remark') && (row.querySelector('.line-remark').value = item.remark || '');
+            calcRow(row);
+        }
+    }
+    bindRowEvents(row);
+    renumberRows();
+    return row;
+}
+function bindRowEvents(row) {
+    if (readonly) return;
+    const codeInput = row.querySelector('.material-code');
+    codeInput.addEventListener('input', function() {
+        const material = findMaterialByCode(this.value);
+        if (material) fillMaterialFields(row, material); else clearMaterialFields(row);
+        showDropdown(row);
+    });
+    codeInput.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') hideDropdown();
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            const material = findMaterialByCode(this.value);
+            if (material) {
+                fillMaterialFields(row, material);
+                hideDropdown();
+                (row.querySelector('.line-qty') || row.querySelector('.actual-stock'))?.focus();
+            }
+        }
+    });
+    row.querySelector('.material-select-btn')?.addEventListener('click', function() { showDropdown(row, true); });
+    row.querySelectorAll('.line-qty,.line-price,.actual-stock,.system-stock').forEach(function(input) {
+        input.addEventListener('input', function() { trimDecimalInput(this); calcRow(row); });
+        input.addEventListener('blur', function() { if (this.value) this.value = formatQty(this.value); calcRow(row); });
+    });
+}
+function addNewRow() {
+    const row = createRow(null);
+    row.querySelector('.material-code')?.focus();
+}
+function insertRowBefore(btn) {
+    const tbody = document.getElementById('docTableBody');
+    const currentRow = btn.closest('tr');
+    const row = createRow(null);
+    tbody.insertBefore(row, currentRow);
+    renumberRows();
+    row.querySelector('.material-code')?.focus();
+    return row;
+}
+function deleteRow(btn) {
+    const tbody = document.getElementById('docTableBody');
+    btn.closest('tr').remove();
+    while (tbody.rows.length < minRowCount) createRow(null);
+    renumberRows();
+    calcTotal();
+}
+function copyRowAfter(row) {
+    if (!row) {
+        addNewRow();
+        return;
+    }
+    const target = createRow(null);
+    if (row.nextElementSibling) {
+        document.getElementById('docTableBody').insertBefore(target, row.nextElementSibling);
+    }
+    target.dataset.materialId = row.dataset.materialId || '';
+    target.querySelector('.material-code').value = row.querySelector('.material-code').value;
+    target.querySelector('.material-name').value = row.querySelector('.material-name').value;
+    target.querySelector('.material-spec').value = row.querySelector('.material-spec').value;
+    target.querySelector('.material-unit').value = row.querySelector('.material-unit').value;
+    target.querySelector('.unit-id').value = row.querySelector('.unit-id').value;
+    if (target.querySelector('.material-stock') && row.querySelector('.material-stock')) {
+        target.querySelector('.material-stock').value = row.querySelector('.material-stock').value;
+    }
+    if (docType === 'check') {
+        target.querySelector('.system-stock').value = row.querySelector('.system-stock').value;
+        target.querySelector('.actual-stock').value = row.querySelector('.actual-stock').value;
+        target.querySelector('.line-reason').value = row.querySelector('.line-reason').value;
+        updateCheckDiff(target);
+    } else {
+        target.querySelector('.line-qty') && (target.querySelector('.line-qty').value = row.querySelector('.line-qty')?.value || '');
+        target.querySelector('.line-price') && (target.querySelector('.line-price').value = row.querySelector('.line-price')?.value || '');
+        target.querySelector('.line-usage') && (target.querySelector('.line-usage').value = row.querySelector('.line-usage')?.value || '');
+        target.querySelector('.line-remark') && (target.querySelector('.line-remark').value = row.querySelector('.line-remark')?.value || '');
+        calcRow(target);
+    }
+    target.querySelector('.line-qty, .actual-stock, .material-code')?.focus();
+    renumberRows();
+}
+function renumberRows() {
+    document.querySelectorAll('#docTableBody tr').forEach(function(row, index) { row.querySelector('.row-num').textContent = index + 1; });
+}
+function calcRow(row) {
+    if (docType === 'check') {
+        updateCheckDiff(row);
+    } else {
+        const qty = parseFloat(row.querySelector('.line-qty')?.value) || 0;
+        const price = parseFloat(row.querySelector('.line-price')?.value) || 0;
+        row.querySelector('.line-amount') && (row.querySelector('.line-amount').value = formatQty(qty * price));
+    }
+    calcTotal();
+}
+function updateCheckDiff(row) {
+    const system = parseFloat(row.querySelector('.system-stock')?.value) || 0;
+    const actual = parseFloat(row.querySelector('.actual-stock')?.value) || 0;
+    row.querySelector('.line-diff').value = formatQty(actual - system);
+}
+function calcTotal() {
+    let total = 0;
+    document.querySelectorAll('#docTableBody tr').forEach(function(row) {
+        if (!row.querySelector('.material-code').value.trim()) return;
+        if (docType === 'check') total += parseFloat(row.querySelector('.actual-stock').value) || 0;
+        else total += parseFloat(row.querySelector('.line-qty')?.value) || 0;
+    });
+    document.getElementById('totalQty').textContent = total.toFixed(2);
+}
+function showDropdown(row, showAll) {
+    const input = row.querySelector('.material-code');
+    const dropdown = row.querySelector('.material-dropdown');
+    if (!dropdown) return;
+    const keyword = input.value.toLowerCase().trim();
+    if (activeDropdown && activeDropdown !== dropdown) activeDropdown.style.display = 'none';
+    const filtered = materials.filter(function(m) {
+        return showAll || String(m.code||'').toLowerCase().includes(keyword) || String(m.name||'').toLowerCase().includes(keyword) || String(m.spec||'').toLowerCase().includes(keyword);
+    }).slice(0, 80);
+    if (!filtered.length) { dropdown.style.display = 'none'; return; }
+    dropdown.innerHTML = filtered.map(function(m) {
+        return `<div class="material-dropdown-item" data-code="${escapeHtml(m.code)}"><span class="code">${escapeHtml(m.code)}</span> - ${escapeHtml(m.name)}<span class="meta">${escapeHtml(m.spec || '')}</span><span class="meta">${escapeHtml(getMaterialUnit(m))}</span><span class="meta">库存 ${formatQty(m.stock)}</span></div>`;
+    }).join('');
+    dropdown.querySelectorAll('.material-dropdown-item').forEach(function(item) {
+        item.addEventListener('click', function() {
+            const material = findMaterialByCode(this.dataset.code);
+            if (material) {
+                fillMaterialFields(row, material);
+                hideDropdown();
+                (row.querySelector('.line-qty') || row.querySelector('.actual-stock'))?.focus();
+            }
+        });
+    });
+    const rect = input.getBoundingClientRect();
+    dropdown.style.top = (rect.bottom + 5) + 'px';
+    dropdown.style.left = rect.left + 'px';
+    dropdown.style.display = 'block';
+    activeDropdown = dropdown;
+}
+function hideDropdown() {
+    if (activeDropdown) {
+        activeDropdown.style.display = 'none';
+        activeDropdown = null;
+    }
+}
+function collectItems() {
+    const items = [];
+    const invalidRows = [];
+    document.querySelectorAll('#docTableBody tr').forEach(function(row, index) {
+        const codeInput = row.querySelector('.material-code');
+        const code = codeInput.value.trim();
+        if (!code) return;
+        const material = findMaterialByCode(code);
+        if (!material) {
+            codeInput.style.borderColor = '#ff4d4f';
+            invalidRows.push('第 ' + (index + 1) + ' 行物料不存在');
+            return;
+        }
+        codeInput.style.borderColor = '';
+        const unitId = row.querySelector('.unit-id').value || getMaterialUnitId(material);
+        if (docType === 'check') {
+            items.push({
+                material_id: material.id,
+                code: material.code,
+                unit_id: unitId,
+                system_stock: parseFloat(row.querySelector('.system-stock').value) || 0,
+                actual_stock: parseFloat(row.querySelector('.actual-stock').value) || 0,
+                reason: row.querySelector('.line-reason').value.trim()
+            });
+            return;
+        }
+        const qtyInput = row.querySelector('.line-qty');
+        const quantity = parseFloat(qtyInput.value);
+        if (!quantity || quantity <= 0) {
+            qtyInput.style.borderColor = '#ff4d4f';
+            invalidRows.push('第 ' + (index + 1) + ' 行数量无效');
+            return;
+        }
+        qtyInput.style.borderColor = '';
+        items.push({
+            material_id: material.id,
+            code: material.code,
+            unit_id: unitId,
+            quantity: quantity,
+            price: parseFloat(row.querySelector('.line-price')?.value) || material.price || 0,
+            usage: row.querySelector('.line-usage')?.value.trim() || '',
+            remark: row.querySelector('.line-remark')?.value.trim() || ''
+        });
+    });
+    return {items, invalidRows};
+}
+function collectHeader() {
+    const get = name => document.querySelector('[name="' + name + '"]')?.value || '';
+    if (docType === 'transfer') return {from_location:get('from_location'), to_location:get('to_location'), remark:get('remark')};
+    if (docType === 'bom') return {product_code:get('product_code'), product_name:get('product_name'), version:get('version'), status:get('status'), remark:get('remark')};
+    if (docType === 'requisition') return {bom_id:get('bom_id'), production_order:get('production_order'), purpose:get('purpose'), remark:get('remark')};
+    return {remark:get('remark')};
+}
+function submitForm(completeAfterSave) {
+    if (readonly) return;
+    const result = collectItems();
+    if (result.invalidRows.length) { showToast(result.invalidRows[0], 'danger', 3600); return; }
+    if (!result.items.length) { showToast('请至少填写一条明细', 'warning'); return; }
+    const data = {
+        order_id: document.querySelector('[name="order_id"]').value,
+        order_no: document.querySelector('[name="order_no"]').value,
+        date: document.querySelector('[name="date"]')?.value || '',
+        header: collectHeader(),
+        items: result.items
+    };
+    fetch(saveUrl, {method:'POST', headers:{'Content-Type':'application/json', 'X-CSRFToken': (document.querySelector('meta[name="csrf-token"]') || {}).content || ''}, body:JSON.stringify(data)})
+        .then(r => r.json())
+        .then(res => {
+            if (res.status !== 'success') throw new Error(res.msg || '保存失败');
+            document.querySelector('[name="order_id"]').value = res.id;
+            if (!completeAfterSave || !completeUrl) {
+                showToast('保存成功', 'success');
+                setTimeout(() => { window.location.href = detailUrl + '/' + res.id; }, 500);
+                return;
+            }
+            const actionUrl = completeUrl.replace(/\/0(?=\/|$)/, '/' + res.id);
+            return fetch(actionUrl, {method:'POST', headers:{'X-CSRFToken': (document.querySelector('meta[name="csrf-token"]') || {}).content || ''}})
+                .then(r => r.json())
+                .then(done => {
+                    if (done.status === 'success') {
+                        showToast(done.msg || '操作成功', 'success');
+                    } else {
+                        showToast('单据已保存但完成失败：' + (done.msg || '未知错误'), 'danger', 4200);
+                    }
+                    setTimeout(() => { window.location.href = detailUrl + '/' + res.id; }, 700);
+                });
+        })
+        .catch(err => showToast(err.message || '保存失败', 'danger', 3600));
+}
+function completeDocument() {
+    if (!confirm('确认完成该单据？')) return;
+    submitForm(true);
+}
+function revertDocument() {
+    if (!revertUrl) return;
+    if (!confirm('确认反提交该单据？反提交后库存将恢复。')) return;
+    fetch(revertUrl, {method: 'POST', headers:{'X-CSRFToken': (document.querySelector('meta[name="csrf-token"]') || {}).content || ''}})
+    .then(r => r.json())
+    .then(res => {
+        if (res.status === 'success') {
+            showToast(res.msg || '反提交成功', 'success');
+            setTimeout(function(){ location.reload(); }, 650);
+        } else {
+            showToast(res.msg || '反提交失败', 'danger', 4200);
+        }
+    })
+    .catch(err => showToast('反提交失败：' + err.message, 'danger', 4200));
+}
+function showPasteModal() {
+    const modal = document.createElement('div');
+    modal.id = 'pasteModal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99999;display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML = `<div style="background:white;border-radius:8px;padding:22px;width:620px;max-width:92%;max-height:82vh;display:flex;flex-direction:column;">
+        <h5 style="margin:0 0 14px;font-size:16px;font-weight:600;">粘贴导入</h5>
+        <div style="color:#666;font-size:13px;margin-bottom:10px;">支持从 Excel 复制多行，格式：物料编码、数量、备注。盘点单第二列作为实际库存。</div>
+        <textarea id="pasteArea" style="min-height:220px;border:1px solid #d9d9d9;border-radius:4px;padding:12px;font-size:13px;font-family:Consolas,monospace;resize:vertical;"></textarea>
+        <div style="margin-top:16px;display:flex;justify-content:flex-end;gap:8px;"><button type="button" class="btn btn-secondary" onclick="document.getElementById('pasteModal').remove()">取消</button><button type="button" class="btn btn-primary" onclick="parsePastedData()">确认导入</button></div>
+    </div>`;
+    document.body.appendChild(modal);
+    setTimeout(() => document.getElementById('pasteArea').focus(), 80);
+}
+function parsePastedData() {
+    const text = document.getElementById('pasteArea').value.trim();
+    if (!text) { showToast('请输入要导入的数据', 'warning'); return; }
+    let success = 0;
+    text.split(/\r?\n/).forEach(function(line) {
+        const parts = line.split(/\t|,|，/).map(p => p.trim());
+        const material = findMaterialByCode(parts[0] || '');
+        const qty = parseFloat(parts[1]);
+        if (!material || !qty) return;
+        let row = findEmptyRow() || createRow(null);
+        fillMaterialFields(row, material);
+        if (docType === 'check') {
+            row.querySelector('.actual-stock').value = formatQty(qty);
+            row.querySelector('.line-reason').value = parts[2] || '';
+            updateCheckDiff(row);
+        } else {
+            row.querySelector('.line-qty').value = formatQty(qty);
+            row.querySelector('.line-remark') && (row.querySelector('.line-remark').value = parts[2] || '');
+            row.querySelector('.line-usage') && (row.querySelector('.line-usage').value = parts[2] || '');
+            calcRow(row);
+        }
+        success++;
+    });
+    calcTotal();
+    document.getElementById('pasteModal').remove();
+    showToast('成功导入 ' + success + ' 行', 'success');
+}
+function findEmptyRow() {
+    for (const row of document.querySelectorAll('#docTableBody tr')) {
+        if (!row.querySelector('.material-code').value.trim()) return row;
+    }
+    return null;
+}
+function refreshMaterials() {
+    fetch('/material/api/all').then(r => r.json()).then(res => {
+        if (res.status === 'success' && Array.isArray(res.materials)) {
+            materials.length = 0;
+            res.materials.forEach(m => materials.push(m));
+            showToast('物料列表已刷新', 'success');
+        } else showToast(res.msg || '刷新失败', 'danger');
+    }).catch(err => showToast('刷新失败：' + err.message, 'danger'));
+}
+function refreshUnits() {
+    fetch('/api/units').then(r => r.json()).then(list => {
+        if (Array.isArray(list)) {
+            units.length = 0;
+            list.forEach(u => units.push(u));
+            document.querySelectorAll('.unit-id').forEach(select => {
+                const selected = select.value;
+                select.innerHTML = unitOptions(selected);
+                select.value = selected;
+            });
+        }
+    }).catch(function() {});
+}
+function refreshWarehouses() {
+    if (docType !== 'transfer') return;
+    fetch('/warehouse/api/list').then(r => r.json()).then(res => {
+        if (!res || !Array.isArray(res.warehouses)) return;
+        ['from_location', 'to_location'].forEach(function(name) {
+            const select = document.querySelector('[name="' + name + '"]');
+            if (!select) return;
+            const current = select.value;
+            const placeholder = name === 'from_location' ? '请选择调出仓库' : '请选择调入仓库';
+            let html = '<option value="">' + placeholder + '</option>';
+            res.warehouses.forEach(function(w) {
+                const selected = String(current) === String(w.name) ? ' selected' : '';
+                html += '<option value="' + escapeHtml(w.name || '') + '"' + selected + '>' + escapeHtml(w.name || '') + '</option>';
+            });
+            select.innerHTML = html;
+        });
+    }).catch(function() {});
+}
+document.addEventListener('click', function(e) { if (activeDropdown && !e.target.closest('.material-input')) hideDropdown(); });
+document.addEventListener('DOMContentLoaded', function() {
+    existingItems.forEach(item => createRow(item));
+    while (document.getElementById('docTableBody').rows.length < Math.max(minRowCount, existingItems.length)) createRow(null);
+    renumberRows();
+    calcTotal();
+    const docTable = document.getElementById('docTable');
+    const gridApi = window.documentGridApi || (window.initDocumentGrid && window.initDocumentGrid(docTable));
+    if (gridApi) gridApi.refresh();
+    document.querySelectorAll('[data-grid-action]').forEach(function(button) {
+        button.addEventListener('click', function() {
+            const api = window.documentGridApi || (window.initDocumentGrid && window.initDocumentGrid(docTable));
+            if (!api) return;
+            const action = button.dataset.gridAction;
+            if (action === 'columns') api.openColumnPanel(button);
+            if (action === 'custom-field') api.addCustomField();
+            if (action === 'reset') api.reset();
+            if (action === 'sort-help') showToast('点击明细表头可按该列升序/降序排序。', 'info');
+        });
+    });
+    document.getElementById('addLineBtn')?.addEventListener('click', function() {
+        addNewRow();
+        const api = window.documentGridApi || (window.initDocumentGrid && window.initDocumentGrid(docTable));
+        if (api) api.refresh();
+    });
+    document.querySelectorAll('[data-line-action]').forEach(function(button) {
+        button.addEventListener('click', function() {
+            const api = window.documentGridApi || (window.initDocumentGrid && window.initDocumentGrid(docTable));
+            const row = document.activeElement && document.activeElement.closest ? document.activeElement.closest('#docTableBody tr') : null;
+            const active = row || document.querySelector('#docTableBody tr');
+            const action = button.dataset.lineAction;
+            if (api && action === 'insert') api.insertRow(function() { return createDetachedRow(); }, false);
+            if (action === 'copy' && api) api.copyCurrentRow();
+            if (action === 'paste' && api) api.pasteToCurrentRow();
+            if (action === 'up' && api) api.moveCurrentRow(-1);
+            if (action === 'down' && api) api.moveCurrentRow(1);
+            if (action === 'delete') {
+                if (api) api.deleteCurrentRow();
+                else if (active) deleteRow(active);
+            }
+            renumberRows();
+            calcTotal();
+            if (api) api.refresh();
+        });
+    });
+    if (!readonly) {
+        registerDetailRowActions({
+            tableSelector: '#docTable',
+            rowSelector: '#docTableBody tr',
+            add: function() { addNewRow(); },
+            insert: function(row) { insertRowBefore(row); },
+            copy: function(row) { copyRowAfter(row); },
+            remove: function(row) { deleteRow(row); }
+        });
+    }
+    try {
+        if (typeof BroadcastChannel !== 'undefined') {
+            const materialBc = new BroadcastChannel('wms_material_update');
+            materialBc.onmessage = function(event) {
+                if (event.data && event.data.type === 'material_updated') refreshMaterials();
+            };
+            const masterBc = new BroadcastChannel('wms_master_data_update');
+            masterBc.onmessage = function(event) {
+                const type = event.data && event.data.type;
+                if (type === 'unit_updated') {
+                    refreshUnits();
+                    refreshMaterials();
+                }
+                if (type === 'warehouse_updated') refreshWarehouses();
+                if (type === 'material_updated') refreshMaterials();
+            };
+        }
+    } catch(e) {}
+});
+
+function createDetachedRow() {
+    const tbody = document.getElementById('docTableBody');
+    const row = document.createElement('tr');
+    row.dataset.materialId = '';
+    row.innerHTML = rowCells(null);
+    bindRowEvents(row);
+    return row;
+}
+</script>
+{% endblock %}

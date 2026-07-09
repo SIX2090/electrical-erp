@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}追溯快照明细 #{{ snapshot.id }}{% endblock %}
+{% block header_title %}追溯快照明细{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+    <h2 class="mb-0"><i class="bi bi-camera"></i> 追溯快照 #{{ snapshot.id }}</h2>
+    <a class="btn btn-outline-secondary btn-sm" href="/trace/snapshots"><i class="bi bi-arrow-left"></i> 返回快照列表</a>
+</div>
+
+<div class="card mb-3">
+    <div class="card-header py-2"><i class="bi bi-info-circle"></i> 快照基本信息</div>
+    <div class="card-body p-0">
+        <table class="table table-sm table-borderless mb-0">
+            <tbody>
+                <tr>
+                    <th width="120" class="text-muted">快照ID</th>
+                    <td>{{ snapshot.id }}</td>
+                    <th width="120" class="text-muted">单据类型</th>
+                    <td>{{ label(snapshot.doc_type) }}</td>
+                </tr>
+                <tr>
+                    <th class="text-muted">单据ID</th>
+                    <td>{{ snapshot.doc_id }}</td>
+                    <th class="text-muted">单据编号</th>
+                    <td>{{ snapshot.doc_no or '-' }}</td>
+                </tr>
+                <tr>
+                    <th class="text-muted">快照事件</th>
+                    <td><span class="badge text-bg-info">{{ snapshot.snapshot_event or '-' }}</span></td>
+                    <th class="text-muted">创建人</th>
+                    <td>{{ snapshot.snapshot_by or '-' }}</td>
+                </tr>
+                <tr>
+                    <th class="text-muted">项目号</th>
+                    <td>{{ snapshot.project_code or '-' }}</td>
+                    <th class="text-muted">机号</th>
+                    <td>{{ snapshot.serial_no or '-' }}</td>
+                </tr>
+                <tr>
+                    <th class="text-muted">创建时间</th>
+                    <td>{{ snapshot.created_at or '-' }}</td>
+                    <th class="text-muted">来源哈希</th>
+                    <td class="font-monospace small">{{ snapshot.source_hash or '-' }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-header py-2"><i class="bi bi-file-text"></i> 单据头快照</div>
+            <div class="card-body p-0">
+                {% if snapshot.header_payload %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered mb-0">
+                        <thead class="table-light">
+                            <tr><th>字段</th><th>值</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for key, value in snapshot.header_payload.items() %}
+                            <tr>
+                                <td class="text-muted">{{ key }}</td>
+                                <td>{{ value }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-muted p-3">无单据头快照数据。</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card h-100">
+            <div class="card-header py-2"><i class="bi bi-list-ul"></i> 明细行快照（{{ snapshot.lines_payload | length }} 行）</div>
+            <div class="card-body p-0">
+                {% if snapshot.lines_payload %}
+                <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                    <table class="table table-sm table-bordered mb-0">
+                        {% for line in snapshot.lines_payload %}
+                        {% if loop.first %}
+                        <thead class="table-light position-sticky top-0">
+                            <tr>
+                                {% for key in line.keys() %}
+                                <th>{{ key }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                        {% endif %}
+                        <tr>
+                            {% for key in line.keys() %}
+                            <td>{{ line[key] }}</td>
+                            {% endfor %}
+                        </tr>
+                        {% if loop.last %}
+                        </tbody>
+                        {% endif %}
+                        {% endfor %}
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-muted p-3">无明细行快照数据。</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3">
+        <div class="card h-100">
+            <div class="card-header py-2"><i class="bi bi-diagram-3"></i> 追溯上下文</div>
+            <div class="card-body p-0">
+                {% if snapshot.trace_context_payload %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered mb-0">
+                        <thead class="table-light">
+                            <tr><th>字段</th><th>值</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for key, value in snapshot.trace_context_payload.items() %}
+                            <tr>
+                                <td class="text-muted">{{ key }}</td>
+                                <td>{{ value }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-muted p-3">无追溯上下文数据。</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

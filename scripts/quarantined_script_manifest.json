@@ -1,0 +1,5 @@
+{
+  "version": 1,
+  "policy": "Historical scripts that contain mojibake or write dirty ERP master data must stay blocked until rewritten with clean source text and reviewed seed data.",
+  "blocked_scripts": []
+}

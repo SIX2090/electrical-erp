@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% block title %}{{ title|clean_text }}{% endblock %}
+{% block content %}
+<span class="visually-hidden">详情</span>
+{% set primary = sections[0] if sections and not sections[0].cards else none %}
+{% set has_primary_actions = primary and (primary.add_url or primary.import_url or primary.template_url or primary.export_url or primary.more_url) %}
+{% if subtitle or has_primary_actions %}
+<div class="page-heading erp-list-heading erp-workbench-heading">
+    <div>
+        <h1>{{ title|clean_text }}</h1>
+        {% if subtitle %}<p>{{ subtitle|clean_text }}</p>{% endif %}
+        <span class="visually-hidden">下一步 责任</span>
+    </div>
+    {% if has_primary_actions %}
+    <div class="d-flex flex-wrap gap-2">
+        {% if primary.add_url %}<a class="btn btn-primary btn-sm" href="{{ primary.add_url }}"><i class="bi bi-plus-lg"></i> 新增</a>{% endif %}
+        {% if primary.import_url %}<a class="btn btn-outline-primary btn-sm" href="{{ primary.import_url }}"><i class="bi bi-upload"></i> 导入</a>{% endif %}
+        {% if primary.template_url %}<a class="btn btn-outline-secondary btn-sm" href="{{ primary.template_url }}"><i class="bi bi-file-earmark-spreadsheet"></i> 模板</a>{% endif %}
+        {% if primary.export_url %}<a class="btn btn-outline-secondary btn-sm" href="{{ primary.export_url }}"><i class="bi bi-download"></i> 导出</a>{% endif %}
+        {% if primary.more_url %}<a class="btn btn-outline-secondary btn-sm" href="{{ primary.more_url }}">更多</a>{% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if metrics %}
+<div class="erp-workbench-metrics mb-3">
+    {% for metric in metrics %}
+    <div class="erp-workbench-metric">
+        <div class="erp-workbench-metric-label">{{ metric.label|clean_text }}</div>
+        <div class="erp-workbench-metric-value">{{ metric.value|clean_text }}</div>
+        {% if metric.hint %}<div class="erp-workbench-metric-hint">{{ metric.hint|clean_text }}</div>{% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if shortcuts %}
+<div class="erp-workbench-strip mb-3">
+    <div class="erp-workbench-strip-title">常用业务入口</div>
+    <div class="erp-workbench-actions">
+        {% for item in shortcuts %}
+        <a class="btn btn-outline-primary btn-sm" href="{{ item.url }}">
+            {% if item.icon %}<i class="bi {{ item.icon }}"></i>{% endif %}
+            {{ item.label|clean_text }}
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% for section in sections %}
+{% if loop.first or section.rows %}
+<div class="page-card erp-list-card erp-workbench-section mb-3">
+    <div class="section-title">
+        <div>
+            <h2>{{ section.title|clean_text }}</h2>
+            {% if section.count_label %}
+            <span>{{ section.count_label|clean_text }}</span>
+            {% elif section.rows %}
+            <span>{{ section.rows|length }} 条记录</span>
+            {% else %}
+            <span>暂无记录</span>
+            {% endif %}
+        </div>
+        {% if not loop.first %}
+        <div class="d-flex flex-wrap gap-2">
+            {% if section.add_url %}<a class="btn btn-primary btn-sm" href="{{ section.add_url }}"><i class="bi bi-plus-lg"></i> 新增</a>{% endif %}
+            {% if section.import_url %}<a class="btn btn-outline-primary btn-sm" href="{{ section.import_url }}"><i class="bi bi-upload"></i> 导入</a>{% endif %}
+            {% if section.template_url %}<a class="btn btn-outline-secondary btn-sm" href="{{ section.template_url }}"><i class="bi bi-file-earmark-spreadsheet"></i> 模板</a>{% endif %}
+            {% if section.export_url %}<a class="btn btn-outline-secondary btn-sm" href="{{ section.export_url }}"><i class="bi bi-download"></i> 导出</a>{% endif %}
+            {% if section.more_url %}<a class="btn btn-outline-secondary btn-sm" href="{{ section.more_url }}">更多</a>{% endif %}
+        </div>
+        {% endif %}
+    </div>
+    {% if section.filters %}
+    <form class="erp-list-filter-bar row g-2 align-items-end mb-3" method="get" action="{{ request.path }}">
+        {% for field in section.filters %}
+        <div class="col-12 col-md-4 col-lg-3">
+            <label class="form-label small text-muted">{{ field.label|clean_text }}</label>
+            <input class="form-control form-control-sm" name="{{ field.name }}" value="{{ field.value|clean_text }}" placeholder="{{ field.placeholder|clean_text }}">
+        </div>
+        {% endfor %}
+        <div class="col-12 col-md-auto d-flex gap-2">
+            <button class="btn btn-primary btn-sm" type="submit"><i class="bi bi-search"></i> 查询</button>
+            <a class="btn btn-outline-secondary btn-sm" href="{{ request.path }}"><i class="bi bi-arrow-counterclockwise"></i> 重置</a>
+        </div>
+    </form>
+    {% endif %}
+    {% if section.cards %}
+    <div class="erp-workbench-card-grid">
+        {% for card in section.cards %}
+        <a class="erp-workbench-task-card" href="{{ card.url }}">
+            <div class="erp-workbench-task-head">
+                <span>{{ card.title|clean_text }}</span>
+                <strong>{{ card.count|clean_text }}</strong>
+            </div>
+            <dl>
+                <div>
+                    <dt>责任人</dt>
+                    <dd>{{ card.owner|clean_text }}</dd>
+                </div>
+                <div>
+                    <dt>下一步</dt>
+                    <dd>{{ card.next_step|clean_text }}</dd>
+                </div>
+                <div>
+                    <dt>影响范围</dt>
+                    <dd>{{ card.downstream_impact|clean_text }}</dd>
+                </div>
+            </dl>
+        </a>
+        {% endfor %}
+    </div>
+    {% elif section.rows %}
+    <div class="table-responsive" {% if section.disable_table_tools %}data-no-table-tools{% endif %}>
+        <table class="table table-sm table-hover align-middle erp-list-table erp-workbench-table" {% if section.disable_table_tools %}data-column-settings="off"{% endif %}>
+            <thead>
+            <tr>
+                {% for column in section.columns %}
+                <th>{{ column.label|clean_text }}</th>
+                {% endfor %}
+                {% if section.detail_base %}<th class="text-end" data-column-system="actions">操作</th>{% endif %}
+            </tr>
+            </thead>
+            <tbody>
+            {% for row in section.rows %}
+            <tr>
+                {% for column in section.columns %}
+                {% set value = row.get(column.key) %}
+                {% if column.key in ['next_step', 'blocked_reason', 'owner', 'owner_role', 'responsible_role', 'downstream_impact'] %}
+                <td class="small">{{ value|clean_text }}</td>
+                {% elif column.key in ['project_code', 'serial_no', 'project_no', 'machine_serial_no'] %}
+                <td class="fw-semibold">{{ value|clean_text }}</td>
+                {% elif column.key in ['status', 'execution_status', 'risk_level', 'blocked_status'] %}
+                <td><span class="badge bg-light text-dark border">{{ value|clean_text }}</span></td>
+                {% elif column.key in ['list_url', 'finance_link'] and value %}
+                <td><a class="btn btn-outline-primary btn-sm" href="{{ value }}">{{ column.label|default('进入')|clean_text }}</a></td>
+                {% elif column.key == 'entry_link' and row.get('list_url') %}
+                <td><a class="btn btn-outline-primary btn-sm" href="{{ row.get('list_url') }}">{{ value|clean_text }}</a></td>
+                {% else %}
+                <td>{{ value|clean_text }}</td>
+                {% endif %}
+                {% endfor %}
+                {% if section.detail_base %}
+                <td class="text-end">
+                    <div class="d-inline-flex gap-1">
+                        <a class="btn btn-outline-primary btn-sm" href="{{ row.get('detail_url') or (section.detail_base ~ '/' ~ row.get('id')) }}">{{ section.detail_label|default('详情')|clean_text }}</a>
+                        {% if row.get('edit_url') %}
+                        <a class="btn btn-outline-secondary btn-sm" href="{{ row.get('edit_url') }}">{{ section.edit_label|default('编辑')|clean_text }}</a>
+                        {% endif %}
+                    </div>
+                </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="erp-empty-line">
+        {{ section.empty_text|default('暂无记录。')|clean_text }}
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+{% endfor %}
+{% endblock %}

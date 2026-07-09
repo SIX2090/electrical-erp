@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+{% block title %}项目/机号台账 - {{ order.order_no if order else '' }}{% endblock %}
+{% block header_title %}项目/机号台账{% endblock %}
+{% block content %}
+{% if not order %}
+<div class="page-card">未找到项目。</div>
+{% else %}
+{% set active_stage = '销售' %}
+{% if service_orders|length or service_cards|length %}{% set active_stage = '售后' %}
+{% elif finance_summary.receivable_balance and finance_summary.receivable_balance|float > 0 and (order.shipped_amount or 0) %}{% set active_stage = '回款' %}
+{% elif shipments|length %}{% set active_stage = '发货' %}
+{% elif work_orders|length %}{% set active_stage = '生产' %}
+{% elif kit_summary.shortage_count or purchase_orders|length %}{% set active_stage = '齐套/采购' %}
+{% endif %}
+{% set trace_keyword = order.project_code or order.serial_no or order.order_no %}
+
+<div class="mb-3">
+    <a class="btn btn-outline-secondary btn-sm" href="/projects"><i class="bi bi-arrow-left"></i> 返回台账</a>
+</div>
+
+<div class="page-card mb-3">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <div>
+            <strong>项目下一步</strong>
+            <div class="text-muted small">按当前项目/机号的 BOM 齐套缺口生成采购申请，不混入其他项目缺料。</div>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            {% if kit_summary.shortage_count %}
+            <form method="post" action="/projects/{{ order.id }}/create-purchase-request">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="btn btn-primary" type="submit" onclick="return confirm('按当前项目齐套缺口生成采购申请？')">
+                    <i class="bi bi-bag-plus"></i> 生成采购申请
+                </button>
+            </form>
+            {% else %}
+            <a class="btn btn-outline-primary" href="/procurement/suggestions"><i class="bi bi-bag-plus"></i> 采购建议</a>
+            {% endif %}
+            <a class="btn btn-outline-secondary" href="/engineering/kitting"><i class="bi bi-ui-checks-grid"></i> 齐套看板</a>
+        </div>
+    </div>
+</div>
+
+<section class="project-hero">
+    <div class="project-hero-main">
+        <div>
+            <div class="project-kicker">项目驾驶舱</div>
+            <h1>{{ order.project_code or order.order_no }}{% if order.serial_no %} / {{ order.serial_no }}{% endif %}</h1>
+        <div class="project-meta">
+            <span>销售订单 {{ order.order_no }}</span>
+            <span>客户 {{ order.customer_name or '-' }}</span>
+            <span>交期 {{ order.delivery_date or '-' }}</span>
+            <span class="status-pill {{ delivery_class }}">{{ delivery_state }}</span>
+            <span class="status-pill">{{ order.status or '未定' }}</span>
+        </div>
+        </div>
+        <div class="project-actions">
+            <a class="btn btn-primary" href="/engineering/kitting"><i class="bi bi-ui-checks-grid"></i> 查看齐套</a>
+            <a class="btn btn-outline-primary" href="/procurement/suggestions"><i class="bi bi-bag-plus"></i> 缺料转采购</a>
+            <a class="btn btn-outline-primary" href="/work-orders"><i class="bi bi-tools"></i> 生产工单</a>
+            <a class="btn btn-outline-primary" href="/service-orders"><i class="bi bi-wrench-adjustable"></i> 售后</a>
+        </div>
+    </div>
+    <aside class="project-hero-side">
+        <div class="project-signal">
+            <div><strong>齐套状态</strong><br><span>已齐套 / BOM物料</span></div>
+            <div class="value">{{ kit_summary.ok_count }}/{{ kit_summary.total_count }}</div>
+        </div>
+        <div class="project-signal">
+            <div><strong>采购仍缺</strong><br><span>待收到货后仍不足</span></div>
+            <div class="value">{{ kit_summary.shortage_count }}</div>
+        </div>
+        <div class="project-signal">
+            <div><strong>库存缺口</strong><br><span>库存可用量不足</span></div>
+            <div class="value">{{ kit_summary.stock_shortage_count }}</div>
+        </div>
+    </aside>
+</section>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>项目诊断</h2>
+            <span>下一步：{{ project_next_action }} / 责任：{{ project_owner_role }} / 原因：{{ project_blocked_reason }}</span>
+        </div>
+    </div>
+    <div class="row g-2">
+        {% for item in project_diagnostics %}
+        <div class="col-md-6 col-xl-4">
+            <div class="metric {% if item.level == 'danger' %}is-danger{% elif item.level == 'warning' %}is-alert{% endif %}">
+                <div class="label">{{ item.label }} / {{ item.owner }}</div>
+                <div class="metric-hint">{{ item.text }}</div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>工程准备度</h2>
+            <span>技术确认、BOM、图纸和齐套状态决定是否可以进入采购建议和生产准备</span>
+        </div>
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            {% if not engineering_readiness.confirmation %}
+            <a class="btn btn-outline-primary btn-sm" href="/engineering/technical-confirmations/new?sales_order_id={{ order.id }}">新建技术确认</a>
+            {% endif %}
+            <span class="status-pill {% if engineering_readiness.ready %}success{% else %}danger{% endif %}">
+                {{ engineering_readiness.status or '-' }}
+            </span>
+        </div>
+    </div>
+    <div class="row g-3">
+        <div class="col-md-4">
+            <div class="metric {% if not engineering_readiness.confirmed %}is-danger{% endif %}">
+                <div class="label">技术确认</div>
+                <div class="value h6">
+                    {% if engineering_readiness.confirmation %}
+                    {{ engineering_readiness.confirmation.confirm_no or '-' }}
+                    {% else %}
+                    未建立
+                    {% endif %}
+                </div>
+                <div class="metric-hint">
+                    {% if engineering_readiness.confirmation %}
+                    {{ engineering_readiness.confirmation.status or '-' }} / {{ engineering_readiness.confirmation.owner or '-' }}
+                    {% else %}
+                    需要从销售订单建立技术确认单
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="metric {% if not engineering_readiness.bom_item_count %}is-danger{% endif %}">
+                <div class="label">BOM</div>
+                <div class="value h6">
+                    {% if engineering_readiness.confirmation and engineering_readiness.confirmation.bom_no %}
+                    {{ engineering_readiness.confirmation.bom_no }} / {{ engineering_readiness.confirmation.bom_version or '-' }}
+                    {% elif engineering_readiness.sales_bom %}
+                    {{ engineering_readiness.sales_bom.bom_no }} / {{ engineering_readiness.sales_bom.version or '-' }}
+                    {% else %}
+                    未关联
+                    {% endif %}
+                </div>
+                <div class="metric-hint">BOM行 {{ engineering_readiness.bom_item_count or 0 }} / 状态 {{ engineering_readiness.bom_status or '-' }}</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="metric {% if not engineering_readiness.released_drawing %}is-danger{% endif %}">
+                <div class="label">图纸</div>
+                <div class="value h6">
+                    {% if engineering_readiness.confirmation %}
+                    {{ engineering_readiness.confirmation.drawing_no or '-' }} / {{ engineering_readiness.confirmation.drawing_version or '-' }}
+                    {% else %}
+                    -
+                    {% endif %}
+                </div>
+                <div class="metric-hint">{% if engineering_readiness.released_drawing %}已发布有效版本{% else %}缺少已发布有效版本{% endif %}</div>
+            </div>
+        </div>
+    </div>
+    {% if not engineering_readiness.ready %}
+    <div class="alert alert-warning mt-3 mb-0">
+        阻塞原因：{{ engineering_readiness.blocked_reason }}；下一步：{{ engineering_readiness.next_action }}；责任：{{ engineering_readiness.owner_role }}。
+    </div>
+    {% endif %}
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>项目阶段</h2>
+            <span>从销售到售后的主线状态</span>
+        </div>
+    </div>
+    <div class="timeline-strip">
+        {% for stage, hint in [
+            ('销售', '订单与配置'),
+            ('齐套/采购', 'BOM缺料和到货'),
+            ('生产', '工单与质检'),
+            ('发货', '出库交付'),
+            ('回款', '应收余额'),
+            ('售后', '安装验收服务')
+        ] %}
+        <div class="timeline-step {% if active_stage == stage %}active{% endif %}">
+            <strong>{{ stage }}</strong>
+            <span>{{ hint }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>生命周期事件流</h2>
+            <span>按项目号、机号和成本对象汇总已有单据，只读查看主线进展</span>
+        </div>
+        {% if project_events %}<span class="status-pill">{{ project_events|length }} 条</span>{% endif %}
+    </div>
+    {% set event_labels = {
+        'sales_order': '销售订单',
+        'technical_confirmation': '技术确认',
+        'purchase_request': '采购申请',
+        'purchase_order': '采购订单',
+        'purchase_receipt': '采购入库',
+        'supplier_payable': '供应商应付',
+        'subcontract_order': '委外订单',
+        'subcontract_issue': '委外发料',
+        'subcontract_receive': '委外收货',
+        'work_order': '生产工单',
+        'production_issue': '生产领料',
+        'production_return': '生产退料',
+        'production_completion': '完工入库',
+        'quality_inspection': 'QI',
+        'work_order_cost': '工单成本',
+        'sales_shipment': '销售发货',
+        'customer_receivable': '客户应收',
+        'service_card': '服务档案',
+        'service_acceptance': '安装验收',
+        'service_order': '服务单',
+        'service_rma': 'RMA'
+    } %}
+    {% if project_events %}
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+            <tr>
+                <th>类型</th>
+                <th>单号</th>
+                <th>日期</th>
+                <th>状态</th>
+                <th class="text-end">金额</th>
+                <th class="text-end">数量</th>
+                <th class="text-end">查看</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for event in project_events %}
+            <tr>
+                <td>{{ event_labels.get(event.event_type, event.event_type) }}</td>
+                <td>{{ event.source_no or '-' }}</td>
+                <td>{{ event.event_date or '-' }}</td>
+                <td>{{ event.status or '-' }}</td>
+                <td class="text-end">{% if event.amount is not none %}¥{{ event.amount|money }}{% else %}-{% endif %}</td>
+                <td class="text-end">{% if event.quantity is not none %}{{ event.quantity|qty }}{% else %}-{% endif %}</td>
+                <td class="text-end">
+                    {% if event.detail_url %}
+                    <a class="btn btn-outline-secondary btn-sm" href="{{ event.detail_url }}">查看</a>
+                    {% else %}
+                    -
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">暂无生命周期事件。</div>
+    {% endif %}
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>下一步</h2>
+            <span>查看本项目相关业务，明细回到对应模块处理。</span>
+        </div>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-outline-primary btn-sm" href="/engineering/kitting?keyword={{ trace_keyword|urlencode }}">齐套检查</a>
+        <a class="btn btn-outline-primary btn-sm" href="/purchase-orders?keyword={{ trace_keyword|urlencode }}">采购单</a>
+        <a class="btn btn-outline-primary btn-sm" href="/work-orders?keyword={{ trace_keyword|urlencode }}">生产工单</a>
+        <a class="btn btn-outline-primary btn-sm" href="/shipments?keyword={{ trace_keyword|urlencode }}">发货单</a>
+        <a class="btn btn-outline-primary btn-sm" href="/receivables?keyword={{ trace_keyword|urlencode }}">应收</a>
+        <a class="btn btn-outline-primary btn-sm" href="/service-orders?keyword={{ trace_keyword|urlencode }}">售后服务</a>
+        <a class="btn btn-outline-primary btn-sm" href="/transactions?keyword={{ trace_keyword|urlencode }}">库存流水</a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

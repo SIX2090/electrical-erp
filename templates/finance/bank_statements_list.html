@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}银行对账单列表{% endblock %}
+{% block header_title %}银行对账单列表{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+    <h2 class="mb-0"><i class="bi bi-bank2"></i> 银行对账单</h2>
+    <div class="d-flex gap-2">
+        <a class="btn btn-primary btn-sm" href="/finance/bank-statements/import"><i class="bi bi-upload"></i> 导入对账单</a>
+        <a class="btn btn-outline-secondary btn-sm" href="/finance/bank-reconciliation"><i class="bi bi-arrow-left"></i> 返回银行对账</a>
+    </div>
+</div>
+
+<form method="get" class="card mb-3">
+    <div class="card-body py-2">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label small mb-1">银行账户</label>
+                <select name="account_id" class="form-select form-select-sm">
+                    <option value="">全部账户</option>
+                    {% for a in accounts %}
+                    <option value="{{ a.id }}" {% if filters.account_id == a.id %}selected{% endif %}>{{ a.account_name }} ({{ a.account_code }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small mb-1">状态</label>
+                <select name="status" class="form-select form-select-sm">
+                    <option value="">全部</option>
+                    <option value="imported" {% if filters.status == 'imported' %}selected{% endif %}>已导入</option>
+                    <option value="matching" {% if filters.status == 'matching' %}selected{% endif %}>匹配中</option>
+                    <option value="reconciled" {% if filters.status == 'reconciled' %}selected{% endif %}>已对账</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-outline-primary btn-sm w-100"><i class="bi bi-search"></i> 筛选</button>
+            </div>
+        </div>
+    </div>
+</form>
+
+<div class="card">
+    <div class="card-body p-0">
+        {% if statements %}
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover table-sm mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>对账单日期</th>
+                        <th>银行账户</th>
+                        <th>期初余额</th>
+                        <th>期末余额</th>
+                        <th>收入合计</th>
+                        <th>支出合计</th>
+                        <th>明细行</th>
+                        <th>已匹配</th>
+                        <th>匹配率</th>
+                        <th>状态</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in statements %}
+                    <tr>
+                        <td>{{ s.statement_date }}</td>
+                        <td>{{ s.account_name }}<br><small class="text-muted">{{ s.bank_account_no or '' }}</small></td>
+                        <td class="text-end">{{ '%.2f'|format(s.opening_balance or 0) }}</td>
+                        <td class="text-end">{{ '%.2f'|format(s.closing_balance or 0) }}</td>
+                        <td class="text-end text-success">{{ '%.2f'|format(s.total_deposits or 0) }}</td>
+                        <td class="text-end text-danger">{{ '%.2f'|format(s.total_withdrawals or 0) }}</td>
+                        <td class="text-center">{{ s.total_lines or 0 }}</td>
+                        <td class="text-center">{{ s.matched_lines or 0 }}</td>
+                        <td class="text-center">
+                            {% if s.total_lines %}
+                                {{ '%.0f'|format((s.matched_lines or 0) / s.total_lines * 100) }}%
+                            {% else %}0%{% endif %}
+                        </td>
+                        <td>
+                            {% if s.status == 'reconciled' %}
+                            <span class="badge text-bg-success">已对账</span>
+                            {% elif s.status == 'matching' %}
+                            <span class="badge text-bg-warning">匹配中</span>
+                            {% else %}
+                            <span class="badge text-bg-secondary">{{ s.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a class="btn btn-outline-primary btn-sm py-0 px-2" href="/finance/bank-statements/{{ s.id }}">详情</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-muted p-4 text-center">
+            <i class="bi bi-inbox fs-2"></i>
+            <p class="mt-2">暂无银行对账单，点击"导入对账单"开始。</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

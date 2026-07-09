@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}完工入库单 - {{ doc.completion_no }}{% endblock %}
+{% block content %}
+{% set display_status = status_label(doc.status) %}
+{% set can_edit = display_status == '草稿' %}
+{% set can_post = display_status == '已提交' %}
+{% set can_reverse = display_status == '已过账' and not doc.reverse_posted_at %}
+{% set can_delete = display_status == '草稿' %}
+{{ document_menu_bar(actions=[
+    {'label': '返回列表', 'type': 'link', 'href': '/production-completions', 'icon': 'bi-arrow-left'},
+    {'label': '编辑', 'type': 'link', 'href': '/production-completions/' ~ doc.id ~ '/edit', 'disabled': not can_edit, 'icon': 'bi-pencil-square'},
+    {'label': '提交', 'type': 'button', 'button_type': 'submit', 'form': 'completionSubmitForm', 'disabled': not can_edit, 'icon': 'bi-send'},
+    {'label': '审核', 'type': 'button', 'button_type': 'submit', 'form': 'completionPostForm', 'disabled': not can_post, 'icon': 'bi-check2-circle'},
+    {'label': '反审', 'type': 'button', 'button_type': 'submit', 'form': 'completionReverseForm', 'disabled': not can_reverse, 'icon': 'bi-arrow-counterclockwise'},
+    {'label': '作废', 'type': 'button', 'button_type': 'submit', 'form': 'completionVoidForm', 'disabled': not (can_edit or can_post), 'icon': 'bi-x-circle'},
+    {'label': '删除', 'type': 'button', 'button_type': 'submit', 'form': 'completionDeleteForm', 'disabled': not can_delete, 'icon': 'bi-trash', 'title': '' if can_delete else '当前状态不能删除；已过账单据请先反审。'},
+    {'label': '复制', 'type': 'button', 'button_type': 'submit', 'form': 'copyForm', 'icon': 'bi-copy', 'title': '复制为新的草稿单据'},
+    {'label': '工具', 'type': 'dropdown', 'items': [
+        {'label': '来源工单', 'type': 'link', 'href': '/work-orders/' ~ doc.work_order_id if doc.work_order_id else '#', 'disabled': not doc.work_order_id},
+        {'label': '库存流水', 'type': 'link', 'href': '/transactions?keyword=' ~ (doc.completion_no|urlencode)},
+        {'label': '库存余额', 'type': 'link', 'href': '/inventory/detail?keyword=' ~ ((doc.product_code or doc.product_name or doc.serial_no or doc.project_code or doc.completion_no)|urlencode)},
+        {'label': '工单成本核对', 'type': 'link', 'href': '/finance/reports/project-cost?keyword=' ~ ((doc.project_code or doc.serial_no or doc.wo_no or doc.completion_no)|urlencode)}
+    ]},
+    {'type': 'nav', 'items': [
+        {'label': '首张', 'event': 'doc-nav-first', 'icon': 'bi-chevron-double-left'},
+        {'label': '上一张', 'event': 'doc-nav-prev', 'icon': 'bi-chevron-left'},
+        {'label': '下一张', 'event': 'doc-nav-next', 'icon': 'bi-chevron-right'},
+        {'label': '末张', 'event': 'doc-nav-last', 'icon': 'bi-chevron-double-right'}
+    ]}
+], aria_label='完工入库单操作菜单') }}
+<div id="doc-nav-config" data-nav-table="production_completions" data-nav-base="/production-completions/" data-doc-id="{{ doc.id }}" style="display:none"></div>
+<form id="copyForm" method="post" action="/production-completions/{{ doc.id }}/copy" class="d-none"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+<div class="page-card mb-3">
+    <div class="d-flex justify-content-between align-items-start gap-2">
+        <div>
+            <h1 class="h4 mb-1">完工入库单：{{ doc.completion_no|clean_text }}</h1>
+            <div class="text-muted">
+                来源工单：
+                {% if doc.work_order_id %}<a href="/work-orders/{{ doc.work_order_id }}">{{ doc.wo_no|clean_text or doc.work_order_id }}</a>{% else %}-{% endif %}
+            </div>
+        </div>
+        <span class="badge text-bg-primary">{{ display_status }}</span>
+    </div>
+    <div class="row g-2 mt-3">
+        <div class="col-md-3"><strong>完工单号：</strong>{{ doc.completion_no|clean_text or '-' }}</div>
+        <div class="col-md-3"><strong>日期：</strong>{{ doc.completion_date or '-' }}</div>
+        <div class="col-md-3"><strong>产品：</strong>{{ doc.product_code|clean_text or doc.product_id }} / {{ doc.product_name|clean_text or '-' }}</div>
+        <div class="col-md-3"><strong>项目号：</strong>{{ doc.project_code|clean_text or '-' }}</div>
+        <div class="col-md-3"><strong>机号：</strong>{{ doc.serial_no|clean_text or '-' }}</div>
+        <div class="col-md-3"><strong>合格数量：</strong>{{ doc.quantity|qty }}</div>
+        <div class="col-md-3"><strong>不合格数量：</strong>{{ doc.failed_quantity|qty }}</div>
+        <div class="col-md-3"><strong>单位成本：</strong>{{ doc.unit_cost|money }}</div>
+        <div class="col-md-3"><strong>成本金额：</strong>{{ (doc.quantity * doc.unit_cost)|money }}</div>
+        <div class="col-md-3"><strong>仓库：</strong>{{ doc.warehouse_name|clean_text or '-' }}</div>
+        {% if location_management_enabled %}<div class="col-md-3"><strong>库位：</strong>{{ doc.location_name|clean_text or doc.location_code|clean_text or '-' }}</div>{% endif %}
+        <div class="col-md-3"><strong>批号：</strong>{{ doc.lot_no|clean_text or '-' }}</div>
+        <div class="col-md-3"><strong>工单状态：</strong>{{ doc.work_order_status|clean_text or '-' }}</div>
+        <div class="col-12"><strong>备注：</strong>{{ doc.remark|clean_text or '-' }}</div>
+    </div>
+    <div class="d-flex gap-2 justify-content-end mt-3 d-none">
+        <a class="btn btn-outline-secondary btn-sm" href="/production-completions">返回列表</a>
+        {% if doc.work_order_id %}<a class="btn btn-outline-primary btn-sm" href="/work-orders/{{ doc.work_order_id }}">查看来源工单</a>{% endif %}
+        {% if can_edit %}
+        <a class="btn btn-outline-secondary btn-sm" href="/production-completions/{{ doc.id }}/edit">编辑</a>
+        <form id="completionSubmitForm" method="post" action="/production-completions/{{ doc.id }}/submit"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-outline-primary btn-sm">提交</button></form>
+        <form id="completionDeleteForm" method="post" action="/production-completions/{{ doc.id }}/delete" onsubmit="return confirm('确认删除这张草稿完工入库单？');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-outline-danger btn-sm">删除</button></form>
+        <form id="completionVoidForm" method="post" action="/production-completions/{{ doc.id }}/void"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-outline-danger btn-sm">作废</button></form>
+        {% elif can_post %}
+        <form id="completionPostForm" method="post" action="/production-completions/{{ doc.id }}/post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-success btn-sm">审核</button></form>
+        <form id="completionVoidForm" method="post" action="/production-completions/{{ doc.id }}/void"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-outline-danger btn-sm">作废</button></form>
+        {% elif can_reverse %}
+        <form id="completionReverseForm" method="post" action="/production-completions/{{ doc.id }}/reverse"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-outline-danger btn-sm">反审</button></form>
+        {% else %}
+        <form id="completionSubmitForm" class="d-none" method="post" action="/production-completions/{{ doc.id }}/submit"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+        <form id="completionPostForm" class="d-none" method="post" action="/production-completions/{{ doc.id }}/post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+        <form id="completionReverseForm" class="d-none" method="post" action="/production-completions/{{ doc.id }}/reverse"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+        <form id="completionDeleteForm" class="d-none" method="post" action="/production-completions/{{ doc.id }}/delete"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+        <form id="completionVoidForm" class="d-none" method="post" action="/production-completions/{{ doc.id }}/void"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+        {% endif %}
+    </div>
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>本工单完工汇总</h2>
+            <span>统一汇总正式完工入库单与保留的历史完工明细。</span>
+        </div>
+    </div>
+    <div class="row g-2">
+        <div class="col-md-2"><strong>正式单据完工：</strong>{{ completion_summary.formal_qty|qty }}</div>
+        <div class="col-md-2"><strong>历史完工：</strong>{{ completion_summary.legacy_qty|qty }}</div>
+        <div class="col-md-2"><strong>合计完工：</strong>{{ completion_summary.total_qty|qty }}</div>
+        <div class="col-md-2"><strong>库存流水数量：</strong>{{ completion_summary.stock_qty|qty }}</div>
+        <div class="col-md-2"><strong>反过账数量：</strong>{{ completion_summary.reversed_qty|qty }}</div>
+        <div class="col-md-2"><strong>明细行数：</strong>{{ completion_summary.row_count or 0 }}</div>
+    </div>
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>下游核对</h2>
+            <span>过账后核对库存流水、库存余额和工单成本；报表页不执行写动作。</span>
+        </div>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-outline-secondary btn-sm" href="/transactions?keyword={{ doc.completion_no|urlencode }}">库存流水</a>
+        <a class="btn btn-outline-secondary btn-sm" href="/inventory/detail?keyword={{ (doc.product_code or doc.product_name or doc.serial_no or doc.project_code or doc.completion_no)|urlencode }}">库存余额</a>
+        <a class="btn btn-outline-secondary btn-sm" href="/finance/reports/project-cost?keyword={{ (doc.project_code or doc.serial_no or doc.wo_no or doc.completion_no)|urlencode }}">工单成本核对</a>
+    </div>
+</div>
+
+<div class="page-card">
+    <h2 class="h6 mb-2">库存流水</h2>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+            <thead><tr><th>日期</th><th>类型</th><th class="text-end">数量</th><th class="text-end">单位成本</th><th>单号</th><th>项目号</th><th>机号</th><th>备注</th></tr></thead>
+            <tbody>
+            {% for row in stock_rows %}
+            <tr>
+                <td>{{ row.transaction_date or '-' }}</td>
+                <td>{{ row.transaction_type|erp_value|clean_text or '-' }}</td>
+                <td class="text-end">{{ row.quantity|qty }}</td>
+                <td class="text-end">{{ row.unit_cost|money }}</td>
+                <td>{{ row.reference_no|clean_text or '-' }}</td>
+                <td>{{ row.project_code|clean_text or '-' }}</td>
+                <td>{{ row.serial_no|clean_text or '-' }}</td>
+                <td>{{ row.remark|clean_text or '-' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="8" class="text-muted">未找到关联库存流水。草稿和已提交未过账单据不会产生库存流水。</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

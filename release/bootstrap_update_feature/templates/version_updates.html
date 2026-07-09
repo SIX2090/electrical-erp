@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% block title %}版本更新{% endblock %}
+{% block header_title %}版本更新{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+        <h2 class="mb-1"><i class="bi bi-cloud-arrow-down"></i> 版本更新</h2>
+        <div class="text-muted small">系统会自动扫描 <code>updates</code> 目录中的本地更新包；执行更新前请先完成数据库备份。</div>
+    </div>
+    <a class="btn btn-outline-secondary btn-sm" href="/system/database-backups">
+        <i class="bi bi-database-down"></i> 数据库备份
+    </a>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-header fw-semibold">当前版本</div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <div class="text-muted small">版本 / 构建时间</div>
+                    <div class="fw-semibold">{{ update_status.current.version or update_status.current.built_at }}</div>
+                </div>
+                <div class="mb-3">
+                    <div class="text-muted small">安装包</div>
+                    <div class="fw-semibold text-break">{{ update_status.current.package_name }}</div>
+                </div>
+                <div>
+                    <div class="text-muted small">检测目录</div>
+                    <div class="small text-break">{{ update_status.updates_dir }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-8">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span class="fw-semibold">更新状态</span>
+                {% if update_status.has_update %}
+                <span class="badge text-bg-danger">发现新版本</span>
+                {% else %}
+                <span class="badge text-bg-secondary">暂无新版本</span>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                {% if update_status.latest %}
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <div class="text-muted small">最新版本</div>
+                        <div class="h5 mb-0">{{ update_status.latest.version }}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-muted small">更新包</div>
+                        <div class="fw-semibold text-break">{{ update_status.latest.package_name }}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-muted small">安装方式</div>
+                        <div class="fw-semibold">{{ "可一键执行" if update_status.latest.installable else "仅检测到包" }}</div>
+                    </div>
+                </div>
+                {% if update_status.latest.notes %}
+                <div class="alert alert-light border mt-3 mb-0">{{ update_status.latest.notes }}</div>
+                {% endif %}
+                {% else %}
+                <div class="text-muted">未发现高于当前版本的更新包。把带有 <code>update_manifest.json</code> 的更新包目录放入 <code>updates</code> 后，刷新页面即可检测。</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-header fw-semibold">更新包格式</div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-lg-6">
+                <div class="text-muted small mb-2">推荐目录结构</div>
+                <pre class="bg-light border rounded p-3 mb-0"><code>updates/
+  WMS_ERP_Update_20260615/
+    update_manifest.json
+    install_update.ps1</code></pre>
+            </div>
+            <div class="col-lg-6">
+                <div class="text-muted small mb-2">清单示例</div>
+                <pre class="bg-light border rounded p-3 mb-0"><code>{
+  "version": "2026-06-15 10:00:00",
+  "package_name": "WMS_ERP_Update_20260615",
+  "entry_script": "install_update.ps1",
+  "notes": "修复库存与系统维护问题"
+}</code></pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-semibold">检测到的更新包</span>
+        <span class="text-muted small">{{ update_status.packages|length }} 个</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>更新包</th>
+                    <th>版本</th>
+                    <th>类型</th>
+                    <th>状态</th>
+                    <th>路径</th>
+                    <th class="text-end">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for package in update_status.packages %}
+                <tr>
+                    <td class="fw-semibold">{{ package.package_name }}</td>
+                    <td>{{ package.version }}</td>
+                    <td>{{ "压缩包" if package.is_zip else "目录" }}</td>
+                    <td>
+                        {% if package.is_newer %}
+                        <span class="badge text-bg-danger">新版本</span>
+                        {% else %}
+                        <span class="badge text-bg-secondary">非新版本</span>
+                        {% endif %}
+                        {% if not package.installable %}
+                        <span class="badge text-bg-warning">不可一键安装</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-muted small text-break">{{ package.relative_path }}</td>
+                    <td class="text-end">
+                        {% if package.installable and package.is_newer %}
+                        <form class="update-run-form d-inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="package_id" value="{{ package.id }}">
+                            <button class="btn btn-sm btn-primary" type="submit">
+                                <i class="bi bi-play-circle"></i> 执行更新
+                            </button>
+                        </form>
+                        {% else %}
+                        <button class="btn btn-sm btn-outline-secondary" type="button" disabled>不可执行</button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="text-center text-muted py-4">暂无更新包。</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.querySelectorAll('.update-run-form').forEach(function(form) {
+    form.addEventListener('submit', function(event) {
+        event.preventDefault();
+        if (!confirm('执行更新前请确认已完成数据库备份。是否继续？')) {
+            return;
+        }
+        const button = form.querySelector('button');
+        const originalHtml = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>启动中';
+        const fetcher = window.csrfFetch || fetch;
+        fetcher('/system/version-updates/run', {
+            method: 'POST',
+            body: new FormData(form)
+        })
+            .then(res => res.json().then(data => ({ ok: res.ok, data })))
+            .then(result => {
+                showToast(result.data.msg || (result.ok ? '更新已启动' : '更新启动失败'), result.ok ? 'success' : 'danger');
+            })
+            .catch(error => showToast('更新启动失败：' + error.message, 'danger'))
+            .finally(() => {
+                button.disabled = false;
+                button.innerHTML = originalHtml;
+            });
+    });
+});
+</script>
+{% endblock %}

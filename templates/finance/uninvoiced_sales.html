@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+
+{% block title %}未开票销售明细{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2><i class="fas fa-exclamation-triangle text-warning"></i> 未开票销售明细</h2>
+    <div class="d-none">
+      <a href="javascript:history.back()" class="btn btn-outline-secondary" title="返回上一页">
+        <i class="fas fa-arrow-left"></i> 返回
+      </a>
+      <button onclick="window.print()" class="btn btn-secondary">
+        <i class="fas fa-print"></i> 打印
+      </button>
+      <button onclick="exportReportTable()" class="btn btn-success">
+        <i class="fas fa-file-excel"></i> 导出Excel
+      </button>
+    </div>
+  </div>
+
+  <!-- 筛选表单 -->
+  <div class="card mb-3">
+    <div class="card-body">
+      <form method="get" id="reportFilterForm">
+        <div class="row">
+          <div class="col-md-3 mb-2">
+            <label class="form-label">客户</label>
+            <select name="customer_id" class="form-control">
+              <option value="">全部客户</option>
+              {% for customer in customers %}
+              <option value="{{ customer.id }}" {% if filters.customer_id|string == customer.id|string %}selected{% endif %}>
+                {{ customer.name }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="col-md-3 mb-2">
+            <label class="form-label">订单号</label>
+            <input type="text" name="order_no" class="form-control" placeholder="订单号"
+                   value="{{ filters.order_no or '' }}">
+          </div>
+
+          <div class="col-md-3 mb-2">
+            <label class="form-label">项目号</label>
+            <input type="text" name="project_code" class="form-control" placeholder="项目号"
+                   value="{{ filters.project_code or '' }}">
+          </div>
+
+          <div class="col-md-3 mb-2">
+            <label class="form-label">机号</label>
+            <input type="text" name="serial_no" class="form-control" placeholder="机号"
+                   value="{{ filters.serial_no or '' }}">
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-md-3 mb-2">
+            <label class="form-label">订单日期起</label>
+            <input type="date" name="start_date" class="form-control"
+                   value="{{ filters.start_date or '' }}">
+          </div>
+
+          <div class="col-md-3 mb-2">
+            <label class="form-label">订单日期止</label>
+            <input type="date" name="end_date" class="form-control"
+                   value="{{ filters.end_date or '' }}">
+          </div>
+
+          <div class="col-md-3 mb-2 d-flex align-items-end">
+            <button type="submit" class="btn btn-primary me-2">
+              <i class="fas fa-search"></i> 查询
+            </button>
+            <a href="/finance/reports/uninvoiced-sales" class="btn btn-secondary">
+              <i class="fas fa-redo"></i> 重置
+            </a>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 统计汇总 -->
+  <div class="alert alert-danger">
+    <i class="fas fa-exclamation-circle"></i>
+    <strong>未开票销售</strong> 共 <strong>{{ rows|length }}</strong> 条记录
+    | 未开票总额: <strong>¥{{ "%.2f"|format(total_uninvoiced_amount) }}</strong>
+  </div>
+
+  <!-- 数据表格 -->
+  <div class="card">
+    <div class="card-body table-responsive">
+      <table class="table table-bordered table-hover table-sm" id="dataTable">
+        <thead class="table-light">
+          <tr>
+            <th class="text-center">序号</th>
+            <th>订单号</th>
+            <th class="text-center">订单日期</th>
+            <th>客户</th>
+            <th>项目号</th>
+            <th>机号</th>
+            <th>物料编码</th>
+            <th>物料名称</th>
+            <th>规格</th>
+            <th class="text-right">订单数量</th>
+            <th class="text-right">已发货数量</th>
+            <th class="text-right">已开票数量</th>
+            <th class="text-right bg-warning">未开票数量</th>
+            <th class="text-right bg-warning">未开票金额</th>
+            <th>最新发货单号</th>
+            <th class="text-center">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if rows %}
+            {% for row in rows %}
+            <tr>
+              <td class="text-center">{{ loop.index }}</td>
+              <td>
+                <a href="/sales/{{ row.order_id }}" target="_blank">{{ row.order_no }}</a>
+              </td>
+              <td class="text-center">{{ row.order_date }}</td>
+              <td>{{ row.customer_name }}</td>
+              <td>{{ row.project_code or '-' }}</td>
+              <td>{{ row.serial_no or '-' }}</td>
+              <td>{{ row.product_code }}</td>
+              <td>{{ row.product_name }}</td>
+              <td>{{ row.specification or '-' }}</td>
+              <td class="text-right">{{ "%.2f"|format(row.order_qty) }}</td>
+              <td class="text-right text-success">{{ "%.2f"|format(row.delivery_qty) }}</td>
+              <td class="text-right">{{ "%.2f"|format(row.invoice_qty) }}</td>
+              <td class="text-right text-danger font-weight-bold">{{ "%.2f"|format(row.uninvoiced_qty) }}</td>
+              <td class="text-right text-danger font-weight-bold">¥{{ "%.2f"|format(row.uninvoiced_amount) }}</td>
+              <td>
+                {% if row.latest_delivery_no %}
+                  <small>{{ row.latest_delivery_no }}</small><br>
+                  <small class="text-muted">{{ row.latest_delivery_date }}</small>
+                {% else %}
+                  <span class="text-muted">-</span>
+                {% endif %}
+              </td>
+              <td class="text-center">
+                <a href="/sales-invoices/new?order_id={{ row.order_id }}" class="btn btn-sm btn-primary" title="创建发票">
+                  <i class="fas fa-file-invoice"></i> 开票
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="16" class="text-center text-muted py-5">
+                <i class="fas fa-check-circle fa-3x mb-3 text-success"></i>
+                <p>太棒了！暂无未开票销售记录</p>
+              </td>
+            </tr>
+          {% endif %}
+        </tbody>
+        {% if rows %}
+        <tfoot class="table-secondary">
+          <tr>
+            <th colspan="12" class="text-right">合计：</th>
+            <th class="text-right">{{ "%.2f"|format(rows|sum(attribute='uninvoiced_qty')) }}</th>
+            <th class="text-right">¥{{ "%.2f"|format(total_uninvoiced_amount) }}</th>
+            <th colspan="2"></th>
+          </tr>
+        </tfoot>
+        {% endif %}
+      </table>
+    </div>
+  </div>
+
+  <!-- 说明 -->
+  <div class="card mt-3">
+    <div class="card-body">
+      <h6 class="card-title">报表说明</h6>
+      <ul class="mb-0">
+        <li><strong>未开票销售</strong>：列出所有已发货但未开票（或部分开票）的销售订单明细</li>
+        <li><strong>未开票数量</strong>：已发货数量 - 已开票数量</li>
+        <li><strong>未开票金额</strong>：已发货金额 - 已开票金额</li>
+        <li><strong>财务风险</strong>：未开票销售会导致应收账款无法及时确认，影响财务报表准确性</li>
+        <li><strong>操作建议</strong>：
+          <ul>
+            <li>优先处理订单日期较早的未开票记录</li>
+            <li>联系客户确认开票信息（发票抬头、税号、地址等）</li>
+            <li>点击"开票"按钮快速创建销售发票</li>
+            <li>定期（每周/每月）检查本报表，确保及时开票</li>
+          </ul>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 客户汇总 -->
+  {% if rows %}
+  <div class="card mt-3">
+    <div class="card-header">
+      <h6 class="mb-0">按客户汇总</h6>
+    </div>
+    <div class="card-body">
+      <table class="table table-sm table-bordered">
+        <thead class="table-light">
+          <tr>
+            <th>客户</th>
+            <th class="text-right">未开票记录数</th>
+            <th class="text-right">未开票总额</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% set customer_summary = {} %}
+          {% for row in rows %}
+            {% if row.customer_name not in customer_summary %}
+              {% set _ = customer_summary.update({row.customer_name: {'count': 0, 'amount': 0}}) %}
+            {% endif %}
+            {% set _ = customer_summary[row.customer_name].update({
+              'count': customer_summary[row.customer_name]['count'] + 1,
+              'amount': customer_summary[row.customer_name]['amount'] + row.uninvoiced_amount
+            }) %}
+          {% endfor %}
+          {% for customer_name, summary in customer_summary.items()|sort(attribute='1.amount', reverse=True) %}
+          <tr>
+            <td>{{ customer_name }}</td>
+            <td class="text-right">{{ summary.count }}</td>
+            <td class="text-right text-danger font-weight-bold">¥{{ "%.2f"|format(summary.amount) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+function exportReportTable() {
+    var table = document.querySelector('.table');
+    if (!table) return;
+    var html = table.outerHTML;
+    var url = 'data:application/vnd.ms-excel,' + encodeURIComponent(html);
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = '{{ title }}_' + new Date().toISOString().substr(0,10) + '.xls';
+    link.click();
+}
+</script>
+
+<style>
+@media print {
+  .btn, .card-body form, .no-print {
+    display: none !important;
+  }
+  .table {
+    font-size: 10px;
+  }
+}
+</style>
+{% endblock %}

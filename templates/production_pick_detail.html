@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}{{ meta.title }} - {{ doc.doc_no or doc.pick_no or doc.id }}{% endblock %}
+{% block content %}
+{% set display_status = status_label(doc.status) %}
+{% set can_edit = doc.status in ['草稿', 'draft', None, ''] %}
+{% set can_post = doc.status in ['已提交', 'assigned', 'submitted'] %}
+{% set can_unaudit = doc.status in ['已过账', 'completed', 'posted'] %}
+{{ document_menu_bar(actions=[
+    {'label': '返回列表', 'type': 'link', 'href': meta.list_url, 'icon': 'bi-arrow-left'},
+    {'label': '编辑', 'type': 'link', 'href': meta.detail_prefix ~ '/' ~ doc.id ~ '/edit', 'disabled': not can_edit, 'icon': 'bi-pencil-square'},
+    {'label': '提交', 'type': 'button', 'button_type': 'submit', 'form': 'pickSubmitForm', 'disabled': not can_edit, 'icon': 'bi-send'},
+    {'label': '提交并审核', 'type': 'button', 'button_type': 'submit', 'form': 'pickSubmitPostForm', 'disabled': not can_edit, 'icon': 'bi-check2-square'},
+    {'label': '审核', 'type': 'button', 'button_type': 'submit', 'form': 'pickPostForm', 'disabled': not can_post, 'icon': 'bi-check2-circle'},
+    {'label': '反审', 'type': 'button', 'button_type': 'submit', 'form': 'pickUnauditForm', 'disabled': not can_unaudit, 'icon': 'bi-arrow-counterclockwise'},
+    {'label': '作废', 'type': 'button', 'button_type': 'submit', 'form': 'pickVoidForm', 'disabled': not (can_edit or can_post), 'icon': 'bi-x-circle'},
+    {'label': '复制', 'type': 'button', 'button_type': 'submit', 'form': 'copyForm', 'icon': 'bi-copy', 'title': '复制为新的草稿单据'},
+    {'label': '工具', 'type': 'dropdown', 'items': [
+        {'label': '来源工单', 'type': 'link', 'href': '/work-orders/' ~ doc.work_order_id if doc.work_order_id else '#', 'disabled': not doc.work_order_id},
+        {'label': '库存流水', 'type': 'link', 'href': '/transactions?keyword=' ~ ((doc.doc_no or doc.pick_no or doc.project_code or doc.serial_no)|urlencode)},
+        {'label': '成本追溯', 'type': 'link', 'href': '/finance/reports/project-cost?keyword=' ~ ((doc.project_code or doc.serial_no or doc.doc_no or doc.pick_no)|urlencode)}
+    ]},
+    {'type': 'nav', 'items': [
+        {'label': '首张', 'event': 'doc-nav-first', 'icon': 'bi-chevron-double-left'},
+        {'label': '上一张', 'event': 'doc-nav-prev', 'icon': 'bi-chevron-left'},
+        {'label': '下一张', 'event': 'doc-nav-next', 'icon': 'bi-chevron-right'},
+        {'label': '末张', 'event': 'doc-nav-last', 'icon': 'bi-chevron-double-right'}
+    ]}
+], aria_label=meta.title ~ '操作菜单') }}
+<div id="doc-nav-config" data-nav-table="production_issues" data-nav-base="{{ (meta.list_url) }}/" data-doc-id="{{ doc.id }}" style="display:none"></div>
+<form id="copyForm" method="post" action="{{ meta.detail_prefix }}/{{ doc.id }}/copy" class="d-none"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+<div class="page-card mb-3">
+    <div class="d-flex justify-content-between align-items-start gap-2">
+        <div>
+            <h1 class="h4 mb-1">{{ meta.title }}：{{ doc.doc_no|clean_text or doc.pick_no|clean_text or doc.id }}</h1>
+            <div class="text-muted">来源工单：{% if doc.work_order_id %}<a href="/work-orders/{{ doc.work_order_id }}">{{ doc.wo_no|clean_text or doc.work_order_id }}</a>{% else %}-{% endif %}</div>
+        </div>
+        <span class="badge text-bg-primary">{{ display_status }}</span>
+    </div>
+    <div class="row g-2 mt-2">
+        <div class="col-md-3"><strong>领料单号：</strong>{{ doc.doc_no|clean_text or doc.pick_no|clean_text or '-' }}</div>
+        <div class="col-md-3"><strong>日期：</strong>{{ doc.doc_date or '-' }}</div>
+        <div class="col-md-3"><strong>项目号：</strong>{{ doc.project_code|clean_text or '-' }}</div>
+        <div class="col-md-3"><strong>机号：</strong>{{ doc.serial_no|clean_text or '-' }}</div>
+        <div class="col-md-3"><strong>仓库：</strong>{{ doc.warehouse_name|clean_text or '-' }}</div>
+        {% if location_management_enabled %}<div class="col-md-3"><strong>库位：</strong>{{ doc.location_name|clean_text or doc.location_code|clean_text or '-' }}</div>{% endif %}
+        <div class="col-md-9"><strong>备注：</strong>{{ doc.remark|clean_text or '-' }}</div>
+    </div>
+    <div class="text-muted small mt-3">状态动作：提交、提交并审核、审核、反审、作废。</div>
+    <div class="d-flex gap-2 justify-content-end mt-3 d-none">
+        <a class="btn btn-outline-secondary btn-sm" href="{{ meta.list_url }}">返回列表</a>
+        {% if can_edit %}
+        <a class="btn btn-outline-secondary btn-sm" href="{{ meta.detail_prefix }}/{{ doc.id }}/edit">编辑</a>
+        <form id="pickSubmitForm" method="post" action="{{ meta.detail_prefix }}/{{ doc.id }}/submit"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-outline-primary btn-sm">提交</button></form>
+        <form id="pickSubmitPostForm" method="post" action="{{ meta.detail_prefix }}/{{ doc.id }}/submit_post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-primary btn-sm">提交并审核</button></form>
+        <form id="pickVoidForm" method="post" action="{{ meta.detail_prefix }}/{{ doc.id }}/void"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-outline-danger btn-sm">作废</button></form>
+        {% elif can_post %}
+        <form id="pickPostForm" method="post" action="{{ meta.detail_prefix }}/{{ doc.id }}/post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-primary btn-sm">审核</button></form>
+        <form id="pickVoidForm" method="post" action="{{ meta.detail_prefix }}/{{ doc.id }}/void"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-outline-danger btn-sm">作废</button></form>
+        {% elif can_unaudit %}
+        <form id="pickUnauditForm" method="post" action="{{ meta.detail_prefix }}/{{ doc.id }}/unaudit"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-outline-primary btn-sm">反审</button></form>
+        {% else %}
+        <form id="pickSubmitForm" class="d-none" method="post" action="{{ meta.detail_prefix }}/{{ doc.id }}/submit"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+        <form id="pickSubmitPostForm" class="d-none" method="post" action="{{ meta.detail_prefix }}/{{ doc.id }}/submit_post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+        <form id="pickPostForm" class="d-none" method="post" action="{{ meta.detail_prefix }}/{{ doc.id }}/post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+        <form id="pickUnauditForm" class="d-none" method="post" action="{{ meta.detail_prefix }}/{{ doc.id }}/unaudit"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+        <form id="pickVoidForm" class="d-none" method="post" action="{{ meta.detail_prefix }}/{{ doc.id }}/void"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+        {% endif %}
+    </div>
+</div>
+
+<div class="page-card">
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+                <tr>
+                    <th>物料编码</th>
+                    <th>物料名称</th>
+                    <th>规格型号</th>
+                    <th>单位</th>
+                    <th class="text-end">数量</th>
+                    <th class="text-end">已过账</th>
+                    <th class="text-end">单位成本</th>
+                    <th>仓库</th>
+                    <th>库位</th>
+                    <th>批号</th>
+                    <th>项目号</th>
+                    <th>机号</th>
+                    <th>来源行</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for line in lines %}
+            <tr>
+                <td>{{ line.material_code|clean_text or line.product_code|clean_text or line.product_id }}</td>
+                <td>{{ line.material_name|clean_text or line.product_name|clean_text or '-' }}</td>
+                <td>{{ line.material_spec|clean_text or '-' }}</td>
+                <td>{{ line.material_unit|clean_text or '-' }}</td>
+                <td class="text-end">{{ line.quantity|qty }}</td>
+                <td class="text-end">{{ line.posted_qty|qty }}</td>
+                <td class="text-end">{{ line.unit_cost|money }}</td>
+                <td>{{ line.warehouse_name|clean_text or doc.warehouse_name|clean_text or '-' }}</td>
+                <td>{{ line.location_name|clean_text or doc.location_name|clean_text or '-' }}</td>
+                <td>{{ line.lot_no|clean_text or '-' }}</td>
+                <td>{{ line.line_project_code|clean_text or doc.project_code|clean_text or '-' }}</td>
+                <td>{{ line.serial_no|clean_text or '-' }}</td>
+                <td>{{ line.source_line_no|clean_text or '-' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="12" class="text-muted">暂无明细。</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="page-card mt-3">
+    <h2 class="h6 mb-2">关联追溯</h2>
+    <div class="d-flex flex-wrap gap-2">
+        {% if doc.work_order_id %}<a class="btn btn-outline-primary btn-sm" href="/work-orders/{{ doc.work_order_id }}">查看来源工单</a>{% endif %}
+        <a class="btn btn-outline-secondary btn-sm" href="/transactions?keyword={{ (doc.doc_no or doc.pick_no or doc.project_code or doc.serial_no)|urlencode }}">库存流水</a>
+        <a class="btn btn-outline-secondary btn-sm" href="/finance/reports/project-cost?keyword={{ (doc.project_code or doc.serial_no or doc.doc_no or doc.pick_no)|urlencode }}">成本追溯</a>
+    </div>
+</div>
+{% endblock %}

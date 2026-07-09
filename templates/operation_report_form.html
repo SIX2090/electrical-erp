@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}{{ '编辑' if edit_mode else '新增' }}工序报工单{% endblock %}
+{% block content %}
+{{ document_menu_bar(actions=[
+    {'label': '载入工序', 'type': 'button', 'form': 'operation-report-load-form', 'button_type': 'submit', 'icon': 'bi-arrow-repeat'}
+], aria_label='工序报工录入操作菜单') }}
+<div class="page-card">
+    <div class="d-flex justify-content-between align-items-start mb-3">
+        <div>
+            <h1 class="h4 mb-1">{{ '编辑' if edit_mode else '新增' }}工序报工单</h1>
+            <div class="text-muted small">选择来源工单和工序，填写本次开工、完工、返工、报废数量与工时。</div>
+        </div>
+        <a class="btn btn-outline-secondary btn-sm" href="/production/operation-reports">返回列表</a>
+    </div>
+    <form id="operation-report-load-form" class="row g-2 mb-3" method="get">
+        <div class="col-md-10">
+            <label class="form-label">来源生产工单</label>
+            <select class="form-select" name="work_order_id" onchange="this.form.submit()">
+                <option value="">请选择工单</option>
+                {% for row in orders %}
+                <option value="{{ row.id }}" {% if order and order.id == row.id %}selected{% endif %}>
+                    {{ row.wo_no }} / 项目 {{ row.project_code or '-' }} / 机号 {{ row.serial_no or '-' }} / 状态 {{ row.status or '-' }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2 d-grid align-self-end">
+            <button class="btn btn-outline-primary" type="submit">载入工序</button>
+        </div>
+    </form>
+    <form id="operation-report-form" method="post" action="{{ form_action or '' }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="work_order_id" value="{{ order.id if order else '' }}">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">报工单号</label>
+                <input class="form-control" type="text" value="{{ report.report_no if report else '' }}" placeholder="保存时自动生成" readonly>
+            </div>
+            <div class="col-md-8">
+                <label class="form-label">来源工序</label>
+                <select class="form-select" name="work_order_process_id" required>
+                    <option value="">请选择工序</option>
+                    {% for row in processes %}
+                    <option value="{{ row.id }}" {% if process_id|string == row.id|string %}selected{% endif %}>
+                        {{ row.operation_no or ('工序' ~ row.id) }} {{ row.operation_name or '' }} / {{ row.work_center_name or '-' }} / 计划 {{ row.planned_quantity|qty }} / 已报 {{ (row.good_quantity or row.actual_quantity or 0)|qty }} / 状态 {{ process_status_label(row.status) }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">报工类型</label>
+                <select class="form-select" name="report_type">
+                    {% for value,label in [('start','开工'),('pause','暂停'),('complete','完工'),('rework','返工'),('scrap','报废')] %}
+                    <option value="{{ value }}" {% if report_type == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3"><label class="form-label">报工日期</label><input class="form-control" type="date" name="report_date" value="{{ report.report_date if report else today().isoformat() }}"></div>
+            <div class="col-md-3"><label class="form-label">人工工时</label><input class="form-control text-end" type="number" step="0.01" min="0" name="labor_hours" value="{{ report.labor_hours if report else 0 }}"></div>
+            <div class="col-md-3"><label class="form-label">设备工时</label><input class="form-control text-end" type="number" step="0.01" min="0" name="equipment_hours" value="{{ report.equipment_hours if report else 0 }}"></div>
+            <div class="col-md-3"><label class="form-label">下一步</label><input class="form-control" name="next_action" value="{{ report.next_action if report else next_action_for_type(report_type) }}"></div>
+            <div class="col-md-4"><label class="form-label">合格数量</label><input class="form-control text-end" type="number" step="0.0001" min="0" name="good_qty" value="{{ report.good_qty if report else 0 }}"></div>
+            <div class="col-md-4"><label class="form-label">返工数量</label><input class="form-control text-end" type="number" step="0.0001" min="0" name="rework_qty" value="{{ report.rework_qty if report else 0 }}"></div>
+            <div class="col-md-4"><label class="form-label">报废数量</label><input class="form-control text-end" type="number" step="0.0001" min="0" name="scrap_qty" value="{{ report.scrap_qty if report else 0 }}"></div>
+            <div class="col-md-6"><label class="form-label">阻塞原因</label><input class="form-control" name="blocked_reason" value="{{ report.blocked_reason if report else '' }}"></div>
+            <div class="col-md-6"><label class="form-label">备注</label><input class="form-control" name="remark" value="{{ report.remark if report else '' }}"></div>
+        </div>
+        <div class="mt-3 d-flex gap-2 justify-content-end">
+            <a class="btn btn-outline-secondary" href="/production/operation-reports">取消</a>
+            <button class="btn btn-primary" type="submit" {% if not order or not processes %}disabled{% endif %}>{{ '保存修改' if edit_mode else '保存并提交' }}</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+{% block title %}数据仪表盘{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div>
+            <h2 class="mb-1"><i class="bi bi-bar-chart-line"></i> 数据仪表盘</h2>
+            <div class="text-muted">查看本月出入库、库存分布和近期开单趋势。</div>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('report') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> 返回报表中心
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-3 col-6">
+        <div class="card border-0 shadow-sm metric-card metric-in">
+            <div class="card-body">
+                <div class="metric-label">本月入库</div>
+                <div class="metric-value">¥{{ stats.month_in_amount|currency_cn }}</div>
+                <div class="metric-sub">{{ stats.month_in_count }} 笔单据</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="card border-0 shadow-sm metric-card metric-out">
+            <div class="card-body">
+                <div class="metric-label">本月领料</div>
+                <div class="metric-value">¥{{ stats.month_out_amount|currency_cn }}</div>
+                <div class="metric-sub">{{ stats.month_out_count }} 笔单据</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="card border-0 shadow-sm metric-card metric-stock">
+            <div class="card-body">
+                <div class="metric-label">库存总量</div>
+                <div class="metric-value">{{ stats.total_stock|round(2) }}</div>
+                <div class="metric-sub">{{ stats.material_count }} 种物料</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="card border-0 shadow-sm metric-card metric-value-card">
+            <div class="card-body">
+                <div class="metric-label">库存金额</div>
+                <div class="metric-value">¥{{ stats.stock_value|currency_cn }}</div>
+                <div class="metric-sub">按当前库存和单价估算</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">近 10 天出入库数量趋势</h5>
+            </div>
+            <div class="card-body chart-shell">
+                <canvas id="trendChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">物料分类分布</h5>
+            </div>
+            <div class="card-body chart-shell">
+                <canvas id="categoryChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">库存数量 Top 10</h5>
+            </div>
+            <div class="card-body chart-shell">
+                <canvas id="topStockChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">近 6 个月出入库金额</h5>
+            </div>
+            <div class="card-body chart-shell">
+                <canvas id="amountChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm quick-nav">
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <a href="{{ url_for('report_view', report_type='inventory') }}" class="btn btn-outline-primary w-100 quick-link">
+                    <i class="bi bi-box-seam"></i> 库存报表
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a href="{{ url_for('report_view', report_type='in_detail') }}" class="btn btn-outline-success w-100 quick-link">
+                    <i class="bi bi-box-arrow-in-down"></i> 入库明细
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a href="{{ url_for('report_view', report_type='out_detail') }}" class="btn btn-outline-info w-100 quick-link">
+                    <i class="bi bi-box-arrow-up"></i> 领料明细
+                </a>
+            </div>
+            <div class="col-md-3">
+                <a href="{{ url_for('report_api_query', report_type='summary', export='excel') }}" class="btn btn-outline-warning w-100 quick-link">
+                    <i class="bi bi-download"></i> 导出汇总
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+if (typeof Chart === 'undefined') {
+    document.querySelectorAll('.chart-shell').forEach(function (shell) {
+        shell.innerHTML = '<div class="text-muted small d-flex align-items-center justify-content-center h-100">图表组件未加载，请查看报表明细。</div>';
+    });
+} else {
+const trendData = {{ chart_data.trend|tojson }};
+const categoryData = {{ chart_data.category|tojson }};
+const topStockData = {{ chart_data.top_stock|tojson }};
+const amountData = {{ chart_data.monthly_amount|tojson }};
+
+const palette = {
+    blue: '#3f6ad8',
+    blueSoft: 'rgba(63, 106, 216, 0.16)',
+    green: '#17a673',
+    greenSoft: 'rgba(23, 166, 115, 0.18)',
+    orange: '#f59f00',
+    cyan: '#1098ad',
+    slate: '#5c677d',
+    red: '#e03131',
+};
+
+new Chart(document.getElementById('trendChart'), {
+    type: 'line',
+    data: {
+        labels: trendData.labels,
+        datasets: [
+            {
+                label: '入库数量',
+                data: trendData.in_qty,
+                borderColor: palette.green,
+                backgroundColor: palette.greenSoft,
+                fill: true,
+                tension: 0.35,
+            },
+            {
+                label: '领料数量',
+                data: trendData.out_qty,
+                borderColor: palette.blue,
+                backgroundColor: palette.blueSoft,
+                fill: true,
+                tension: 0.35,
+            },
+        ],
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+    },
+});
+
+new Chart(document.getElementById('categoryChart'), {
+    type: 'doughnut',
+    data: {
+        labels: categoryData.labels,
+        datasets: [
+            {
+                data: categoryData.values,
+                backgroundColor: [
+                    '#3f6ad8',
+                    '#17a673',
+                    '#f59f00',
+                    '#1098ad',
+                    '#845ef7',
+                    '#e8590c',
+                    '#d6336c',
+                    '#495057',
+                ],
+            },
+        ],
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'bottom',
+            },
+        },
+    },
+});
+
+new Chart(document.getElementById('topStockChart'), {
+    type: 'bar',
+    data: {
+        labels: topStockData.labels,
+        datasets: [
+            {
+                label: '库存数量',
+                data: topStockData.values,
+                backgroundColor: palette.orange,
+                borderRadius: 6,
+            },
+        ],
+    },
+    options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+        },
+    },
+});
+
+new Chart(document.getElementById('amountChart'), {
+    type: 'bar',
+    data: {
+        labels: amountData.labels,
+        datasets: [
+            {
+                label: '入库金额',
+                data: amountData.in_amount,
+                backgroundColor: palette.green,
+                borderRadius: 6,
+            },
+            {
+                label: '领料金额',
+                data: amountData.out_amount,
+                backgroundColor: palette.blue,
+                borderRadius: 6,
+            },
+        ],
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+    },
+});
+}
+</script>
+
+<style>
+.metric-card {
+    overflow: hidden;
+    color: #ffffff;
+}
+
+.metric-in { background: linear-gradient(135deg, #1c7c54 0%, #30a46c 100%); }
+.metric-out { background: linear-gradient(135deg, #0f6ad6 0%, #389bff 100%); }
+.metric-stock { background: linear-gradient(135deg, #495057 0%, #6c757d 100%); }
+.metric-value-card { background: linear-gradient(135deg, #9c36b5 0%, #c55de8 100%); }
+
+.metric-label {
+    font-size: 0.92rem;
+    opacity: 0.85;
+}
+
+.metric-value {
+    margin-top: 0.5rem;
+    font-size: 1.85rem;
+    font-weight: 700;
+    line-height: 1.15;
+}
+
+.metric-sub {
+    margin-top: 0.5rem;
+    font-size: 0.86rem;
+    opacity: 0.9;
+}
+
+.chart-shell {
+    height: 320px;
+}
+
+.quick-link {
+    padding-top: 0.85rem;
+    padding-bottom: 0.85rem;
+}
+</style>
+{% endblock %}

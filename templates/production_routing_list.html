@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}工艺路线{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <h1>工艺路线</h1>
+    <p>{{ subtitle }}</p>
+</div>
+
+<div class="page-card">
+    <div class="section-title">
+        <div>
+            <h2>工艺路线主数据</h2>
+            <span>{{ rows|length }} 条记录；维护产品标准工序、工作中心和质量控制点</span>
+        </div>
+    </div>
+    <form class="row g-2 align-items-end mb-3" method="get">
+        <div class="col-md-5">
+            <label class="form-label small text-muted">搜索</label>
+            <input class="form-control form-control-sm" name="keyword" value="{{ filters.keyword }}" placeholder="路线编号 / 名称 / 产品 / 规格">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small text-muted">状态</label>
+            <select class="form-select form-select-sm" name="status">
+                <option value="" {% if not filters.status %}selected{% endif %}>全部状态</option>
+                <option value="draft" {% if filters.status == 'draft' %}selected{% endif %}>草稿</option>
+                <option value="enabled" {% if filters.status == 'enabled' %}selected{% endif %}>启用</option>
+                <option value="disabled" {% if filters.status == 'disabled' %}selected{% endif %}>停用</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button class="btn btn-outline-primary btn-sm w-100" type="submit"><i class="bi bi-search"></i> 查询</button>
+        </div>
+    </form>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle client-paginate">
+            <thead>
+            <tr>
+                <th style="min-width: 180px;">路线名称</th>
+                <th style="width: 150px;">路线编号</th>
+                <th style="min-width: 220px;">适用产品</th>
+                <th style="width: 90px;">版本</th>
+                <th style="width: 90px;">状态</th>
+                <th style="min-width: 260px;">标准工序</th>
+                <th style="min-width: 170px;">下一步</th>
+                <th style="width: 150px;">操作</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for row in rows %}
+            <tr>
+                <td class="fw-semibold">{{ row.name|clean_text }}</td>
+                <td>{{ row.routing_no|clean_text }}</td>
+                <td>{{ row.product_display|clean_text }}</td>
+                <td>{{ row.revision|clean_text or '-' }}</td>
+                <td><span class="badge text-bg-{{ row.status_class }}">{{ row.status_display }}</span></td>
+                <td>{{ row.operation_summary|clean_text }}</td>
+                <td>{{ row.next_action }}</td>
+                <td>
+                    <div class="btn-group btn-group-sm">
+                        <a class="btn btn-outline-primary" href="/production-routings/{{ row.id }}">详情</a>
+                        <a class="btn btn-outline-secondary" href="/production-routings/{{ row.id }}/edit">编辑</a>
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="8" class="text-muted">暂无工艺路线。</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <div>
+        <h1>{{ title }}</h1>
+        <p>{{ subtitle }}</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a class="btn btn-primary btn-sm" href="/finance/exchange-adjustment"><i class="bi bi-plus-lg"></i> 期末调汇</a>
+    </div>
+</div>
+
+<div class="page-card mb-3">
+    <form method="get" class="row g-2 align-items-end" data-list-filter-form>
+        <div class="col-md-4">
+            <label class="form-label">关键字</label>
+            <input class="form-control" name="keyword" value="{{ filters.keyword }}" placeholder="搜索单据编号、凭证号、账户或币别">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">期间</label>
+            <input class="form-control" name="period" value="{{ filters.period }}" placeholder="2025-04">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">状态</label>
+            <select class="form-select" name="status">
+                <option value="">全部</option>
+                <option value="draft" {% if filters.status == 'draft' %}selected{% endif %}>草稿</option>
+                <option value="checked" {% if filters.status == 'checked' %}selected{% endif %}>已检查</option>
+                <option value="audited" {% if filters.status == 'audited' %}selected{% endif %}>已审核</option>
+                <option value="voided" {% if filters.status == 'voided' %}selected{% endif %}>已作废</option>
+            </select>
+        </div>
+        <div class="col-md-2 d-grid">
+            <button class="btn btn-outline-primary" type="submit"><i class="bi bi-search"></i> 查询</button>
+        </div>
+    </form>
+</div>
+
+<div class="alert alert-secondary py-2">
+    本页只做查询、导出和跳转；新增调汇单必须进入独立的期末调汇处理页。
+</div>
+
+<div class="page-card">
+    <div class="section-title">
+        <div>
+            <h2>调汇单列表</h2>
+            <span>共 {{ rows|length }} 条</span>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+            <tr>
+                <th>单据编号</th>
+                <th>单据日期</th>
+                <th>期间</th>
+                <th>币别</th>
+                <th>状态</th>
+                <th class="text-end">收益合计</th>
+                <th class="text-end">损失合计</th>
+                <th class="text-end">调汇金额合计</th>
+                <th>凭证字号</th>
+                <th>下一步</th>
+                <th>操作</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for row in rows %}
+            <tr>
+                <td>{{ row.doc_no }}</td>
+                <td>{{ row.doc_date }}</td>
+                <td>{{ row.period_label }}</td>
+                <td>{{ row.currencies or '-' }}</td>
+                <td>{{ row.status_label }}</td>
+                <td class="text-end">{{ row.total_gain|money }}</td>
+                <td class="text-end">{{ row.total_loss|money }}</td>
+                <td class="text-end">{{ row.net_adjustment|money }}</td>
+                <td>{{ row.voucher_no or '-' }}</td>
+                <td>{{ row.next_step }}</td>
+                <td>
+                    {% if row.status != 'audited' %}
+                    <form method="post" action="/finance/exchange-adjustments/{{ row.id }}/audit" class="d-inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button class="btn btn-outline-success btn-sm" type="submit"><i class="bi bi-check2-circle"></i> 审核</button>
+                    </form>
+                    {% elif row.voucher_no %}
+                    <a class="btn btn-outline-primary btn-sm" href="/finance/vouchers?keyword={{ row.voucher_no }}"><i class="bi bi-journal-text"></i> 凭证</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="11" class="text-center text-muted py-5">暂无数据</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

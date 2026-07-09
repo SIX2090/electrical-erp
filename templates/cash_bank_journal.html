@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="page-heading erp-list-heading">
+    <div>
+        <h1>{{ title }}</h1>
+        <p>{{ subtitle }}</p>
+    </div>
+    <a class="btn btn-outline-primary btn-sm" href="/finance/cash-bank/accounts">
+        <i class="bi bi-wallet2"></i> &#36134;&#25143;&#20027;&#25968;&#25454;
+    </a>
+</div>
+
+<div class="erp-workbench-metrics mb-3">
+    <div class="erp-workbench-metric">
+        <div class="erp-workbench-metric-label">&#25910;&#20837;&#37329;&#39069;</div>
+        <div class="erp-workbench-metric-value">{{ total_in|money }}</div>
+        <div class="erp-workbench-metric-hint">&#24403;&#21069;&#26597;&#35810;&#33539;&#22260;</div>
+    </div>
+    <div class="erp-workbench-metric">
+        <div class="erp-workbench-metric-label">&#25903;&#20986;&#37329;&#39069;</div>
+        <div class="erp-workbench-metric-value">{{ total_out|money }}</div>
+        <div class="erp-workbench-metric-hint">&#24403;&#21069;&#26597;&#35810;&#33539;&#22260;</div>
+    </div>
+    <div class="erp-workbench-metric">
+        <div class="erp-workbench-metric-label">&#20928;&#39069;</div>
+        <div class="erp-workbench-metric-value">{{ net_amount|money }}</div>
+        <div class="erp-workbench-metric-hint">&#25910;&#20837; - &#25903;&#20986;</div>
+    </div>
+    <div class="erp-workbench-metric">
+        <div class="erp-workbench-metric-label">&#27969;&#27700;&#34892;&#25968;</div>
+        <div class="erp-workbench-metric-value">{{ rows|length }}</div>
+        <div class="erp-workbench-metric-hint">&#26368;&#22810;&#26174;&#31034; 300 &#34892;</div>
+    </div>
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>&#26597;&#35810;&#26465;&#20214;</h2>
+            <span>&#25353;&#36134;&#25143;&#12289;&#26085;&#26399;&#12289;&#26041;&#21521;&#12289;&#26469;&#28304;&#21333;&#25454;&#12289;&#24448;&#26469;&#21333;&#20301;&#12289;&#39033;&#30446;&#21495;&#21644;&#26426;&#21495;&#26597;&#35810;</span>
+        </div>
+    </div>
+    <form class="row g-2 align-items-end" method="get">
+        <div class="col-md-3">
+            <label class="form-label">&#20851;&#38190;&#23383;</label>
+            <input class="form-control form-control-sm" name="keyword" value="{{ filters.keyword }}" placeholder="&#27969;&#27700;&#21495; / &#26469;&#28304;&#21333; / &#24448;&#26469;&#21333;&#20301; / &#39033;&#30446;&#21495; / &#26426;&#21495;">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">&#36134;&#25143;</label>
+            <select class="form-select form-select-sm" name="account_id">
+                <option value="">&#20840;&#37096;</option>
+                {% for account in accounts %}
+                <option value="{{ account.id }}" {% if filters.account_id == account.id|string %}selected{% endif %}>
+                    {{ account.account_code|clean_text }} {{ account.account_name|clean_text }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-1">
+            <label class="form-label">&#26041;&#21521;</label>
+            <select class="form-select form-select-sm" name="direction">
+                <option value="">&#20840;&#37096;</option>
+                <option value="in" {% if filters.direction == 'in' %}selected{% endif %}>&#25910;&#20837;</option>
+                <option value="out" {% if filters.direction == 'out' %}selected{% endif %}>&#25903;&#20986;</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">&#24320;&#22987;&#26085;&#26399;</label>
+            <input class="form-control form-control-sm" type="date" name="date_from" value="{{ filters.date_from }}">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">&#32467;&#26463;&#26085;&#26399;</label>
+            <input class="form-control form-control-sm" type="date" name="date_to" value="{{ filters.date_to }}">
+        </div>
+        <div class="col-md-2">
+            <button class="btn btn-outline-primary btn-sm" type="submit"><i class="bi bi-search"></i> &#26597;&#35810;</button>
+            <a class="btn btn-outline-secondary btn-sm" href="/finance/cash-bank/journal">&#37325;&#32622;</a>
+        </div>
+    </form>
+</div>
+
+<div class="page-card">
+    <div class="section-title">
+        <div>
+            <h2>&#27969;&#27700;&#21015;&#34920;</h2>
+            <span>&#21482;&#35835;&#26597;&#35810;&#65307;&#21487;&#38075;&#21462;&#25910;&#27454;&#21333;/&#20184;&#27454;&#21333;&#65292;&#19981;&#25552;&#20379;&#25910;&#20184;&#27454;&#12289;&#20973;&#35777;&#12289;&#31246;&#21153;&#25110;&#38134;&#34892;&#23545;&#36134;&#23548;&#20837;&#25805;&#20316;</span>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle">
+            <thead>
+            <tr>
+                <th>&#26085;&#26399;</th>
+                <th>&#27969;&#27700;&#21495;</th>
+                <th>&#36134;&#25143;</th>
+                <th>&#26041;&#21521;</th>
+                <th class="text-end">&#37329;&#39069;</th>
+                <th class="text-end">&#20313;&#39069;</th>
+                <th>&#26469;&#28304;&#31867;&#22411;</th>
+                <th>&#25910;&#20184;&#27454;&#21333;&#25454;</th>
+                <th>&#19978;&#28216;&#26469;&#28304;&#21333;</th>
+                <th>&#24448;&#26469;&#31867;&#22411;</th>
+                <th>&#24448;&#26469;&#21333;&#20301;</th>
+                <th>&#39033;&#30446;&#21495;</th>
+                <th>&#26426;&#21495;</th>
+                <th>&#25688;&#35201;</th>
+                <th>&#29366;&#24577;</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for row in rows %}
+            <tr>
+                <td>{{ row.doc_date or '-' }}</td>
+                <td class="fw-semibold">{{ row.doc_no|clean_text or '-' }}</td>
+                <td>{{ row.account_code|clean_text }} {{ row.account_name|clean_text }}</td>
+                <td>{{ row.direction_label|clean_text }}</td>
+                <td class="text-end">{{ row.amount|money }}</td>
+                <td class="text-end">{{ row.balance_after|money if row.balance_after is not none else '-' }}</td>
+                <td>{{ row.source_label|clean_text }}</td>
+                <td>
+                    {% if row.source_url %}
+                    <a href="{{ row.source_url }}">{{ row.source_doc_no|clean_text or row.source_no|clean_text or '-' }}</a>
+                    {% else %}
+                    {{ row.source_doc_no|clean_text or row.source_no|clean_text or '-' }}
+                    {% endif %}
+                </td>
+                <td>{{ row.settlement_source_no|clean_text or '-' }}</td>
+                <td>{{ row.partner_type_label|clean_text }}</td>
+                <td>{{ row.partner_name|clean_text or '-' }}</td>
+                <td class="fw-semibold">{{ row.project_code|clean_text or '-' }}</td>
+                <td class="fw-semibold">{{ row.serial_no|clean_text or '-' }}</td>
+                <td>{{ row.summary|clean_text or '-' }}</td>
+                <td><span class="badge bg-light text-dark border">{{ row.status_label|clean_text }}</span></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="15" class="text-muted">&#26242;&#26080;&#29616;&#37329;&#38134;&#34892;&#27969;&#27700;&#12290;</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

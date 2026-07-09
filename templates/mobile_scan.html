@@ -1,0 +1,375 @@
+{% extends "base.html" %}
+
+{% block title %}{{ mode_config.title }}{% endblock %}
+{% block mobile_title %}{{ mode_config.title }}{% endblock %}
+{% block body_class %}mobile-scan-page{% endblock %}
+
+{% block content %}
+<div class="mobile-scan-shell" data-mode="{{ mode }}" data-can-write="{{ '1' if can_write else '0' }}">
+    <nav class="mobile-scan-tabs" aria-label="扫码功能">
+        <a class="mobile-scan-tab {% if mode == 'in' %}active{% endif %}" href="{{ url_for('mobile_scan', mode='in') }}">
+            <i class="bi bi-box-arrow-in-down"></i>
+            <span>入库</span>
+        </a>
+        <a class="mobile-scan-tab {% if mode == 'out' %}active{% endif %}" href="{{ url_for('mobile_scan', mode='out') }}">
+            <i class="bi bi-box-arrow-up"></i>
+            <span>出库</span>
+        </a>
+        <a class="mobile-scan-tab {% if mode == 'query' %}active{% endif %}" href="{{ url_for('mobile_scan', mode='query') }}">
+            <i class="bi bi-search"></i>
+            <span>查询</span>
+        </a>
+        <a class="mobile-scan-tab {% if mode == 'check' %}active{% endif %}" href="{{ url_for('mobile_scan', mode='check') }}">
+            <i class="bi bi-clipboard-check"></i>
+            <span>盘点</span>
+        </a>
+    </nav>
+
+    <section class="mobile-scan-panel">
+        <div class="mobile-scan-heading">
+            <span class="mobile-scan-heading-icon"><i class="bi {{ mode_config.icon }}"></i></span>
+            <div>
+                <h2>{{ mode_config.title }}</h2>
+                <p>浏览器不做摄像头扫码，现场扫码请用手机APP</p>
+            </div>
+        </div>
+
+        <div class="mobile-app-notice">
+            <div>
+                <strong>手机摄像头扫码请安装APP</strong>
+                <span>浏览器受 HTTP 限制，扫码不稳定；APP 支持连续扫码。</span>
+            </div>
+            <a class="btn btn-success mobile-app-download" href="{{ url_for('mobile_app_download') }}">
+                <i class="bi bi-phone"></i>
+                <span>下载APP</span>
+            </a>
+        </div>
+
+        <div class="mobile-scan-codebox">
+            <label class="mobile-scan-label" for="scanCode">物料编码</label>
+            <div class="mobile-scan-input-row">
+                <input id="scanCode" class="form-control mobile-scan-code-input" type="text" inputmode="text" autocomplete="off" placeholder="扫描或输入编码">
+                <button type="button" class="btn btn-primary mobile-scan-lookup" id="lookupBtn">
+                    <i class="bi bi-search"></i>
+                </button>
+            </div>
+            <div class="mobile-scan-status" id="scanStatus"></div>
+        </div>
+
+        <div class="mobile-scan-matches" id="matchList" hidden></div>
+
+        <article class="mobile-material-card" id="materialCard" hidden>
+            <div class="mobile-material-main">
+                <div>
+                    <div class="mobile-material-code" id="materialCode">-</div>
+                    <h3 id="materialName">-</h3>
+                    <p id="materialSpec">-</p>
+                </div>
+                <div class="mobile-material-stock">
+                    <span>库存</span>
+                    <strong id="materialStock">0</strong>
+                    <small id="materialUnit"></small>
+                </div>
+            </div>
+            <dl class="mobile-material-meta">
+                <div>
+                    <dt>分类</dt>
+                    <dd id="materialCategory">-</dd>
+                </div>
+                <div>
+                    <dt>供应商</dt>
+                    <dd id="materialSupplier">-</dd>
+                </div>
+                <div>
+                    <dt>单价</dt>
+                    <dd id="materialPrice">0.00</dd>
+                </div>
+            </dl>
+            <div class="mobile-location-list" id="locationList" hidden></div>
+        </article>
+
+        <form class="mobile-scan-form" id="scanForm">
+            <div class="mobile-scan-field quantity-field {% if mode == 'query' %}d-none{% endif %}">
+                <label class="mobile-scan-label" for="quantityInput">
+                    {% if mode == 'check' %}盘点数量{% elif mode == 'out' %}出库数量{% else %}入库数量{% endif %}
+                </label>
+                <input id="quantityInput" class="form-control" type="number" step="0.01" min="0" inputmode="decimal" value="1">
+            </div>
+
+            <div class="mobile-scan-field {% if mode not in ['in', 'out'] or not location_management_enabled %}d-none{% endif %}">
+                <label class="mobile-scan-label" for="warehouseInput">仓库</label>
+                <input id="warehouseInput" class="form-control" list="warehouseOptions" autocomplete="off" placeholder="选择仓库">
+                <datalist id="warehouseOptions">
+                    {% for warehouse in warehouses %}
+                    <option value="{{ warehouse.name }}">{{ warehouse.code }} {{ warehouse.name }}</option>
+                    {% endfor %}
+                </datalist>
+            </div>
+
+            <div class="mobile-scan-field {% if mode not in ['in', 'out'] or not location_management_enabled %}d-none{% endif %}">
+                <label class="mobile-scan-label" for="locationInput">库位</label>
+                <input id="locationInput" class="form-control" list="locationOptions" autocomplete="off" placeholder="选择或输入库位">
+                <datalist id="locationOptions">
+                    {% for location in locations %}
+                    <option value="{{ location.code or location.name }}">{{ location.code or '' }} {{ location.name or '' }}</option>
+                    {% endfor %}
+                </datalist>
+            </div>
+
+            <div class="mobile-scan-field {% if mode != 'out' %}d-none{% endif %}">
+                <label class="mobile-scan-label" for="targetInput">领用对象</label>
+                <input id="targetInput" class="form-control" list="departmentOptions" autocomplete="off" placeholder="部门或领用人">
+                <datalist id="departmentOptions">
+                    {% for department in departments %}
+                    <option value="{{ department.name }}">{{ department.code }} {{ department.name }}</option>
+                    {% endfor %}
+                </datalist>
+            </div>
+
+            <div class="mobile-scan-field {% if mode == 'query' %}d-none{% endif %}">
+                <label class="mobile-scan-label" for="remarkInput">备注</label>
+                <input id="remarkInput" class="form-control" type="text" autocomplete="off" placeholder="可不填">
+            </div>
+
+            {% if not can_write and mode != 'query' %}
+            <div class="mobile-scan-warning">当前账号只能查询，不能提交仓库单据。</div>
+            {% endif %}
+
+            <button type="submit" class="btn btn-primary mobile-scan-submit" id="submitBtn" {% if not can_write and mode != 'query' %}disabled{% endif %}>
+                <i class="bi {{ mode_config.icon }}"></i>
+                <span>{% if mode == 'query' %}查询库存{% elif mode == 'check' %}保存盘点{% elif mode == 'out' %}确认出库{% else %}确认入库{% endif %}</span>
+            </button>
+        </form>
+    </section>
+
+    <section class="mobile-scan-history" id="scanHistory" hidden>
+        <h3>本次操作</h3>
+        <div id="historyList"></div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    var shell = document.querySelector('.mobile-scan-shell');
+    if (!shell) return;
+
+    var mode = shell.dataset.mode || 'query';
+    var canWrite = shell.dataset.canWrite === '1';
+    var scanCode = document.getElementById('scanCode');
+    var lookupBtn = document.getElementById('lookupBtn');
+    var scanStatus = document.getElementById('scanStatus');
+    var matchList = document.getElementById('matchList');
+    var materialCard = document.getElementById('materialCard');
+    var scanForm = document.getElementById('scanForm');
+    var submitBtn = document.getElementById('submitBtn');
+    var quantityInput = document.getElementById('quantityInput');
+    var warehouseInput = document.getElementById('warehouseInput');
+    var locationInput = document.getElementById('locationInput');
+    var targetInput = document.getElementById('targetInput');
+    var remarkInput = document.getElementById('remarkInput');
+    var historyWrap = document.getElementById('scanHistory');
+    var historyList = document.getElementById('historyList');
+    var selectedMaterial = null;
+
+    function setStatus(message, type) {
+        scanStatus.textContent = message || '';
+        scanStatus.className = 'mobile-scan-status' + (type ? ' ' + type : '');
+    }
+
+    function formatQty(value) {
+        var num = Number(value || 0);
+        return Number.isInteger(num) ? String(num) : num.toFixed(2);
+    }
+
+    function renderMaterial(material) {
+        selectedMaterial = material;
+        materialCard.hidden = false;
+        document.getElementById('materialCode').textContent = material.code || '-';
+        document.getElementById('materialName').textContent = material.name || '-';
+        document.getElementById('materialSpec').textContent = material.spec || '-';
+        document.getElementById('materialStock').textContent = formatQty(material.stock);
+        document.getElementById('materialUnit').textContent = material.unit || '';
+        document.getElementById('materialCategory').textContent = material.category || '-';
+        document.getElementById('materialSupplier').textContent = material.supplier || '-';
+        document.getElementById('materialPrice').textContent = Number(material.price || 0).toFixed(2);
+
+        var locationList = document.getElementById('locationList');
+        locationList.innerHTML = '';
+        var locations = material.locations || [];
+        if (locations.length) {
+            locations.forEach(function(item) {
+                var badge = document.createElement('span');
+                badge.className = 'mobile-location-pill';
+                badge.textContent = item.location + '：' + formatQty(item.quantity);
+                locationList.appendChild(badge);
+            });
+            locationList.hidden = false;
+        } else {
+            locationList.hidden = true;
+        }
+    }
+
+    function renderMatches(matches) {
+        matchList.innerHTML = '';
+        if (!matches || !matches.length) {
+            matchList.hidden = true;
+            return;
+        }
+        matches.forEach(function(material) {
+            var button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'mobile-match-item';
+            button.innerHTML = '<strong></strong><span></span><em></em>';
+            button.querySelector('strong').textContent = material.code || '-';
+            button.querySelector('span').textContent = material.name || '-';
+            button.querySelector('em').textContent = '库存 ' + formatQty(material.stock) + (material.unit || '');
+            button.addEventListener('click', function() {
+                scanCode.value = material.code || '';
+                matchList.hidden = true;
+                renderMaterial(material);
+                setStatus('已选择物料', 'success');
+                if (mode !== 'query') {
+                    quantityInput.focus();
+                    quantityInput.select();
+                }
+            });
+            matchList.appendChild(button);
+        });
+        matchList.hidden = false;
+    }
+
+    function lookupMaterial() {
+        var code = (scanCode.value || '').trim();
+        if (!code) {
+            setStatus('请输入物料编码', 'error');
+            scanCode.focus();
+            return Promise.resolve(null);
+        }
+        setStatus('查询中...', '');
+        matchList.hidden = true;
+        return fetch('/mobile/api/material_lookup?code=' + encodeURIComponent(code), {
+            credentials: 'same-origin'
+        })
+            .then(function(response) {
+                return response.json().then(function(data) {
+                    if (!response.ok && data.status !== 'multiple') throw data;
+                    return data;
+                });
+            })
+            .then(function(data) {
+                if (data.status === 'multiple') {
+                    selectedMaterial = null;
+                    materialCard.hidden = true;
+                    renderMatches((data.data && data.data.matches) || []);
+                    setStatus('找到多个物料，请点选一个', '');
+                    return null;
+                }
+                renderMaterial(data.data);
+                setStatus('物料已带出', 'success');
+                if (mode !== 'query') {
+                    quantityInput.focus();
+                    quantityInput.select();
+                }
+                return data.data;
+            })
+            .catch(function(error) {
+                selectedMaterial = null;
+                materialCard.hidden = true;
+                setStatus((error && (error.msg || error.message)) || '查询失败', 'error');
+                return null;
+            });
+    }
+
+    function addHistory(message, material) {
+        historyWrap.hidden = false;
+        var item = document.createElement('div');
+        item.className = 'mobile-history-item';
+        item.innerHTML = '<strong></strong><span></span>';
+        item.querySelector('strong').textContent = message;
+        item.querySelector('span').textContent = material ? ((material.code || '') + ' ' + (material.name || '')) : '';
+        historyList.insertBefore(item, historyList.firstChild);
+    }
+
+    function resetForNextScan(material) {
+        if (mode === 'query') return;
+        scanCode.value = '';
+        selectedMaterial = null;
+        materialCard.hidden = true;
+        matchList.hidden = true;
+        quantityInput.value = '1';
+        scanCode.focus();
+        if (material && material.code) {
+            setStatus('可继续扫描下一件', 'success');
+        }
+    }
+
+    lookupBtn.addEventListener('click', lookupMaterial);
+    scanCode.addEventListener('keydown', function(event) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            lookupMaterial();
+        }
+    });
+
+    scanForm.addEventListener('submit', function(event) {
+        event.preventDefault();
+        var ensureMaterial = selectedMaterial ? Promise.resolve(selectedMaterial) : lookupMaterial();
+        ensureMaterial.then(function(material) {
+            if (!material) return;
+            if (mode !== 'query' && !canWrite) {
+                setStatus('当前账号不能提交仓库单据', 'error');
+                return;
+            }
+
+            submitBtn.disabled = true;
+            setStatus('提交中...', '');
+            var quantity = quantityInput ? quantityInput.value : '';
+            var payload = {
+                mode: mode,
+                code: material.code,
+                quantity: quantity,
+                actual_stock: mode === 'check' ? quantity : undefined,
+                warehouse: warehouseInput ? warehouseInput.value : '',
+                location: locationInput ? locationInput.value : '',
+                target: targetInput ? targetInput.value : '',
+                remark: remarkInput ? remarkInput.value : ''
+            };
+            fetch('/mobile/api/scan_submit', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': (document.querySelector('meta[name="csrf-token"]') || {}).content || ''
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify(payload)
+            })
+                .then(function(response) {
+                    return response.json().then(function(data) {
+                        if (!response.ok || data.status !== 'success') throw data;
+                        return data;
+                    });
+                })
+                .then(function(data) {
+                    var returnedMaterial = data.data && data.data.material ? data.data.material : material;
+                    renderMaterial(returnedMaterial);
+                    setStatus(data.msg || '操作成功', 'success');
+                    addHistory(data.msg || '操作成功', returnedMaterial);
+                    resetForNextScan(returnedMaterial);
+                })
+                .catch(function(error) {
+                    setStatus((error && (error.msg || error.message)) || '提交失败', 'error');
+                })
+                .finally(function() {
+                    submitBtn.disabled = false;
+                });
+        });
+    });
+
+    window.setTimeout(function() {
+        scanCode.focus();
+    }, 200);
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}数据库备份{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+        <h2 class="mb-1"><i class="bi bi-database-down"></i> 数据库备份</h2>
+        <div class="text-muted small">系统管理员维护 PostgreSQL 备份；迁移、升级和结账前应先确认最近可用备份。</div>
+    </div>
+    <a class="btn btn-outline-secondary btn-sm" href="/system/data-health">
+        <i class="bi bi-heart-pulse"></i> 数据健康
+    </a>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-lg-5">
+        <div class="card h-100">
+            <div class="card-header fw-semibold">执行备份</div>
+            <div class="card-body">
+                <form id="backupForm" class="d-grid gap-3">
+                    <div>
+                        <label class="form-label">备份类型</label>
+                        <select class="form-select" name="backup_type" id="backupType">
+                            <option value="manual">日常手动备份</option>
+                            <option value="pre_migration">迁移前备份</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label">迁移说明</label>
+                        <input class="form-control" name="description" id="backupDescription" placeholder="例如 add_system_options" autocomplete="off">
+                        <div class="form-text">仅迁移前备份使用；文件名会生成 `pre_migration_说明.dump`。</div>
+                    </div>
+                    <button type="submit" class="btn btn-primary" id="runBackupBtn">
+                        <i class="bi bi-play-circle"></i> 立即备份
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-7">
+        <div class="card h-100">
+            <div class="card-header fw-semibold">运维要求</div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>场景</th>
+                                <th>要求</th>
+                                <th>验收</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>日常生产</td>
+                                <td>每日通过 Windows 任务计划执行 `scripts/pg_backup.py`。</td>
+                                <td>最近24小时存在 `.dump` 文件。</td>
+                            </tr>
+                            <tr>
+                                <td>迁移升级</td>
+                                <td>执行 `scripts/pg_backup.py --output backups/pre_migration_说明.dump`。</td>
+                                <td>备份文件非空并记录日志。</td>
+                            </tr>
+                            <tr>
+                                <td>上线演练</td>
+                                <td>使用 `scripts/pg_restore.py --input 备份文件` 在受控目标库恢复。</td>
+                                <td>核心业务数据可查询核对。</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-semibold">恢复演练状态</span>
+        <span class="badge {% if restore_status.status == '已通过' %}text-bg-success{% elif restore_status.status == '失败' %}text-bg-danger{% else %}text-bg-warning{% endif %}">{{ restore_status.status }}</span>
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <div class="text-muted small">最近记录时间</div>
+                <div class="fw-semibold">{{ restore_status.checked_at }}</div>
+            </div>
+            <div class="col-md-9">
+                <div class="text-muted small">恢复日志</div>
+                <div class="small text-break">{{ restore_status.detail }}</div>
+            </div>
+        </div>
+        <div class="form-text mt-2">恢复演练必须在受控目标库执行，不从生产 Web 页面直接恢复。</div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="fw-semibold">最近数据库备份</span>
+        <span class="text-muted small">{{ backups|length }} 个文件</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>文件</th>
+                    <th>大小MB</th>
+                    <th>备份时间</th>
+                    <th>路径</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for backup in backups %}
+                <tr>
+                    <td class="fw-semibold">{{ backup.file_name }}</td>
+                    <td>{{ backup.size_mb }}</td>
+                    <td>{{ backup.modified_time }}</td>
+                    <td class="text-muted small">{{ backup.path }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="text-center text-muted py-4">暂无数据库备份文件。</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('backupForm').addEventListener('submit', function(event) {
+    event.preventDefault();
+    const btn = document.getElementById('runBackupBtn');
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>备份中';
+
+    const fetcher = window.csrfFetch || fetch;
+    fetcher('/system/database-backups/run', {
+        method: 'POST',
+        body: new FormData(event.currentTarget)
+    })
+        .then(res => res.json().then(data => ({ ok: res.ok, data })))
+        .then(result => {
+            showToast(result.data.msg || (result.ok ? '备份完成' : '备份失败'), result.ok ? 'success' : 'danger');
+            if (result.ok) {
+                setTimeout(() => location.reload(), 800);
+            }
+        })
+        .catch(error => showToast('备份失败：' + error.message, 'danger'))
+        .finally(() => {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+        });
+});
+</script>
+{% endblock %}

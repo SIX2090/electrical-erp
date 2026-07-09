@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block title %}MRP 齐套分析{% endblock %}
+{% block content %}
+<div class="page-heading erp-list-heading">
+    <div>
+        <h1>MRP 齐套分析</h1>
+        <p>按工单展开 BOM，核算库存、在途、在制、安全库存和净缺口，用于投产前齐套复核。</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-outline-secondary btn-sm" href="/mrp"><i class="bi bi-house"></i> MRP 首页</a>
+        <a class="btn btn-outline-secondary btn-sm" href="/requisition"><i class="bi bi-clipboard-check"></i> 工单领料查询</a>
+        <a class="btn btn-outline-secondary btn-sm" href="/production/reports/kitting-shortage"><i class="bi bi-table"></i> 齐套缺料报表</a>
+    </div>
+</div>
+
+<div class="page-card mb-3">
+    <form class="row g-2 align-items-end" method="get" action="/mrp/kitting">
+        <div class="col-md-8">
+            <label class="form-label small text-muted mb-1">工单</label>
+            <select class="form-select form-select-sm" name="work_order_id" onchange="this.form.submit()">
+                <option value="">请选择工单</option>
+                {% for wo in work_orders %}
+                <option value="{{ wo.id }}" {{ 'selected' if work_order_id == wo.id else '' }}>
+                    {{ wo.wo_no }} | {{ wo.product_code or '' }} {{ wo.product_name or '' }} | 项目 {{ wo.project_code or '-' }} / 机号 {{ wo.serial_no or '-' }} | {{ wo.status or '' }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2 d-grid">
+            <button class="btn btn-primary btn-sm" type="submit">分析</button>
+        </div>
+    </form>
+</div>
+
+{% if analysis and analysis.status == 'ok' %}
+{% set summary = analysis.summary %}
+{% set header = analysis.header %}
+<div class="row g-3 mb-3">
+    <div class="col-md-3">
+        <div class="metric h-100">
+            <div class="label">工单号</div>
+            <div class="value">{{ header.wo_no }}</div>
+            <div class="text-muted small mt-1">{{ header.product_code or '' }} {{ header.product_name or '' }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="metric h-100">
+            <div class="label">投产门禁</div>
+            <div class="value">{{ summary.gate_label }}</div>
+            <div class="text-muted small mt-1">{{ summary.gate_reason }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="metric h-100">
+            <div class="label">齐套率</div>
+            <div class="value">{{ percent(summary.kitting_rate) }}%</div>
+            <div class="text-muted small mt-1">已覆盖 {{ summary.covered_line_count }} / BOM {{ summary.line_count }} 行</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="metric h-100">
+            <div class="label">预计齐套日</div>
+            <div class="value">{{ summary.shortage_ready_date or summary.earliest_ready_date or '-' }}</div>
+            <div class="text-muted small mt-1">缺料 {{ summary.shortage_line_count }} 行，净缺口 {{ qty(summary.total_net_qty) }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>处理结论</h2>
+            <span>{{ summary.gate_next_action }}</span>
+        </div>
+    </div>
+    <div class="row g-2">
+        <div class="col-md-3"><strong>项目号</strong><br>{{ header.project_code or '-' }}</div>
+        <div class="col-md-3"><strong>机号</strong><br>{{ header.serial_no or '-' }}</div>
+        <div class="col-md-3"><strong>毛需求</strong><br>{{ qty(summary.total_gross_qty) }}</div>
+        <div class="col-md-3"><strong>净缺口</strong><br>{{ qty(summary.total_net_qty) }}</div>
+    </div>
+</div>
+
+<div class="page-card">
+    <div class="section-title">
+        <div>
+            <h2>齐套明细</h2>
+            <span>按 BOM 层级显示毛需求、可用库存、在途/在制扣减、净缺口、责任人、下一步和预计补齐日。</span>
+        </div>
+    </div>
+    {% if analysis["items"] %}
+    <div class="table-responsive">
+        <table class="table table-sm align-middle erp-list-table">
+            <thead>
+            <tr>
+                <th>层级</th>
+                <th>物料编码</th>
+                <th>物料名称</th>
+                <th>规格</th>
+                <th class="text-end">毛需求</th>
+                <th class="text-end">有效可用</th>
+                <th class="text-end">采购在途</th>
+                <th class="text-end">采购申请</th>
+                <th class="text-end">委外在途</th>
+                <th class="text-end">在制</th>
+                <th class="text-end">净缺口</th>
+                <th>状态</th>
+                <th>责任</th>
+                <th>下一步</th>
+                <th>预计补齐</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for it in analysis["items"] %}
+            <tr>
+                <td>{{ it.bom_level }}</td>
+                <td>{{ it.material_code or '-' }}</td>
+                <td>{{ it.material_name or '-' }}</td>
+                <td>{{ it.material_spec or '-' }}</td>
+                <td class="text-end">{{ qty(it.gross_qty) }}</td>
+                <td class="text-end">{{ qty(it.effective_available_qty) }}</td>
+                <td class="text-end">{{ qty(it.purchase_on_order_qty) }}</td>
+                <td class="text-end">{{ qty(it.purchase_requisition_qty if it.purchase_requisition_qty is defined else 0) }}</td>
+                <td class="text-end">{{ qty(it.outsource_on_order_qty) }}</td>
+                <td class="text-end">{{ qty(it.production_on_order_qty) }}</td>
+                <td class="text-end">
+                    {% if it.net_qty and it.net_qty|float > 0 %}<strong class="text-danger">{{ qty(it.net_qty) }}</strong>{% else %}0{% endif %}
+                </td>
+                <td>
+                    {% if it.net_qty and it.net_qty|float > 0 %}
+                    <span class="badge bg-warning text-dark">{{ it.kitting_state_label }}</span>
+                    {% else %}
+                    <span class="badge bg-success">{{ it.kitting_state_label }}</span>
+                    {% endif %}
+                    <div class="text-muted small mt-1">{{ it.blocked_reason }}</div>
+                </td>
+                <td>{{ it.owner_role or '-' }}</td>
+                <td>
+                    <div>{{ it.next_action or '-' }}</div>
+                    {% if it.action_url %}
+                    <a class="small" href="{{ it.action_url }}">进入处理</a>
+                    {% endif %}
+                </td>
+                <td>{{ it.estimated_ready_date or '-' }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="erp-empty-line">该工单未找到可展开的 BOM。</div>
+    {% endif %}
+</div>
+{% elif analysis and analysis.status == 'not_found' %}
+<div class="page-card">
+    <div class="erp-empty-line">工单不存在，请重新选择。</div>
+</div>
+{% else %}
+<div class="page-card">
+    <div class="erp-empty-line">请在上方选择工单后查看齐套分析。</div>
+</div>
+{% endif %}
+{% endblock %}

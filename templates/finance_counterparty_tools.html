@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}{{ title|clean_text }}{% endblock %}
+{% block content %}
+<div class="page-heading erp-list-heading">
+    <div>
+        <h1>{{ title|clean_text }}</h1>
+        <p>{{ subtitle|clean_text }}</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        {% for action in actions or [] %}
+        <a class="btn btn-outline-primary btn-sm" href="{{ action.href }}">
+            <i class="bi bi-box-arrow-up-right"></i> {{ action.label|clean_text }}
+        </a>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="erp-workbench-metrics mb-3">
+    {% for metric in metrics or [] %}
+    <div class="erp-workbench-metric">
+        <div class="erp-workbench-metric-label">{{ metric.label|clean_text }}</div>
+        <div class="erp-workbench-metric-value">{{ metric.value }}</div>
+        <div class="erp-workbench-metric-hint">{{ metric.hint|clean_text }}</div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>查询条件</h2>
+            <span>按往来单位、来源单据、项目号、机号或状态筛选；本页不提供新增、审核、过账或自动改账动作。</span>
+        </div>
+    </div>
+    <form class="row g-2 align-items-end" method="get">
+        <div class="col-md-4">
+            <label class="form-label">关键字</label>
+            <input class="form-control form-control-sm" name="keyword" value="{{ request.args.get('keyword', '') }}" placeholder="单号 / 往来单位 / 项目号 / 机号">
+        </div>
+        <div class="col-md-2">
+            <button class="btn btn-outline-primary btn-sm" type="submit"><i class="bi bi-search"></i> 查询</button>
+            <a class="btn btn-outline-secondary btn-sm" href="{{ request.path }}">重置</a>
+        </div>
+    </form>
+</div>
+
+{% for section in sections or [] %}
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>{{ section.title|clean_text }}</h2>
+            <span>{{ section.rows|length }} 条记录</span>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle">
+            <thead>
+            <tr>
+                {% for column in section.columns %}
+                <th>{{ column.label|clean_text }}</th>
+                {% endfor %}
+            </tr>
+            </thead>
+            <tbody>
+            {% for row in section.rows %}
+            <tr>
+                {% for column in section.columns %}
+                <td>{{ row.get(column.key)|clean_text }}</td>
+                {% endfor %}
+            </tr>
+            {% else %}
+            <tr>
+                <td class="text-muted" colspan="{{ section.columns|length }}">暂无数据。</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}

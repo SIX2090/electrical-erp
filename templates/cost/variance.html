@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block title %}成本差异分析{% endblock %}
+{% block content %}
+<div class="container-fluid py-3">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0">标准 vs 实际成本差异分析</h4>
+    <form method="get" class="form-inline">
+      <select name="run_id" class="form-select form-select-sm me-2" onchange="this.form.submit()">
+        {% for r in runs %}
+        <option value="{{ r.id }}" {% if r.id == current_run_id %}selected{% endif %}>
+          {{ r.run_no }} ({{ r.period or '-' }} / {{ r.project_code or '-' }} / {{ r.serial_no or '-' }})
+        </option>
+        {% endfor %}
+      </select>
+    </form>
+  </div>
+
+  <div class="d-none">
+    <a class="btn btn-sm btn-outline-secondary me-2" href="javascript:history.back()" title="返回上一页"><i class="bi bi-arrow-left"></i> 返回</a>
+    <button class="btn btn-sm btn-primary me-2" onclick="exportReportTable()"><i class="bi bi-download"></i> 导出Excel</button>
+    <button class="btn btn-sm btn-secondary" onclick="window.print()"><i class="bi bi-printer"></i> 打印</button>
+  </div>
+
+  <div class="row mb-3">
+    <div class="col-md-4">
+      <div class="card text-center">
+        <div class="card-body">
+          <h6 class="card-subtitle mb-2 text-muted">标准成本合计</h6>
+          <h4 class="card-title text-primary">{{ "%.2f"|format(report.total_standard or 0) }}</h4>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card text-center">
+        <div class="card-body">
+          <h6 class="card-subtitle mb-2 text-muted">实际成本合计</h6>
+          <h4 class="card-title text-info">{{ "%.2f"|format(report.total_actual or 0) }}</h4>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card text-center">
+        <div class="card-body">
+          <h6 class="card-subtitle mb-2 text-muted">差异合计</h6>
+          <h4 class="card-title {% if report.total_variance > 0 %}text-danger{% elif report.total_variance < 0 %}text-success{% else %}text-muted{% endif %}">
+            {{ "%.2f"|format(report.total_variance or 0) }}
+          </h4>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-header">按成本类型汇总</div>
+    <div class="card-body p-0">
+      <table class="table table-sm table-striped mb-0">
+        <thead>
+          <tr>
+            <th>成本类型</th>
+            <th class="text-end">标准成本</th>
+            <th class="text-end">实际成本</th>
+            <th class="text-end">差异</th>
+            <th class="text-end">差异率%</th>
+            <th class="text-end">行数</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in report.summary %}
+          <tr>
+            <td>{{ COST_TYPE_LABELS.get(s.cost_type, s.cost_type) }}</td>
+            <td class="text-end">{{ "%.2f"|format(s.standard_cost) }}</td>
+            <td class="text-end">{{ "%.2f"|format(s.actual_cost) }}</td>
+            <td class="text-end {% if s.variance_amount > 0 %}text-danger{% elif s.variance_amount < 0 %}text-success{% endif %}">
+              {{ "%.2f"|format(s.variance_amount) }}
+            </td>
+            <td class="text-end">{{ "%.2f"|format(s.variance_pct) }}%</td>
+            <td class="text-end">{{ s.line_count }}</td>
+          </tr>
+          {% endfor %}
+          {% if not report.summary %}
+          <tr><td colspan="6" class="text-center text-muted">暂无数据</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">差异明细（仅显示有差异的行）</div>
+    <div class="card-body p-0">
+      <table class="table table-sm table-striped mb-0">
+        <thead>
+          <tr>
+            <th>成本类型</th>
+            <th>来源单据</th>
+            <th>物料</th>
+            <th class="text-end">数量</th>
+            <th class="text-end">实际单价</th>
+            <th class="text-end">实际成本</th>
+            <th class="text-end">标准成本</th>
+            <th class="text-end">差异</th>
+            <th>差异原因</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for l in report.lines %}
+          <tr>
+            <td>{{ COST_TYPE_LABELS.get(l.cost_type, l.cost_type) }}</td>
+            <td>{{ l.source_no or '-' }}</td>
+            <td>{{ l.product_code or '-' }} {{ l.product_name or '' }}</td>
+            <td class="text-end">{{ "%.4f"|format(l.quantity or 0) }}</td>
+            <td class="text-end">{{ "%.4f"|format(l.unit_cost or 0) }}</td>
+            <td class="text-end">{{ "%.2f"|format(l.amount or 0) }}</td>
+            <td class="text-end">{{ "%.2f"|format(l.standard_cost or 0) }}</td>
+            <td class="text-end {% if l.variance_amount > 0 %}text-danger{% elif l.variance_amount < 0 %}text-success{% endif %}">
+              {{ "%.2f"|format(l.variance_amount or 0) }}
+            </td>
+            <td>{{ l.variance_reason or '-' }}</td>
+          </tr>
+          {% endfor %}
+          {% if not report.lines %}
+          <tr><td colspan="9" class="text-center text-muted">无差异明细</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+function exportReportTable() {
+    var table = document.querySelector('.table');
+    if (!table) return;
+    var html = table.outerHTML;
+    var url = 'data:application/vnd.ms-excel,' + encodeURIComponent(html);
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = '{{ title }}_' + new Date().toISOString().substr(0,10) + '.xls';
+    link.click();
+}
+</script>
+{% endblock %}

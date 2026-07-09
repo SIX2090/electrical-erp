@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <div>
+        <h1>{{ title }}</h1>
+        <p>{{ subtitle }}</p>
+    </div>
+</div>
+
+<div class="page-card mb-3">
+    <form method="get" class="row g-2 align-items-end">
+        <div class="col-md-2">
+            <label class="form-label">年度</label>
+            <input class="form-control" type="number" name="year" value="{{ year }}" min="2000" max="2100">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">科目类型</label>
+            <select class="form-select" name="account_type">
+                <option value="">全部</option>
+                {% for t in account_types %}
+                <option value="{{ t }}" {% if selected_account_type == t %}selected{% endif %}>{{ t }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2 d-grid">
+            <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i> 查询</button>
+        </div>
+    </form>
+</div>
+
+<div class="alert alert-warning py-2">
+    <i class="bi bi-exclamation-triangle"></i> 期初余额用于系统上线时录入各科目年初余额。录入后，科目余额表和明细账的期初余额计算将以此为基础。已结账年份的期初余额不可修改。
+</div>
+
+<form method="post" id="openingForm">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="page-card">
+    <table class="data-table table-striped">
+        <thead>
+            <tr>
+                <th>科目编码</th>
+                <th>科目名称</th>
+                <th>科目类型</th>
+                <th>余额方向</th>
+                <th class="text-end">借方期初</th>
+                <th class="text-end">贷方期初</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                <td>{{ row.code }}</td>
+                <td>{{ row.name }}</td>
+                <td>{{ row.account_type }}</td>
+                <td>{{ row.direction }}</td>
+                <td>
+                    <input type="number" step="0.01" class="form-control form-control-sm text-end"
+                           name="opening_debit_{{ row.id }}"
+                           value="{{ row.opening_debit }}"
+                           {% if row.locked %}readonly{% endif %}>
+                </td>
+                <td>
+                    <input type="number" step="0.01" class="form-control form-control-sm text-end"
+                           name="opening_credit_{{ row.id }}"
+                           value="{{ row.opening_credit }}"
+                           {% if row.locked %}readonly{% endif %}>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="text-center text-muted py-4">无会计科目，请先在会计科目表中添加科目。</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if rows and not locked %}
+<div class="d-flex justify-content-end mt-3">
+    <button type="submit" class="btn btn-primary" onclick="return confirm('确定保存期初余额吗？')">
+        <i class="bi bi-save"></i> 保存期初余额
+    </button>
+</div>
+{% endif %}
+</form>
+{% endblock %}

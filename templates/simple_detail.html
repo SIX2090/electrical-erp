@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% from "partials/document_void_stamp.html" import void_stamp %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+{% set doc_id = row.id if row and row.get('id') else '' %}
+{% set status_val = row.status if row and row.get('status') else '' %}
+{{ document_menu_bar(actions=[
+    {'type': 'nav', 'items': [
+        {'label': '首张', 'event': 'doc-nav-first', 'icon': 'bi-chevron-double-left'},
+        {'label': '上一张', 'event': 'doc-nav-prev', 'icon': 'bi-chevron-left'},
+        {'label': '下一张', 'event': 'doc-nav-next', 'icon': 'bi-chevron-right'},
+        {'label': '末张', 'event': 'doc-nav-last', 'icon': 'bi-chevron-double-right'}
+    ]}
+], aria_label='单据操作菜单', doc_status={'code': status_val, 'label': status_val} if status_val else None) }}
+{% if doc_id %}
+<div id="doc-nav-config" data-nav-table="{{ table_name or '' }}" data-nav-base="{{ (back_url or '').rstrip('/') ~ '/' }}" data-doc-id="{{ doc_id }}" style="display:none"></div>
+{% endif %}
+
+<div class="page-card">
+    <div class="section-title">
+        <div>
+            <h2>基础信息</h2>
+            <span>{{ doc_id }}</span>
+        </div>
+        {{ void_stamp(status_val) }}
+    </div>
+
+    {% if row %}
+    {% set default_labels = {
+        'id': 'ID',
+        'order_no': '单号',
+        'shipment_no': '发货单号',
+        'doc_no': '单号',
+        'project_code': '项目号',
+        'serial_no': '机号',
+        'status': '状态',
+        'customer_id': '客户',
+        'supplier_id': '供应商',
+        'product_id': '物料',
+        'warehouse_id': '仓库',
+        'location_id': '库位',
+        'order_date': '单据日期',
+        'shipment_date': '发货日期',
+        'delivery_date': '交期',
+        'total_amount': '含税金额',
+        'balance': '余额',
+        'remark': '备注',
+        'created_at': '创建时间',
+        'updated_at': '更新时间'
+    } %}
+    <dl class="row">
+        {% for key, value in row.items() %}
+        <dt class="col-sm-3">{{ (labels.get(key, default_labels.get(key, key)) if labels else default_labels.get(key, key))|erp_label }}</dt>
+        <dd class="col-sm-9">{{ value|erp_value|clean_text }}</dd>
+        {% endfor %}
+    </dl>
+    {% else %}
+    <div class="text-muted">记录不存在。</div>
+    {% endif %}
+</div>
+{% endblock %}

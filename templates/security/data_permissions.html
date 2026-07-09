@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+
+{% block title %}数据权限规则{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+  <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h5 class="mb-0"><i class="bi bi-shield-lock"></i> 数据权限规则</h5>
+      <div>
+        <a href="{{ url_for('data_access_logs_page') }}" class="btn btn-sm btn-outline-secondary me-2">
+          <i class="bi bi-list-check"></i> 访问日志
+        </a>
+        <a href="{{ url_for('export_approvals_page') }}" class="btn btn-sm btn-outline-secondary me-2">
+          <i class="bi bi-file-earmark-arrow-down"></i> 导出审批
+        </a>
+        <a href="{{ url_for('data_permission_new') }}" class="btn btn-sm btn-primary">
+          <i class="bi bi-plus-lg"></i> 新增规则
+        </a>
+        <a href="/" class="btn btn-sm btn-outline-secondary">
+          <i class="bi bi-house"></i> 返回首页
+        </a>
+      </div>
+    </div>
+    <div class="card-body">
+      <form method="get" class="row g-2 mb-3 align-items-end">
+        <div class="col-auto">
+          <label class="form-label small">主体类型</label>
+          <select name="subject_type" class="form-select form-select-sm">
+            {% for value, label in subject_type_options %}
+            <option value="{{ value }}" {% if filters.subject_type == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-auto">
+          <label class="form-label small">主体ID</label>
+          <input type="text" name="subject_id" value="{{ filters.subject_id }}" class="form-control form-control-sm" placeholder="用户ID或角色">
+        </div>
+        <div class="col-auto">
+          <label class="form-label small">范围类型</label>
+          <select name="scope_type" class="form-select form-select-sm">
+            {% for value, label in scope_type_options %}
+            <option value="{{ value }}" {% if filters.scope_type == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-auto">
+          <label class="form-label small">状态</label>
+          <select name="status" class="form-select form-select-sm">
+            {% for value, label in status_options %}
+            <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-auto">
+          <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-search"></i> 筛选</button>
+          <a href="{{ url_for('data_permission_list') }}" class="btn btn-sm btn-outline-secondary">重置</a>
+        </div>
+      </form>
+
+      {% if rules %}
+      <div class="table-responsive">
+        <table class="table table-bordered table-hover table-sm align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>ID</th>
+              <th>主体类型</th>
+              <th>主体</th>
+              <th>范围类型</th>
+              <th>范围</th>
+              <th>权限</th>
+              <th>状态</th>
+              <th>创建时间</th>
+              <th class="text-center">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for rule in rules %}
+            <tr>
+              <td>{{ rule.id }}</td>
+              <td>{{ rule.subject_type_label }}</td>
+              <td>{{ rule.subject_label }} <small class="text-muted">({{ rule.subject_id }})</small></td>
+              <td>{{ rule.scope_type_label }}</td>
+              <td>{{ rule.scope_display }} <small class="text-muted">({{ rule.scope_id }})</small></td>
+              <td><span class="badge bg-info">{{ rule.permission_label }}</span></td>
+              <td>
+                {% if rule.status == 'enabled' %}
+                <span class="badge bg-success">{{ rule.status_label }}</span>
+                {% else %}
+                <span class="badge bg-secondary">{{ rule.status_label }}</span>
+                {% endif %}
+              </td>
+              <td>{{ rule.created_at }}</td>
+              <td class="text-center">
+                <form method="post" action="{{ url_for('data_permission_update', rule_id=rule.id) }}" class="d-inline">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  {% if rule.status == 'enabled' %}
+                  <input type="hidden" name="status" value="disabled">
+                  <button type="submit" class="btn btn-sm btn-outline-warning" onclick="return confirm('确定要停用该规则吗？')">停用</button>
+                  {% else %}
+                  <input type="hidden" name="status" value="enabled">
+                  <button type="submit" class="btn btn-sm btn-outline-success" onclick="return confirm('确定要启用该规则吗？')">启用</button>
+                  {% endif %}
+                </form>
+                <form method="post" action="{{ url_for('data_permission_delete', rule_id=rule.id) }}" class="d-inline" onsubmit="return confirm('确定要删除该规则吗？此操作不可恢复。')">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn btn-sm btn-outline-danger">删除</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <p class="text-muted small">共 {{ rules|length }} 条规则</p>
+      {% else %}
+      <div class="alert alert-info">暂无数据权限规则，点击“新增规则”创建第一条规则。</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

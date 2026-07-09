@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <div>
+        <h1>{{ title }}</h1>
+        <p>{{ subtitle }}</p>
+    </div>
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>期间</h2>
+            <span>{{ period_label }}</span>
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-primary btn-sm" href="/finance/financial-statements?year={{ year }}&month={{ month }}">
+                <i class="bi bi-file-earmark-bar-graph"></i> 经营快照
+            </a>
+            <a class="btn btn-outline-primary btn-sm" href="/finance/trial-balance?year={{ year }}&month={{ month }}">
+                <i class="bi bi-calculator"></i> 试算平衡
+            </a>
+            <form method="post" action="/finance/period-close/profit-loss-transfer?year={{ year }}&month={{ month }}" style="display:inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-outline-warning btn-sm" onclick="return confirm('确定要结转本期损益吗？\n此操作将生成结转凭证并自动过账到总账。')">
+                    <i class="bi bi-arrow-left-right"></i> 结转损益
+                </button>
+            </form>
+        </div>
+    </div>
+    <form method="get" class="row g-2 align-items-end">
+        <div class="col-md-2">
+            <label class="form-label">年度</label>
+            <input class="form-control" type="number" name="year" value="{{ year }}" min="2000" max="2100">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">月份</label>
+            <input class="form-control" type="number" name="month" value="{{ month }}" min="1" max="12">
+        </div>
+        <div class="col-md-2 d-grid">
+            <button class="btn btn-outline-primary" type="submit"><i class="bi bi-search"></i> 查询</button>
+        </div>
+    </form>
+</div>
+
+<div class="metric-grid mb-3">
+    <div class="metric-card"><span>经营收入</span><strong>{{ summary.revenue|money }}</strong><small>销售订单业务口径</small></div>
+    <div class="metric-card"><span>经营成本</span><strong>{{ summary.cost|money }}</strong><small>采购+工单+委外+售后</small></div>
+    <div class="metric-card"><span>经营毛利</span><strong>{{ summary.gross_profit|money }}</strong><small>收入-成本</small></div>
+    <div class="metric-card"><span>经营现金净流入</span><strong>{{ summary.net_cash_flow|money }}</strong><small>客户收款-供应商付款</small></div>
+</div>
+
+<div class="alert alert-info py-2">
+    口径说明：{{ payload.basis_note }} 期间结账边界：审核后锁定本期经营快照；当前不提供反结账自助按钮，反结账需管理员按审计流程处理。
+</div>
+
+<div class="alert alert-secondary py-2">
+    {{ payload.reconciliation_note }} 快照分为经营利润快照、经营资产负债快照、经营现金流快照，对应传统利润表、资产负债表、现金流量表的经营摘要口径。
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>结账保护</h2>
+            <span>仅管理员/主管/财务角色可执行结账；阻断项未清理时不能审核锁定</span>
+        </div>
+    </div>
+    {% if period_close_validation.errors %}
+    <div class="alert alert-danger py-2">
+        <strong>阻断项</strong>
+        <ul class="mb-0">
+            {% for item in period_close_validation.errors %}
+            <li>{{ item }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% else %}
+    <div class="alert alert-success py-2 mb-2">未发现硬性阻断项，可以生成快照；审核锁定前仍需确认预警项。</div>
+    {% endif %}
+    {% if period_close_validation.warnings %}
+    <div class="alert alert-warning py-2 mb-0">
+        <strong>预警项</strong>
+        <ul class="mb-0">
+            {% for item in period_close_validation.warnings %}
+            <li>{{ item }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>结账前检查项</h2>
+            <span>应收应付/现金/库存成本/凭证来源追溯</span>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead><tr><th>检查项</th><th>口径</th><th>结果</th><th>结账前动作</th></tr></thead>
+            <tbody>
+            {% for check in pre_close_checks %}
+            <tr>
+                <td>{{ check.item }}</td>
+                <td>{{ check.basis }}</td>
+                <td>{{ check.result }}</td>
+                <td>{{ check.action }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    {% for key in ['income_statement', 'balance_sheet', 'cash_flow_statement'] %}
+    {% set report = payload.get(key) %}
+    <div class="col-xl-4">
+        <div class="page-card h-100">
+            <div class="section-title">
+                <div>
+                    <h2>{{ report.title }}</h2>
+                    <span>{{ period_label }}</span>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead><tr><th>项目</th><th class="text-end">金额</th></tr></thead>
+                    <tbody>
+                    {% for row in report.rows %}
+                    <tr>
+                        <td>{{ row.item }}</td>
+                        <td class="text-end">{{ row.amount|money }}</td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>结账动作</h2>
+            <span>{% if current_close %}当前状态：{{ current_close.status }}{% else %}当前期间尚未保存快照{% endif %}</span>
+        </div>
+    </div>
+    <form method="post" class="row g-2 align-items-end">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="year" value="{{ year }}">
+        <input type="hidden" name="month" value="{{ month }}">
+        <div class="col-md-6">
+            <label class="form-label">结账备注</label>
+            <input class="form-control" name="remark" value="{{ current_close.remark if current_close else '' }}" placeholder="例如：应收应付已核对，库存金额已确认，异常项已列入跟进">
+        </div>
+        <div class="col-md-3 d-grid">
+            <button class="btn btn-outline-primary" type="submit" name="action" value="generate">
+                <i class="bi bi-arrow-repeat"></i> 生成经营快照
+            </button>
+        </div>
+        <div class="col-md-3 d-grid">
+            <button class="btn btn-primary" type="submit" name="action" value="audit" {% if not period_close_validation.can_close %}disabled title="存在结账阻断项，不能审核锁定"{% endif %}>
+                <i class="bi bi-calendar-check"></i> 审核并锁定期间
+                <span class="visually-hidden">确认期间结账</span>
+            </button>
+        </div>
+    </form>
+</div>
+
+<div class="page-card">
+    <div class="section-title">
+        <div>
+            <h2>结账历史</h2>
+            <span>{{ closes|length }} 条记录</span>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+            <tr>
+                <th>期间</th><th>状态</th><th class="text-end">收入</th><th class="text-end">成本</th><th class="text-end">毛利</th>
+                <th class="text-end">应收余额</th><th class="text-end">应付余额</th><th class="text-end">经营现金净流入</th><th>结账时间</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for row in closes %}
+            <tr>
+                <td>{{ row.period_label }}</td>
+                <td>{{ row.status }}</td>
+                <td class="text-end">{{ row.revenue|money }}</td>
+                <td class="text-end">{{ row.cost|money }}</td>
+                <td class="text-end">{{ row.gross_profit|money }}</td>
+                <td class="text-end">{{ row.receivable_balance|money }}</td>
+                <td class="text-end">{{ row.payable_balance|money }}</td>
+                <td class="text-end">{{ row.net_cash_flow|money }}</td>
+                <td>{{ row.closed_at or '-' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="9" class="text-muted text-center">暂无结账历史。</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

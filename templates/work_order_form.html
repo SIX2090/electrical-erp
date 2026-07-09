@@ -1,0 +1,335 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}{{ '编辑' if mode == 'edit' else '新增' }}生产工单{% endblock %}
+{% block content %}
+<div class="erp-document-entry">
+{{ document_menu_bar(actions=[
+    {'label': '保存', 'type': 'button', 'event': 'submit-work-order', 'icon': 'bi-save'},
+    {'label': '保存并关闭', 'type': 'button', 'event': 'submit-work-order-close'},
+    {'label': '返回列表', 'type': 'link', 'href': '/work-orders', 'icon': 'bi-arrow-left'},
+    {'label': '下查', 'type': 'dropdown', 'items': [
+        {'label': '生产工单列表', 'type': 'link', 'href': '/work-orders'},
+        {'label': 'BOM清单', 'type': 'link', 'href': '/bom'},
+        {'label': '工艺路线', 'type': 'link', 'href': '/production-routings'},
+        {'label': '齐套检查', 'type': 'link', 'href': '/engineering/kitting'},
+        {'label': 'MRP缺料', 'type': 'link', 'href': '/production-enhance/mrp-requirements'}
+    ]},
+    {'label': '工具', 'type': 'dropdown', 'items': [
+        {'label': '新增BOM', 'type': 'link', 'href': '/bom/new'},
+        {'label': '新增委外订单', 'type': 'link', 'href': '/subcontract/new'},
+        {'label': '质量检验列表', 'type': 'link', 'href': '/production-enhance/quality-inspections'}
+    ]}
+]) }}
+<div class="page-heading order-form-heading">
+    <div>
+        <h1>{{ '编辑' if mode == 'edit' else '新增' }}生产工单</h1>
+        <p>建立整机或部件生产任务，后续用于领料、完工入库、质量检验、项目号和机号追踪。</p>
+    </div>
+    <a class="btn btn-outline-secondary btn-sm d-none" href="/work-orders">返回列表</a>
+</div>
+
+<form id="workOrderForm" method="post" action="{{ post_url or '/work-orders/new' }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% if mode == 'edit' and order %}
+    <input type="hidden" name="row_version" value="{{ order.row_version or 1 }}">
+    {% endif %}
+    <div class="page-card order-form-card document-entry-header-card mb-3">
+        <div class="section-title">
+            <div>
+                <h2>工单表头</h2>
+                <span>项目号和机号是建议追踪字段，按项目制造或单机追踪时填写。</span>
+            </div>
+        </div>
+        <div class="row g-2">
+            <div class="col-md-3">
+                <label class="form-label">工单号</label>
+                <input class="form-control form-control-sm" type="text" value="{{ order.wo_no|default('') }}" placeholder="保存时自动生成" readonly>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">工单日期</label>
+                <input class="form-control form-control-sm" type="date" name="wo_date" value="{{ order.wo_date if order.wo_date else today().isoformat() }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">计划开工</label>
+                <input class="form-control form-control-sm" type="date" name="planned_start_date" value="{{ order.planned_start_date or '' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">计划完工</label>
+                <input class="form-control form-control-sm" type="date" name="planned_end_date" value="{{ order.planned_end_date or '' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">状态</label>
+                <input class="form-control form-control-sm" value="{{ order.status or '新建' }}" readonly>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">项目号 <span class="text-muted small">建议</span></label>
+                <input class="form-control form-control-sm" name="project_code" value="{{ order.project_code or '' }}" placeholder="可留空，按项目制造时填写">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">机号 <span class="text-muted small">建议</span></label>
+                <input class="form-control form-control-sm" name="serial_no" value="{{ order.serial_no or '' }}" placeholder="可留空，按单机追踪时填写">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">BOM版本</label>
+                <select class="form-select form-select-sm" name="bom_id">
+                    <option value="">按物料默认BOM</option>
+                    {% for bom in boms %}
+                    <option value="{{ bom.id }}" {% if order.bom_id == bom.id %}selected{% endif %}>{{ bom.bom_no }} / {{ bom.version }} / {{ bom.product_code }} {{ bom.product_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">生产类型</label>
+                <select class="form-select form-select-sm" name="production_type">
+                    {% for value in ['整机生产', '部件加工', '装配', '电气装配', '调试', '返工'] %}
+                    <option value="{{ value }}" {% if order.production_type == value %}selected{% endif %}>{{ value }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">优先级</label>
+                <select class="form-select form-select-sm" name="priority">
+                    {% for value in ['普通', '加急', '插单', '暂停'] %}
+                    <option value="{{ value }}" {% if order.priority == value %}selected{% endif %}>{{ value }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">负责人</label>
+                <input class="form-control form-control-sm" name="responsible_person" value="{{ order.responsible_person or '' }}" placeholder="生产负责人或班组">
+            </div>
+            <div class="col-12">
+                <label class="form-label">备注</label>
+                <input class="form-control form-control-sm" name="remark" value="{{ order.remark or '' }}" placeholder="例如整机装配、关键配置、插单原因或生产注意事项">
+            </div>
+        </div>
+    </div>
+
+    <div class="page-card order-form-card document-entry-lines-card">
+        <div class="section-title">
+            <div>
+                <h2>生产物料明细</h2>
+                <span>在物料名称中输入名称、编码或规格，系统自动回填编码、规格、单位和成本。</span>
+            </div>
+        </div>
+        <div class="d-flex flex-wrap gap-2 mb-2">
+            <button class="btn btn-outline-secondary btn-sm" type="button" data-grid-action="columns"><i class="bi bi-layout-three-columns"></i> 列设置</button>
+            <button class="btn btn-outline-secondary btn-sm" type="button" data-grid-action="custom-field"><i class="bi bi-input-cursor-text"></i> 自定义字段</button>
+            <button class="btn btn-outline-secondary btn-sm" type="button" data-grid-action="reset"><i class="bi bi-arrow-counterclockwise"></i> 重置列</button>
+            <button class="btn btn-outline-secondary btn-sm" type="button" data-grid-action="sort-help"><i class="bi bi-sort-down"></i> 排序</button>
+            <button class="btn btn-outline-primary btn-sm d-none" type="button" disabled title="生产工单当前为单主件，不允许任意增行"><i class="bi bi-plus-lg"></i> 增行</button>
+            <button class="btn btn-outline-primary btn-sm d-none" type="button" disabled title="生产工单当前为单主件，不允许任意插入行"><i class="bi bi-plus-square"></i> 插入行</button>
+            <button class="btn btn-outline-secondary btn-sm d-none" type="button" disabled title="生产工单当前为单主件，不允许复制行"><i class="bi bi-files"></i> 复制行</button>
+            <button class="btn btn-outline-danger btn-sm d-none" type="button" disabled title="生产工单至少保留一个生产主件"><i class="bi bi-trash"></i> 删行</button>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm align-middle" id="workOrderLineTable" data-document-grid data-grid-key="work_order_form_lines">
+                <thead>
+                <tr data-grid-header>
+                    <th style="min-width:180px;" data-column-key="material_name">物料名称 <span class="text-danger">*</span></th>
+                    <th style="min-width:120px;" data-column-key="material_code">物料编码</th>
+                    <th style="min-width:150px;" data-column-key="specification">规格型号</th>
+                    <th style="min-width:90px;" data-column-key="unit">单位</th>
+                    <th style="min-width:110px;" data-column-key="quantity">数量 <span class="text-danger">*</span></th>
+                    <th style="min-width:120px;" data-column-key="unit_cost">库存成本单价</th>
+                    <th style="min-width:120px;" data-column-key="cost_amount">成本金额</th>
+                    <th style="min-width:150px;" data-column-key="warehouse">入库仓库 <span class="text-danger">*</span></th>
+                    {% if location_management_enabled %}<th style="min-width:150px;" data-column-key="location">入库库位</th>{% endif %}
+                    <th style="min-width:120px;" data-column-key="lot_no">批号</th>
+                    <th style="min-width:120px;" data-column-key="serial_no">机号</th>
+                    <th style="min-width:140px;" data-column-key="project_code">项目号</th>
+                    <th style="min-width:110px;" data-column-key="source_line_no">来源行</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td data-column-key="material_name">
+                        <select class="form-select form-select-sm d-none js-product" name="product_id" aria-hidden="true" tabindex="-1">
+                            <option value="">请选择</option>
+                            {% for product in products %}
+                            <option value="{{ product.id }}"
+                                    data-code="{{ product.code or '' }}"
+                                    data-name="{{ product.name or '' }}"
+                                    data-specification="{{ product.specification or '' }}"
+                                    data-unit="{{ product.unit or '' }}"
+                                    data-price="{{ product.unit_cost or product.standard_price or 0 }}" {% if order.product_id == product.id %}selected{% endif %}>{{ product.display_name or (product.code ~ ' / ' ~ product.name) }}</option>
+                            {% endfor %}
+                        </select>
+                        <input class="form-control form-control-sm js-material-name" name="material_name_display" list="workOrderProductOptions" value="{{ order.material_name or order.product_name or '' }}" placeholder="输入物料名称/编码/规格" autocomplete="off" required>
+                    </td>
+                    <td data-column-key="material_code"><input class="form-control form-control-sm js-material-code" name="material_code_display" value="{{ order.material_code or order.product_code or '' }}" readonly></td>
+                    <td data-column-key="specification"><input class="form-control form-control-sm js-material-spec" name="specification_display" value="{{ order.material_spec or order.product_specification or '' }}" readonly></td>
+                    <td data-column-key="unit"><input class="form-control form-control-sm js-material-unit" name="unit_display" value="{{ order.material_unit or order.product_unit or '' }}" readonly></td>
+                    <td data-column-key="quantity"><input class="form-control form-control-sm js-quantity text-end" type="number" step="0.001" min="0.001" name="quantity" value="{{ order.quantity or 1 }}" required></td>
+                    <td data-column-key="unit_cost"><input class="form-control form-control-sm js-unit-cost text-end" type="number" step="0.0001" min="0" name="unit_cost" value="{{ order.unit_cost or 0 }}"></td>
+                    <td data-column-key="cost_amount"><input class="form-control form-control-sm js-cost-amount text-end" name="cost_amount_display" value="{{ order.amount or '0.00' }}" readonly></td>
+                    <td data-column-key="warehouse">
+                        <select class="form-select form-select-sm" name="warehouse_id" required>
+                            <option value="">请选择</option>
+                            {% for warehouse in warehouses %}
+                            <option value="{{ warehouse.id }}" {% if order.warehouse_id == warehouse.id %}selected{% endif %}>{{ warehouse.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td data-column-key="location">
+                        <select class="form-select form-select-sm" name="location_id">
+                            <option value="">未指定</option>
+                            {% for location in locations %}
+                            <option value="{{ location.id }}" {% if order.location_id == location.id %}selected{% endif %}>{{ location.code or location.name }}{% if location.name and location.code %} / {{ location.name }}{% endif %}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td data-column-key="lot_no"><input class="form-control form-control-sm" name="lot_no" value="{{ order.lot_no or '' }}"></td>
+                    <td data-column-key="serial_no"><input class="form-control form-control-sm js-line-serial-no" name="line_serial_no" value="{{ order.line_serial_no or order.serial_no or '' }}"></td>
+                    <td data-column-key="project_code"><input class="form-control form-control-sm js-line-project-code" name="line_project_code" value="{{ order.line_project_code or order.project_code or '' }}"></td>
+                    <td data-column-key="source_line_no"><input class="form-control form-control-sm" name="source_line_no" value="{{ order.source_line_no or 1 }}"></td>
+                </tr>
+                </tbody>
+            </table>
+            <datalist id="workOrderProductOptions">
+                {% for product in products %}
+                <option value="{{ product.name or product.display_name or product.code }}" label="{{ product.code or '' }}{% if product.name %} / {{ product.name }}{% endif %}{% if product.specification %} / {{ product.specification }}{% endif %}">
+                {% endfor %}
+            </datalist>
+        </div>
+    </div>
+
+    <div class="footer-bar d-none">
+        <button class="btn btn-primary" type="submit"><i class="bi bi-save"></i> 保存</button>
+        <a class="btn btn-secondary" href="/work-orders">取消</a>
+    </div>
+</form>
+</div>
+
+<script src="{{ url_for('static', filename='js/document_grid.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    document.addEventListener('click', function (event) {
+        const action = event.target.closest('[data-menu-event="submit-work-order"], [data-menu-event="submit-work-order-close"]');
+        if (action) {
+            const form = document.getElementById('workOrderForm');
+            if (!form) return;
+            if (action.dataset.menuEvent === 'submit-work-order-close') {
+                const input = form.querySelector('input[name="save_action"]');
+                if (!input) {
+                    const hidden = document.createElement('input');
+                    hidden.type = 'hidden';
+                    hidden.name = 'save_action';
+                    form.appendChild(hidden);
+                }
+                const hidden = form.querySelector('input[name="save_action"]');
+                if (hidden) hidden.value = 'save_close';
+            }
+            form.requestSubmit();
+        }
+    });
+
+    const form = document.getElementById('workOrderForm');
+    const table = document.getElementById('workOrderLineTable');
+    if (!form || !table) return;
+
+    const product = table.querySelector('.js-product');
+    const productName = table.querySelector('.js-material-name');
+    const qty = table.querySelector('.js-quantity');
+    const unitCost = table.querySelector('.js-unit-cost');
+    const amount = table.querySelector('.js-cost-amount');
+    const headerProject = document.querySelector('input[name="project_code"]');
+    const headerSerial = document.querySelector('input[name="serial_no"]');
+    const lineProject = table.querySelector('.js-line-project-code');
+    const lineSerial = table.querySelector('.js-line-serial-no');
+
+    function money(value) {
+        const number = Number(value || 0);
+        return Number.isFinite(number) ? number.toFixed(2) : '0.00';
+    }
+
+    function setValue(selector, value) {
+        const input = table.querySelector(selector);
+        if (input) input.value = value || '';
+    }
+
+    function productOptions() {
+        return product ? Array.from(product.options).filter(option => option.value) : [];
+    }
+
+    function findProductByText(value) {
+        const text = String(value || '').trim().toLowerCase();
+        if (!text) return null;
+        return productOptions().find(option => [option.dataset.name, option.dataset.code, option.dataset.specification, option.textContent].some(field => String(field || '').trim().toLowerCase() === text))
+            || productOptions().find(option => [option.dataset.name, option.dataset.code, option.dataset.specification, option.textContent].some(field => String(field || '').toLowerCase().includes(text)))
+            || null;
+    }
+
+    function recalc() {
+        if (amount) amount.value = money(Number(qty?.value || 0) * Number(unitCost?.value || 0));
+    }
+
+    function syncProduct() {
+        const option = product && product.selectedOptions.length ? product.selectedOptions[0] : null;
+        if (option) {
+            setValue('.js-material-code', option.dataset.code);
+            setValue('.js-material-name', option.dataset.name || option.textContent.trim());
+            setValue('.js-material-spec', option.dataset.specification);
+            setValue('.js-material-unit', option.dataset.unit);
+            if (unitCost && (!unitCost.value || Number(unitCost.value) === 0)) {
+                unitCost.value = option.dataset.price || '0';
+            }
+        }
+        recalc();
+    }
+
+    function applyProductOption(option) {
+        if (!option || !product) return;
+        product.value = option.value;
+        syncProduct();
+    }
+
+    function syncTrace() {
+        if (lineProject && !lineProject.value) lineProject.value = headerProject?.value || '';
+        if (lineSerial && !lineSerial.value) lineSerial.value = headerSerial?.value || '';
+    }
+
+    productName?.addEventListener('input', function () {
+        recalc();
+    });
+    productName?.addEventListener('change', function () {
+        const option = findProductByText(productName.value);
+        if (option) applyProductOption(option);
+    });
+    product?.addEventListener('change', syncProduct);
+    qty?.addEventListener('input', recalc);
+    unitCost?.addEventListener('input', recalc);
+    headerProject?.addEventListener('change', syncTrace);
+    headerSerial?.addEventListener('change', syncTrace);
+
+    form.addEventListener('submit', function (event) {
+        const option = findProductByText(productName?.value);
+        if (option && product && !product.value) applyProductOption(option);
+        if (!product?.value) {
+            event.preventDefault();
+            showToast('请先在物料名称中选择物料。', 'warning');
+            productName?.focus();
+            return;
+        }
+        if (Number(qty?.value || 0) <= 0) {
+            event.preventDefault();
+            showToast('数量必须大于 0。', 'warning');
+            qty?.focus();
+        }
+    });
+
+    syncProduct();
+    syncTrace();
+    document.querySelectorAll('[data-grid-action]').forEach(function(button) {
+        button.addEventListener('click', function() {
+            const api = window.documentGridApi;
+            if (!api) return;
+            const action = button.dataset.gridAction;
+            if (action === 'columns') api.openColumnPanel(button);
+            if (action === 'custom-field') api.addCustomField();
+            if (action === 'reset') api.reset();
+        });
+    });
+});
+</script>
+{% endblock %}

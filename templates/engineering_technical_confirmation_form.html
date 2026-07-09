@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+{% block title %}新增技术确认单{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <h1>新增技术确认单</h1>
+    <p>技术部确认项目/机号使用的 BOM、图纸、工艺路线、工作中心和关键控制点。</p>
+</div>
+
+<form method="post" class="page-card">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% if form_errors %}
+    <div class="alert alert-warning">
+        <div class="fw-semibold mb-1">请先处理以下问题</div>
+        <ul class="mb-0">
+            {% for error in form_errors %}
+            <li>{{ error }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+    <div class="row g-3">
+        <div class="col-md-4">
+            <label class="form-label">单据编号</label>
+            <input class="form-control" type="text" value="{{ confirmation.confirm_no or '' }}" placeholder="保存时自动生成" readonly>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">确认日期</label>
+            <input class="form-control" type="date" name="confirm_date" value="{{ today }}">
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">状态</label>
+            <select class="form-select" name="status">
+                <option value="草稿" {% if confirmation.status == '草稿' or not confirmation.status %}selected{% endif %}>草稿</option>
+                <option value="待确认" {% if confirmation.status == '待确认' %}selected{% endif %}>待确认</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">负责人</label>
+            <input class="form-control" name="owner" value="{{ confirmation.owner or '' }}" placeholder="技术负责人">
+        </div>
+
+        <div class="col-md-6">
+            <label class="form-label">来源销售订单</label>
+            <select class="form-select" name="sales_order_id" id="salesOrderSelect">
+                <option value="">手工填写项目/机号</option>
+                {% for order in options.sales_orders %}
+                <option value="{{ order.id }}" {% if confirmation.sales_order_id == order.id %}selected{% endif %}
+                        data-project-code="{{ order.project_code or '' }}"
+                        data-serial-no="{{ order.serial_no or '' }}"
+                        data-product-id="{{ order.product_id or '' }}"
+                        data-machine-model="{{ [order.product_code, order.product_name, order.product_specification]|select|join(' / ') }}"
+                        data-drawing-no="{{ order.drawing_no or '' }}"
+                        data-drawing-version="{{ order.drawing_version or '' }}">
+                    {{ order.order_no }} - {{ order.customer_name or '-' }} - {{ order.project_code or '-' }} / {{ order.serial_no or '-' }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">项目号</label>
+            <input class="form-control" name="project_code" id="projectCode" value="{{ confirmation.project_code or '' }}" required>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">机号</label>
+            <input class="form-control" name="serial_no" id="serialNo" value="{{ confirmation.serial_no or '' }}" required>
+        </div>
+
+        <div class="col-md-6">
+            <label class="form-label">产品/机型</label>
+            <select class="form-select" name="product_id" id="productSelect">
+                <option value="">请选择产品</option>
+                {% for product in options.products %}
+                <option value="{{ product.id }}" {% if confirmation.product_id == product.id %}selected{% endif %} data-drawing-no="{{ product.drawing_no or '' }}" data-drawing-version="{{ product.drawing_version or '' }}">
+                    {{ product.code }} - {{ product.name }}{% if product.specification %} / {{ product.specification }}{% endif %}{% if product.unit %} / {{ product.unit }}{% endif %}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">机型描述</label>
+            <input class="form-control" name="machine_model" id="machineModel" value="{{ confirmation.machine_model or '' }}" placeholder="如 GT-RD-800 / 滚筒研磨机">
+        </div>
+
+        <div class="col-md-4">
+            <label class="form-label">BOM版本</label>
+            <select class="form-select" name="bom_id" id="bomSelect" required>
+                <option value="">请选择BOM</option>
+                {% for bom in options.boms %}
+                <option value="{{ bom.id }}" {% if confirmation.bom_id == bom.id %}selected{% endif %}
+                        data-product-id="{{ bom.product_id or '' }}"
+                        data-status="{{ bom.status or '' }}">
+                    {{ bom.bom_no }} / {{ bom.version }} - {{ bom.product_code or '' }} {{ bom.product_name or '' }}
+                </option>
+                {% endfor %}
+            </select>
+            <div class="form-text" id="bomHint">请选择与产品/机型一致的BOM。</div>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">工艺路线</label>
+            <select class="form-select" name="routing_id" id="routingSelect" required>
+                <option value="">请选择工艺路线</option>
+                {% for routing in options.routings %}
+                <option value="{{ routing.id }}" {% if confirmation.routing_id == routing.id %}selected{% endif %}
+                        data-product-id="{{ routing.product_id or '' }}">
+                    {{ routing.routing_no }} - {{ routing.product_code or '' }} {{ routing.product_name or '' }}
+                </option>
+                {% endfor %}
+            </select>
+            <div class="form-text" id="routingHint">请选择与产品/机型一致的工艺路线。</div>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">主工作中心</label>
+            <select class="form-select" name="work_center_id" required>
+                <option value="">请选择工作中心</option>
+                {% for wc in options.work_centers %}
+                <option value="{{ wc.id }}" {% if confirmation.work_center_id == wc.id %}selected{% endif %}>{{ wc.code }} - {{ wc.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col-md-4">
+            <label class="form-label">图号</label>
+            <input class="form-control" name="drawing_no" id="drawingNo" value="{{ confirmation.drawing_no or '' }}" required>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">图纸版本</label>
+            <input class="form-control" name="drawing_version" id="drawingVersion" value="{{ confirmation.drawing_version or '' }}" required placeholder="如 V1.0 / A版">
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">下一步</label>
+            <input class="form-control" name="next_action" value="{{ confirmation.next_action or '提交技术确认' }}">
+        </div>
+
+        <div class="col-md-4">
+            <label class="form-label">加工程序号/不适用说明</label>
+            <input class="form-control" name="process_program_no" value="{{ confirmation.process_program_no or '' }}" required placeholder="如 NC-GT-001，或填写不适用">
+            <div class="form-text">只登记受控编号或说明，不在ERP内编辑程序文件。</div>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">工装夹具要求</label>
+            <input class="form-control" name="tooling_requirement" value="{{ confirmation.tooling_requirement or '' }}" required placeholder="如专用胎具、检具，或填写不适用">
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">ECN影响摘要</label>
+            <input class="form-control" name="ecn_impact_summary" value="{{ confirmation.ecn_impact_summary or '' }}" placeholder="无变更影响 / ECN关闭依据">
+        </div>
+
+        <div class="col-12">
+            <label class="form-label">关键控制点</label>
+            <textarea class="form-control" name="key_control_points" rows="3" placeholder="如主轴精度、导轨精度、调试记录、试切记录、客户验收项">{{ confirmation.key_control_points or '' }}</textarea>
+        </div>
+        <div class="col-12">
+            <label class="form-label">检验标准</label>
+            <textarea class="form-control" name="inspection_standard" rows="3" required placeholder="如几何精度、空载运行、试切试磨、客户验收和安全检查标准">{{ confirmation.inspection_standard or '' }}</textarea>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">阻塞原因</label>
+            <textarea class="form-control" name="blocked_reason" rows="2" placeholder="资料不齐时填写">{{ confirmation.blocked_reason or '' }}</textarea>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">备注</label>
+            <textarea class="form-control" name="remark" rows="2">{{ confirmation.remark or '' }}</textarea>
+        </div>
+    </div>
+    <div class="d-flex gap-2 mt-4">
+        <button class="btn btn-primary" type="submit"><i class="bi bi-save"></i> 保存</button>
+        <a class="btn btn-outline-secondary" href="/engineering/technical-confirmations">返回列表</a>
+    </div>
+</form>
+
+<script>
+(() => {
+    const sales = document.getElementById('salesOrderSelect');
+    const product = document.getElementById('productSelect');
+    const bom = document.getElementById('bomSelect');
+    const routing = document.getElementById('routingSelect');
+    const bomHint = document.getElementById('bomHint');
+    const routingHint = document.getElementById('routingHint');
+    const projectCode = document.getElementById('projectCode');
+    const serialNo = document.getElementById('serialNo');
+    const machineModel = document.getElementById('machineModel');
+    const drawingNo = document.getElementById('drawingNo');
+    const drawingVersion = document.getElementById('drawingVersion');
+    const filterByProduct = (select, hint, emptyText) => {
+        if (!select) return;
+        const productId = product?.value || '';
+        let visibleCount = 0;
+        Array.from(select.options).forEach((option) => {
+            if (!option.value) {
+                option.hidden = false;
+                return;
+            }
+            const optionProductId = option.dataset.productId || '';
+            const visible = !productId || !optionProductId || optionProductId === productId;
+            option.hidden = !visible;
+            if (visible) visibleCount += 1;
+        });
+        const selected = select.selectedOptions[0];
+        if (selected?.hidden) select.value = '';
+        if (!select.value && productId) {
+            const firstMatch = Array.from(select.options).find((option) => option.value && !option.hidden);
+            if (firstMatch) select.value = firstMatch.value;
+        }
+        if (hint) {
+            hint.textContent = productId && !visibleCount ? emptyText : '已按当前产品/机型筛选。';
+            hint.classList.toggle('text-danger', Boolean(productId && !visibleCount));
+        }
+    };
+    const refreshReferenceFilters = () => {
+        filterByProduct(bom, bomHint, '当前产品/机型没有可用BOM。');
+        filterByProduct(routing, routingHint, '当前产品/机型没有可用工艺路线。');
+    };
+    sales?.addEventListener('change', () => {
+        const option = sales.selectedOptions[0];
+        if (!option) return;
+        projectCode.value = option.dataset.projectCode || projectCode.value;
+        serialNo.value = option.dataset.serialNo || serialNo.value;
+        machineModel.value = option.dataset.machineModel || machineModel.value;
+        drawingNo.value = option.dataset.drawingNo || drawingNo.value;
+        drawingVersion.value = option.dataset.drawingVersion || drawingVersion.value;
+        if (option.dataset.productId) product.value = option.dataset.productId;
+        refreshReferenceFilters();
+    });
+    product?.addEventListener('change', () => {
+        const option = product.selectedOptions[0];
+        if (option?.dataset.drawingNo && !drawingNo.value) drawingNo.value = option.dataset.drawingNo;
+        if (option?.dataset.drawingVersion && !drawingVersion.value) drawingVersion.value = option.dataset.drawingVersion;
+        refreshReferenceFilters();
+    });
+    refreshReferenceFilters();
+})();
+</script>
+{% endblock %}

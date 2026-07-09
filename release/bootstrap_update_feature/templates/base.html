@@ -1,0 +1,777 @@
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    {% if current_user.is_authenticated %}<meta name="csrf-token" content="{{ csrf_token() }}">{% endif %}
+    <title>{% block title %}数控机床制造业 ERP{% endblock %}</title>
+    <link href="{{ url_for('static', filename='cdn/bootstrap-5.3.0.min.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='cdn/bootstrap-icons-1.10.0.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/erp_ui.css', v='20260605_home_full_width') }}" rel="stylesheet">
+    {% block extra_css %}{% endblock %}
+</head>
+<body{% if request.path in ['/sales-invoices', '/purchase-invoices'] %} data-page-type="finance_document_list"{% endif %}>
+<div class="layout">
+    {% if current_user.is_authenticated %}
+    {% set role = current_user.role %}
+    {% set see_all = role in ['admin', 'manager'] %}
+    <aside class="sidebar">
+        <div class="brand">
+            <span class="brand-mark">机</span>
+            <span>
+                <strong>数控机床制造业 ERP</strong>
+                <small>项目/机号主线</small>
+            </span>
+        </div>
+        <div class="nav-section">业务导航</div>
+        <a href="/" data-nav-link><i class="bi bi-house"></i> 首页</a>
+
+        <div class="menu-parent"><i class="bi bi-kanban"></i> 工作台</div>
+        <div class="submenu">
+            <a href="/project-delivery-workbench" data-nav-link>&#39033;&#30446;&#20132;&#20184;&#24037;&#20316;&#21488;</a>
+            <a href="/projects" data-nav-link>项目/机号台账</a>
+            <a href="/reports" data-nav-link>报表中心</a>
+            <a href="/pending-documents" data-nav-link>待处理单据</a>
+            <a href="/approval/pending" data-nav-link>待审核</a>
+        </div>
+
+        {% if see_all or role == 'sales' %}
+        <div class="menu-parent"><i class="bi bi-receipt"></i> 销售</div>
+        <div class="submenu">
+            <div class="submenu-label">销售列表</div>
+            <a href="/sales-forecasts" data-nav-link>销售预测单</a>
+            <a href="/sales-inquiries" data-nav-link>询价单</a>
+            <div class="submenu-label">销售单据</div>
+            <a href="/quotations/new" data-nav-link>新增报价单</a>
+            <a href="/sales/new" data-nav-link>新增销售订单</a>
+            <a href="/shipments/new" data-nav-link>新增销售发货单</a>
+            <a href="/sales-returns/new" data-nav-link>新增销售退货单</a>
+            <div class="submenu-label">销售列表</div>
+            <a href="/quotations" data-nav-link>设备报价列表</a>
+            <a href="/sales-orders" data-nav-link>销售订单列表</a>
+            <a href="/shipments" data-nav-link>销售发货列表</a>
+            <a href="/sales-returns" data-nav-link>销售退货列表</a>
+            <a href="/sales-return-requests" data-nav-link>销售退货申请</a>
+            <a href="/sales-exchange-requests" data-nav-link>销售换货申请</a>
+            <div class="submenu-label">销售查询</div>
+            <a href="/sales-reconciliations" data-nav-link>销售对等核销</a>
+            <a href="/sales-tax-registrations" data-nav-link>销售税票登记</a>
+            <div class="submenu-label">销售报表</div>
+            <a href="/sales/reports" data-nav-link>销售报表中心</a>
+            <a href="/sales/reports/pending" data-nav-link>销售未交报表</a>
+            <a href="/sales/reports/customer-ranking" data-nav-link>客户未交排行</a>
+            <a href="/sales/reports/execution" data-nav-link>销售执行明细</a>
+            <a href="/sales/reports/summary" data-nav-link>销售汇总表</a>
+            <a href="/sales/reports/order-execution-summary" data-nav-link>销售订单执行汇总</a>
+            <a href="/sales/reports/order-execution-detail" data-nav-link>销售订单执行明细</a>
+            <a href="/sales/reports/shipment-execution-detail" data-nav-link>销售发货执行明细</a>
+            <a href="/sales/reports/invoice-execution-detail" data-nav-link>销售开票执行明细</a>
+            <a href="/sales/reports/invoice-summary" data-nav-link>销售发票汇总表</a>
+            <a href="/sales/reports/receivable-collection-detail" data-nav-link>销售收款执行明细</a>
+            <a href="/sales/reports/receivable-aging" data-nav-link>销售应收账龄分析</a>
+            <a href="/sales/reports/project-serial-order-tracking" data-nav-link>项目/机号销售跟踪</a>
+            <a href="/sales/reports/shipped-unsettled-detail" data-nav-link>销售发货未结明细</a>
+            <a href="/sales/reports/shipped-goods-detail" data-nav-link>发出商品明细</a>
+            <a href="/sales/reports/shipped-goods-summary" data-nav-link>发出商品汇总</a>
+            <a href="/sales/reports/project-serial-gross-margin" data-nav-link>项目/机号销售毛利分析</a>
+            <a href="/sales/reports/price-execution-analysis" data-nav-link>销售价格执行分析</a>
+            <a href="/sales/reports/delivery-delay-analysis" data-nav-link>销售交付逾期分析</a>
+            <a href="/sales/reports/operation-snapshot" data-nav-link>销售经营快照</a>
+            <a href="/sales/reports/daily" data-nav-link>销售日报</a>
+        </div>
+        {% endif %}
+
+        {% if see_all or role == 'purchase' %}
+        <div class="menu-parent"><i class="bi bi-cart-check"></i> 采购</div>
+        <div class="submenu">
+            <div class="submenu-label">采购单据</div>
+            <a href="/supplier-quotes/new" data-nav-link>新增供应商报价单</a>
+            <a href="/purchase_request/new" data-nav-link>新增采购申请单</a>
+            <a href="/purchase_order/new" data-nav-link>新增采购订单</a>
+            <a href="/purchase_receipts/new" data-nav-link>新增采购收货单</a>
+            <a href="/purchase-returns/new" data-nav-link>新增采购退货单</a>
+            <a href="/purchase-invoices/new" data-nav-link>新增采购发票登记</a>
+            <div class="submenu-label">采购列表</div>
+            <a href="/supplier-quotes" data-nav-link>供应商报价单列表</a>
+            <a href="/purchase_request" data-nav-link>采购申请单列表</a>
+            <a href="/purchase-orders" data-nav-link>采购订单列表</a>
+            <a href="/purchase_receipts" data-nav-link>采购收货列表</a>
+            <a href="/purchase-returns" data-nav-link>采购退货列表</a>
+            <a href="/purchase-invoices" data-nav-link>采购发票登记列表</a>
+            <div class="submenu-label">采购查询</div>
+            <a href="/procurement/suggestions" data-nav-link>采购建议/智能补货</a>
+            <a href="/purchase/reports/pending" data-nav-link>采购未到专题</a>
+            <a href="/purchase/reports/supplier-ranking" data-nav-link>供应商未到排行</a>
+            <a href="/purchase/reports/receipt-tracking" data-nav-link>采购订单跟踪表</a>
+            <a href="/purchase/reports/received-not-invoiced-summary" data-nav-link>期末暂估余额表</a>
+            <a href="/purchase/reports/supplier-execution-analysis" data-nav-link>供应商采购执行分析</a>
+            <a href="/purchase/reports/purchase-price-variance" data-nav-link>采购价格分析表</a>
+            <a href="/purchase/reports/purchase-exception-list" data-nav-link>采购异常清单</a>
+            <div class="submenu-label">采购报表</div>
+            <a href="/purchase/reports/execution" data-nav-link>采购执行明细</a>
+            <a href="/purchase/reports/summary" data-nav-link>采购汇总表</a>
+            <a href="/purchase/reports/request-execution-detail" data-nav-link>采购申请执行明细</a>
+            <a href="/purchase/reports/request-execution-summary" data-nav-link>采购申请执行汇总</a>
+            <a href="/purchase/reports/order-execution-detail" data-nav-link>采购订单执行明细</a>
+            <a href="/purchase/reports/order-execution-summary" data-nav-link>采购订单汇总表</a>
+            <a href="/purchase/reports/receipt-detail" data-nav-link>采购收货明细表</a>
+            <a href="/purchase/reports/receipt-summary" data-nav-link>采购收货汇总表</a>
+            <a href="/purchase/reports/received-not-invoiced-detail" data-nav-link>收货未开票明细表</a>
+            <a href="/purchase/reports/invoice-detail" data-nav-link>采购发票明细表</a>
+            <a href="/purchase/reports/invoice-summary" data-nav-link>采购发票汇总表/税票汇总表</a>
+            <a href="/purchase/reports/payment-overview" data-nav-link>采购付款一览表</a>
+            <a href="/purchase/reports/payable-reconciliation-detail" data-nav-link>采购应付对账明细</a>
+            <a href="/purchase/reports/project-serial-purchase-cost-detail" data-nav-link>项目/机号采购成本明细</a>
+            <a href="/purchase/reports/daily" data-nav-link>采购日报</a>
+        </div>
+        {% endif %}
+
+        {% if see_all or role in ['purchase', 'production'] %}
+        <div class="menu-parent"><i class="bi bi-diagram-3"></i> 工程/BOM</div>
+        <div class="submenu">
+            <div class="submenu-label">工程单据</div>
+            <a href="/product-configurations/new" data-nav-link>新增产品选配单</a>
+            <a href="/engineering/technical-confirmations/new" data-nav-link>新增技术确认单</a>
+            <a href="/bom/new" data-nav-link>新增BOM</a>
+            <a href="/bom/ecn/new" data-nav-link>新增工程变更单</a>
+            <div class="submenu-label">工程列表</div>
+            <a href="/product-configurations" data-nav-link>产品选配单列表</a>
+            <a href="/engineering/technical-confirmations" data-nav-link>技术确认单列表</a>
+            <a href="/bom" data-nav-link>BOM清单</a>
+            <a href="/bom/ecn" data-nav-link>工程变更单列表</a>
+            <a href="/production-routings" data-nav-link>工艺路线</a>
+            <a href="/work-centers" data-nav-link>工作中心</a>
+            <div class="submenu-label">图纸管理</div>
+            <a href="/engineering/drawings" data-nav-link>图纸台账</a>
+            <a href="/engineering/drawings/new" data-nav-link>新增图纸</a>
+        </div>
+        {% endif %}
+
+        {% if see_all or role == 'production' %}
+        <div class="menu-parent"><i class="bi bi-gear-wide-connected"></i> 生产</div>
+        <div class="submenu">
+            <div class="submenu-label">生产单据</div>
+            <a href="/work-orders/new" data-nav-link>新增生产工单</a>
+            <a href="/production-issues/new" data-nav-link>新增生产领料单</a>
+            <a href="/production-returns/new" data-nav-link>新增生产退料单</a>
+            <a href="/production-completions/new" data-nav-link>新增完工入库单</a>
+            <a href="/production/operation-reports/new" data-nav-link>新增工序报工单</a>
+            <a href="/production-enhance/quality-inspections/new" data-nav-link>新增质量检验单</a>
+            <div class="submenu-label">生产列表</div>
+            <a href="/work-orders" data-nav-link>生产工单列表</a>
+            <a href="/production-issues" data-nav-link>生产领料单</a>
+            <a href="/production-returns" data-nav-link>生产退料单</a>
+            <a href="/production-completions" data-nav-link>完工入库单</a>
+            <a href="/production/operation-reports" data-nav-link>工序报工</a>
+            <a href="/production-schedules" data-nav-link>生产排程</a>
+            <a href="/production-enhance/quality-inspections" data-nav-link>质量检验</a>
+            <div class="submenu-label">生产查询</div>
+            <a href="/engineering/kitting" data-nav-link>工单齐套查询</a>
+            <a href="/requisition" data-nav-link>工单领料查询</a>
+            <a href="/production-enhance/mrp-requirements" data-nav-link>MRP缺料查询</a>
+            <div class="submenu-label">生产报表</div>
+            <a href="/production/reports" data-nav-link>生产报表中心</a>
+            <a href="/production/reports/shortage" data-nav-link>生产缺料报表</a>
+            <a href="/production/reports/work-order-detail" data-nav-link>生产工单明细</a>
+            <a href="/production/reports/work-order-execution-detail" data-nav-link>工单执行明细</a>
+            <a href="/production/reports/material-issue-detail" data-nav-link>工单领料明细</a>
+            <a href="/production/reports/completion-inbound-detail" data-nav-link>完工入库明细</a>
+            <a href="/production/reports/operation-report-detail" data-nav-link>工序报工明细</a>
+            <a href="/production/reports/project-serial-progress" data-nav-link>项目/机号生产进度</a>
+        </div>
+        {% endif %}
+
+        {% if see_all or role == 'warehouse' %}
+        <div class="menu-parent"><i class="bi bi-box-seam"></i> 库存</div>
+        <div class="submenu">
+            <div class="submenu-label">库存单据</div>
+            <a href="/inventory/inbound/new" data-nav-link>其他入库单</a>
+            <a href="/inventory/outbound/new" data-nav-link>其他出库单</a>
+            <a href="/adjustments/new" data-nav-link>新增库存调整单</a>
+            <a href="/transfers/new" data-nav-link>新增库存调拨单</a>
+            <a href="/inventory_checks/new" data-nav-link>新增盘点单</a>
+            <a href="/assembly-orders/new" data-nav-link>新增组装单</a>
+            <a href="/disassembly-orders/new" data-nav-link>新增拆卸单</a>
+            <div class="submenu-label">库存列表</div>
+            <a href="/adjustments" data-nav-link>库存调整列表</a>
+            <a href="/transfers" data-nav-link>库存调拨列表</a>
+            <a href="/inventory_checks" data-nav-link>盘点单列表</a>
+            <a href="/assembly-orders" data-nav-link>组装单列表</a>
+            <a href="/disassembly-orders" data-nav-link>拆卸单列表</a>
+            <div class="submenu-label">库存查询</div>
+            <a href="/inventory/detail" data-nav-link>库存明细</a>
+            <a href="/transactions" data-nav-link>库存流水</a>
+            <a href="/inventory_alerts" data-nav-link>库存预警</a>
+            <a href="/batch/tracking" data-nav-link>批次机号追溯</a>
+            <div class="submenu-label">库存报表</div>
+            <a href="/inventory/reports/ledger" data-nav-link>标准库存明细账</a>
+            <a href="/inventory/reports/account-book" data-nav-link>库存台账</a>
+            <a href="/inventory/reports/monthly" data-nav-link>库存月报表</a>
+            <a href="/inventory/reports/inout-summary" data-nav-link>收发存汇总表</a>
+            <a href="/inventory/reports/balance" data-nav-link>库存余额表</a>
+            <a href="/inventory/reports/inout-detail" data-nav-link>收发存明细表</a>
+            <a href="/inventory/reports/location-stock" data-nav-link>库位库存表</a>
+            <a href="/inventory/reports/available-stock" data-nav-link>可用库存表</a>
+            <a href="/inventory/reports/shortage" data-nav-link>安全库存/短缺报表</a>
+            <a href="/inventory/reports/turnover" data-nav-link>库存周转率报表</a>
+            <a href="/inventory/reports/project-occupation" data-nav-link>项目/机号库存占用表</a>
+            <a href="/inventory/reports/check-difference" data-nav-link>盘点差异汇总表</a>
+            <a href="/inventory/reports/fund-occupation" data-nav-link>库存资金占用表</a>
+            <a href="/inventory/reports/batch-trace" data-nav-link>批次追溯报表</a>
+        </div>
+        {% endif %}
+
+        {% if see_all or role == 'purchase' %}
+        <div class="menu-parent"><i class="bi bi-arrow-left-right"></i> 委外</div>
+        <div class="submenu">
+            <div class="submenu-label">委外单据</div>
+            <a href="/subcontract/new" data-nav-link>新增委外订单</a>
+            <a href="/subcontract_issue/new" data-nav-link>新增委外发料单</a>
+            <a href="/subcontract_receive/new" data-nav-link>新增委外收货单</a>
+            <div class="submenu-label">委外列表</div>
+            <a href="/subcontract" data-nav-link>委外订单列表</a>
+            <a href="/subcontract_issue" data-nav-link>委外发料列表</a>
+            <a href="/subcontract_receive" data-nav-link>委外收货列表</a>
+            <div class="submenu-label">委外查询</div>
+            <a href="/inventory/reports/subcontract-wip" data-nav-link>委外发出未回报表</a>
+            <a href="/inventory/reports/subcontract-execution" data-nav-link>委外订单执行报表</a>
+            <a href="/inventory/reports/subcontract-inout-detail" data-nav-link>委外收发明细报表</a>
+            <a href="/inventory/reports/subcontract-variance" data-nav-link>委外短少报废差异报表</a>
+            <a href="/inventory/reports/subcontract-payable-reconcile" data-nav-link>委外应付对账报表</a>
+        </div>
+        {% endif %}
+
+        {% if see_all or role in ['service', 'sales'] %}
+        <div class="menu-parent"><i class="bi bi-wrench-adjustable"></i> 售后</div>
+        <div class="submenu">
+            <div class="submenu-label">售后单据</div>
+            <a href="/service-orders/new" data-nav-link>新增服务单</a>
+            <a href="/service-acceptance/new" data-nav-link>新增安装验收</a>
+            <a href="/service-rmas/new" data-nav-link>新增RMA</a>
+            <div class="submenu-label">售后列表</div>
+            <a href="/service-cards" data-nav-link>设备服务档案</a>
+            <a href="/service-acceptance" data-nav-link>安装验收列表</a>
+            <a href="/service-orders" data-nav-link>服务单列表</a>
+            <a href="/service-rmas" data-nav-link>RMA列表</a>
+            <div class="submenu-label">售后报表</div>
+            <a href="/service/reports/service-detail" data-nav-link>售后服务明细</a>
+            <a href="/service/reports/cost" data-nav-link>售后成本报表</a>
+            <a href="/service/reports/rma-claim" data-nav-link>RMA索赔报表</a>
+        </div>
+        {% endif %}
+
+        {% if see_all or role == 'finance' %}
+        <div class="menu-parent"><i class="bi bi-cash-coin"></i> 财务/成本</div>
+        <div class="submenu">
+            <div class="submenu-label">应收应付工作台</div>
+            <a href="/finance/receivable-payable" data-nav-link>应收应付工作台</a>
+            <div class="submenu-label">应收单据</div>
+            <a href="/customer-receipts/new" data-nav-link>新增收款单</a>
+            <a href="/customer-advance-receipts/new" data-nav-link>新增预收款单</a>
+            <a href="/customer-receipt-refunds/new" data-nav-link>新增收款退款单</a>
+            <a href="/customer-advance-refunds/new" data-nav-link>新增预收退款单</a>
+            <a href="/customer-other-income/new" data-nav-link>新增其他收入单</a>
+            <a href="/customer-other-income-refunds/new" data-nav-link>新增其他收入退款单</a>
+            <div class="submenu-label">应收列表</div>
+            <a href="/customer-receipts" data-nav-link>收款单列表</a>
+            <a href="/customer-advance-receipts" data-nav-link>预收款单列表</a>
+            <a href="/customer-receipt-refunds" data-nav-link>收款退款单列表</a>
+            <a href="/customer-advance-refunds" data-nav-link>预收退款单列表</a>
+            <a href="/customer-other-income" data-nav-link>其他收入单列表</a>
+            <a href="/customer-other-income-refunds" data-nav-link>其他收入退款单列表</a>
+            <a href="/finance/receivables/pending-collections" data-nav-link>待收款清单</a>
+            <a href="/finance/receivables/merged-collections" data-nav-link>合并收款记录列表</a>
+            <a href="/finance/receivable-bills" data-nav-link>应收票据</a>
+            <a href="/receivables" data-nav-link>应收账款列表</a>
+            <a href="/sales-invoices" data-nav-link>销售发票登记列表</a>
+            <div class="submenu-label">应付单据</div>
+            <a href="/payments/new" data-nav-link>新增付款单</a>
+            <a href="/supplier-advance-payments/new" data-nav-link>新增预付款单</a>
+            <a href="/supplier-payment-refunds/new" data-nav-link>新增付款退款单</a>
+            <a href="/supplier-advance-refunds/new" data-nav-link>新增预付退款单</a>
+            <a href="/supplier-other-expenses/new" data-nav-link>新增其他支出单</a>
+            <a href="/supplier-other-expense-refunds/new" data-nav-link>新增其他支出退款单</a>
+            <div class="submenu-label">应付列表</div>
+            <a href="/payments" data-nav-link>付款单列表</a>
+            <a href="/supplier-advance-payments" data-nav-link>预付款单列表</a>
+            <a href="/supplier-payment-refunds" data-nav-link>付款退款单列表</a>
+            <a href="/supplier-advance-refunds" data-nav-link>预付退款单列表</a>
+            <a href="/supplier-other-expenses" data-nav-link>其他支出单列表</a>
+            <a href="/supplier-other-expense-refunds" data-nav-link>其他支出退款单列表</a>
+            <a href="/payables" data-nav-link>应付账款列表</a>
+            <a href="/purchase-invoices" data-nav-link>采购发票登记列表</a>
+            <div class="submenu-label">智能往来</div>
+            <a href="/finance/reports/customer-statement" data-nav-link>客户对账单</a>
+            <a href="/finance/reports/supplier-statement" data-nav-link>供应商对账单</a>
+            <a href="/finance/reports/customer-vendor-matching-statement" data-nav-link>客商匹配对账单</a>
+            <a href="/finance/reports/statement-history" data-nav-link>历史对账单</a>
+            <a href="/finance/statement-templates" data-nav-link>对账函模板列表</a>
+            <a href="/finance/reports/sales-collection-reconciliation" data-nav-link>销售收款核对表</a>
+            <a href="/finance/reports/purchase-payment-reconciliation" data-nav-link>采购付款核对表</a>
+            <div class="submenu-label">核销管理</div>
+            <a href="/finance/settlement-schemes" data-nav-link>自动核销方案列表</a>
+            <a href="/finance/settlement-runs" data-nav-link>自动核销执行日志</a>
+            <a href="/finance/manual-settlement" data-nav-link>手动核销</a>
+            <a href="/finance/smart-collections" data-nav-link>智能收款</a>
+            <a href="/finance/smart-payments" data-nav-link>智能付款</a>
+            <div class="submenu-label">往来报表</div>
+            <a href="/finance/reports/receivable-detail" data-nav-link>应收账款明细表</a>
+            <a href="/finance/reports/payable-detail" data-nav-link>应付账款明细表</a>
+            <a href="/finance/reports/receivable-summary" data-nav-link>应收账款汇总表</a>
+            <a href="/finance/reports/payable-summary" data-nav-link>应付账款汇总表</a>
+            <a href="/finance/reports/payment-request-statistics" data-nav-link>付款申请统计表</a>
+            <a href="/finance/reports/receivable-warning" data-nav-link>应收账款预警表</a>
+            <a href="/finance/reports/payable-warning" data-nav-link>应付账款预警表</a>
+            <a href="/finance/reports/bad-debt-reserve-balance" data-nav-link>坏账准备余额表</a>
+            <a href="/finance/reports/aging" data-nav-link>应收应付账龄</a>
+            <a href="/finance/reports/aging-buckets" data-nav-link>账龄区间汇总</a>
+            <a href="/finance/reports/balance" data-nav-link>往来余额明细</a>
+            <div class="submenu-label">资金分析</div>
+            <a href="/finance/reports/enterprise-income-expense-detail" data-nav-link>企业收支明细表</a>
+            <a href="/finance/credit-management" data-nav-link>信用管理</a>
+            <a href="/finance/reports/account-aging-analysis" data-nav-link>账龄分析表</a>
+            <a href="/finance/reports/other-income-expense-detail" data-nav-link>其他收支明细表</a>
+            <a href="/finance/reports/account-income-expense-detail" data-nav-link>账户收支明细表</a>
+            <a href="/finance/reports/account-balance" data-nav-link>账户余额表</a>
+            <a href="/finance/cash-bank/accounts" data-nav-link>现金银行账户</a>
+            <a href="/finance/cash-bank/journal" data-nav-link>现金银行流水</a>
+            <a href="/finance/reports/payment-flow-summary" data-nav-link>收付款流水汇总</a>
+            <a href="/finance/reports/project-capital-occupation" data-nav-link>项目资金占用表</a>
+            <div class="submenu-label">成本查询</div>
+            <a href="/finance/inventory-cost/summary" data-nav-link>库存成本总账</a>
+            <a href="/finance/inventory-cost/detail" data-nav-link>库存成本明细账</a>
+            <a href="/finance/reports/project-cost" data-nav-link>项目成本明细</a>
+            <a href="/finance/reports/machine-cost" data-nav-link>机号成本明细</a>
+            <div class="submenu-label">期末处理</div>
+            <a href="/finance/period-close" data-nav-link>期间结账</a>
+            <a href="/finance/exchange-adjustment" data-nav-link>期末调汇</a>
+            <a href="/finance/exchange-adjustments" data-nav-link>调汇单查询</a>
+            <a href="/finance/financial-statements" data-nav-link>经营财务快照</a>
+            <a href="/finance/vouchers" data-nav-link>凭证来源查询</a>
+            <a href="/finance/general-ledger" data-nav-link>总账明细</a>
+            <a href="/finance/detail-ledger" data-nav-link>明细账</a>
+            <a href="/finance/account-balance" data-nav-link>科目余额表</a>
+            <a href="/finance/trial-balance" data-nav-link>试算平衡表</a>
+        </div>
+        {% endif %}
+
+        {% if see_all %}
+        <div class="nav-section">系统维护</div>
+        <div class="menu-parent"><i class="bi bi-archive"></i> 基础资料</div>
+        <div class="submenu">
+            <div class="submenu-label">上线期初</div>
+            <a href="/inventory/opening" data-nav-link>物料期初</a>
+            <a href="/subcontract/opening" data-nav-link>委外期初</a>
+            <a href="/finance/opening/receivables" data-nav-link>应收期初</a>
+            <a href="/finance/opening/payables" data-nav-link>应付期初</a>
+            <div class="submenu-label">基础档案</div>
+            <a href="/material" data-nav-link>物料档案</a>
+            <a href="/project-master" data-nav-link>项目档案</a>
+            <a href="/machine-serial-master" data-nav-link>机号档案</a>
+            <a href="/customer" data-nav-link>客户档案</a>
+            <a href="/supplier" data-nav-link>供应商/委外商</a>
+            <a href="/warehouse" data-nav-link>仓库档案</a>
+            <a href="/locations" data-nav-link>库位档案</a>
+            <a href="/unit" data-nav-link>计量单位</a>
+            <a href="/department" data-nav-link>部门档案</a>
+            <a href="/employee" data-nav-link>员工档案</a>
+            <a href="/categories/product" data-nav-link>物料分类</a>
+            <a href="/categories/customer" data-nav-link>客户分类</a>
+            <a href="/categories/supplier" data-nav-link>供应商分类</a>
+            <a href="/categories/warehouse" data-nav-link>仓库分类</a>
+            <div class="submenu-label">业务资料</div>
+            <a href="/income-categories" data-nav-link>收入类别</a>
+            <a href="/expense-categories" data-nav-link>支出类别</a>
+            <a href="/fee-templates" data-nav-link>费用模板</a>
+            <a href="/auxiliary-data" data-nav-link>辅助资料</a>
+            <a href="/settlement-terms" data-nav-link>结算期限</a>
+            <a href="/payment-terms" data-nav-link>收付款条件</a>
+            <div class="submenu-label">财务资料</div>
+            <a href="/currencies" data-nav-link>币别</a>
+            <a href="/settlement-methods" data-nav-link>结算方式</a>
+            <a href="/cash-bank-accounts" data-nav-link>账户管理</a>
+            <a href="/payment-channels" data-nav-link>支付渠道</a>
+            <div class="submenu-label">财务会计</div>
+            <a href="/master/chart-of-accounts" data-nav-link>科目</a>
+            <a href="/voucher-words" data-nav-link>凭证字</a>
+            <a href="/voucher-templates" data-nav-link>凭证模板</a>
+            <a href="/electronic-accounting-archives" data-nav-link>电子会计档案</a>
+            <a href="/vat-accounting-data" data-nav-link>增值会计数据</a>
+        </div>
+
+        <div class="menu-parent"><i class="bi bi-shield-lock"></i> 系统</div>
+        <div class="submenu">
+            <a href="/users" data-nav-link>用户管理</a>
+            <a href="/permissions/roles" data-nav-link>角色权限</a>
+            <a href="/operation_logs" data-nav-link>操作日志</a>
+            <a href="/system_settings/form" data-nav-link>参数设置</a>
+            <a href="/system/print-templates" data-nav-link>打印模板</a>
+            <a href="/system/database-backups" data-nav-link>数据库备份</a>
+            <a href="/system/version-updates" data-nav-link>版本更新</a>
+            <a href="/system/data-health" data-nav-link>数据健康</a>
+        </div>
+        {% endif %}
+    </aside>
+    {% endif %}
+
+    <main class="main">
+        <header class="topbar">
+            <div class="topbar-title">{% block mobile_title %}{% block header_title %}数控机床制造业 ERP{% endblock %}{% endblock %}</div>
+            <div class="topbar-actions">
+                {% if current_user.is_authenticated %}
+                <div class="erp-topbar-tools" data-topbar-tools>
+                    <div class="erp-topbar-tool">
+                        <button type="button" class="erp-topbar-icon" data-topbar-toggle="system" aria-expanded="false" aria-label="系统工具">
+                            <i class="bi bi-gear"></i>
+                            {% if topbar_update_status.has_update %}
+                            <span class="erp-topbar-badge">1</span>
+                            {% endif %}
+                        </button>
+                        <div class="erp-topbar-menu erp-help-menu" data-topbar-menu="system">
+                            <div class="erp-topbar-menu-head">
+                                <strong>系统工具</strong>
+                                <span>参数与运维</span>
+                            </div>
+                            <div class="erp-help-list">
+                                <div class="erp-help-section-title">常用工具</div>
+                                {% if ai_assistant_enabled|default(false) %}
+                                <a href="/help/assistant"><i class="bi bi-cpu"></i><span><strong>AI 助手</strong><small>按操作手册回答使用问题</small></span></a>
+                                {% endif %}
+                                {% if current_user.role in ['admin', 'manager'] %}
+                                <a href="/system_settings/form"><i class="bi bi-sliders"></i><span><strong>系统参数</strong><small>维护系统选项、业务规则和接口参数</small></span></a>
+                                {% endif %}
+                                {% if current_user.role in ['admin', 'manager'] %}
+                                <a href="/system/data-health"><i class="bi bi-heart-pulse"></i><span><strong>数据健康</strong><small>检查基础资料、单据和系统数据风险</small></span></a>
+                                <a href="/system/database-backups"><i class="bi bi-database-down"></i><span><strong>数据库备份</strong><small>查看备份状态并执行手动备份</small></span></a>
+                                <a href="/system/version-updates"><i class="bi bi-cloud-arrow-down"></i><span><strong>版本更新</strong><small>{% if topbar_update_status.has_update %}发现 {{ topbar_update_status.latest.version }}，可执行本地更新{% else %}自动检测 updates 目录中的更新包{% endif %}</small></span></a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="erp-topbar-tool">
+                        <button type="button" class="erp-topbar-icon" data-topbar-toggle="alerts" aria-expanded="false" aria-label="预警">
+                            <i class="bi bi-bell"></i>
+                            {% if topbar_alert_total %}
+                            <span class="erp-topbar-badge">{{ topbar_alert_total if topbar_alert_total < 100 else '99+' }}</span>
+                            {% endif %}
+                        </button>
+                        <div class="erp-topbar-menu erp-alert-menu" data-topbar-menu="alerts">
+                            <div class="erp-topbar-menu-head">
+                                <strong>预警</strong>
+                                <span>{{ topbar_alert_total }} 条</span>
+                            </div>
+                            <div class="erp-topbar-menu-body">
+                                {% for item in topbar_alerts %}
+                                <a class="erp-alert-item" href="{{ item.href }}">
+                                    <span class="erp-alert-main">
+                                        <span class="erp-alert-title">{{ item.label }}</span>
+                                        <span class="erp-alert-hint">{{ item.hint }}</span>
+                                    </span>
+                                    <span class="erp-alert-count is-{{ item.level }}">{{ item.count }}</span>
+                                </a>
+                                {% endfor %}
+                                {% if not topbar_alerts %}
+                                <div class="erp-topbar-empty">暂无预警</div>
+                                {% endif %}
+                            </div>
+                            <div class="erp-topbar-menu-foot">
+                                <a href="/pending-documents">查看待处理单据</a>
+                                {% if current_user.role in ['admin', 'manager'] %}
+                                <a href="/system/data-health">数据健康</a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="erp-topbar-tool">
+                        <button type="button" class="erp-topbar-icon" data-topbar-toggle="help" aria-expanded="false" aria-label="帮助">
+                            <i class="bi bi-question-circle"></i>
+                        </button>
+                        <div class="erp-topbar-menu erp-help-menu" data-topbar-menu="help">
+                            <div class="erp-topbar-menu-head">
+                                <strong>帮助</strong>
+                                <span>操作与版本</span>
+                            </div>
+                            <div class="erp-help-list">
+                                <div class="erp-help-section-title">帮助</div>
+                                <a href="/help/operation-manual"><i class="bi bi-journal-bookmark"></i><span><strong>ERP 操作手册</strong><small>查看本系统采购、销售、库存、生产、财务操作说明</small></span></a>
+                            </div>
+                            <div class="erp-help-version">
+                                <div class="erp-help-version-title">版本信息</div>
+                                <div class="erp-help-version-row"><span>系统</span><strong>数控机床制造业 ERP</strong></div>
+                                <div class="erp-help-version-row"><span>版本</span><strong>{{ topbar_release_info.build }}</strong></div>
+                                <div class="erp-help-version-row"><span>安装包</span><strong>{{ topbar_release_info.name }}</strong></div>
+                                {% if topbar_update_status.has_update %}
+                                <div class="erp-help-version-row"><span>可更新</span><strong><a href="/system/version-updates">{{ topbar_update_status.latest.version }}</a></strong></div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <span class="text-muted me-3">{{ current_user.display_name }} · {{ current_user.role_label }}</span>
+                <a class="btn btn-sm btn-outline-secondary" href="/logout">退出</a>
+                {% endif %}
+            </div>
+        </header>
+        {% if current_user.is_authenticated %}
+        <nav class="erp-page-tabs" id="erpPageTabs" aria-label="打开的页面"></nav>
+        {% endif %}
+        <div class="content">
+            {% if current_user.is_authenticated and request.path != '/' and global_operation_actions() %}
+            <div id="globalOperationToolbar" class="global-operation-toolbar">
+                {{ document_menu_bar(actions=global_operation_actions(), aria_label='全局操作菜单') }}
+            </div>
+            {% endif %}
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+            <div class="alert alert-{{ 'danger' if category == 'error' else category }} flash">{{ message }}</div>
+            {% endfor %}
+            {% endwith %}
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+</div>
+<script src="{{ url_for('static', filename='cdn/bootstrap-bundle-5.3.0.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/app.js', v='20260606_select_all_fix') }}"></script>
+<script src="{{ url_for('static', filename='js/select_search.js') }}"></script>
+<script>
+    document.querySelectorAll('[data-nav-link]').forEach(function (link) {
+        var path = window.location.pathname.replace(/\/$/, '') || '/';
+        var href = new URL(link.getAttribute('href'), window.location.origin).pathname.replace(/\/$/, '') || '/';
+        if (path === href || (href !== '/' && path.startsWith(href + '/'))) {
+            link.classList.add('active');
+        }
+    });
+    (function () {
+        var sidebar = document.querySelector('.sidebar');
+        if (!sidebar) return;
+        document.body.classList.add('erp-flyout-nav');
+        function findMenuByLink(href) {
+            var link = sidebar.querySelector('a[href="' + href + '"]');
+            if (!link) return null;
+            var submenu = link.closest('.submenu');
+            if (!submenu) return null;
+            var parent = submenu.previousElementSibling;
+            if (!parent || !parent.classList.contains('menu-parent')) return null;
+            return { parent: parent, submenu: submenu };
+        }
+        function placeMenuAfter(menu, anchor) {
+            if (!menu || !anchor || menu.parent === anchor.parent) return;
+            sidebar.insertBefore(menu.parent, anchor.submenu.nextSibling);
+            sidebar.insertBefore(menu.submenu, menu.parent.nextSibling);
+        }
+        placeMenuAfter(findMenuByLink('/inventory/detail'), findMenuByLink('/purchase_request'));
+        sidebar.querySelectorAll('.submenu').forEach(function (submenu) {
+            if (submenu.dataset.grouped === '1') return;
+            var children = Array.prototype.slice.call(submenu.children);
+            var currentGroup = null;
+            children.forEach(function (child) {
+                if (child.classList.contains('submenu-label')) {
+                    currentGroup = document.createElement('div');
+                    currentGroup.className = 'submenu-group';
+                    submenu.insertBefore(currentGroup, child);
+                    currentGroup.appendChild(child);
+                    return;
+                }
+                if (!currentGroup) {
+                    currentGroup = document.createElement('div');
+                    currentGroup.className = 'submenu-group';
+                    submenu.insertBefore(currentGroup, child);
+                }
+                currentGroup.appendChild(child);
+            });
+            submenu.dataset.grouped = '1';
+        });
+        var parents = Array.prototype.slice.call(sidebar.querySelectorAll('.menu-parent'));
+        var closeTimer = null;
+        function isDesktopFlyout() {
+            return window.matchMedia('(min-width: 769px)').matches;
+        }
+        function closeFlyouts() {
+            parents.forEach(function (parent) {
+                parent.classList.remove('flyout-open');
+                var submenu = parent.nextElementSibling;
+                if (submenu && submenu.classList.contains('submenu')) {
+                    submenu.classList.remove('flyout-open');
+                }
+            });
+        }
+        function scheduleClose() {
+            clearTimeout(closeTimer);
+            closeTimer = setTimeout(closeFlyouts, 320);
+        }
+        function openFlyout(parent, submenu) {
+            clearTimeout(closeTimer);
+            closeFlyouts();
+            parent.classList.add('flyout-open');
+            submenu.classList.add('flyout-open');
+            positionSubmenu(parent, submenu);
+        }
+        function positionSubmenu(parent, submenu) {
+            var rect = parent.getBoundingClientRect();
+            var maxTop = window.innerHeight - submenu.offsetHeight - 10;
+            var top = Math.max(10, Math.min(rect.top, maxTop));
+            submenu.style.top = top + 'px';
+        }
+        parents.forEach(function (parent) {
+            var submenu = parent.nextElementSibling;
+            if (!submenu || !submenu.classList.contains('submenu')) return;
+            parent.setAttribute('tabindex', '0');
+            parent.addEventListener('mouseenter', function () {
+                if (!isDesktopFlyout()) return;
+                openFlyout(parent, submenu);
+            });
+            parent.addEventListener('focus', function () {
+                if (!isDesktopFlyout()) return;
+                openFlyout(parent, submenu);
+            });
+            parent.addEventListener('click', function (event) {
+                if (!isDesktopFlyout()) return;
+                event.preventDefault();
+                openFlyout(parent, submenu);
+            });
+            parent.addEventListener('mouseleave', scheduleClose);
+            submenu.addEventListener('mouseenter', function () { clearTimeout(closeTimer); });
+            submenu.addEventListener('mouseleave', scheduleClose);
+        });
+        document.addEventListener('click', function (event) {
+            if (!isDesktopFlyout()) return;
+            if (sidebar.contains(event.target)) return;
+            closeFlyouts();
+        });
+        window.addEventListener('resize', closeFlyouts);
+        sidebar.addEventListener('scroll', closeFlyouts);
+    })();
+    (function () {
+        var tabsEl = document.getElementById('erpPageTabs');
+        if (!tabsEl) return;
+        var key = 'wms1.pageTabs';
+        var currentPath = window.location.pathname + window.location.search;
+        var heading = document.querySelector('.page-heading h1, h1');
+        var currentTitle = (document.title || '').replace(' - 数控机床制造业 ERP', '').trim();
+        currentTitle = currentTitle || (heading ? heading.textContent.trim() : currentPath);
+        function loadTabs() {
+            try {
+                return JSON.parse(sessionStorage.getItem(key) || '[]').filter(function (tab) {
+                    return !/手工入库|手工出库/.test(tab.title || '');
+                });
+            } catch (err) { return []; }
+        }
+        function saveTabs(tabs) {
+            sessionStorage.setItem(key, JSON.stringify(tabs.slice(-10)));
+        }
+        function escapeHtml(text) {
+            return String(text || '').replace(/[&<>"]/g, function (ch) {
+                return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch];
+            });
+        }
+        function renderTabs() {
+            var tabs = loadTabs();
+            tabsEl.innerHTML = tabs.map(function (tab) {
+                var active = tab.url === currentPath ? ' active' : '';
+                return '<span class="erp-page-tab' + active + '">' +
+                    '<a href="' + escapeHtml(tab.url) + '">' + escapeHtml(tab.title) + '</a>' +
+                    '<button type="button" data-close-tab="' + escapeHtml(tab.url) + '" title="关闭">&times;</button>' +
+                    '</span>';
+            }).join('');
+        }
+        if (currentPath !== '/login' && currentPath !== '/logout') {
+            var tabs = loadTabs().filter(function (tab) { return tab.url !== currentPath; });
+            tabs.push({ url: currentPath, title: currentTitle });
+            saveTabs(tabs);
+        }
+        renderTabs();
+        tabsEl.addEventListener('click', function (event) {
+            var closeUrl = event.target.getAttribute('data-close-tab');
+            if (!closeUrl) return;
+            event.preventDefault();
+            var tabs = loadTabs().filter(function (tab) { return tab.url !== closeUrl; });
+            saveTabs(tabs);
+            if (closeUrl === currentPath && tabs.length) {
+                window.location.href = tabs[tabs.length - 1].url;
+            } else {
+                renderTabs();
+            }
+        });
+    })();
+    (function () {
+        var globalToolbar = document.getElementById('globalOperationToolbar');
+        if (globalToolbar) {
+            var localToolbar = Array.prototype.find.call(document.querySelectorAll('.document-menu-bar'), function (bar) {
+                return !globalToolbar.contains(bar);
+            });
+            if (localToolbar) {
+                globalToolbar.remove();
+                return;
+            }
+        }
+
+        function firstMainForm() {
+            return document.querySelector('.content form[method="post"], .content form[method="POST"], .content form:not([method])');
+        }
+
+        function submitMainForm(saveNew) {
+            var form = firstMainForm();
+            if (!form) {
+                window.alert('当前页面没有可保存的单据表单。');
+                return;
+            }
+            if (saveNew) {
+                var input = form.querySelector('input[name="save_action"]');
+                if (!input) {
+                    input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'save_action';
+                    form.appendChild(input);
+                }
+                input.value = 'save_new';
+            }
+            if (form.requestSubmit) form.requestSubmit();
+            else form.submit();
+        }
+
+        function focusFilter() {
+            var target = document.querySelector('.content form input:not([type="hidden"]), .content form select, .content [name="keyword"], .content [type="search"]');
+            if (target) {
+                target.focus();
+                target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        function exportFirstTable() {
+            var table = document.querySelector('.content table');
+            if (!table) {
+                window.alert('当前页面没有可导出的表格。');
+                return;
+            }
+            var rows = Array.prototype.map.call(table.querySelectorAll('tr'), function (row) {
+                return Array.prototype.map.call(row.children, function (cell) {
+                    return '"' + (cell.innerText || '').replace(/"/g, '""').trim() + '"';
+                }).join(',');
+            }).join('\n');
+            var blob = new Blob(['\ufeff' + rows], { type: 'text/csv;charset=utf-8;' });
+            var link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = (document.title || 'erp_table') + '.csv';
+            document.body.appendChild(link);
+            link.click();
+            var href = link.href;
+            link.remove();
+            setTimeout(function () { URL.revokeObjectURL(href); }, 1000);
+        }
+
+        document.querySelectorAll('[data-menu-event]').forEach(function (item) {
+            item.addEventListener('click', function (event) {
+                var action = event.currentTarget.dataset.menuEvent;
+                if (action === 'global-submit-main-form') submitMainForm(false);
+                if (action === 'global-submit-main-form-new') submitMainForm(true);
+                if (action === 'global-focus-filter') focusFilter();
+                if (action === 'global-export-table') exportFirstTable();
+                if (action === 'global-print-page') window.print();
+            });
+        });
+    })();
+</script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block title %}MRP 物料需求计划{% endblock %}
+{% block content %}
+<div class="page-heading erp-list-heading">
+    <div>
+        <h1>MRP 物料需求计划</h1>
+        <p>按工单、销售订单或物料展开 BOM，扣减库存、采购在途、采购申请、委外在途和在制工单，输出净需求与建议。</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-outline-secondary btn-sm" href="/mrp/runs"><i class="bi bi-list-ul"></i> 运行记录</a>
+        <a class="btn btn-outline-secondary btn-sm" href="/mrp/suggestions"><i class="bi bi-lightbulb"></i> 处理建议</a>
+        <a class="btn btn-outline-secondary btn-sm" href="/mrp/kitting"><i class="bi bi-clipboard-check"></i> 齐套分析</a>
+        <a class="btn btn-outline-secondary btn-sm" href="/"><i class="bi bi-house"></i> 返回首页</a>
+    </div>
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>新增 MRP 运行</h2>
+            <span>选择来源类型与单据/物料后执行；运行结果会生成运行明细与建议。</span>
+        </div>
+    </div>
+    <form method="post" action="/mrp/run">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="row g-3 mb-2">
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">来源类型</label>
+                <select class="form-select form-select-sm" name="source_type" id="mrp-source-type" required>
+                    <option value="work_order" selected>工单</option>
+                    <option value="sales_order">销售订单</option>
+                    <option value="product">物料</option>
+                </select>
+            </div>
+            <div class="col-md-5" id="mrp-work-order-field">
+                <label class="form-label small text-muted mb-1">工单</label>
+                <select class="form-select form-select-sm" name="source_id" id="mrp-source-id">
+                    {% for wo in work_orders %}
+                    <option value="{{ wo.id }}">{{ wo.wo_no }} | {{ wo.product_code or '' }} {{ wo.product_name or '' }} | 项目 {{ wo.project_code or '-' }} / 机号 {{ wo.serial_no or '-' }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-5 d-none" id="mrp-product-field">
+                <label class="form-label small text-muted mb-1">物料（含 BOM）</label>
+                <select class="form-select form-select-sm" name="source_id" id="mrp-source-id-product" disabled>
+                    {% for p in products %}
+                    <option value="{{ p.id }}">{{ p.code }} | {{ p.name }} {{ p.specification or '' }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-1">
+                <label class="form-label small text-muted mb-1">数量</label>
+                <input class="form-control form-control-sm" name="quantity" value="1" type="number" step="0.001" min="0">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">项目号</label>
+                <input class="form-control form-control-sm" name="project_code" placeholder="留空跟随来源">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">机号</label>
+                <input class="form-control form-control-sm" name="serial_no" placeholder="留空跟随来源">
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-12 text-end">
+                <button class="btn btn-primary btn-sm" type="submit"><i class="bi bi-play-circle"></i> 执行 MRP</button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-6">
+        <div class="page-card h-100">
+            <div class="section-title">
+                <div>
+                    <h2>最近运行</h2>
+                    <span>最近 10 次 MRP 运行记录。</span>
+                </div>
+                <a class="btn btn-outline-secondary btn-sm" href="/mrp/runs">查看全部</a>
+            </div>
+            {% if recent_runs %}
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead>
+                    <tr>
+                        <th>运行号</th>
+                        <th>来源</th>
+                        <th>项目/机号</th>
+                        <th class="text-end">行数</th>
+                        <th class="text-end">缺料</th>
+                        <th class="text-end">齐套率</th>
+                        <th class="text-end">操作</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for r in recent_runs %}
+                    <tr>
+                        <td>{{ r.run_no }}</td>
+                        <td>{{ r.source_type }} {{ r.source_no or '' }}</td>
+                        <td>{{ r.project_code or '-' }} / {{ r.serial_no or '-' }}</td>
+                        <td class="text-end">{{ r.shortage_line_count + (r.covered_line_count if r.covered_line_count else 0) }}</td>
+                        <td class="text-end">{{ r.shortage_line_count }}</td>
+                        <td class="text-end">{{ percent(r.kitting_rate) }}%</td>
+                        <td class="text-end"><a class="btn btn-outline-primary btn-sm" href="/mrp/runs/{{ r.id }}">查看</a></td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="erp-empty-line">暂无 MRP 运行记录。</div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="page-card h-100">
+            <div class="section-title">
+                <div>
+                    <h2>待处理建议</h2>
+                    <span>未转换的 MRP 建议前 10 条。</span>
+                </div>
+                <a class="btn btn-outline-secondary btn-sm" href="/mrp/suggestions">查看全部</a>
+            </div>
+            {% if open_suggestions %}
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead>
+                    <tr>
+                        <th>建议类型</th>
+                        <th>物料</th>
+                        <th class="text-end">数量</th>
+                        <th>项目/机号</th>
+                        <th class="text-end">操作</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for s in open_suggestions %}
+                    <tr>
+                        <td><span class="badge bg-info text-dark">{{ s.suggestion_label }}</span></td>
+                        <td>{{ s.material_code }} {{ s.material_name }}</td>
+                        <td class="text-end">{{ qty(s.qty) }}</td>
+                        <td>{{ s.project_code or '-' }} / {{ s.serial_no or '-' }}</td>
+                        <td class="text-end">
+                            <form method="post" action="/mrp/suggestions/{{ s.id }}/convert" class="d-inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="action" value="auto">
+                                <button class="btn btn-outline-primary btn-sm" type="submit">转换</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="erp-empty-line">暂无待处理建议。</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var sourceType = document.getElementById('mrp-source-type');
+    var woField = document.getElementById('mrp-work-order-field');
+    var productField = document.getElementById('mrp-product-field');
+    var woSelect = document.getElementById('mrp-source-id');
+    var productSelect = document.getElementById('mrp-source-id-product');
+    function syncFields() {
+        var value = sourceType.value;
+        if (value === 'product') {
+            woField.classList.add('d-none');
+            woSelect.disabled = true;
+            productField.classList.remove('d-none');
+            productSelect.disabled = false;
+            productSelect.name = 'source_id';
+            woSelect.removeAttribute('name');
+        } else {
+            woField.classList.remove('d-none');
+            woSelect.disabled = false;
+            productField.classList.add('d-none');
+            productSelect.disabled = true;
+            woSelect.name = 'source_id';
+            productSelect.removeAttribute('name');
+        }
+    }
+    sourceType.addEventListener('change', syncFields);
+    syncFields();
+})();
+</script>
+{% endblock %}

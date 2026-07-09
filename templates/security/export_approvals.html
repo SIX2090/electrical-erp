@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}导出审批{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+  <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h5 class="mb-0"><i class="bi bi-file-earmark-arrow-down"></i> 导出审批</h5>
+      <div>
+        <a href="{{ url_for('export_approval_new') }}" class="btn btn-sm btn-primary">
+          <i class="bi bi-plus-lg"></i> 提交导出申请
+        </a>
+        <a href="{{ url_for('data_permission_list') }}" class="btn btn-sm btn-outline-secondary">
+          <i class="bi bi-arrow-left"></i> 返回规则列表
+        </a>
+        <a href="/" class="btn btn-sm btn-outline-secondary">
+          <i class="bi bi-house"></i> 返回首页
+        </a>
+      </div>
+    </div>
+    <div class="card-body">
+      <form method="get" class="row g-2 mb-3 align-items-end">
+        <div class="col-auto">
+          <label class="form-label small">状态</label>
+          <select name="status" class="form-select form-select-sm">
+            {% for value, label in status_options %}
+            <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-auto">
+          <label class="form-label small">条数</label>
+          <input type="number" name="limit" value="{{ filters.limit }}" class="form-control form-control-sm" min="1" max="1000" style="width:90px;">
+        </div>
+        <div class="col-auto">
+          <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-search"></i> 筛选</button>
+          <a href="{{ url_for('export_approvals_page') }}" class="btn btn-sm btn-outline-secondary">重置</a>
+        </div>
+      </form>
+
+      {% if approvals %}
+      <div class="table-responsive">
+        <table class="table table-bordered table-hover table-sm align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>ID</th>
+              <th>申请人</th>
+              <th>资源类型</th>
+              <th>资源标签</th>
+              <th>格式</th>
+              <th>筛选条件</th>
+              <th>状态</th>
+              <th>审批人</th>
+              <th>审批备注</th>
+              <th>申请时间</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in approvals %}
+            <tr>
+              <td>{{ item.id }}</td>
+              <td>{{ item.requester_name or item.requester_id or '-' }}</td>
+              <td>{{ item.resource_type or '-' }}</td>
+              <td>{{ item.resource_label or item.resource_id or '-' }}</td>
+              <td>{{ item.export_format or '-' }}</td>
+              <td>{{ item.filter_summary or '-' }}</td>
+              <td>
+                {% if item.status == 'pending' %}
+                <span class="badge bg-warning">待审批</span>
+                {% elif item.status == 'approved' %}
+                <span class="badge bg-success">已批准</span>
+                {% elif item.status == 'rejected' %}
+                <span class="badge bg-danger">已拒绝</span>
+                {% elif item.status == 'cancelled' %}
+                <span class="badge bg-secondary">已取消</span>
+                {% else %}
+                <span class="badge bg-secondary">{{ item.status_label or item.status }}</span>
+                {% endif %}
+              </td>
+              <td>{{ item.approver_name or '-' }}</td>
+              <td>{{ item.approval_remark or '-' }}</td>
+              <td>{{ item.created_at }}</td>
+              <td>
+                {% if item.status == 'pending' %}
+                <form method="post" action="{{ url_for('export_approval_approve', request_id=item.id) }}" class="d-inline">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn btn-sm btn-outline-success" onclick="return confirm('确认批准？')">批准</button>
+                </form>
+                <form method="post" action="{{ url_for('export_approval_reject', request_id=item.id) }}" class="d-inline">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('确认拒绝？')">拒绝</button>
+                </form>
+                <form method="post" action="{{ url_for('export_approval_cancel', request_id=item.id) }}" class="d-inline">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn btn-sm btn-outline-secondary" onclick="return confirm('确认取消？')">取消</button>
+                </form>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <p class="text-muted small">共 {{ approvals|length }} 条记录</p>
+      {% else %}
+      <div class="alert alert-info">暂无导出审批申请。</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

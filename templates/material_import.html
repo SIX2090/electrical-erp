@@ -1,0 +1,87 @@
+﻿{% extends "base.html" %}
+{% block title %}物料导入{% endblock %}
+{% block content %}
+<div class="mb-3">
+    <a class="btn btn-outline-secondary btn-sm" href="/material">返回物料档案</a>
+</div>
+
+<div class="page-heading">
+    <h1>物料导入</h1>
+    <p>按物料编码更新或新增物料。适合从 Excel 另存为 CSV 后导入。</p>
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>导入文件</h2>
+            <span>支持 UTF-8 或 Excel CSV；物料编码和物料名称必填。</span>
+        </div>
+        <a class="btn btn-outline-primary btn-sm" href="/material/import-template">下载模板</a>
+    </div>
+    <form method="post" action="/material/import" enctype="multipart/form-data" class="row g-3 align-items-end">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="col-lg-7">
+            <label class="form-label">CSV 文件</label>
+            <input class="form-control" type="file" name="file" accept=".csv,text/csv" required>
+            <div class="form-text">字段：物料编码、物料名称、规格型号、基本单位、物料分类名称、图号、材质、品牌、标准价、安全库存、默认供应商、默认税率、使用状态。物料分类名称必填。</div>
+        </div>
+        <div class="col-lg-3">
+            <label class="form-label">导入方式</label>
+            <select class="form-select" name="mode">
+                <option value="upsert">按编码新增或更新</option>
+                <option value="insert_only">只新增，已存在跳过</option>
+            </select>
+        </div>
+        <div class="col-lg-2 d-grid gap-2">
+            <button class="btn btn-outline-primary" type="submit" name="action" value="precheck"><i class="bi bi-clipboard-check"></i> 预检</button>
+            <button class="btn btn-primary" type="submit" name="action" value="import"><i class="bi bi-upload"></i> 开始导入</button>
+        </div>
+    </form>
+</div>
+
+{% if precheck_report %}
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>预检报告</h2>
+            <span>本次只校验文件，不写入数据库。</span>
+        </div>
+        <span class="badge bg-{{ 'success' if precheck_report.error_count == 0 else 'warning text-dark' }}">{{ '可导入' if precheck_report.error_count == 0 else '需修正' }}</span>
+    </div>
+    <div class="row g-3 mb-3">
+        <div class="col-6 col-lg-3"><div class="border rounded p-2"><div class="text-muted small">读取行数</div><div class="fs-5 fw-semibold">{{ precheck_report.total_rows }}</div></div></div>
+        <div class="col-6 col-lg-3"><div class="border rounded p-2"><div class="text-muted small">预计新增</div><div class="fs-5 fw-semibold">{{ precheck_report.created }}</div></div></div>
+        <div class="col-6 col-lg-3"><div class="border rounded p-2"><div class="text-muted small">预计更新</div><div class="fs-5 fw-semibold">{{ precheck_report.updated }}</div></div></div>
+        <div class="col-6 col-lg-3"><div class="border rounded p-2"><div class="text-muted small">需跳过/修正</div><div class="fs-5 fw-semibold">{{ precheck_report.skipped }}</div></div></div>
+    </div>
+    {% if precheck_report.errors %}
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead><tr><th style="width: 100px;">行号</th><th style="width: 160px;">类型</th><th>问题</th></tr></thead>
+            <tbody>
+                {% for item in precheck_report.errors %}
+                <tr>
+                    <td>{{ item.line_no or '-' }}</td>
+                    <td>{{ item.category }}</td>
+                    <td>{{ item.message }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="alert alert-success mb-0">预检通过，未发现重复、无效引用、停用资料或格式错误。</div>
+    {% endif %}
+</div>
+{% endif %}
+
+<div class="page-card">
+    <h2 class="h5 mb-3">导入规则</h2>
+    <ul class="mb-0">
+        <li>物料编码用于唯一识别，已存在时可更新名称、规格、单位、分类和主数据字段。</li>
+        <li>导入物料前必须先维护物料分类档案；物料分类名称必须匹配已有分类，不会在导入时自动创建。</li>
+        <li>空白字段不会清空已有数据，避免误覆盖。</li>
+        <li>导入后回到物料档案，可用编码或名称搜索检查结果。</li>
+    </ul>
+</div>
+{% endblock %}

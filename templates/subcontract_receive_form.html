@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% set form_order = order|default({}) %}
+{% block title %}{{ '编辑外协收货单' if mode == 'edit' else '新增外协收货单' }}{% endblock %}
+{% block content %}
+<form id="subcontractReceiveForm" method="post" action="{{ action_url|default('/subcontract_receive/new') }}" data-main-document-form>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="page-card order-form-card mb-3">
+        <div class="section-title"><div><h2>表头</h2></div></div>
+        <div class="row g-2">
+            <div class="col-md-6 col-xl-4"><label class="form-label">单据编号</label><input class="form-control form-control-sm" type="text" value="{{ form_order.receive_no|default('') }}" placeholder="保存时自动生成" readonly></div>
+            <div class="col-md-6 col-xl-4"><label class="form-label">外协订单 <span class="text-danger">*</span></label><select class="form-select form-select-sm" name="subcontract_order_id" id="subcontractOrder" required><option value="">请选择外协订单</option>{% for source in orders %}<option value="{{ source.id }}" data-supplier="{{ source.supplier_name or '' }}" data-project="{{ source.project_code or '' }}" data-serial="{{ source.serial_no or '' }}" data-code="{{ source.product_code or '' }}" data-name="{{ source.product_name or '' }}" data-spec="{{ source.specification or '' }}" data-unit="{{ source.unit or '' }}" data-open="{{ source.open_qty or source.quantity or 0 }}" {% if selected_order_id == source.id %}selected{% endif %}>{{ source.order_no }} / {{ source.supplier_name }} / 未回 {{ source.open_qty|qty }}</option>{% endfor %}</select></div>
+            <div class="col-md-6 col-xl-4"><label class="form-label">收货日期 <span class="text-danger">*</span></label><input class="form-control form-control-sm" type="date" name="date" value="{{ form_order.date or today().isoformat() }}" required></div>
+            <div class="col-md-6 col-xl-4"><label class="form-label">加工商</label><input class="form-control form-control-sm" id="supplierName" readonly></div>
+            <div class="col-md-6 col-xl-4"><label class="form-label">项目号</label><input class="form-control form-control-sm" id="projectCode" readonly></div>
+            <div class="col-md-6 col-xl-4"><label class="form-label">机号</label><input class="form-control form-control-sm" id="serialNo" readonly></div>
+            <div class="col-md-6 col-xl-4"><label class="form-label">入库仓库</label><select class="form-select form-select-sm js-wh-loc-warehouse" name="warehouse_id" data-wh-loc-target="#sub_recv_hdr_loc"><option value="">请选择仓库</option>{% for warehouse in warehouses %}<option value="{{ warehouse.id }}" {% if warehouse.id == form_order.warehouse_id %}selected{% endif %}>{{ warehouse.code or '' }} {{ warehouse.name }}</option>{% endfor %}</select></div>
+            <div class="col-md-6 col-xl-4"><label class="form-label">入库库位</label><select class="form-select form-select-sm js-wh-loc-location" id="sub_recv_hdr_loc" name="location_id"><option value="">请选择库位</option>{% for location in locations %}<option value="{{ location.id }}" data-warehouse-id="{{ location.warehouse_id or '' }}" {% if location.id == form_order.location_id %}selected{% endif %}>{{ location.code or '' }} {{ location.name or '' }}</option>{% endfor %}</select></div>
+            <div class="col-12"><label class="form-label">备注</label><input class="form-control form-control-sm" name="remark" value="{{ form_order.remark or '' }}"></div>
+        </div>
+    </div>
+    <div class="page-card order-form-card mb-3">
+        <div class="section-title"><div><h2>明细</h2></div></div>
+        <div class="table-responsive document-grid-scroll"><table class="table table-bordered table-hover table-sm align-middle mb-0 document-entry-grid"><thead class="table-light"><tr data-grid-header><th>物料编码</th><th>物料名称</th><th>规格</th><th>单位</th><th>仓库</th><th>库位</th><th class="text-end">合格数量</th><th class="text-end">报废数量</th><th>批号</th></tr></thead><tbody><tr><td><input class="form-control form-control-sm" id="productCode" readonly></td><td><input class="form-control form-control-sm" id="productName" readonly></td><td><input class="form-control form-control-sm" id="specification" readonly></td><td><input class="form-control form-control-sm" id="unitName" readonly></td><td><select class="form-select form-select-sm js-wh-loc-warehouse" name="line_warehouse_id[]"><option value="">使用表头仓库</option>{% for warehouse in warehouses %}<option value="{{ warehouse.id }}" {% if warehouse.id == form_order.warehouse_id %}selected{% endif %}>{{ warehouse.code or '' }} {{ warehouse.name }}</option>{% endfor %}</select></td><td><select class="form-select form-select-sm js-wh-loc-location" name="line_location_id[]"><option value="">使用表头库位</option>{% for location in locations %}<option value="{{ location.id }}" data-warehouse-id="{{ location.warehouse_id or '' }}" {% if location.id == form_order.location_id %}selected{% endif %}>{{ location.code or '' }} {{ location.name or '' }}</option>{% endfor %}</select></td><td><input class="form-control form-control-sm text-end" id="quantity" name="quantity" type="number" min="0" step="0.001" value="{{ form_order.quantity or form_order.total_quantity or '' }}" required></td><td><input class="form-control form-control-sm text-end" name="scrap_quantity" type="number" min="0" step="0.001" value="{{ form_order.scrap_quantity or form_order.total_scrap or 0 }}"></td><td><input class="form-control form-control-sm" name="lot_no" value="{{ form_order.lot_no or '' }}"></td></tr></tbody></table></div>
+    </div>
+</form>
+<script>
+(function () {
+    const select = document.getElementById('subcontractOrder');
+    function fill() {
+        const data = select.selectedOptions[0] ? select.selectedOptions[0].dataset : {};
+        supplierName.value = data.supplier || ''; projectCode.value = data.project || ''; serialNo.value = data.serial || '';
+        productCode.value = data.code || ''; productName.value = data.name || ''; specification.value = data.spec || ''; unitName.value = data.unit || '';
+        if (!quantity.value) quantity.value = data.open || '';
+    }
+    select.addEventListener('change', fill);
+    fill();
+})();
+</script>
+{% include "partials/location_filter_script.html" %}
+{% endblock %}

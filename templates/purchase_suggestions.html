@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+{% block title %}缺料转采购建议{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+    <div>
+        <h1 class="h4 mb-1">缺料转采购建议</h1>
+        <div class="text-muted">
+            来源：MRP缺料/齐套查询。按来源工单、项目号、机号扣减已请购和采购未到量，并显示预计到料、责任人、堵点和项目交期影响；本页只提供受控请购入口，不在查询页直接过账。
+        </div>
+    </div>
+    <div class="text-end">
+        <button class="btn btn-primary" type="submit" form="purchase-suggestions-create-form">
+            <i class="bi bi-card-checklist"></i> 生成采购申请
+        </button>
+        <div class="text-muted small mt-1">请先勾选要生成请购的“建议采购”行</div>
+    </div>
+</div>
+
+<div class="page-card mb-3">
+    <form class="row g-2 align-items-end" method="get" action="/procurement/suggestions">
+        <div class="col-md-5">
+            <label class="form-label small text-muted mb-1">项目/机号/物料</label>
+            <input class="form-control" name="keyword" value="{{ filters.keyword }}" placeholder="输入项目号、机号、物料编码或名称">
+        </div>
+        <div class="col-md-2 d-grid">
+            <button class="btn btn-primary" type="submit">查询</button>
+        </div>
+        {% if filters.keyword %}
+        <div class="col-md-2 d-grid">
+            <a class="btn btn-outline-secondary" href="/procurement/suggestions">清除</a>
+        </div>
+        {% endif %}
+    </form>
+</div>
+
+<div class="row g-3 mb-3">
+    {% for metric in metrics %}
+    <div class="col-md-6 col-xl-3">
+        <div class="metric h-100">
+            <div class="label">{{ metric.label }}</div>
+            <div class="value">{{ metric.value }}</div>
+            <div class="text-muted small mt-1">{{ metric.hint }}</div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="page-card mb-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="h5 mb-0">MRP缺料处理队列</h2>
+        <span class="text-muted small">已被请购/采购未到覆盖 {{ covered_count }} 行</span>
+    </div>
+    {% if rows %}
+    <form id="purchase-suggestions-create-form" method="post" action="/procurement/suggestions/create-request">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="keyword" value="{{ filters.keyword }}">
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+            <tr>
+                <th width="40"><input type="checkbox" onchange="document.querySelectorAll('.suggestion-check:not(:disabled)').forEach(cb => cb.checked = this.checked)"></th>
+                <th>来源工单</th>
+                <th>项目/机号</th>
+                <th>物料</th>
+                <th>规格</th>
+                <th>需求日期</th>
+                <th>预计到料</th>
+                <th>交期风险</th>
+                <th class="text-end">MRP缺料</th>
+                <th class="text-end">未覆盖缺料</th>
+                <th class="text-end">已请购</th>
+                <th class="text-end">采购未到</th>
+                <th class="text-end">建议数量</th>
+                <th>工程准备</th>
+                <th>供应商/入口</th>
+                <th>请购</th>
+                <th>状态</th>
+                <th>状态流转</th>
+                <th>责任/下一步</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for row in rows %}
+            <tr>
+                <td>
+                    {% if row.suggestion_status == '建议采购' and row.suggestion_qty %}
+                    <input class="form-check-input suggestion-check" type="checkbox" name="suggestion_key" value="{{ row.product_id }}|{{ row.project_code or '-' }}|{{ row.serial_no or '-' }}">
+                    {% else %}
+                    <input class="form-check-input" type="checkbox" disabled>
+                    {% endif %}
+                </td>
+                <td>{{ row.source_work_order or '待关联工单' }}</td>
+                <td>
+                    <div>{{ row.project_code or '-' }}</div>
+                    <div class="text-muted small">{{ row.serial_no or '-' }}</div>
+                </td>
+                <td>{{ row.product_code or row.product_id }} / {{ row.product_name or '-' }}</td>
+                <td>{{ row.specification or '-' }}</td>
+                <td>{{ row.need_date or '-' }}</td>
+                <td>
+                    <div>{{ row.expected_arrival_display }}</div>
+                    <div class="small text-{{ row.delivery_impact_class }}">{{ row.delivery_impact }}</div>
+                </td>
+                <td><span class="status-pill {{ row.risk_class }}">{{ row.date_risk }}</span></td>
+                <td class="text-end">{{ row.mrp_shortage_qty|qty }} {{ row.unit or '' }}</td>
+                <td class="text-end">{{ row.material_shortage|qty }}</td>
+                <td class="text-end">{{ row.requested_qty|qty }}</td>
+                <td class="text-end">{{ row.pending_po_qty|qty }}</td>
+                <td class="text-end {% if row.suggestion_qty %}fw-semibold text-primary{% endif %}">{{ row.suggestion_qty|qty }}</td>
+                <td>
+                    <span class="badge text-bg-{{ 'success' if row.engineering_ready else 'danger' }}">
+                        {{ '已就绪' if row.engineering_ready else '未就绪' }}
+                    </span>
+                    <div class="small mt-1">
+                        {% if row.technical_confirmation_id %}
+                        <a href="{{ row.technical_confirmation_link }}">技术确认 {{ row.technical_confirmation_no or '' }}</a>
+                        {% else %}
+                        <a href="/engineering/technical-confirmations">补技术确认</a>
+                        {% endif %}
+                        <span class="text-muted"> / </span>
+                        <a href="{{ row.project_ledger_link }}">项目台账</a>
+                    </div>
+                </td>
+                <td>
+                    <div>{{ row.supplier_name or '-' }}</div>
+                    <div class="text-muted small">{{ row.controlled_entry }}</div>
+                    {% if row.lead_time_days %}<div class="text-muted small">交期 {{ row.lead_time_days }} 天</div>{% endif %}
+                </td>
+                <td>
+                    {% if row.purchase_request_link %}
+                    <a class="btn btn-outline-primary btn-sm" href="{{ row.purchase_request_link }}">查看请购</a>
+                    {% else %}
+                    <span class="text-muted small">待生成</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <span class="badge {% if row.status_class == 'warning' %}text-bg-warning{% elif row.status_class == 'success' %}text-bg-success{% else %}text-bg-primary{% endif %}">
+                        {{ row.suggestion_status }}
+                    </span>
+                    <div class="text-muted small mt-1">{{ row.blocked_reason }}</div>
+                    {% if not row.engineering_ready %}
+                    <div class="text-danger small mt-1">阻塞下推：先补齐技术确认、BOM、图纸和工艺路线。</div>
+                    {% endif %}
+                </td>
+                <td>
+                    <div>{{ row.status_transition }}</div>
+                    <div class="text-muted small">目标：{{ row.target_document_type }}</div>
+                </td>
+                <td>
+                    <div>{{ row.owner_role }}：{{ row.next_action }}</div>
+                    <div class="text-muted small">{{ row.recheck_action }}</div>
+                    <div class="text-muted small">{{ row.downstream_impact }}</div>
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    </form>
+    {% else %}
+    <div class="text-muted">暂无采购建议。当前 MRP 缺料可能已被请购或采购未到量覆盖，请回到齐套检查复核。</div>
+    {% endif %}
+</div>
+{% endblock %}

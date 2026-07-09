@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="page-heading erp-list-heading">
+    <div>
+        <h1>{{ title }}</h1>
+        <p>{{ subtitle }}</p>
+    </div>
+    <a class="btn btn-outline-primary btn-sm" href="/finance/cash-bank/journal">
+        <i class="bi bi-journal-text"></i> 流水查询
+    </a>
+</div>
+
+<div class="erp-workbench-metrics mb-3">
+    <div class="erp-workbench-metric">
+        <div class="erp-workbench-metric-label">账户数</div>
+        <div class="erp-workbench-metric-value">{{ summary.account_count or 0 }}</div>
+        <div class="erp-workbench-metric-hint">现金/银行账户</div>
+    </div>
+    <div class="erp-workbench-metric">
+        <div class="erp-workbench-metric-label">启用余额</div>
+        <div class="erp-workbench-metric-value">{{ summary.active_balance|money }}</div>
+        <div class="erp-workbench-metric-hint">仅启用账户</div>
+    </div>
+    <div class="erp-workbench-metric">
+        <div class="erp-workbench-metric-label">现金余额</div>
+        <div class="erp-workbench-metric-value">{{ summary.cash_balance|money }}</div>
+        <div class="erp-workbench-metric-hint">account_type=cash</div>
+    </div>
+    <div class="erp-workbench-metric">
+        <div class="erp-workbench-metric-label">银行余额</div>
+        <div class="erp-workbench-metric-value">{{ summary.bank_balance|money }}</div>
+        <div class="erp-workbench-metric-hint">account_type=bank</div>
+    </div>
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>查询条件</h2>
+            <span>按账户类型、编码、名称、银行和责任人查询</span>
+        </div>
+    </div>
+    <form class="row g-2 align-items-end" method="get">
+        <div class="col-md-3">
+            <label class="form-label">关键字</label>
+            <input class="form-control form-control-sm" name="keyword" value="{{ filters.keyword }}" placeholder="编码/名称/银行/责任人">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">账户类型</label>
+            <select class="form-select form-select-sm" name="account_type">
+                <option value="">全部</option>
+                <option value="cash" {% if filters.account_type == 'cash' %}selected{% endif %}>现金</option>
+                <option value="bank" {% if filters.account_type == 'bank' %}selected{% endif %}>银行账户</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button class="btn btn-outline-primary btn-sm" type="submit"><i class="bi bi-search"></i> 查询</button>
+            <a class="btn btn-outline-secondary btn-sm" href="/finance/cash-bank/accounts">重置</a>
+        </div>
+    </form>
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>账户主数据</h2>
+            <span>master data，非收付款单据</span>
+        </div>
+    </div>
+    <form class="row g-2 align-items-end" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="col-md-2">
+            <label class="form-label">账户编码</label>
+            <input class="form-control form-control-sm" name="account_code" required>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">账户名称</label>
+            <input class="form-control form-control-sm" name="account_name" required>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">类型</label>
+            <select class="form-select form-select-sm" name="account_type">
+                <option value="bank">银行账户</option>
+                <option value="cash">现金</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">银行</label>
+            <input class="form-control form-control-sm" name="bank_name">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">账号</label>
+            <input class="form-control form-control-sm" name="bank_account_no">
+        </div>
+        <div class="col-md-1">
+            <label class="form-label">币别</label>
+            <input class="form-control form-control-sm" name="currency" value="CNY">
+        </div>
+        <div class="col-md-1">
+            <label class="form-label">状态</label>
+            <select class="form-select form-select-sm" name="status">
+                <option value="active">启用</option>
+                <option value="inactive">停用</option>
+                <option value="closed">已销户</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">期初余额</label>
+            <input class="form-control form-control-sm text-end" name="opening_balance" type="number" step="0.01" value="0">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">当前余额</label>
+            <input class="form-control form-control-sm text-end" name="current_balance" type="number" step="0.01" value="0">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">责任部门</label>
+            <input class="form-control form-control-sm" name="owner_department">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">责任人</label>
+            <input class="form-control form-control-sm" name="owner_person">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">备注</label>
+            <input class="form-control form-control-sm" name="remark">
+        </div>
+        <div class="col-md-1">
+            <button class="btn btn-primary btn-sm w-100" type="submit"><i class="bi bi-save"></i> 保存</button>
+        </div>
+    </form>
+</div>
+
+<div class="page-card">
+    <div class="section-title">
+        <div>
+            <h2>账户列表</h2>
+            <span>{{ rows|length }} 条记录</span>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle">
+            <thead>
+            <tr>
+                <th>账户编码</th>
+                <th>账户名称</th>
+                <th>类型</th>
+                <th>银行</th>
+                <th>账号</th>
+                <th>币别</th>
+                <th class="text-end">期初余额</th>
+                <th class="text-end">当前余额</th>
+                <th>状态</th>
+                <th>责任</th>
+                <th>备注</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for row in rows %}
+            <tr>
+                <td class="fw-semibold">{{ row.account_code|clean_text }}</td>
+                <td>{{ row.account_name|clean_text }}</td>
+                <td>{{ row.account_type_label|clean_text }}</td>
+                <td>{{ row.bank_name|clean_text }}</td>
+                <td>{{ row.bank_account_no|clean_text }}</td>
+                <td>{{ row.currency|clean_text }}</td>
+                <td class="text-end">{{ row.opening_balance|money }}</td>
+                <td class="text-end fw-semibold">{{ row.current_balance|money }}</td>
+                <td><span class="badge bg-light text-dark border">{{ row.status_label|clean_text }}</span></td>
+                <td>{{ row.owner_department|clean_text }} {{ row.owner_person|clean_text }}</td>
+                <td>{{ row.remark|clean_text }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="11" class="text-muted">暂无现金银行账户。</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

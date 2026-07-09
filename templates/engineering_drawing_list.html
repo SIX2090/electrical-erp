@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% block title %}图纸台账{% endblock %}
+{% block content %}
+{% set args = request.args.to_dict() %}
+<div class="page-heading">
+    <h1>图纸台账</h1>
+    <p>维护受控图纸版本、发布状态、业务引用和下游影响；CAD/PDM 源文件仍由设计系统或文件服务器管理。</p>
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>查询条件</h2>
+            <span>支持图号、版本、名称、物料、BOM、项目号、机号、负责人、状态、类型和发布日期筛选。</span>
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary btn-sm" href="/engineering/drawings/import-template"><i class="bi bi-file-earmark-spreadsheet"></i> 模板</a>
+            {% if can_create and can_operate %}
+            <a class="btn btn-outline-secondary btn-sm" href="/engineering/drawings/import"><i class="bi bi-upload"></i> 导入</a>
+            {% endif %}
+        </div>
+    </div>
+    <form method="get" class="row g-2 align-items-end" data-list-filter-form>
+        <div class="col-md-3">
+            <label class="form-label">综合关键字</label>
+            <input class="form-control form-control-sm" name="keyword" value="{{ filters.keyword }}" placeholder="图号/名称/物料/BOM/项目/机号">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">状态</label>
+            <select class="form-select form-select-sm" name="status">
+                {% for value, label in status_options %}
+                <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">图纸类型</label>
+            <select class="form-select form-select-sm" name="drawing_type">
+                {% for value, label in drawing_type_options %}
+                <option value="{{ value }}" {% if filters.drawing_type == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">项目号</label>
+            <input class="form-control form-control-sm" name="project_code" value="{{ filters.project_code }}">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">机号</label>
+            <input class="form-control form-control-sm" name="serial_no" value="{{ filters.serial_no }}">
+        </div>
+        <div class="col-md-1 d-grid">
+            <button class="btn btn-outline-primary btn-sm" type="submit"><i class="bi bi-search"></i> 查询</button>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">物料编码</label>
+            <input class="form-control form-control-sm" name="product_code" value="{{ filters.product_code }}">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">BOM编号</label>
+            <input class="form-control form-control-sm" name="bom_no" value="{{ filters.bom_no }}">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">负责人</label>
+            <input class="form-control form-control-sm" name="owner" value="{{ filters.owner }}">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">发布起日</label>
+            <input class="form-control form-control-sm" type="date" name="released_from" value="{{ filters.released_from }}">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">发布止日</label>
+            <input class="form-control form-control-sm" type="date" name="released_to" value="{{ filters.released_to }}">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">每页</label>
+            <select class="form-select form-select-sm" name="per_page">
+                {% for option in pagination.per_page_options %}
+                <option value="{{ option }}" {% if option == pagination.per_page %}selected{% endif %}>{{ option }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <input type="hidden" name="sort" value="{{ filters.sort }}">
+        <input type="hidden" name="order" value="{{ filters.order }}">
+    </form>
+</div>
+
+<div class="page-card">
+    <div class="section-title">
+        <div>
+            <h2>图纸版本</h2>
+            <span>共 {{ pagination.total_count }} 条，第 {{ pagination.page }}/{{ pagination.total_pages }} 页；本页只维护台账和引用，不编辑 CAD/PDM 源文件。</span>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+            <tr>
+                {% for field, label in [('drawing_no','图号'),('version','版本'),('drawing_name','图纸名称'),('drawing_type','类型'),('status','状态'),('owner','负责人'),('released_date','发布日期'),('link_count','引用数')] %}
+                {% set next_order = 'desc' if filters.sort == field and filters.order == 'asc' else 'asc' %}
+                {% set _ = args.update({'sort': field, 'order': next_order, 'page': '1'}) %}
+                <th><a class="text-decoration-none" href="{{ request.path }}?{{ args|urlencode }}">{{ label }}{% if filters.sort == field %} <i class="bi bi-caret-{{ 'up' if filters.order == 'asc' else 'down' }}-fill small"></i>{% endif %}</a></th>
+                {% endfor %}
+                <th>关联物料/BOM</th>
+                <th>项目/机号</th>
+                <th>下一步</th>
+                <th class="text-end">操作菜单</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for row in rows %}
+            <tr>
+                <td><a href="/engineering/drawings/{{ row.id }}">{{ row.drawing_no|clean_text }}</a></td>
+                <td>{{ row.version|clean_text }}</td>
+                <td>{{ row.drawing_name|clean_text }}</td>
+                <td>{{ row.type_label|clean_text }}</td>
+                <td><span class="badge bg-{{ row.status_badge }}">{{ row.status_label|clean_text }}</span></td>
+                <td>{{ row.owner|clean_text or '-' }}</td>
+                <td>{{ row.released_date or '-' }}</td>
+                <td>{{ row.link_count or 0 }}</td>
+                <td>
+                    <div>{{ row.product_codes|clean_text or '-' }}</div>
+                    <div class="text-muted small">{{ row.bom_nos|clean_text or '' }}</div>
+                </td>
+                <td>
+                    <div>{{ row.project_codes|clean_text or '-' }}</div>
+                    <div class="text-muted small">{{ row.serial_nos|clean_text or '' }}</div>
+                </td>
+                <td>
+                    <div>{{ row.next_action|clean_text }}</div>
+                    {% if row.blocked_reason %}<div class="text-danger small">{{ row.blocked_reason|clean_text }}</div>{% endif %}
+                </td>
+                <td class="text-end">
+                    <div class="btn-group btn-group-sm">
+                        <a class="btn btn-outline-primary" href="/engineering/drawings/{{ row.id }}">详情</a>
+                        <button class="btn btn-outline-secondary dropdown-toggle dropdown-toggle-split" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <span class="visually-hidden">展开操作</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            {% if can_edit %}
+                            <li><a class="dropdown-item" href="/engineering/drawings/{{ row.id }}/edit"><i class="bi bi-pencil"></i> 修改图纸</a></li>
+                            {% endif %}
+                            {% if can_operate %}
+                            <li><a class="dropdown-item" href="/engineering/drawings/{{ row.id }}#linkPanel"><i class="bi bi-link-45deg"></i> 维护业务引用</a></li>
+                            {% endif %}
+                            {% if can_create and can_operate %}
+                            <li><a class="dropdown-item" href="/engineering/drawings/{{ row.id }}#copyVersionPanel"><i class="bi bi-files"></i> 复制新版本</a></li>
+                            {% endif %}
+                            {% if (row.can_release and can_audit) or (row.can_change and can_operate) or (row.can_obsolete and can_audit) %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="/engineering/drawings/{{ row.id }}"><i class="bi bi-shield-check"></i> 到详情执行发布/变更/作废</a></li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="12" class="text-muted">暂无图纸台账。</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if pagination.total_pages > 1 %}
+    {% set page_args = request.args.to_dict() %}
+    <nav class="d-flex flex-wrap gap-2 align-items-center justify-content-between mt-3" aria-label="图纸分页">
+        <div class="btn-group btn-group-sm">
+            {% set _ = page_args.update({'page': '1'}) %}
+            <a class="btn btn-outline-secondary {% if not pagination.has_prev %}disabled{% endif %}" href="{{ request.path }}?{{ page_args|urlencode }}">首页</a>
+            {% set _ = page_args.update({'page': pagination.prev_page|string}) %}
+            <a class="btn btn-outline-secondary {% if not pagination.has_prev %}disabled{% endif %}" href="{{ request.path }}?{{ page_args|urlencode }}">上一页</a>
+            {% for page_num in pagination.page_window %}
+            {% set _ = page_args.update({'page': page_num|string}) %}
+            <a class="btn {% if page_num == pagination.page %}btn-primary{% else %}btn-outline-secondary{% endif %}" href="{{ request.path }}?{{ page_args|urlencode }}">{{ page_num }}</a>
+            {% endfor %}
+            {% set _ = page_args.update({'page': pagination.next_page|string}) %}
+            <a class="btn btn-outline-secondary {% if not pagination.has_next %}disabled{% endif %}" href="{{ request.path }}?{{ page_args|urlencode }}">下一页</a>
+            {% set _ = page_args.update({'page': pagination.total_pages|string}) %}
+            <a class="btn btn-outline-secondary {% if not pagination.has_next %}disabled{% endif %}" href="{{ request.path }}?{{ page_args|urlencode }}">末页</a>
+        </div>
+        <form class="d-flex gap-2 align-items-center" method="get">
+            {% for key, value in request.args.items() if key != 'page' %}
+            <input type="hidden" name="{{ key }}" value="{{ value }}">
+            {% endfor %}
+            <input class="form-control form-control-sm" style="width: 90px;" type="number" name="page" min="1" max="{{ pagination.total_pages }}" value="{{ pagination.page }}">
+            <button class="btn btn-outline-primary btn-sm" type="submit">跳转</button>
+        </form>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,468 @@
+{% extends "base.html" %}
+{% block title %}新增产品选配单{% endblock %}
+{% block extra_css %}
+<style>
+    .product-config-option-table input:not([type="checkbox"]),
+    .product-config-option-table select {
+        background: #ffffff !important;
+        border: 1px solid #9fb6d8 !important;
+        border-radius: 4px !important;
+        box-shadow: inset 0 1px 1px rgba(15, 23, 42, .04) !important;
+        pointer-events: auto;
+    }
+
+    .product-config-option-table input:not([type="checkbox"]):focus,
+    .product-config-option-table select:focus {
+        border-color: #2563eb !important;
+        box-shadow: 0 0 0 2px rgba(37, 99, 235, .16) !important;
+        outline: none;
+    }
+
+    .product-config-option-table input::placeholder {
+        color: #94a3b8;
+    }
+
+    .product-config-option-table tbody td {
+        background: #fbfdff;
+    }
+</style>
+{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <h1>新增产品选配单</h1>
+    <p>销售记录需求，工程确认配置；本页不直接生成采购、生产、库存或财务单据。</p>
+</div>
+
+<form method="post" class="page-card">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="alert alert-info py-2 mb-3">
+        <div class="fw-semibold">录入顺序：选择来源销售订单或报价单 → 补齐客户、项目号、机号、产品/机型 → 填选配明细 → 保存草稿 → 在详情页提交工程确认。</div>
+        <div class="small text-muted mt-1">选配明细只记录客户配置和工程影响，不直接生成采购、生产、库存或财务单据。必选项必须勾选；互斥组选中的同组项目只能保留一项；需要进入项目 BOM 的行要选择关联物料和 BOM 影响。</div>
+    </div>
+    {% if form_errors %}
+    <div class="alert alert-warning">
+        <div class="fw-semibold mb-1">请先处理以下问题</div>
+        <ul class="mb-0">
+            {% for error in form_errors %}
+            <li>{{ error }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <div class="row g-3">
+        <div class="col-md-3">
+            <label class="form-label">单据编号</label>
+            <input class="form-control" type="text" value="{{ config.config_no or '' }}" placeholder="保存时自动生成" readonly>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">选配日期</label>
+            <input class="form-control" type="date" name="config_date" value="{{ config.config_date or today }}">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">状态</label>
+            <input class="form-control" value="草稿" readonly>
+            <input type="hidden" name="status" value="draft">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">销售负责人</label>
+            <input class="form-control" name="owner" value="{{ config.owner or '' }}">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">工程负责人</label>
+            <input class="form-control" name="engineering_owner" value="{{ config.engineering_owner or '' }}">
+        </div>
+
+        <div class="col-md-6">
+            <label class="form-label">来源销售订单</label>
+            <select class="form-select" name="sales_order_id" id="salesOrderSelect">
+                <option value="">手工填写或选择报价单</option>
+                {% for order in options.sales_orders %}
+                <option value="{{ order.id }}" {% if config.sales_order_id == order.id %}selected{% endif %}
+                        data-customer-id="{{ order.customer_id or '' }}"
+                        data-project-code="{{ order.project_code or '' }}"
+                        data-serial-no="{{ order.serial_no or '' }}"
+                        data-product-id="{{ order.product_id or '' }}"
+                        data-product-family="{{ order.product_family or '' }}"
+                        data-machine-model="{{ [order.product_code, order.product_name, order.product_specification]|select|join(' / ') }}">
+                    {{ order.order_no }} - {{ order.customer_name or '-' }} - {{ order.project_code or '-' }} / {{ order.serial_no or '-' }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">来源报价单</label>
+            <select class="form-select" name="quotation_id" id="quotationSelect">
+                <option value="">无</option>
+                {% for quote in options.quotations %}
+                <option value="{{ quote.id }}" {% if config.quotation_id == quote.id %}selected{% endif %}
+                        data-customer-id="{{ quote.customer_id or '' }}"
+                        data-project-code="{{ quote.project_code or '' }}"
+                        data-serial-no="{{ quote.serial_no or '' }}">
+                    {{ quote.quote_no }} - {{ quote.customer_name or '-' }} - {{ quote.project_code or '-' }} / {{ quote.serial_no or '-' }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col-md-4">
+            <label class="form-label">客户</label>
+            <select class="form-select" name="customer_id" id="customerSelect">
+                <option value="">请选择客户</option>
+                {% for customer in options.customers %}
+                <option value="{{ customer.id }}" {% if config.customer_id == customer.id %}selected{% endif %}>{{ customer.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">项目号</label>
+            <input class="form-control" name="project_code" id="projectCode" value="{{ config.project_code or '' }}" placeholder="推荐填写，用于后续追溯">
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">机号</label>
+            <input class="form-control" name="serial_no" id="serialNo" value="{{ config.serial_no or '' }}" placeholder="推荐填写，用于后续追溯">
+        </div>
+
+        <div class="col-md-4">
+            <label class="form-label">产品/机型</label>
+            <select class="form-select" name="product_id" id="productSelect">
+                <option value="">请选择产品</option>
+                {% for product in options.products %}
+                <option value="{{ product.id }}" {% if config.product_id == product.id %}selected{% endif %}
+                        data-family="{{ product.product_family or product.category or '' }}"
+                        data-model="{{ [product.code, product.name, product.specification]|select|join(' / ') }}">
+                    {{ product.code }} - {{ product.name }}{% if product.specification %} / {{ product.specification }}{% endif %}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">产品分类</label>
+            <input class="form-control" name="product_family" id="productFamily" value="{{ config.product_family or '' }}" placeholder="如滚筒研磨机、双头铣床">
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">机型描述</label>
+            <input class="form-control" name="machine_model" id="machineModel" value="{{ config.machine_model or '' }}">
+        </div>
+
+        <div class="col-md-6">
+            <label class="form-label">基础BOM</label>
+            <select class="form-select" name="base_bom_id" id="baseBomSelect">
+                <option value="">待工程选择</option>
+                {% for bom in options.boms %}
+                <option value="{{ bom.id }}" {% if config.base_bom_id == bom.id %}selected{% endif %} data-product-id="{{ bom.product_id or '' }}">
+                    {{ bom.bom_no }} / {{ bom.version }} - {{ bom.product_code or '' }} {{ bom.product_name or '' }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">项目BOM</label>
+            <select class="form-select" name="project_bom_id" id="projectBomSelect">
+                <option value="">工程确认后再链接</option>
+                {% for bom in options.boms %}
+                <option value="{{ bom.id }}" {% if config.project_bom_id == bom.id %}selected{% endif %} data-product-id="{{ bom.product_id or '' }}">
+                    {{ bom.bom_no }} / {{ bom.version }} - {{ bom.product_code or '' }} {{ bom.product_name or '' }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col-md-4">
+            <label class="form-label">阻塞原因</label>
+            <textarea class="form-control" name="blocked_reason" rows="2">{{ config.blocked_reason or '' }}</textarea>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">下一步</label>
+            <textarea class="form-control" name="next_action" rows="2">{{ config.next_action or '补齐选项并提交工程确认' }}</textarea>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">下游影响</label>
+            <textarea class="form-control" name="downstream_impact" rows="2">{{ config.downstream_impact or '影响项目BOM、工艺准备、MRP齐套、采购委外需求、项目机号成本测算；本页不直接生成采购、生产、库存或财务单据。' }}</textarea>
+        </div>
+        <div class="col-12">
+            <label class="form-label">备注</label>
+            <textarea class="form-control" name="remark" rows="2">{{ config.remark or '' }}</textarea>
+        </div>
+    </div>
+
+    <div class="section-title mt-4">
+        <div>
+            <h2>选配明细</h2>
+            <span>必选项和互斥组用于工程确认校验</span>
+        </div>
+        <button class="btn btn-outline-primary btn-sm" type="button" id="addOptionRow"><i class="bi bi-plus-lg"></i> 增行</button>
+    </div>
+    <div class="d-flex flex-wrap gap-2 align-items-center small text-muted mb-2">
+        <span class="badge text-bg-light border">必选：必须勾选后才能工程确认</span>
+        <span class="badge text-bg-light border">互斥组：同一组只允许选中一行</span>
+        <span class="badge text-bg-light border">BOM影响：新增/替换/移除会给工程处理</span>
+        <span class="badge text-bg-light border">关联物料：用于项目 BOM、MRP 和齐套判断</span>
+    </div>
+    <div class="alert alert-secondary py-2 mb-2">
+        <div class="fw-semibold">互斥组怎么填</div>
+        <div class="small mt-1">不会判断时可以先留空。只有“同一类配置只能选一个”时才填写同一个互斥组名称，例如“主轴”组里只能选高速主轴或重载主轴其中一项；“电控系统”组里只能选西门子或三菱其中一项。</div>
+    </div>
+    <div class="alert alert-warning py-2 d-none" id="optionGridWarning"></div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle product-config-option-table" id="optionTable" data-column-settings="off" data-grid-key="product_configuration_options" data-document-min-rows="3">
+            <thead>
+            <tr>
+                <th style="min-width: 110px;">选项组</th>
+                <th style="min-width: 120px;">选项编码</th>
+                <th style="min-width: 180px;">选项名称</th>
+                <th style="min-width: 90px;">类型</th>
+                <th style="min-width: 80px;">选中</th>
+                <th style="min-width: 80px;">必选</th>
+                <th style="min-width: 170px;">互斥组（同组限选一项）</th>
+                <th style="min-width: 180px;">关联物料</th>
+                <th style="min-width: 120px;">BOM影响</th>
+                <th style="min-width: 90px;">数量</th>
+                <th style="min-width: 70px;">单位</th>
+                <th style="min-width: 100px;">预估成本</th>
+                <th style="min-width: 90px;">周期天</th>
+                <th style="min-width: 120px;">责任人</th>
+                <th style="min-width: 180px;">阻塞原因</th>
+                <th style="min-width: 180px;">下一步</th>
+                <th style="min-width: 180px;">下游影响</th>
+                <th style="min-width: 160px;">备注</th>
+                <th></th>
+            </tr>
+            </thead>
+            <tbody>
+            {% set default_items = items if items else [
+                {'option_group':'电控系统','option_code':'','option_name':'','option_type':'required','selected':True,'required_flag':True,'conflict_group':'电控系统','material_id':None,'bom_item_action':'add','quantity':'1','unit':'套','estimated_cost':'0','lead_time_days':'0','owner':'','blocked_reason':'','next_action':'','downstream_impact':'','remark':''},
+                {'option_group':'主轴/磨头','option_code':'','option_name':'','option_type':'required','selected':True,'required_flag':True,'conflict_group':'主轴','material_id':None,'bom_item_action':'add','quantity':'1','unit':'套','estimated_cost':'0','lead_time_days':'0','owner':'','blocked_reason':'','next_action':'','downstream_impact':'','remark':''},
+                {'option_group':'夹具/工装','option_code':'','option_name':'','option_type':'optional','selected':False,'required_flag':False,'conflict_group':'','material_id':None,'bom_item_action':'reference','quantity':'1','unit':'套','estimated_cost':'0','lead_time_days':'0','owner':'','blocked_reason':'','next_action':'','downstream_impact':'','remark':''}
+            ] %}
+            {% for item in default_items %}
+            <tr data-option-row>
+                <td><input class="form-control form-control-sm" name="option_group[]" value="{{ item.option_group or '' }}" placeholder="如电控系统"></td>
+                <td><input class="form-control form-control-sm" name="option_code[]" value="{{ item.option_code or '' }}" placeholder="可空"></td>
+                <td><input class="form-control form-control-sm" name="option_name[]" value="{{ item.option_name or '' }}" placeholder="填写客户选择的具体配置"></td>
+                <td>
+                    <select class="form-select form-select-sm" name="option_type[]">
+                        {% for key, label in option_types.items() %}
+                        <option value="{{ key }}" {% if item.option_type == key %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </td>
+                <td class="text-center"><input class="form-check-input" type="checkbox" name="selected_line[]" value="{{ loop.index }}" {% if item.selected %}checked{% endif %}></td>
+                <td class="text-center"><input class="form-check-input" type="checkbox" name="required_line[]" value="{{ loop.index }}" {% if item.required_flag %}checked{% endif %}></td>
+                <td><input class="form-control form-control-sm" name="conflict_group[]" value="{{ item.conflict_group or '' }}" placeholder="不会判断可留空，如主轴"></td>
+                <td>
+                    <select class="form-select form-select-sm" name="material_id[]">
+                        <option value="">无</option>
+                        {% for material in options.materials %}
+                        <option value="{{ material.id }}" {% if item.material_id == material.id %}selected{% endif %} data-unit="{{ material.unit or '' }}">{{ material.code }} - {{ material.name }}{% if material.specification %} / {{ material.specification }}{% endif %}{% if material.unit %} / {{ material.unit }}{% endif %}</option>
+                        {% endfor %}
+                    </select>
+                </td>
+                <td>
+                    <select class="form-select form-select-sm" name="bom_item_action[]">
+                        {% for key, label in bom_item_actions.items() %}
+                        <option value="{{ key }}" {% if item.bom_item_action == key %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </td>
+                <td><input class="form-control form-control-sm text-end" name="quantity[]" value="{{ item.quantity or '1' }}" placeholder="1"></td>
+                <td><input class="form-control form-control-sm" name="unit[]" value="{{ item.unit or '' }}" placeholder="自动带出"></td>
+                <td><input class="form-control form-control-sm text-end" name="estimated_cost[]" value="{{ item.estimated_cost or '0' }}"></td>
+                <td><input class="form-control form-control-sm text-end" name="lead_time_days[]" value="{{ item.lead_time_days or '0' }}"></td>
+                <td><input class="form-control form-control-sm" name="item_owner[]" value="{{ item.owner or '' }}" placeholder="销售/工程"></td>
+                <td><input class="form-control form-control-sm" name="item_blocked_reason[]" value="{{ item.blocked_reason or '' }}" placeholder="缺资料时填写"></td>
+                <td><input class="form-control form-control-sm" name="item_next_action[]" value="{{ item.next_action or '' }}" placeholder="如工程确认物料"></td>
+                <td><input class="form-control form-control-sm" name="item_downstream_impact[]" value="{{ item.downstream_impact or '' }}" placeholder="如影响项目BOM"></td>
+                <td><input class="form-control form-control-sm" name="item_remark[]" value="{{ item.remark or '' }}" placeholder="补充说明"></td>
+                <td><button class="btn btn-outline-danger btn-sm" type="button" data-remove-row><i class="bi bi-trash"></i></button></td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="d-flex gap-2 mt-4">
+        <button class="btn btn-primary" type="submit"><i class="bi bi-save"></i> 保存草稿</button>
+        <a class="btn btn-outline-secondary" href="/product-configurations">返回列表</a>
+    </div>
+</form>
+
+<script>
+(() => {
+    const product = document.getElementById('productSelect');
+    const family = document.getElementById('productFamily');
+    const model = document.getElementById('machineModel');
+    const projectCode = document.getElementById('projectCode');
+    const serialNo = document.getElementById('serialNo');
+    const customer = document.getElementById('customerSelect');
+    const baseBom = document.getElementById('baseBomSelect');
+    const projectBom = document.getElementById('projectBomSelect');
+    const sales = document.getElementById('salesOrderSelect');
+    const quote = document.getElementById('quotationSelect');
+    const warning = document.getElementById('optionGridWarning');
+    const refreshBoms = () => {
+        const productId = product?.value || '';
+        [baseBom, projectBom].forEach((select) => {
+            if (!select) return;
+            Array.from(select.options).forEach((option) => {
+                if (!option.value) return;
+                const optionProductId = option.dataset.productId || '';
+                option.hidden = Boolean(productId && optionProductId && optionProductId !== productId);
+            });
+            if (select.selectedOptions[0]?.hidden) select.value = '';
+        });
+    };
+    product?.addEventListener('change', () => {
+        const option = product.selectedOptions[0];
+        if (!option) return;
+        family.value = option.dataset.family || family.value;
+        model.value = option.dataset.model || model.value;
+        refreshBoms();
+    });
+    sales?.addEventListener('change', () => {
+        const option = sales.selectedOptions[0];
+        if (!option) return;
+        customer.value = option.dataset.customerId || customer.value;
+        projectCode.value = option.dataset.projectCode || projectCode.value;
+        serialNo.value = option.dataset.serialNo || serialNo.value;
+        product.value = option.dataset.productId || product.value;
+        family.value = option.dataset.productFamily || family.value;
+        model.value = option.dataset.machineModel || model.value;
+        refreshBoms();
+    });
+    quote?.addEventListener('change', () => {
+        const option = quote.selectedOptions[0];
+        if (!option) return;
+        customer.value = option.dataset.customerId || customer.value;
+        projectCode.value = option.dataset.projectCode || projectCode.value;
+        serialNo.value = option.dataset.serialNo || serialNo.value;
+    });
+    const table = document.getElementById('optionTable');
+    const rowValue = (row, selector) => (row.querySelector(selector)?.value || '').trim();
+    const rowChecked = (row, selector) => Boolean(row.querySelector(selector)?.checked);
+    const syncMaterialUnit = (row) => {
+        const material = row.querySelector('select[name="material_id[]"]');
+        const unit = row.querySelector('input[name="unit[]"]');
+        const selected = material?.selectedOptions[0];
+        if (unit && selected?.dataset.unit && !unit.value.trim()) {
+            unit.value = selected.dataset.unit;
+        }
+    };
+    const validateOptions = () => {
+        if (!table || !warning) return;
+        const issues = [];
+        const selectedConflictGroups = {};
+        table.querySelectorAll('tbody tr').forEach((row, idx) => {
+            const lineNo = idx + 1;
+            const group = rowValue(row, 'input[name="option_group[]"]');
+            const name = rowValue(row, 'input[name="option_name[]"]');
+            const selected = rowChecked(row, 'input[name="selected_line[]"]');
+            const required = rowChecked(row, 'input[name="required_line[]"]');
+            const conflictGroup = rowValue(row, 'input[name="conflict_group[]"]');
+            const materialId = rowValue(row, 'select[name="material_id[]"]');
+            const bomAction = rowValue(row, 'select[name="bom_item_action[]"]');
+            const quantity = Number(rowValue(row, 'input[name="quantity[]"]') || '0');
+            row.classList.remove('table-warning');
+            if ((selected || required || bomAction !== 'reference') && !name) {
+                issues.push(`第 ${lineNo} 行已参与选配，请填写选项名称。`);
+                row.classList.add('table-warning');
+            }
+            if (required && !selected) {
+                issues.push(`第 ${lineNo} 行是必选项，必须勾选“选中”。`);
+                row.classList.add('table-warning');
+            }
+            if (selected && bomAction !== 'reference' && !materialId) {
+                issues.push(`第 ${lineNo} 行会影响 BOM，请选择关联物料。`);
+                row.classList.add('table-warning');
+            }
+            if (selected && (!Number.isFinite(quantity) || quantity <= 0)) {
+                issues.push(`第 ${lineNo} 行数量必须大于 0。`);
+                row.classList.add('table-warning');
+            }
+            if (selected && conflictGroup) {
+                selectedConflictGroups[conflictGroup] = selectedConflictGroups[conflictGroup] || [];
+                selectedConflictGroups[conflictGroup].push(lineNo);
+            }
+            if (!group && name) {
+                issues.push(`第 ${lineNo} 行已填写选项名称，建议补充选项组，便于工程确认。`);
+            }
+        });
+        Object.keys(selectedConflictGroups).forEach((group) => {
+            const lines = selectedConflictGroups[group];
+            if (lines.length > 1) {
+                issues.push(`互斥组“${group}”同时选中了第 ${lines.join('、')} 行，请只保留一项。`);
+                lines.forEach((lineNo) => {
+                    table.querySelectorAll('tbody tr')[lineNo - 1]?.classList.add('table-warning');
+                });
+            }
+        });
+        if (issues.length) {
+            warning.classList.remove('d-none');
+            warning.innerHTML = `<div class="fw-semibold mb-1">选配明细需要处理：</div><ul class="mb-0">${issues.slice(0, 6).map((item) => `<li>${item}</li>`).join('')}</ul>`;
+        } else {
+            warning.classList.add('d-none');
+            warning.innerHTML = '';
+        }
+    };
+    const reindex = () => {
+        table?.querySelectorAll('tbody tr').forEach((row, idx) => {
+            row.querySelectorAll('input[name="selected_line[]"], input[name="required_line[]"]').forEach((checkbox) => {
+                checkbox.value = String(idx + 1);
+            });
+        });
+    };
+    document.getElementById('addOptionRow')?.addEventListener('click', () => {
+        const first = table?.querySelector('tbody tr');
+        if (!first) return;
+        const row = first.cloneNode(true);
+        row.querySelectorAll('input').forEach((input) => {
+            if (input.type === 'checkbox') {
+                input.checked = input.name === 'selected_line[]';
+            } else {
+                input.value = '';
+            }
+        });
+        row.querySelectorAll('select').forEach((select) => { select.selectedIndex = 0; });
+        const quantity = row.querySelector('input[name="quantity[]"]');
+        const unit = row.querySelector('input[name="unit[]"]');
+        const cost = row.querySelector('input[name="estimated_cost[]"]');
+        const leadTime = row.querySelector('input[name="lead_time_days[]"]');
+        if (quantity) quantity.value = '1';
+        if (unit) unit.value = '套';
+        if (cost) cost.value = '0';
+        if (leadTime) leadTime.value = '0';
+        table.querySelector('tbody').appendChild(row);
+        reindex();
+        validateOptions();
+    });
+    table?.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-remove-row]');
+        if (!button) return;
+        const rows = table.querySelectorAll('tbody tr');
+        if (rows.length <= 1) return;
+        button.closest('tr').remove();
+        reindex();
+        validateOptions();
+    });
+    table?.addEventListener('change', (event) => {
+        const row = event.target.closest('tr');
+        if (!row) return;
+        if (event.target.matches('select[name="material_id[]"]')) {
+            syncMaterialUnit(row);
+        }
+        if (event.target.matches('select[name="option_type[]"]') && event.target.value === 'required') {
+            const selected = row.querySelector('input[name="selected_line[]"]');
+            const required = row.querySelector('input[name="required_line[]"]');
+            if (selected) selected.checked = true;
+            if (required) required.checked = true;
+        }
+        validateOptions();
+    });
+    table?.addEventListener('input', validateOptions);
+    refreshBoms();
+    reindex();
+    table?.querySelectorAll('tbody tr').forEach(syncMaterialUnit);
+    validateOptions();
+})();
+</script>
+{% endblock %}

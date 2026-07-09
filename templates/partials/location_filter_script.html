@@ -1,0 +1,107 @@
+<script>
+(function () {
+    function warehouseValue(select) {
+        return select ? String(select.value || '') : '';
+    }
+    function findHeaderWarehouse(form) {
+        return form ? form.querySelector('select[name="warehouse_id"]') : null;
+    }
+    function findLineWarehouse(locationSelect) {
+        var row = locationSelect.closest('tr');
+        if (!row) return null;
+        var names = ['line_warehouse_id[]', 'warehouse_id[]'];
+        for (var i = 0; i < names.length; i += 1) {
+            var field = row.querySelector('select[name="' + names[i] + '"]');
+            if (field) return field;
+        }
+        return null;
+    }
+    function pairedWarehouse(locationSelect) {
+        var form = locationSelect.closest('form');
+        var name = locationSelect.getAttribute('name') || '';
+        if (name === 'from_location_id' || name === 'from_location_id[]') {
+            var fromRow = locationSelect.closest('tr');
+            return (fromRow ? fromRow.querySelector('select[name="from_warehouse_id"], select[name="from_warehouse_id[]"]') : null)
+                || (form ? form.querySelector('select[name="from_warehouse_id"], select[name="from_warehouse_id[]"]') : null);
+        }
+        if (name === 'to_location_id' || name === 'to_location_id[]') {
+            var toRow = locationSelect.closest('tr');
+            return (toRow ? toRow.querySelector('select[name="to_warehouse_id"], select[name="to_warehouse_id[]"]') : null)
+                || (form ? form.querySelector('select[name="to_warehouse_id"], select[name="to_warehouse_id[]"]') : null);
+        }
+        return findLineWarehouse(locationSelect) || findHeaderWarehouse(form);
+    }
+    function applyLocationFilter(locationSelect) {
+        if (!locationSelect || locationSelect.tagName !== 'SELECT') return;
+        function syncSearchInput(disabled, required, label) {
+            var wrapper = locationSelect.closest('.select-search');
+            var input = wrapper ? wrapper.querySelector('.select-search-input') : null;
+            if (!input) return;
+            input.disabled = !!disabled;
+            input.required = !!required;
+            if (label) input.placeholder = label;
+            if (disabled) {
+                input.value = '';
+                return;
+            }
+            var selected = locationSelect.options[locationSelect.selectedIndex];
+            input.value = selected && selected.value ? (selected.textContent || '').trim() : '';
+        }
+        var warehouse = warehouseValue(pairedWarehouse(locationSelect));
+        var selectedHidden = false;
+        var visibleLocationCount = 0;
+        if (!locationSelect.dataset.originalRequired) {
+            locationSelect.dataset.originalRequired = locationSelect.required ? '1' : '0';
+        }
+        var emptyOption = null;
+        Array.prototype.forEach.call(locationSelect.options, function (option) {
+            if (!option.value) {
+                emptyOption = option;
+                if (!locationSelect.dataset.emptyLabel) locationSelect.dataset.emptyLabel = option.textContent || '请选择库位';
+                option.hidden = false;
+                option.disabled = false;
+                return;
+            }
+            var optionWarehouse = String(option.dataset.warehouseId || '');
+            var visible = !warehouse || !optionWarehouse || optionWarehouse === warehouse;
+            option.hidden = !visible;
+            option.disabled = !visible;
+            if (visible) visibleLocationCount += 1;
+            if (!visible && option.selected) selectedHidden = true;
+        });
+        if (selectedHidden) locationSelect.value = '';
+        if (warehouse && visibleLocationCount === 0) {
+            locationSelect.value = '';
+            locationSelect.required = false;
+            locationSelect.disabled = true;
+            if (emptyOption) emptyOption.textContent = '该仓库未配置库位';
+            syncSearchInput(true, false, emptyOption ? emptyOption.textContent : '');
+            return;
+        }
+        locationSelect.disabled = false;
+        locationSelect.required = locationSelect.dataset.originalRequired === '1';
+        if (emptyOption) emptyOption.textContent = locationSelect.dataset.emptyLabel || '请选择库位';
+        syncSearchInput(false, locationSelect.required, emptyOption ? emptyOption.textContent : '');
+        locationSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    function refresh(scope) {
+        Array.prototype.forEach.call((scope || document).querySelectorAll(
+            'select[name="location_id"], select[name="location_id[]"], select[name="line_location_id[]"], select[name="from_location_id"], select[name="from_location_id[]"], select[name="to_location_id"], select[name="to_location_id[]"]'
+        ), applyLocationFilter);
+    }
+    document.addEventListener('change', function (event) {
+        var target = event.target;
+        if (!target || target.tagName !== 'SELECT') return;
+        if (/warehouse_id/.test(target.getAttribute('name') || '')) {
+            var scope = target.closest('form') || document;
+            refresh(scope);
+            setTimeout(function () { refresh(scope); }, 0);
+        }
+    });
+    document.addEventListener('DOMContentLoaded', function () {
+        refresh(document);
+        setTimeout(function () { refresh(document); }, 0);
+    });
+    window.filterWarehouseLocations = refresh;
+})();
+</script>

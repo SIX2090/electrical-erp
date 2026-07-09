@@ -1,0 +1,550 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% from "partials/document_line_toolbar.html" import line_toolbar %}
+{% block title %}{{ page_title or '新增采购申请单' }}{% endblock %}
+{% block content %}
+<style>
+.required-label::after {
+    content: " *";
+    color: #dc3545;
+    font-weight: 700;
+}
+.field-invalid {
+    border-color: #dc3545 !important;
+    box-shadow: 0 0 0 .12rem rgba(220, 53, 69, .12);
+}
+.form-label-sm {
+    font-size: .75rem;
+    margin-bottom: .25rem;
+    color: #6c757d;
+}
+.document-section-title {
+    font-size: .85rem;
+    font-weight: 600;
+    color: #212529;
+    margin-bottom: .75rem;
+}
+.page-card {
+    padding: .75rem 1rem;
+}
+@media (min-width: 768px) {
+    .page-card {
+        padding: 1rem 1.25rem;
+    }
+}
+#addForm .form-control-sm,
+#addForm .form-select-sm {
+    min-height: calc(1.5em + .25rem + 2px);
+    padding: .15rem .4rem;
+}
+#addForm .row {
+    --bs-gutter-x: .5rem;
+}
+#materialTable thead th {
+    padding: .35rem .25rem;
+    font-size: .8125rem;
+    white-space: nowrap;
+}
+#materialTable tbody td {
+    padding: .15rem .25rem;
+    vertical-align: middle;
+}
+#materialTable .form-control-sm,
+#materialTable .form-select-sm {
+    min-height: calc(1.5em + .3rem + 2px);
+    padding: .15rem .35rem;
+    font-size: .8125rem;
+}
+#materialTable tbody tr:nth-child(odd) {
+    background-color: #fff;
+}
+#materialTable tbody tr:nth-child(even) {
+    background-color: #f8f9fa;
+}
+</style>
+<div class="page-heading">
+    <div>
+        <h1>{{ page_title or '新增采购申请单' }}</h1>
+        <p class="text-muted mb-0">按项目号、机号、物料需求、建议供应商和来源行录入采购申请，审核后可下推采购订单。</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="/purchase_request" class="btn btn-outline-secondary btn-sm">返回</a>
+    </div>
+</div>
+
+<form id="addForm">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="request_id" value="{{ request_id or '' }}">
+    <input type="hidden" name="request_no" value="{{ request_no }}">
+    <input type="hidden" name="custom_fields_json" id="customFieldsJson" value="">
+
+    <div class="page-card mb-3">
+        <div class="document-section-title">申请信息</div>
+        <div class="row g-2 align-items-center mb-2">
+            <label class="col-md-2 col-form-label form-label-sm">单据编号</label>
+            <div class="col-md-10">
+                <input type="text" class="form-control form-control-sm" value="{{ request_no }}" readonly>
+            </div>
+        </div>
+        <div class="row g-2 mb-2">
+            <div class="col-md">
+                <label class="form-label-sm required-label">申请日期</label>
+                <input type="date" class="form-control form-control-sm" name="date" value="{{ request_date }}">
+            </div>
+            <div class="col-md">
+                <label class="form-label-sm">申请人</label>
+                <input type="text" class="form-control form-control-sm" name="applicant" value="{{ order.applicant if order else current_user.username }}" readonly>
+            </div>
+            <div class="col-md">
+                <label class="form-label-sm">申请部门</label>
+                <input type="text" class="form-control form-control-sm" name="department" value="{{ order.department if order else '' }}">
+            </div>
+            <div class="col-md">
+                <label class="form-label-sm">紧急程度</label>
+                <select class="form-select form-select-sm" name="urgency">
+                    <option value="normal" selected>普通</option>
+                    <option value="urgent">加急</option>
+                    <option value="emergency">特急</option>
+                </select>
+            </div>
+            <div class="col-md">
+                <label class="form-label-sm required-label">期望到货日期</label>
+                <input type="date" class="form-control form-control-sm" name="expected_date" value="{{ order.expected_date.strftime('%Y-%m-%d') if order and order.expected_date else request_date }}">
+            </div>
+            <div class="col-md">
+                <label class="form-label-sm">项目号 <span class="text-muted small">建议</span></label>
+                <input type="text" class="form-control form-control-sm" name="project_code" value="{{ order.project_code if order else '' }}" placeholder="可留空">
+            </div>
+            <div class="col-md">
+                <label class="form-label-sm">机号 <span class="text-muted small">建议</span></label>
+                <input type="text" class="form-control form-control-sm" name="serial_no" value="{{ order.serial_no if order else '' }}" placeholder="可留空">
+            </div>
+        </div>
+        <div class="row g-2">
+            <div class="col-md-3">
+                <label class="form-label-sm">默认仓库</label>
+                <select class="form-select form-select-sm" name="warehouse_id">
+                    <option value="">请选择</option>
+                    {% for row in warehouses|default([]) %}<option value="{{ row.id }}">{{ row.name }}</option>{% endfor %}
+                </select>
+            </div>
+            {% if location_management_enabled %}<div class="col-md-3">
+                <label class="form-label-sm">默认库位</label>
+                <select class="form-select form-control-sm" name="location_id">
+                    <option value="">请选择</option>
+                    {% for row in locations|default([]) %}<option value="{{ row.id }}">{{ row.code or row.name }}{% if row.code and row.name %} / {{ row.name }}{% endif %}</option>{% endfor %}
+                </select>
+            </div>{% endif %}
+            <div class="col-md-3">
+                <label class="form-label-sm">申请原因</label>
+                <input type="text" class="form-control form-control-sm" name="reason" value="{{ order.reason if order else '' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label-sm">备注</label>
+                <input type="text" class="form-control form-control-sm" name="remark" value="{{ order.remark if order else '' }}">
+            </div>
+        </div>
+    </div>
+
+    <div class="page-card mb-3">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+            <div class="document-section-title mb-0">申请明细</div>
+            <div class="d-flex flex-wrap gap-2">
+                {{ line_toolbar('添加物料') }}
+            </div>
+        </div>
+        <p class="text-muted small mb-2">在物料名称中输入名称、编码或规格，系统自动回填编码、规格、单位和预计单价。</p>
+        <div class="table-responsive document-grid-scroll">
+            <table id="materialTable" class="table table-sm align-middle" data-document-grid data-grid-key="purchase_request_items">
+                <thead>
+                <tr data-grid-header>
+                    <th data-column-key="row_no" data-column-label="序号">序号</th>
+                    <th data-column-key="product_name" data-column-label="物料名称">物料名称 <span class="text-danger">*</span></th>
+                    <th data-column-key="product_code" data-column-label="物料编码">物料编码</th>
+                    <th data-column-key="specification" data-column-label="规格型号">规格型号</th>
+                    <th data-column-key="unit" data-column-label="单位">单位</th>
+                    <th data-column-key="quantity" data-column-label="数量" class="required-label">数量</th>
+                    <th data-column-key="warehouse" data-column-label="收货仓库">收货仓库</th>
+                    {% if location_management_enabled %}<th data-column-key="location" data-column-label="收货库位">收货库位</th>{% endif %}
+                    <th data-column-key="lot_no" data-column-label="批号">批号</th>
+                    <th data-column-key="serial_no" data-column-label="机号">机号</th>
+                    <th data-column-key="project_code" data-column-label="项目号">项目号</th>
+                    <th data-column-key="expected_delivery_date" data-column-label="期望到货日期">期望到货日期</th>
+                    <th data-column-key="estimated_price" data-column-label="预计单价">预计单价</th>
+                    <th data-column-key="amount" data-column-label="预计金额">预计金额</th>
+                    <th data-column-key="supplier" data-column-label="建议供应商">建议供应商</th>
+                    <th data-column-key="source_line_no" data-column-label="来源行">来源行</th>
+                    <th data-column-key="actions" data-column-label="操作">操作</th>
+                </tr>
+                </thead>
+                <tbody id="materialTableBody"></tbody>
+                <tfoot>
+                <tr>
+                    <td colspan="13" class="text-end fw-semibold">合计</td>
+                    <td class="text-end fw-semibold" id="totalAmount">0.00</td>
+                    <td colspan="3"></td>
+                </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/document_grid.js') }}"></script>
+<script>
+const materials = {{ materials|tojson }};
+const suppliers = {{ suppliers|tojson }};
+const warehouses = {{ warehouses|default([])|tojson }};
+const locations = {{ locations|default([])|tojson }};
+const initialItems = {{ initial_items|default([])|tojson }};
+let copiedPurchaseRequestRow = null;
+
+function escapeHtml(value) {
+    return String(value || '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+function optionHtml(rows, emptyLabel, labelFn) {
+    return '<option value="">' + escapeHtml(emptyLabel) + '</option>' + (rows || []).map(row => '<option value="' + escapeHtml(row.id) + '">' + escapeHtml(labelFn(row)) + '</option>').join('');
+}
+function materialOptions() {
+    return '<option value="">请选择</option>' + materials.map(m => {
+        const label = [m.code, m.name, m.spec].filter(Boolean).join(' / ');
+        return '<option value="' + escapeHtml(m.id) + '" data-code="' + escapeHtml(m.code) + '" data-name="' + escapeHtml(m.name) + '" data-spec="' + escapeHtml(m.spec) + '" data-unit="' + escapeHtml(m.unit && m.unit.name) + '" data-price="' + escapeHtml(m.price || 0) + '">' + escapeHtml(label || m.name) + '</option>';
+    }).join('');
+}
+function ensureMaterialDatalist() {
+    if (document.getElementById('purchaseRequestMaterialOptions')) return;
+    const datalist = document.createElement('datalist');
+    datalist.id = 'purchaseRequestMaterialOptions';
+    datalist.innerHTML = materials.map(m => '<option value="' + escapeHtml(m.name || m.code || '') + '" label="' + escapeHtml([m.code, m.name, m.spec].filter(Boolean).join(' / ')) + '"></option>').join('');
+    document.body.appendChild(datalist);
+}
+function warehouseOptions() { return optionHtml(warehouses, '请选择', row => row.name || ''); }
+function locationOptions() { return optionHtml(locations, '请选择', row => row.code && row.name ? row.code + ' / ' + row.name : (row.code || row.name || '')); }
+function supplierOptions() { return optionHtml(suppliers, '请选择供应商', row => row.name || ''); }
+function numberValue(input) {
+    const value = parseFloat(input && input.value ? input.value : '0');
+    return Number.isFinite(value) ? value : 0;
+}
+function headerValue(name) {
+    const field = document.querySelector('[name="' + name + '"]');
+    return field ? field.value : '';
+}
+function addNewRow(insertBeforeRow, data) {
+    ensureMaterialDatalist();
+    const tbody = document.getElementById('materialTableBody');
+    const row = document.createElement('tr');
+    row.innerHTML = `
+        <td data-column-key="row_no" class="text-muted row-num"></td>
+        <td data-column-key="product_name"><select class="form-select form-select-sm d-none material-id" aria-hidden="true" tabindex="-1">${materialOptions()}</select><input class="form-control form-control-sm material-name" list="purchaseRequestMaterialOptions" placeholder="输入物料名称/编码/规格" required></td>
+        <td data-column-key="product_code"><input class="form-control form-control-sm material-code" readonly></td>
+        <td data-column-key="specification"><input class="form-control form-control-sm spec" readonly></td>
+        <td data-column-key="unit"><input class="form-control form-control-sm unit-name" readonly></td>
+        <td data-column-key="quantity"><input class="form-control form-control-sm quantity text-end" type="number" step="0.01"></td>
+        <td data-column-key="warehouse"><select class="form-select form-select-sm warehouse-id">${warehouseOptions()}</select></td>
+        {% if location_management_enabled %}<td data-column-key="location"><select class="form-select form-select-sm location-id">${locationOptions()}</select></td>{% endif %}
+        <td data-column-key="lot_no"><input class="form-control form-control-sm lot-no"></td>
+        <td data-column-key="serial_no"><input class="form-control form-control-sm serial-no"></td>
+        <td data-column-key="project_code"><input class="form-control form-control-sm line-project-code"></td>
+        <td data-column-key="expected_delivery_date"><input class="form-control form-control-sm expected-delivery-date" type="date"></td>
+        <td data-column-key="estimated_price"><input class="form-control form-control-sm estimated-price text-end" type="number" step="0.01"></td>
+        <td data-column-key="amount"><input class="form-control form-control-sm estimated-amount text-end" readonly></td>
+        <td data-column-key="supplier"><select class="form-select form-select-sm supplier-id">${supplierOptions()}</select></td>
+        <td data-column-key="source_line_no"><input class="form-control form-control-sm source-line-no"></td>
+        <td data-column-key="actions"><button type="button" class="btn btn-outline-danger btn-sm" onclick="deleteRow(this)">删行</button></td>
+    `;
+    if (insertBeforeRow) tbody.insertBefore(row, insertBeforeRow); else tbody.appendChild(row);
+    bindRow(row);
+    fillRowData(row, data || {});
+    renumberRows();
+    if (window.enhanceSelectSearch) window.enhanceSelectSearch(row);
+    if (window.documentGridApi) window.documentGridApi.refresh();
+    return row;
+}
+function fillRowData(row, data) {
+    const materialSelect = row.querySelector('.material-id');
+    if (data.material_id) materialSelect.value = data.material_id;
+    syncMaterial(row);
+    row.querySelector('.quantity').value = data.quantity || '';
+    row.querySelector('.expected-delivery-date').value = data.expected_delivery_date || data.need_date || headerValue('expected_date') || '';
+    row.querySelector('.estimated-price').value = data.estimated_price || data.price || '';
+    row.querySelector('.supplier-id').value = data.supplier_id || '';
+    row.querySelector('.warehouse-id').value = data.warehouse_id || '';
+    var _locEl = row.querySelector('.location-id'); if (_locEl) _locEl.value = data.location_id || '';
+    row.querySelector('.lot-no').value = data.lot_no || '';
+    row.querySelector('.serial-no').value = data.serial_no || '';
+    row.querySelector('.line-project-code').value = data.project_code || '';
+    row.querySelector('.source-line-no').value = data.source_line_no || '';
+    updateRowAmount(row);
+}
+function syncMaterial(row) {
+    const option = row.querySelector('.material-id').selectedOptions[0];
+    row.querySelector('.material-code').value = option ? option.dataset.code || '' : '';
+    row.querySelector('.material-name').value = option ? option.dataset.name || '' : '';
+    row.querySelector('.spec').value = option ? option.dataset.spec || '' : '';
+    row.querySelector('.unit-name').value = option ? option.dataset.unit || '' : '';
+    const price = row.querySelector('.estimated-price');
+    if (option && option.dataset.price && (!price.value || Number(price.value) === 0)) price.value = option.dataset.price;
+}
+function findMaterialByText(value) {
+    const text = String(value || '').trim().toLowerCase();
+    if (!text) return null;
+    return materials.find(m => [m.name, m.code, m.spec].some(field => String(field || '').trim().toLowerCase() === text))
+        || materials.find(m => [m.name, m.code, m.spec].some(field => String(field || '').toLowerCase().includes(text)))
+        || null;
+}
+function applyMaterial(row, material) {
+    if (!material) return;
+    row.querySelector('.material-id').value = material.id || '';
+    syncMaterial(row);
+    updateRowAmount(row);
+}
+function bindRow(row) {
+    row.querySelector('.material-id').addEventListener('change', () => { syncMaterial(row); updateRowAmount(row); });
+    row.querySelector('.material-name').addEventListener('input', () => applyMaterial(row, findMaterialByText(row.querySelector('.material-name').value)));
+    row.querySelector('.material-name').addEventListener('change', () => applyMaterial(row, findMaterialByText(row.querySelector('.material-name').value)));
+    row.querySelector('.quantity').addEventListener('input', () => updateRowAmount(row));
+    row.querySelector('.estimated-price').addEventListener('input', () => updateRowAmount(row));
+}
+function updateRowAmount(row) {
+    const amount = numberValue(row.querySelector('.quantity')) * numberValue(row.querySelector('.estimated-price'));
+    row.querySelector('.estimated-amount').value = amount ? amount.toFixed(2) : '';
+    updateTotals();
+}
+function updateTotals() {
+    let total = 0;
+    document.querySelectorAll('#materialTableBody tr').forEach(row => total += numberValue(row.querySelector('.estimated-amount')));
+    document.getElementById('totalAmount').textContent = total.toFixed(2);
+}
+function renumberRows() {
+    document.querySelectorAll('#materialTableBody tr').forEach((row, index) => row.querySelector('.row-num').textContent = index + 1);
+}
+function deleteRow(btn) {
+    const row = btn.closest ? btn.closest('tr') : btn;
+    if (!row || document.querySelectorAll('#materialTableBody tr').length <= 1) return;
+    row.remove();
+    renumberRows();
+    updateTotals();
+    if (window.documentGridApi) window.documentGridApi.refresh();
+}
+function currentMaterialRow() {
+    return document.activeElement && document.activeElement.closest ? document.activeElement.closest('#materialTableBody tr') : document.querySelector('#materialTableBody tr');
+}
+function collectItems() {
+    return Array.from(document.querySelectorAll('#materialTableBody tr')).map(row => ({
+        material_id: row.querySelector('.material-id').value || null,
+        material_code: row.querySelector('.material-code').value.trim(),
+        material_name: row.querySelector('.material-name').value.trim(),
+        spec: row.querySelector('.spec').value.trim(),
+        unit: row.querySelector('.unit-name').value.trim(),
+        warehouse_id: row.querySelector('.warehouse-id').value || null,
+        location_id: (row.querySelector('.location-id') || {}).value || null,
+        lot_no: row.querySelector('.lot-no').value.trim(),
+        serial_no: row.querySelector('.serial-no').value.trim() || headerValue('serial_no'),
+        project_code: row.querySelector('.line-project-code').value.trim() || headerValue('project_code'),
+        quantity: row.querySelector('.quantity').value,
+        expected_delivery_date: row.querySelector('.expected-delivery-date').value || headerValue('expected_date'),
+        estimated_price: row.querySelector('.estimated-price').value,
+        supplier_id: row.querySelector('.supplier-id').value || null,
+        source_line_no: row.querySelector('.source-line-no').value.trim()
+    })).filter(item => item.material_id || item.material_code || item.material_name);
+}
+function clearValidation() {
+    document.querySelectorAll('.field-invalid').forEach(field => field.classList.remove('field-invalid'));
+}
+function markInvalid(field) {
+    if (field) field.classList.add('field-invalid');
+}
+function requireField(selector, message, errors) {
+    const field = document.querySelector(selector);
+    if (!field || String(field.value || '').trim()) return true;
+    markInvalid(field);
+    errors.push({field, message});
+    return false;
+}
+function validatePurchaseRequest() {
+    clearValidation();
+    const errors = [];
+    requireField('[name="date"]', '申请日期不能为空。', errors);
+    requireField('[name="applicant"]', '申请人不能为空。', errors);
+    requireField('[name="expected_date"]', '期望到货日期不能为空。', errors);
+    const rows = Array.from(document.querySelectorAll('#materialTableBody tr'));
+    let activeRows = 0;
+    rows.forEach((row, index) => {
+        const material = row.querySelector('.material-id');
+        const quantity = row.querySelector('.quantity');
+        const price = row.querySelector('.estimated-price');
+        const hasAnyValue = [material, quantity, price, row.querySelector('.supplier-id'), row.querySelector('.lot-no'), row.querySelector('.serial-no'), row.querySelector('.line-project-code'), row.querySelector('.source-line-no')]
+            .some(field => field && String(field.value || '').trim());
+        if (!hasAnyValue) return;
+        activeRows += 1;
+        if (!material.value) {
+            markInvalid(row.querySelector('.material-name'));
+            errors.push({field: row.querySelector('.material-name'), message: `第 ${index + 1} 行物料名称不能为空。`});
+        }
+        if (!quantity.value || Number(quantity.value) <= 0) {
+            markInvalid(quantity);
+            errors.push({field: quantity, message: `第 ${index + 1} 行数量必须大于 0。`});
+        }
+        if (price.value && Number(price.value) < 0) {
+            markInvalid(price);
+            errors.push({field: price, message: `第 ${index + 1} 行预计单价不能小于 0。`});
+        }
+    });
+    if (!activeRows) {
+        const firstMaterial = document.querySelector('#materialTableBody .material-name');
+        markInvalid(firstMaterial);
+        errors.push({field: firstMaterial, message: '请至少添加一条采购明细。'});
+    }
+    if (errors.length) {
+        const first = errors[0];
+        if (first.field) {
+            first.field.scrollIntoView({block: 'center', inline: 'nearest'});
+            first.field.focus({preventScroll: true});
+        }
+        showToast(first.message, 'warning', 4200);
+        return false;
+    }
+    return true;
+}
+function setSavingState(isSaving) {
+    const buttons = [document.getElementById('savePurchaseRequestBtn'), document.getElementById('savePurchaseRequestNewBtn')].filter(Boolean);
+    buttons.forEach(button => {
+        button.disabled = isSaving;
+    });
+    const saveButton = document.getElementById('savePurchaseRequestBtn');
+    if (saveButton) saveButton.innerHTML = isSaving ? '<span class="spinner-border spinner-border-sm me-1"></span>保存中' : '<i class="bi bi-save"></i> 保存';
+    document.querySelectorAll('[data-menu-event="global-submit-main-form"], [data-menu-event="global-submit-main-form-new"]').forEach(function (btn) {
+        btn.disabled = isSaving;
+    });
+}
+function submitForm(saveAndNew) {
+    if (!validatePurchaseRequest()) return;
+    const form = document.getElementById('addForm');
+    const formData = new FormData(form);
+    if (window.documentGridApi) window.documentGridApi.refresh();
+    const payload = {
+        request_id: formData.get('request_id') || null,
+        request_no: formData.get('request_no'),
+        date: formData.get('date'),
+        applicant: formData.get('applicant'),
+        department: formData.get('department'),
+        urgency: formData.get('urgency'),
+        expected_date: formData.get('expected_date'),
+        project_code: formData.get('project_code'),
+        serial_no: formData.get('serial_no'),
+        warehouse_id: formData.get('warehouse_id'),
+        location_id: formData.get('location_id'),
+        reason: formData.get('reason'),
+        remark: formData.get('remark'),
+        custom_fields_json: formData.get('custom_fields_json') || '',
+        items: collectItems()
+    };
+    if (!payload.items.length) {
+        showToast('请至少添加一条采购明细。', 'warning');
+        return;
+    }
+    setSavingState(true);
+    const controller = new AbortController();
+    const saveTimeout = window.setTimeout(() => controller.abort(), 12000);
+    fetch('/purchase_request/add', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': formData.get('csrf_token')
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+    }).then(async res => {
+        const text = await res.text();
+        let data = {};
+        try {
+            data = text ? JSON.parse(text) : {};
+        } catch (error) {
+            throw new Error(text || `HTTP ${res.status}`);
+        }
+        if (!res.ok) throw new Error(data.msg || `HTTP ${res.status}`);
+        return data;
+    }).then(data => {
+        if (data.status === 'success') {
+            showToast('采购申请保存成功', 'success');
+            setTimeout(() => { window.location.href = saveAndNew ? '/purchase_request/new' : `/purchase_request/${data.id}`; }, 600);
+        } else {
+            showToast(data.msg || '保存失败', 'danger', 3600);
+        }
+    }).catch(error => {
+        const message = error.name === 'AbortError' ? '保存超时，请检查网络或刷新后重试。' : '保存失败：' + error.message;
+        showToast(message, 'danger', 4200);
+    }).finally(() => {
+        window.clearTimeout(saveTimeout);
+        setSavingState(false);
+    });
+}
+window.erpToolbarHandlers = window.erpToolbarHandlers || {};
+window.erpToolbarHandlers['global-submit-main-form'] = function () { submitForm(false); };
+window.erpToolbarHandlers['global-submit-main-form-new'] = function () { submitForm(true); };
+window.erpToolbarHandlers['purchase-request-save'] = function () { submitForm(false); };
+window.erpToolbarHandlers['purchase-request-save-new'] = function () { submitForm(true); };
+
+function bindPurchaseRequestSaveButtons() {
+    const bindings = [
+        ['savePurchaseRequestBtn', false],
+        ['savePurchaseRequestNewBtn', true]
+    ];
+    bindings.forEach(([id, saveAndNew]) => {
+        const button = document.getElementById(id);
+        if (!button || button.dataset.purchaseRequestSaveBound === '1') return;
+        button.dataset.purchaseRequestSaveBound = '1';
+        button.addEventListener('click', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            submitForm(saveAndNew);
+        });
+    });
+}
+
+bindPurchaseRequestSaveButtons();
+document.addEventListener('DOMContentLoaded', function() {
+    bindPurchaseRequestSaveButtons();
+    if (initialItems.length) {
+        initialItems.forEach(item => addNewRow(null, item));
+    } else {
+        for (let i = 0; i < 16; i++) addNewRow();
+    }
+    document.getElementById('addLineBtn').addEventListener('click', () => addNewRow());
+    document.querySelectorAll('[data-line-action]').forEach(button => {
+        button.addEventListener('click', function () {
+            const tbody = document.getElementById('materialTableBody');
+            const row = currentMaterialRow();
+            const action = button.dataset.lineAction;
+            if (action === 'insert') addNewRow(row);
+            if (action === 'copy') copiedPurchaseRequestRow = row ? row.cloneNode(true) : null;
+            if (action === 'paste' && copiedPurchaseRequestRow && row) {
+                const pasted = copiedPurchaseRequestRow.cloneNode(true);
+                row.replaceWith(pasted);
+                bindRow(pasted);
+            }
+            if (action === 'up' && row && row.previousElementSibling) tbody.insertBefore(row, row.previousElementSibling);
+            if (action === 'down' && row && row.nextElementSibling) tbody.insertBefore(row.nextElementSibling, row);
+            if (action === 'delete') deleteRow(row);
+            renumberRows();
+            updateTotals();
+            if (window.documentGridApi) window.documentGridApi.refresh();
+        });
+    });
+    document.querySelectorAll('[data-grid-action]').forEach(button => {
+        button.addEventListener('click', function () {
+            const table = document.getElementById('materialTable');
+            const api = window.documentGridApi || (window.initDocumentGrid && window.initDocumentGrid(table));
+            if (!api) return;
+            const action = button.dataset.gridAction;
+            if (action === 'columns') api.openColumnPanel(button);
+            if (action === 'custom-field') api.addCustomField();
+            if (action === 'reset') api.reset();
+            if (action === 'sort-help') showToast('点击明细表头可按该列升序/降序排序。', 'info');
+        });
+    });
+});
+</script>
+{% endblock %}

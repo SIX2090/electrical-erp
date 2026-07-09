@@ -1,0 +1,3 @@
+﻿trial_ready,trial_gaps,id,order_no,customer,project_code,serial_no,status,delivery_date,total_amount,item_lines,product_count,bom_count,bom_item_count,mrp_count
+yes,candidate,23,SO-GT-TRIAL-20260526-001,浙江试运行机床有限公司,PJ-GT-TRIAL-20260526-001,SN-GT-TRIAL-20260526-001,audited,2026-06-30,168000.00,1,1,1,2,2
+no,missing BOM,58,VERIFY-P4-PROD-SO-1781389414171,Phase4 production loop customer,VERIFY-P4-PROD-PRJ-1781389414171,VERIFY-P4-PROD-SN-1781389414171,submitted,,500.00,1,1,0,0,0

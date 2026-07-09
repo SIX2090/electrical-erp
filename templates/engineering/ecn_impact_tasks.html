@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}ECN影响任务{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <h1>ECN影响任务</h1>
+    <p>汇总所有工程变更单的待处理影响任务，按影响等级排序；处理回到各自业务单据，本页只标记处理结果。</p>
+</div>
+
+{% set document_menu_actions = [
+    {'label': 'ECN列表', 'type': 'link', 'href': '/bom/ecn'},
+    {'label': 'BOM版本管理', 'type': 'link', 'href': url_for('bom_version_list')},
+    {'label': '刷新', 'type': 'link', 'href': request.full_path.rstrip('?')},
+    {'label': '返回首页', 'type': 'link', 'href': '/', 'icon': 'bi-house'}
+] %}
+{{ document_menu_bar(document_menu_actions) }}
+
+<div class="alert alert-info py-2">
+    边界：本页是工程变更影响任务工作台，只做查询和标记处理；工单、采购、库存处理回到各自业务单据。
+</div>
+
+<div class="page-card">
+    <div class="section-title">
+        <div>
+            <h2>待处理任务</h2>
+            <span>当前共 {{ tasks|length }} 条待处理任务；按影响等级排序。</span>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+                <tr>
+                    <th>ECN编号</th>
+                    <th>ECN主题</th>
+                    <th>类型</th>
+                    <th>单据编号</th>
+                    <th>影响等级</th>
+                    <th>处理动作</th>
+                    <th>创建时间</th>
+                    <th class="text-end">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for row in tasks %}
+            <tr>
+                <td><a href="{{ url_for('ecn_impact_view', ecn_id=row.ecn_id) }}">{{ row.ecn_no|clean_text or '-' }}</a></td>
+                <td>{{ row.ecn_title|clean_text or '-' }}</td>
+                <td>{{ type_labels.get(row.affected_type, row.affected_type) }}</td>
+                <td>{{ row.affected_no|clean_text or '-' }}</td>
+                <td>
+                    {% if row.impact_level == 'high' %}<span class="badge bg-danger">高</span>
+                    {% elif row.impact_level == 'medium' %}<span class="badge bg-warning text-dark">中</span>
+                    {% else %}<span class="badge bg-light text-dark border">低</span>{% endif %}
+                </td>
+                <td>{{ row.action_required|clean_text or '-' }}</td>
+                <td>{{ row.created_at or '-' }}</td>
+                <td class="text-end">
+                    <button class="btn btn-outline-success btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#resolveModal{{ row.id }}">标记已处理</button>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="8" class="text-muted">暂无待处理ECN影响任务。</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% for row in tasks %}
+<div class="modal fade" id="resolveModal{{ row.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="post" action="{{ url_for('ecn_impact_task_resolve', task_id=row.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="next" value="{{ url_for('ecn_impact_tasks') }}">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">标记ECN影响任务已处理</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-2 text-muted small">
+                        ECN：{{ row.ecn_no|clean_text }} / 类型：{{ type_labels.get(row.affected_type, row.affected_type) }} / 单据：{{ row.affected_no|clean_text or '-' }}
+                    </div>
+                    <label class="form-label">处理说明</label>
+                    <textarea class="form-control" name="action_taken" rows="3" placeholder="说明已采取的处理动作，如已切版、已通知客户、已退换采购等"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-success">确认已处理</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}

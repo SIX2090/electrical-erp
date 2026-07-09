@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% from '_list_macros.html' import sort_th %}
+{% block title %}库存查询{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="d-flex justify-content-between align-items-center">
+        <h2 class="mb-0"><i class="bi bi-search"></i> 库存查询</h2>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <form method="get" class="row g-2 align-items-end">
+            {% if request.args.get('embedded') == '1' %}
+            <input type="hidden" name="embedded" value="1">
+            {% endif %}
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">分类</label>
+                <select name="category_id" class="form-select form-select-sm">
+                    <option value="" {% if not filters.category_id %}selected{% endif %}>全部分类</option>
+                    {% for category in categories %}
+                    <option value="{{ category.id }}" {% if filters.category_id == category.id %}selected{% endif %}>{{ category.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% if inventory_alert_enabled %}
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">库存状态</label>
+                <select name="stock_filter" class="form-select form-select-sm">
+                    <option value="" {% if not filters.stock_filter %}selected{% endif %}>全部库存</option>
+                    <option value="low" {% if filters.stock_filter == 'low' %}selected{% endif %}>库存预警</option>
+                    <option value="normal" {% if filters.stock_filter == 'normal' %}selected{% endif %}>库存正常</option>
+                </select>
+            </div>
+            {% endif %}
+            <div class="col-md-6">
+                <label class="form-label small text-muted mb-1">关键词</label>
+                <input type="text" name="search" class="form-control form-control-sm" placeholder="编码/名称/规格/用途/分类/单位/供应商" value="{{ filters.search }}">
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-primary btn-sm flex-fill"><i class="bi bi-search"></i> 筛选</button>
+                {% if filters.search or filters.category_id or filters.stock_filter %}
+                <a href="/stock_query{% if request.args.get('embedded') == '1' %}?embedded=1{% endif %}" class="btn btn-outline-secondary btn-sm">清除</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header py-2 d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-file-text"></i> 查询结果</span>
+        <span class="text-muted small">共 {{ materials|length }} 条记录</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover table-sm mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th width="60">序号</th>
+                        {{ sort_th('物料编码', 'code', sort_by, sort_order) }}
+                        {{ sort_th('物料名称', 'name', sort_by, sort_order) }}
+                        {{ sort_th('规格', 'spec', sort_by, sort_order) }}
+                        <th>分类</th>
+                        <th>单位</th>
+                        <th>供应商</th>
+                        {{ sort_th('库存', 'stock', sort_by, sort_order) }}
+                        {% if location_management_enabled %}
+                        <th>库位明细</th>
+                        {% endif %}
+                        {% if inventory_alert_enabled %}
+                        {{ sort_th('最低库存', 'min_stock', sort_by, sort_order) }}
+                        {% endif %}
+                        {{ sort_th('单价', 'price', sort_by, sort_order) }}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for material in materials %}
+                    {% set alert_enabled = (material.min_stock or 0) > 0 or (material.reorder_point or 0) > 0 %}
+                    <tr class="{% if inventory_alert_enabled and alert_enabled and (material.stock or 0) <= (material.min_stock or 0) %}table-warning{% endif %}">
+                        <td>{{ loop.index }}</td>
+                        <td><a href="{{ url_for('material_list', search=material.code) }}">{{ material.code }}</a></td>
+                        <td>{{ material.name }}</td>
+                        <td>{{ material.spec or '-' }}</td>
+                        <td>{{ material.category.name if material.category else '-' }}</td>
+                        <td>{{ material.unit.name if material.unit else '-' }}</td>
+                        <td>{{ material.supplier.name if material.supplier else '-' }}</td>
+                        <td class="{% if inventory_alert_enabled and alert_enabled and (material.stock or 0) <= (material.min_stock or 0) %}text-danger fw-bold{% endif %}">{{ material.stock or 0 }}</td>
+                        {% if location_management_enabled %}
+                        <td>
+                            {% set locations = location_map.get(material.id, []) %}
+                            {% if locations %}
+                                {% for location in locations %}
+                                <span class="badge text-bg-light border me-1">{{ location.location }}：{{ "%.2f"|format(location.quantity or 0) }}</span>
+                                {% endfor %}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        {% endif %}
+                        {% if inventory_alert_enabled %}
+                        <td>{{ material.min_stock or 0 }}</td>
+                        {% endif %}
+                        <td>¥{{ "%.2f"|format(material.price or 0) }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="{{ (10 if inventory_alert_enabled else 9) + (1 if location_management_enabled else 0) }}" class="text-center text-muted">暂无匹配物料</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+{% set ledger_label = '应收账款' if partner_label == '客户' else '应付账款' %}
+{% set ledger_url = '/receivables' if partner_label == '客户' else '/payables' %}
+{{ document_menu_bar(actions=[
+    {'label': '附件/备注', 'type': 'button', 'event': 'focus-attachments'},
+    {'label': '历史单据', 'type': 'link', 'href': list_url},
+    {'label': '更多', 'type': 'dropdown', 'items': [
+        {'label': '现金银行流水', 'type': 'link', 'href': '/finance/cash-bank/journal'},
+        {'label': ledger_label, 'type': 'link', 'href': ledger_url}
+    ]},
+    {'type': 'nav', 'items': [
+        {'label': '首张', 'event': 'doc-nav-first', 'icon': 'bi-chevron-double-left'},
+        {'label': '上一张', 'event': 'doc-nav-prev', 'icon': 'bi-chevron-left'},
+        {'label': '下一张', 'event': 'doc-nav-next', 'icon': 'bi-chevron-right'},
+        {'label': '末张', 'event': 'doc-nav-last', 'icon': 'bi-chevron-double-right'}
+    ]}
+]) }}
+<div id="doc-nav-config" data-nav-table="finance_funds" data-nav-base="{{ (list_url) }}/" data-doc-id="{{ doc.id }}" style="display:none"></div>
+<div class="mb-3">
+    <a class="btn btn-outline-secondary btn-sm" href="{{ list_url }}">返回列表</a>
+</div>
+
+<div class="page-card mb-3">
+    <div class="d-flex justify-content-between align-items-start gap-3">
+        <div>
+            <h1 class="h4 mb-1">{{ title }}：{{ doc_no|clean_text }}</h1>
+            <div class="text-muted">{{ partner_label }}：{{ doc.partner_name|clean_text }} / 日期：{{ doc_date or '-' }}</div>
+        </div>
+        <div class="text-end">
+            <span class="badge text-bg-primary">{{ doc.status or '-' }}</span>
+            <div class="mt-2 d-flex justify-content-end gap-2 flex-wrap">
+                {% if action_flags and action_flags.can_edit and edit_url %}
+                <a class="btn btn-outline-secondary btn-sm" href="{{ edit_url }}"><i class="bi bi-pencil-square"></i> 编辑</a>
+                {% endif %}
+                {% if action_flags and action_flags.can_delete and delete_url %}
+                <form method="post" action="{{ delete_url }}" onsubmit="return confirm('确认删除该草稿单据？删除后不可恢复。');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-outline-danger btn-sm" type="submit"><i class="bi bi-trash"></i> 删除</button>
+                </form>
+                {% endif %}
+                {% if action_flags and action_flags.can_reverse_settlement %}
+                <form method="post" action="{{ reverse_url }}" onsubmit="return confirm('确认反核销？系统将按本单核销明细回滚应收/应付余额，且不能重复回滚。');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-outline-warning btn-sm" type="submit"><i class="bi bi-arrow-counterclockwise"></i> 反核销</button>
+                </form>
+                {% endif %}
+                {% if action_flags and action_flags.can_void %}
+                <form method="post" action="{{ void_url }}" onsubmit="return confirm('确认作废？如存在核销明细，系统将先回滚应收/应付余额。');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-outline-danger btn-sm" type="submit"><i class="bi bi-slash-circle"></i> 作废</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-4"><div class="metric"><div class="label">{{ amount_label }}</div><div class="value">{{ doc.amount }}</div></div></div>
+    <div class="col-md-4"><div class="metric"><div class="label">{{ settled_label }}</div><div class="value">{{ doc.settled_amount }}</div></div></div>
+    <div class="col-md-4"><div class="metric"><div class="label">{{ unapplied_label }}</div><div class="value">{{ doc.unapplied_amount }}</div></div></div>
+</div>
+
+<div class="page-card mb-3">
+    <h2 class="h5 mb-3">单据信息</h2>
+    <div class="row g-2">
+        <div class="col-md-3"><strong>单据编号：</strong>{{ doc_no|clean_text }}</div>
+        <div class="col-md-3"><strong>来源单：</strong>{{ doc.source_no or '-' }}</div>
+        <div class="col-md-3"><strong>项目号：</strong>{{ doc.project_code or '-' }}</div>
+        <div class="col-md-3"><strong>机号：</strong>{{ doc.serial_no or '-' }}</div>
+        <div class="col-md-3"><strong>方式：</strong>{{ doc.payment_method or '-' }}</div>
+        <div class="col-md-4"><strong>资金账户/票据号：</strong>{{ doc.bank_account or '-' }}</div>
+        <div class="col-md-8"><strong>备注：</strong>{{ doc.remark or '-' }}</div>
+    </div>
+</div>
+
+{% if receipt_lines is defined %}
+<div class="page-card mb-3">
+    <h2 class="h5 mb-3">{{ line_section_title or '收款信息' }}</h2>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+            <tr>
+                <th>行号</th>
+                <th>{{ line_account_label or '收款账户' }}</th>
+                <th>{{ line_method_label or '收款方式' }}</th>
+                <th>{{ line_amount_label or '收款金额' }}</th>
+                <th>手续费</th>
+                <th>交易号/票据号</th>
+                <th>{{ line_remark_label or '收款备注' }}</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for line in receipt_lines %}
+            <tr>
+                <td>{{ line.line_no }}</td>
+                <td>{{ line.bank_account or '-' }}</td>
+                <td>{{ line.payment_method or '-' }}</td>
+                <td>{{ line.amount or '0.00' }}</td>
+                <td>{{ line.fee_amount or '0.00' }}</td>
+                <td>{{ line.transaction_no or '-' }}</td>
+                <td>{{ line.remark or '-' }}</td>
+            </tr>
+            {% else %}
+            <tr><td class="text-muted" colspan="7">暂无{{ line_section_title or '收款信息' }}。</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<div class="page-card mb-3">
+    <h2 class="h5 mb-3">核销明细</h2>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead><tr>{% for key, label in settlement_columns %}<th>{{ label }}</th>{% endfor %}</tr></thead>
+            <tbody>
+            {% for row in settlements %}
+            <tr>{% for key, label in settlement_columns %}<td>{{ row.get(key)|erp_value|clean_text }}</td>{% endfor %}</tr>
+            {% else %}
+            <tr><td class="text-muted" colspan="{{ settlement_columns|length }}">暂无核销明细。</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if attachment_upload_url is defined %}
+<div class="page-card mb-3" id="fundsAttachmentsPanel">
+    <div class="section-title">
+        <div>
+            <h2>附件</h2>
+            <span>上传银行回单、承兑票据、对账单、客户确认件和付款截图。</span>
+        </div>
+        <span class="text-muted small">附件数：{{ attachments|length if attachments else 0 }}</span>
+    </div>
+    <form class="row g-2 align-items-end mb-3" method="post" action="{{ attachment_upload_url }}" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="col-md-5">
+            <label class="form-label">选择文件</label>
+            <input class="form-control" type="file" name="file" required>
+        </div>
+        <div class="col-md-5">
+            <label class="form-label">附件说明</label>
+            <input class="form-control" name="remark" placeholder="例如：银行回单、承兑票据、对账单">
+        </div>
+        <div class="col-md-2 d-grid">
+            <button class="btn btn-primary" type="submit"><i class="bi bi-upload"></i> 上传</button>
+        </div>
+    </form>
+    {% if attachments %}
+    <div class="list-group list-group-flush">
+        {% for file in attachments %}
+        <div class="list-group-item px-0">
+            <div class="d-flex justify-content-between gap-3">
+                <div class="min-w-0">
+                    <div class="fw-semibold text-truncate">
+                        <i class="bi {{ 'bi-image' if file.attachment_type == 'image' else 'bi-file-earmark-text' }} text-primary"></i>
+                        <a href="{{ url_for('static', filename=file.stored_path) }}" target="_blank">{{ file.file_name }}</a>
+                    </div>
+                    <div class="text-muted small">{{ file.remark or '-' }}</div>
+                    <div class="text-muted small">{{ file.uploaded_at or '-' }} / {{ ((file.file_size or 0) / 1024)|round(1) }} KB</div>
+                </div>
+                <form method="post" action="{{ attachment_delete_prefix }}/{{ file.id }}/delete" onsubmit="return confirm('确认删除该附件？');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-outline-danger btn-sm" type="submit">删除</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-muted">暂无附件。</div>
+    {% endif %}
+</div>
+{% endif %}
+
+<div class="page-card" id="fundsNotesPanel">
+    <div class="section-title">
+        <div>
+            <h2>备注/操作记录</h2>
+            <span>记录对账、未分配金额和争议说明。</span>
+        </div>
+    </div>
+    <form class="row g-2 align-items-end mb-3" method="post" action="{{ note_url }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="col-md-10"><label class="form-label">新增备注</label><input class="form-control" name="note" required></div>
+        <div class="col-md-2 d-grid"><button class="btn btn-primary" type="submit"><i class="bi bi-clock-history"></i> 记录</button></div>
+    </form>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead><tr><th>时间</th><th>人员</th><th>操作</th><th>说明</th></tr></thead>
+            <tbody>
+            {% for log in logs %}
+            <tr><td>{{ log.created_at or '-' }}</td><td>{{ log.username or '-' }}</td><td>{{ log.action or '-' }}</td><td>{{ log.remark or '-' }}</td></tr>
+            {% else %}
+            <tr><td class="text-muted" colspan="4">暂无操作记录。</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+<script>
+document.querySelectorAll('[data-menu-event="focus-attachments"]').forEach(function(item) {
+    item.addEventListener('click', function() {
+        const panel = document.getElementById('fundsAttachmentsPanel') || document.getElementById('fundsNotesPanel');
+        panel?.scrollIntoView({behavior: 'smooth', block: 'start'});
+    });
+});
+</script>
+{% endblock %}

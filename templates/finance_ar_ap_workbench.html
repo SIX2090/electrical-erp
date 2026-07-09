@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="page-heading erp-list-heading erp-workbench-heading">
+    <div>
+        <h1>{{ title }}</h1>
+        <p>{{ subtitle }}</p>
+    </div>
+</div>
+
+<div class="erp-workbench-metrics mb-3">
+    <div class="erp-workbench-metric">
+        <div class="erp-workbench-metric-label">应收余额</div>
+        <div class="erp-workbench-metric-value">{{ metrics.receivable_balance|money }}</div>
+        <div class="erp-workbench-metric-hint">客户未回款</div>
+    </div>
+    <div class="erp-workbench-metric">
+        <div class="erp-workbench-metric-label">应付余额</div>
+        <div class="erp-workbench-metric-value">{{ metrics.payable_balance|money }}</div>
+        <div class="erp-workbench-metric-hint">供应商未付款</div>
+    </div>
+    <div class="erp-workbench-metric">
+        <div class="erp-workbench-metric-label">逾期应收</div>
+        <div class="erp-workbench-metric-value">{{ metrics.overdue_receivable_count }}</div>
+        <div class="erp-workbench-metric-hint">到期日已过</div>
+    </div>
+    <div class="erp-workbench-metric">
+        <div class="erp-workbench-metric-label">待付应付</div>
+        <div class="erp-workbench-metric-value">{{ metrics.due_payable_count }}</div>
+        <div class="erp-workbench-metric-hint">跟进日到期</div>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-lg-4">
+        <div class="page-card h-100">
+            <div class="section-title"><div><h2>应收单据</h2><span>收款与应收核销</span></div></div>
+            <div class="d-grid gap-2">
+                <a class="btn btn-outline-primary text-start" href="/customer-receipts"><i class="bi bi-list-check"></i> 收款单列表</a>
+                <a class="btn btn-outline-primary text-start" href="/customer-advance-receipts"><i class="bi bi-list-check"></i> 预收款单列表</a>
+                <a class="btn btn-outline-primary text-start" href="/customer-receipt-refunds"><i class="bi bi-arrow-counterclockwise"></i> 收款退款单列表</a>
+                <a class="btn btn-outline-primary text-start" href="/customer-other-income"><i class="bi bi-cash-coin"></i> 其他收入单列表</a>
+                <a class="btn btn-outline-primary text-start" href="/finance/receivables/pending-collections"><i class="bi bi-calendar-check"></i> 待收款清单</a>
+                <a class="btn btn-outline-primary text-start" href="/finance/receivable-bills"><i class="bi bi-receipt"></i> 应收票据</a>
+                <a class="btn btn-outline-primary text-start" href="/receivables"><i class="bi bi-wallet2"></i> 应收账款列表</a>
+                <a class="btn btn-outline-secondary text-start" href="/sales-invoices"><i class="bi bi-receipt-cutoff"></i> 销售发票登记列表</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="page-card h-100">
+            <div class="section-title"><div><h2>应付单据</h2><span>付款与应付核销</span></div></div>
+            <div class="d-grid gap-2">
+                <a class="btn btn-outline-primary text-start" href="/payments"><i class="bi bi-list-check"></i> 付款单列表</a>
+                <a class="btn btn-outline-primary text-start" href="/supplier-advance-payments"><i class="bi bi-list-check"></i> 预付款单列表</a>
+                <a class="btn btn-outline-primary text-start" href="/supplier-payment-refunds"><i class="bi bi-arrow-counterclockwise"></i> 付款退款单列表</a>
+                <a class="btn btn-outline-primary text-start" href="/supplier-other-expenses"><i class="bi bi-cash-coin"></i> 其他支出单列表</a>
+                <a class="btn btn-outline-primary text-start" href="/payables"><i class="bi bi-cash-stack"></i> 应付账款列表</a>
+                <a class="btn btn-outline-secondary text-start" href="/purchase-invoices"><i class="bi bi-receipt-cutoff"></i> 采购发票登记列表</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="page-card h-100">
+            <div class="section-title"><div><h2>智能往来</h2><span>只读对账与差异核对</span></div></div>
+            <div class="d-grid gap-2">
+                <a class="btn btn-outline-primary text-start" href="/finance/reports/customer-statement"><i class="bi bi-person-lines-fill"></i> 客户对账单</a>
+                <a class="btn btn-outline-primary text-start" href="/finance/reports/supplier-statement"><i class="bi bi-buildings"></i> 供应商对账单</a>
+                <a class="btn btn-outline-primary text-start" href="/finance/reports/customer-vendor-matching-statement"><i class="bi bi-intersect"></i> 客商匹配对账单</a>
+                <a class="btn btn-outline-primary text-start" href="/finance/reports/statement-history"><i class="bi bi-clock-history"></i> 历史对账单</a>
+                <a class="btn btn-outline-primary text-start" href="/finance/statement-templates"><i class="bi bi-file-earmark-text"></i> 对账函模板列表</a>
+                <a class="btn btn-outline-primary text-start" href="/finance/reports/sales-collection-reconciliation"><i class="bi bi-arrow-left-right"></i> 销售收款核对表</a>
+                <a class="btn btn-outline-primary text-start" href="/finance/reports/purchase-payment-reconciliation"><i class="bi bi-arrow-left-right"></i> 采购付款核对表</a>
+                <a class="btn btn-outline-primary text-start" href="/finance/settlement-schemes"><i class="bi bi-sliders"></i> 自动核销方案列表</a>
+                <a class="btn btn-outline-primary text-start" href="/finance/settlement-runs"><i class="bi bi-list-task"></i> 自动核销执行日志</a>
+                <a class="btn btn-outline-primary text-start" href="/finance/manual-settlement"><i class="bi bi-check2-square"></i> 手动核销</a>
+                <a class="btn btn-outline-primary text-start" href="/finance/smart-collections"><i class="bi bi-magic"></i> 智能收款</a>
+                <a class="btn btn-outline-primary text-start" href="/finance/smart-payments"><i class="bi bi-magic"></i> 智能付款</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-lg-4">
+        <div class="page-card h-100">
+            <div class="section-title"><div><h2>往来报表</h2><span>账龄、余额和明细</span></div></div>
+            <div class="d-grid gap-2">
+                <a class="btn btn-outline-primary text-start" href="/finance/reports/receivable-detail"><i class="bi bi-table"></i> 应收账款明细表</a>
+                <a class="btn btn-outline-primary text-start" href="/finance/reports/payable-detail"><i class="bi bi-table"></i> 应付账款明细表</a>
+                <a class="btn btn-outline-primary text-start" href="/finance/reports/receivable-summary"><i class="bi bi-grid-3x3-gap"></i> 应收账款汇总表</a>
+                <a class="btn btn-outline-primary text-start" href="/finance/reports/payable-summary"><i class="bi bi-grid-3x3-gap"></i> 应付账款汇总表</a>
+                <a class="btn btn-outline-primary text-start" href="/finance/reports/payment-request-statistics"><i class="bi bi-file-earmark-check"></i> 付款申请统计表</a>
+                <a class="btn btn-outline-primary text-start" href="/finance/reports/receivable-warning"><i class="bi bi-exclamation-triangle"></i> 应收账款预警表</a>
+                <a class="btn btn-outline-primary text-start" href="/finance/reports/payable-warning"><i class="bi bi-exclamation-triangle"></i> 应付账款预警表</a>
+                <a class="btn btn-outline-primary text-start" href="/finance/reports/bad-debt-reserve-balance"><i class="bi bi-shield-exclamation"></i> 坏账准备余额表</a>
+                <a class="btn btn-outline-primary text-start" href="/finance/reports/aging"><i class="bi bi-clock-history"></i> 应收应付账龄</a>
+                <a class="btn btn-outline-primary text-start" href="/finance/reports/aging-buckets"><i class="bi bi-bar-chart-steps"></i> 账龄区间汇总</a>
+                <a class="btn btn-outline-primary text-start" href="/finance/reports/balance"><i class="bi bi-table"></i> 往来余额明细</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="page-card h-100">
+            <div class="section-title"><div><h2>资金分析</h2><span>账户和资金流水</span></div></div>
+            <div class="d-grid gap-2">
+                <a class="btn btn-outline-primary text-start" href="/finance/reports/enterprise-income-expense-detail"><i class="bi bi-building"></i> 企业收支明细表</a>
+                <a class="btn btn-outline-primary text-start" href="/finance/credit-management"><i class="bi bi-shield-check"></i> 信用管理</a>
+                <a class="btn btn-outline-primary text-start" href="/finance/reports/account-aging-analysis"><i class="bi bi-hourglass-split"></i> 账龄分析表</a>
+                <a class="btn btn-outline-primary text-start" href="/finance/reports/other-income-expense-detail"><i class="bi bi-receipt"></i> 其他收支明细表</a>
+                <a class="btn btn-outline-primary text-start" href="/finance/reports/account-income-expense-detail"><i class="bi bi-list-ul"></i> 账户收支明细表</a>
+                <a class="btn btn-outline-primary text-start" href="/finance/reports/account-balance"><i class="bi bi-wallet2"></i> 账户余额表</a>
+                <a class="btn btn-outline-primary text-start" href="/finance/cash-bank/accounts"><i class="bi bi-bank"></i> 现金银行账户</a>
+                <a class="btn btn-outline-primary text-start" href="/finance/cash-bank/journal"><i class="bi bi-journal-text"></i> 现金银行流水</a>
+                <a class="btn btn-outline-primary text-start" href="/finance/reports/payment-flow-summary"><i class="bi bi-graph-up-arrow"></i> 收付款流水汇总</a>
+                <a class="btn btn-outline-primary text-start" href="/finance/reports/project-capital-occupation"><i class="bi bi-diagram-3"></i> 项目资金占用表</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="page-card h-100">
+            <div class="section-title"><div><h2>期末处理</h2><span>期间结账与经营快照</span></div></div>
+            <div class="d-grid gap-2">
+                <a class="btn btn-outline-primary text-start" href="/finance/period-close"><i class="bi bi-calendar-check"></i> 期间结账</a>
+                <a class="btn btn-outline-primary text-start" href="/finance/exchange-adjustment"><i class="bi bi-currency-exchange"></i> 期末调汇</a>
+                <a class="btn btn-outline-primary text-start" href="/finance/exchange-adjustments"><i class="bi bi-search"></i> 调汇单查询</a>
+                <a class="btn btn-outline-primary text-start" href="/finance/financial-statements"><i class="bi bi-file-earmark-bar-graph"></i> 经营财务快照</a>
+                <a class="btn btn-outline-primary text-start" href="/finance/account-balance"><i class="bi bi-list-columns-reverse"></i> 科目余额表</a>
+                <a class="btn btn-outline-primary text-start" href="/finance/trial-balance"><i class="bi bi-check2-square"></i> 试算平衡表</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-xl-6">
+        <div class="page-card erp-list-card">
+            <div class="section-title"><div><h2>应收跟进队列</h2><span>{{ receivables|length }} 条记录</span></div><a class="btn btn-outline-secondary btn-sm" href="/receivables">更多</a></div>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle erp-list-table">
+                    <thead><tr><th>来源</th><th>客户</th><th>项目/机号</th><th class="text-end">余额</th><th>下一步</th><th class="text-end">操作</th></tr></thead>
+                    <tbody>
+                    {% for row in receivables %}
+                    <tr>
+                        <td>{{ row.doc_no|clean_text }}<div class="text-muted small">{{ row.doc_date or '-' }} / {{ row.due_date or '-' }}</div></td>
+                        <td>{{ row.partner_name|clean_text }}</td>
+                        <td>{{ row.project_code|clean_text }} / {{ row.serial_no|clean_text }}</td>
+                        <td class="text-end fw-semibold">{{ row.balance|money }}</td>
+                        <td class="small">{{ row.next_step|clean_text }}</td>
+                        <td class="text-end"><a class="btn btn-outline-primary btn-sm" href="/receivables/{{ row.id }}">详情</a></td>
+                    </tr>
+                    {% else %}
+                    <tr><td class="text-muted" colspan="6">暂无未清应收。</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-6">
+        <div class="page-card erp-list-card">
+            <div class="section-title"><div><h2>应付跟进队列</h2><span>{{ payables|length }} 条记录</span></div><a class="btn btn-outline-secondary btn-sm" href="/payables">更多</a></div>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle erp-list-table">
+                    <thead><tr><th>来源</th><th>供应商</th><th>项目/机号</th><th class="text-end">余额</th><th>下一步</th><th class="text-end">操作</th></tr></thead>
+                    <tbody>
+                    {% for row in payables %}
+                    <tr>
+                        <td>{{ row.doc_no|clean_text }}<div class="text-muted small">{{ row.doc_date or '-' }} / {{ row.due_date or '-' }}</div></td>
+                        <td>{{ row.partner_name|clean_text }}</td>
+                        <td>{{ row.project_code|clean_text }} / {{ row.serial_no|clean_text }}</td>
+                        <td class="text-end fw-semibold">{{ row.balance|money }}</td>
+                        <td class="small">{{ row.next_step|clean_text }}</td>
+                        <td class="text-end"><a class="btn btn-outline-primary btn-sm" href="/payables/{{ row.id }}">详情</a></td>
+                    </tr>
+                    {% else %}
+                    <tr><td class="text-muted" colspan="6">暂无未清应付。</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

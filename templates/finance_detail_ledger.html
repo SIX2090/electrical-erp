@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <div>
+        <h1>{{ title }}</h1>
+        <p>{{ subtitle }}</p>
+    </div>
+    <a href="/finance/account-balance?year={{ year }}&month={{ month }}" class="btn btn-sm btn-outline-primary">返回科目余额表</a>
+</div>
+
+{{ document_menu_bar(actions=[
+    {'label': '返回科目余额表', 'type': 'link', 'href': '/finance/account-balance?year=' ~ year ~ '&month=' ~ month}
+], aria_label='账簿操作菜单') }}
+
+<div class="page-card mb-3">
+    <form id="financeDetailLedgerFilterForm" method="get" class="row g-2 align-items-end">
+        <div class="col-md-3">
+            <label class="form-label">会计科目</label>
+            <select class="form-select" name="account_id" onchange="this.form.submit()">
+                <option value="">请选择科目</option>
+                {% for a in accounts %}
+                <option value="{{ a.id }}" {% if selected_account_id == a.id %}selected{% endif %}>{{ a.code }} {{ a.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">年度</label>
+            <input class="form-control" type="number" name="year" value="{{ year }}" min="2000" max="2100">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">月份</label>
+            <select class="form-select" name="month">
+                <option value="0" {% if month == 0 %}selected{% endif %}>全年</option>
+                {% for m in range(1, 13) %}
+                <option value="{{ m }}" {% if month == m %}selected{% endif %}>{{ m }}月</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2 d-grid">
+            <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i> 查询</button>
+        </div>
+    </form>
+</div>
+
+{% if not selected_account %}
+<div class="alert alert-info">请选择一个会计科目查看明细账。</div>
+{% else %}
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>{{ account_info.code }} {{ account_info.name }}</h2>
+            <span>{{ account_info.account_type }} | 余额方向: {{ account_info.direction }}</span>
+        </div>
+        <div class="text-end">
+            <div class="text-muted small">期初余额</div>
+            <strong>{{ opening_balance | money }}</strong>
+        </div>
+    </div>
+</div>
+
+<div class="page-card">
+    <table class="data-table table-striped">
+        <thead>
+            <tr>
+                <th>日期</th>
+                <th>凭证号</th>
+                <th>摘要</th>
+                <th class="text-end">借方</th>
+                <th class="text-end">贷方</th>
+                <th class="text-end">余额</th>
+                <th>项目号</th>
+                <th>机号</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if rows %}
+            {% for row in rows %}
+            <tr>
+                <td>{{ row.entry_date }}</td>
+                <td><a href="/finance/vouchers/{{ row.voucher_id }}">{{ row.voucher_no }}</a></td>
+                <td>{{ row.summary or '-' }}</td>
+                <td class="text-end">{{ row.debit_amount | money }}</td>
+                <td class="text-end">{{ row.credit_amount | money }}</td>
+                <td class="text-end fw-bold {% if row.running_balance < 0 %}text-danger{% endif %}">{{ row.running_balance | money }}</td>
+                <td>{{ row.project_code or '-' }}</td>
+                <td>{{ row.serial_no or '-' }}</td>
+            </tr>
+            {% endfor %}
+            {% else %}
+            <tr><td colspan="8" class="text-center text-muted py-4">该期间无发生额。</td></tr>
+            {% endif %}
+        </tbody>
+        <tfoot>
+            <tr class="fw-bold">
+                <td colspan="3" class="text-end">本期合计:</td>
+                <td class="text-end">{{ total_debit | money }}</td>
+                <td class="text-end">{{ total_credit | money }}</td>
+                <td colspan="3"></td>
+            </tr>
+            <tr class="fw-bold">
+                <td colspan="3" class="text-end">期末余额:</td>
+                <td colspan="2" class="text-end">{{ ending_balance | money }}</td>
+                <td colspan="3"></td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+{% endif %}
+<script>
+document.getElementById('financeDetailLedgerPrintBtn')?.addEventListener('click', function () {
+    window.print();
+});
+</script>
+{% endblock %}

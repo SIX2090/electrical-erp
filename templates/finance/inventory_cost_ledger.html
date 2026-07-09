@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+
+{% block title %}存货成本明细账{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>{{ title }}</h2>
+        <div class="d-none">
+            <a class="btn btn-sm btn-outline-secondary" href="javascript:history.back()" title="返回上一页"><i class="bi bi-arrow-left"></i> 返回</a>
+            <button class="btn btn-sm btn-primary" onclick="exportReportTable()"><i class="bi bi-download"></i> 导出Excel</button>
+            <button class="btn btn-sm btn-secondary" onclick="window.print()"><i class="bi bi-printer"></i> 打印</button>
+        </div>
+    </div>
+    <div class="page-header">
+        <h1>存货成本明细账</h1>
+        <p class="text-muted">查询产品的成本流水和库存变动</p>
+    </div>
+
+    <!-- 筛选条件 -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-filter"></i> 筛选条件
+            </h5>
+        </div>
+        <div class="card-body">
+            <form method="get" action="/finance/inventory-costing/cost-ledger">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="form-group">
+                            <label>产品 <span class="text-danger">*</span></label>
+                            <select name="product_id" class="form-control" required>
+                                <option value="">请选择产品</option>
+                                {% for p in products %}
+                                <option value="{{ p.id }}" {% if filters.product_id == p.id|string %}selected{% endif %}>
+                                    {{ p.code }} - {{ p.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group">
+                            <label>开始日期</label>
+                            <input type="date" name="start_date" class="form-control" value="{{ filters.start_date or '' }}">
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group">
+                            <label>结束日期</label>
+                            <input type="date" name="end_date" class="form-control" value="{{ filters.end_date or '' }}">
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group">
+                            <label>项目号</label>
+                            <input type="text" name="project_code" class="form-control" placeholder="项目号" value="{{ filters.project_code or '' }}">
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group">
+                            <label>机号</label>
+                            <input type="text" name="serial_no" class="form-control" placeholder="机号" value="{{ filters.serial_no or '' }}">
+                        </div>
+                    </div>
+                    <div class="col-md-1">
+                        <div class="form-group">
+                            <label>&nbsp;</label>
+                            <button type="submit" class="btn btn-primary btn-block">
+                                <i class="fas fa-search"></i> 查询
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 产品信息卡片 -->
+    {% if product %}
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-box"></i> 产品信息
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-2">
+                    <strong>产品编号：</strong><br>
+                    {{ product.code }}
+                </div>
+                <div class="col-md-3">
+                    <strong>产品名称：</strong><br>
+                    {{ product.name }}
+                </div>
+                <div class="col-md-1">
+                    <strong>单位：</strong><br>
+                    {{ product.unit }}
+                </div>
+                <div class="col-md-2">
+                    <strong>当前库存：</strong><br>
+                    <span class="badge badge-primary" style="font-size: 1.1rem;">{{ "%.2f"|format(product.quantity) }}</span>
+                </div>
+                <div class="col-md-2">
+                    <strong>当前成本：</strong><br>
+                    <span class="badge badge-success" style="font-size: 1.1rem;">{{ "%.2f"|format(product.current_cost) }}</span>
+                </div>
+                <div class="col-md-2">
+                    <strong>库存金额：</strong><br>
+                    <span class="badge badge-warning" style="font-size: 1.1rem;">{{ "%.2f"|format(product.total_amount) }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 成本明细账 -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-list"></i> 成本明细账
+            </h5>
+        </div>
+        <div class="card-body">
+            {% if rows %}
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover table-sm">
+                    <thead class="thead-light">
+                        <tr>
+                            <th rowspan="2">日期</th>
+                            <th rowspan="2">交易类型</th>
+                            <th rowspan="2">单号</th>
+                            <th colspan="3" class="text-center bg-success text-white">收入</th>
+                            <th colspan="3" class="text-center bg-danger text-white">发出</th>
+                            <th colspan="3" class="text-center bg-primary text-white">结存</th>
+                            <th rowspan="2">项目号</th>
+                            <th rowspan="2">机号</th>
+                        </tr>
+                        <tr>
+                            <th class="text-right bg-success text-white">数量</th>
+                            <th class="text-right bg-success text-white">单价</th>
+                            <th class="text-right bg-success text-white">金额</th>
+                            <th class="text-right bg-danger text-white">数量</th>
+                            <th class="text-right bg-danger text-white">单价</th>
+                            <th class="text-right bg-danger text-white">金额</th>
+                            <th class="text-right bg-primary text-white">数量</th>
+                            <th class="text-right bg-primary text-white">单价</th>
+                            <th class="text-right bg-primary text-white">金额</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in rows %}
+                        <tr>
+                            <td>{{ row.costing_date }}</td>
+                            <td>
+                                <span class="badge {% if row.quantity > 0 %}badge-success{% else %}badge-danger{% endif %}">
+                                    {{ row.transaction_type }}
+                                </span>
+                            </td>
+                            <td><small>{{ row.transaction_no }}</small></td>
+
+                            <!-- 收入 -->
+                            {% if row.quantity > 0 %}
+                                <td class="text-right">{{ "%.2f"|format(row.quantity) }}</td>
+                                <td class="text-right">{{ "%.2f"|format(row.unit_cost) }}</td>
+                                <td class="text-right">{{ "%.2f"|format(row.total_cost) }}</td>
+                            {% else %}
+                                <td></td>
+                                <td></td>
+                                <td></td>
+                            {% endif %}
+
+                            <!-- 发出 -->
+                            {% if row.quantity < 0 %}
+                                <td class="text-right">{{ "%.2f"|format(-row.quantity) }}</td>
+                                <td class="text-right">{{ "%.2f"|format(row.unit_cost) }}</td>
+                                <td class="text-right">{{ "%.2f"|format(-row.total_cost) }}</td>
+                            {% else %}
+                                <td></td>
+                                <td></td>
+                                <td></td>
+                            {% endif %}
+
+                            <!-- 结存 -->
+                            <td class="text-right"><strong>{{ "%.2f"|format(row.balance_quantity) }}</strong></td>
+                            <td class="text-right"><strong>{{ "%.2f"|format(row.avg_cost) }}</strong></td>
+                            <td class="text-right"><strong>{{ "%.2f"|format(row.balance_amount) }}</strong></td>
+
+                            <td>
+                                {% if row.project_code %}
+                                    <small class="badge badge-info">{{ row.project_code }}</small>
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if row.serial_no %}
+                                    <small class="badge badge-secondary">{{ row.serial_no }}</small>
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info mb-0">
+                <i class="fas fa-info-circle"></i>
+                {% if filters.product_id %}
+                    该产品在指定条件下没有成本记录
+                {% else %}
+                    请选择产品后查询
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+
+<style>
+.table-bordered th,
+.table-bordered td {
+    border: 1px solid #dee2e6;
+}
+
+.table thead th {
+    vertical-align: middle;
+}
+
+.table td, .table th {
+    padding: 0.5rem;
+}
+
+.badge {
+    font-size: 0.85rem;
+}
+</style>
+
+<script>
+function exportReportTable() {
+    var table = document.querySelector('.table');
+    if (!table) return;
+    var html = table.outerHTML;
+    var url = 'data:application/vnd.ms-excel,' + encodeURIComponent(html);
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = '{{ title }}_' + new Date().toISOString().substr(0,10) + '.xls';
+    link.click();
+}
+</script>
+{% endblock %}

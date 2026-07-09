@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}审批记录详情{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <h1>审批记录详情</h1>
+    <p>查看审批单据、当前状态、责任人和处理意见。</p>
+</div>
+
+<div class="page-card">
+    <div class="section-title">
+        <div>
+            <h2>审批信息</h2>
+            <span>{{ record.document_no if record else '' }}</span>
+        </div>
+        <a class="btn btn-outline-secondary btn-sm" href="{{ back_url or '/approval/pending' }}">返回</a>
+    </div>
+
+    {% if record %}
+    <dl class="row">
+        <dt class="col-sm-3">单据类型</dt>
+        <dd class="col-sm-9">{{ record.doc_type }}</dd>
+        <dt class="col-sm-3">单据编号</dt>
+        <dd class="col-sm-9">{{ record.document_no }}</dd>
+        <dt class="col-sm-3">审批状态</dt>
+        <dd class="col-sm-9">{{ record.status|erp_value|clean_text }}</dd>
+        <dt class="col-sm-3">下一步</dt>
+        <dd class="col-sm-9">{{ record.next_step|erp_value|clean_text }}</dd>
+        <dt class="col-sm-3">责任人</dt>
+        <dd class="col-sm-9">{{ record.owner }}</dd>
+        <dt class="col-sm-3">审批节点</dt>
+        <dd class="col-sm-9">{{ record.step_id }}</dd>
+        <dt class="col-sm-3">审批人</dt>
+        <dd class="col-sm-9">{{ record.approver }}</dd>
+        <dt class="col-sm-3">处理意见</dt>
+        <dd class="col-sm-9">{{ record.comment }}</dd>
+        <dt class="col-sm-3">处理时间</dt>
+        <dd class="col-sm-9">{{ record.approved_at }}</dd>
+    </dl>
+    {% else %}
+    <div class="text-muted">审批记录不存在。</div>
+    {% endif %}
+</div>
+{% endblock %}

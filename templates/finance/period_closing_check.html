@@ -1,0 +1,279 @@
+{% extends "base.html" %}
+
+{% block title %}结账检查{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- 页面标题 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-tasks"></i> 结账检查</h2>
+        <div>
+            <a href="{{ url_for('period_closing_home') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> 返回
+            </a>
+            <button class="btn btn-success" onclick="exportReportTable()">
+                <i class="fas fa-file-excel"></i> 导出Excel
+            </button>
+            <button class="btn btn-primary" onclick="window.print()">
+                <i class="fas fa-print"></i> 打印
+            </button>
+        </div>
+    </div>
+
+    <!-- 期间选择 -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <h5>检查期间：<strong class="text-primary">{{ period }}</strong></h5>
+                    <p class="text-muted mb-0">{{ period|replace('-', '年')|replace('年', '年', 1) }}月</p>
+                </div>
+                <div class="col-md-6 text-right">
+                    <button class="btn btn-primary btn-lg" onclick="startCheck()">
+                        <i class="fas fa-play-circle"></i> 开始检查
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 检查进度 -->
+    <div id="checkProgress" class="card mb-4" style="display: none;">
+        <div class="card-body">
+            <h5><i class="fas fa-spinner fa-spin"></i> 正在检查...</h5>
+            <div class="progress">
+                <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar"
+                     style="width: 100%"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 检查结果 -->
+    <div id="checkResult" style="display: none;">
+        <!-- 汇总信息 -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card border-info">
+                    <div class="card-body text-center">
+                        <h6 class="text-muted">凭证数量</h6>
+                        <h3 id="voucherCount">-</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-warning">
+                    <div class="card-body text-center">
+                        <h6 class="text-muted">未审核凭证</h6>
+                        <h3 id="unreviewedCount">-</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-success">
+                    <div class="card-body text-center">
+                        <h6 class="text-muted">本期收入</h6>
+                        <h3 id="revenue">-</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-danger">
+                    <div class="card-body text-center">
+                        <h6 class="text-muted">本期费用</h6>
+                        <h3 id="expense">-</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 检查项列表 -->
+        <div class="card mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="fas fa-clipboard-check"></i> 检查项目</h5>
+            </div>
+            <div class="card-body">
+                <div id="checkItems"></div>
+            </div>
+        </div>
+
+        <!-- 警告信息 -->
+        <div id="warningsCard" class="card mb-4" style="display: none;">
+            <div class="card-header bg-warning text-white">
+                <h5 class="mb-0"><i class="fas fa-exclamation-triangle"></i> 警告信息</h5>
+            </div>
+            <div class="card-body">
+                <div id="warningItems"></div>
+            </div>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="text-center">
+            <div id="canCloseButtons" style="display: none;">
+                <button class="btn btn-success btn-lg" onclick="executeClosing()">
+                    <i class="fas fa-check-circle"></i> 执行结账
+                </button>
+            </div>
+            <div id="cannotCloseButtons" style="display: none;">
+                <button class="btn btn-secondary btn-lg" disabled>
+                    <i class="fas fa-times-circle"></i> 不满足结账条件
+                </button>
+                <p class="text-danger mt-3">请解决上述问题后重新检查</p>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+function startCheck() {
+    // 显示进度
+    $('#checkProgress').show();
+    $('#checkResult').hide();
+
+    // 发起检查请求
+    $.ajax({
+        url: '{{ url_for("closing_check") }}',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            period: '{{ period }}'
+        }),
+        success: function(response) {
+            displayCheckResult(response);
+        },
+        error: function() {
+            $('#checkProgress').hide();
+            alert('检查请求失败');
+        }
+    });
+}
+
+function displayCheckResult(result) {
+    // 隐藏进度
+    $('#checkProgress').hide();
+    $('#checkResult').show();
+
+    // 显示汇总信息
+    const summary = result.summary || {};
+    $('#voucherCount').text(summary.voucher_count || 0);
+    $('#unreviewedCount').text(summary.unreviewed_vouchers || 0);
+    $('#revenue').text(formatNumber(summary.revenue || 0));
+    $('#expense').text(formatNumber(summary.expense || 0));
+
+    // 显示检查项
+    const checkItemsHtml = [];
+
+    // 通过的检查项
+    if (result.can_close) {
+        checkItemsHtml.push(`
+            <div class="alert alert-success">
+                <h5><i class="fas fa-check-circle"></i> 所有检查项通过！</h5>
+                <p class="mb-0">满足结账条件，可以执行结账操作。</p>
+            </div>
+        `);
+    }
+
+    // 未通过的检查项
+    if (result.issues && result.issues.length > 0) {
+        result.issues.forEach(issue => {
+            checkItemsHtml.push(`
+                <div class="alert alert-danger">
+                    <h6><i class="fas fa-times-circle"></i> ${issue.check_item}</h6>
+                    <p class="mb-1"><strong>问题：</strong>${issue.reason}</p>
+                    <p class="mb-0"><strong>建议：</strong>${issue.suggestion || '请联系系统管理员'}</p>
+                </div>
+            `);
+        });
+    }
+
+    $('#checkItems').html(checkItemsHtml.join(''));
+
+    // 显示警告信息
+    if (result.warnings && result.warnings.length > 0) {
+        const warningItemsHtml = result.warnings.map(warning => `
+            <div class="alert alert-warning mb-2">
+                <h6><i class="fas fa-exclamation-triangle"></i> ${warning.check_item}</h6>
+                <p class="mb-1"><strong>警告：</strong>${warning.reason}</p>
+                <p class="mb-0"><strong>建议：</strong>${warning.suggestion || '建议处理'}</p>
+            </div>
+        `).join('');
+
+        $('#warningItems').html(warningItemsHtml);
+        $('#warningsCard').show();
+    } else {
+        $('#warningsCard').hide();
+    }
+
+    // 显示操作按钮
+    if (result.can_close) {
+        $('#canCloseButtons').show();
+        $('#cannotCloseButtons').hide();
+    } else {
+        $('#canCloseButtons').hide();
+        $('#cannotCloseButtons').show();
+    }
+}
+
+function executeClosing() {
+    if (!confirm('确定要执行结账吗？\n\n结账后将自动生成损益结转凭证，并锁定本期凭证。')) {
+        return;
+    }
+
+    // 显示加载提示
+    const loadingHtml = `
+        <div class="alert alert-info">
+            <i class="fas fa-spinner fa-spin"></i> 正在执行结账，请稍候...
+        </div>
+    `;
+    $('#checkItems').html(loadingHtml);
+
+    // 发起结账请求
+    $.ajax({
+        url: '{{ url_for("execute_closing") }}',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            period: '{{ period }}'
+        }),
+        success: function(response) {
+            if (response.success) {
+                alert('结账成功！\n\n' + response.message + '\n净利润：' + formatNumber(response.net_profit || 0));
+                window.location.href = '{{ url_for("period_closing_home") }}';
+            } else {
+                alert('结账失败：' + response.message);
+                startCheck(); // 重新检查
+            }
+        },
+        error: function() {
+            alert('结账请求失败');
+            startCheck(); // 重新检查
+        }
+    });
+}
+
+function formatNumber(num) {
+    return Number(num).toLocaleString('zh-CN', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+}
+
+// 页面加载后自动开始检查
+$(document).ready(function() {
+    startCheck();
+});
+</script>
+
+<script>
+function exportReportTable() {
+    var table = document.querySelector('.table');
+    if (!table) return;
+    var html = table.outerHTML;
+    var url = 'data:application/vnd.ms-excel,' + encodeURIComponent(html);
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = '{{ title }}_' + new Date().toISOString().substr(0,10) + '.xls';
+    link.click();
+}
+</script>
+{% endblock %}

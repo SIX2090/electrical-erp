@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+
+{% block title %}新增数据权限规则{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-3">
+  <div class="card">
+    <div class="card-header">
+      <h5 class="mb-0"><i class="bi bi-shield-lock"></i> 新增数据权限规则</h5>
+    </div>
+    <div class="card-body">
+      <form method="post" action="{{ url_for('data_permission_new') }}">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">主体类型 <span class="text-danger">*</span></label>
+            <select name="subject_type" id="subject_type" class="form-select" onchange="toggleSubjectOptions()">
+              {% for value, label in subject_type_options %}
+              <option value="{{ value }}" {% if form_state.subject_type == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">主体 <span class="text-danger">*</span></label>
+            <select name="subject_id" id="subject_id" class="form-select">
+              <option value="">请选择</option>
+            </select>
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">数据范围类型 <span class="text-danger">*</span></label>
+            <select name="scope_type" id="scope_type" class="form-select" onchange="loadScopes()">
+              {% for value, label in scope_type_options %}
+              <option value="{{ value }}" {% if form_state.scope_type == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">数据范围 <span class="text-danger">*</span></label>
+            <select name="scope_id" id="scope_id" class="form-select" onchange="updateScopeLabel()">
+              <option value="">请选择</option>
+            </select>
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">权限 <span class="text-danger">*</span></label>
+            <select name="permission" id="permission" class="form-select">
+              {% for value, label in permission_options %}
+              <option value="{{ value }}" {% if form_state.permission == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">范围标签（可选）</label>
+            <input type="text" name="scope_label" id="scope_label" value="{{ form_state.scope_label }}" class="form-control" placeholder="留空将自动生成">
+          </div>
+        </div>
+
+        <div class="mt-4">
+          <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> 保存</button>
+          <a href="{{ url_for('data_permission_list') }}" class="btn btn-outline-secondary">取消</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+const ROLE_OPTIONS = {{ role_options|tojson }};
+const USERS = {{ users|tojson }};
+const FORM_STATE = {{ form_state|tojson }};
+
+function toggleSubjectOptions() {
+  const subjectType = document.getElementById('subject_type').value;
+  const subjectSelect = document.getElementById('subject_id');
+  subjectSelect.innerHTML = '<option value="">请选择</option>';
+  let options = [];
+  if (subjectType === 'role') {
+    options = ROLE_OPTIONS;
+  } else if (subjectType === 'user') {
+    options = USERS;
+  }
+  options.forEach(function (opt) {
+    const el = document.createElement('option');
+    el.value = opt.id;
+    el.textContent = opt.label || opt.id;
+    if (String(opt.id) === String(FORM_STATE.subject_id)) {
+      el.selected = true;
+    }
+    subjectSelect.appendChild(el);
+  });
+}
+
+function loadScopes() {
+  const scopeType = document.getElementById('scope_type').value;
+  const scopeSelect = document.getElementById('scope_id');
+  scopeSelect.innerHTML = '<option value="">请选择</option>';
+  document.getElementById('scope_label').value = '';
+  if (!scopeType) return;
+  fetch('/api/data-permissions/scopes?scope_type=' + encodeURIComponent(scopeType))
+    .then(function (resp) { return resp.json(); })
+    .then(function (data) {
+      if (data.status === 'success') {
+        (data.scopes || []).forEach(function (scope) {
+          const el = document.createElement('option');
+          el.value = scope.id;
+          el.textContent = scope.label || scope.id;
+          el.dataset.label = scope.label || scope.id;
+          if (String(scope.id) === String(FORM_STATE.scope_id)) {
+            el.selected = true;
+          }
+          scopeSelect.appendChild(el);
+        });
+        updateScopeLabel();
+      }
+    })
+    .catch(function () { /* ignore */ });
+}
+
+function updateScopeLabel() {
+  const scopeSelect = document.getElementById('scope_id');
+  const selected = scopeSelect.options[scopeSelect.selectedIndex];
+  const labelInput = document.getElementById('scope_label');
+  if (selected && selected.value) {
+    labelInput.value = selected.dataset.label || selected.textContent || '';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  toggleSubjectOptions();
+  loadScopes();
+});
+</script>
+{% endblock %}

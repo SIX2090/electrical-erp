@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}工序报工单{% endblock %}
+{% block content %}
+{% if not report %}
+<div class="page-card">未找到工序报工单。</div>
+{% else %}
+{% set report_status = status_label(report.status) %}
+{{ document_menu_bar(actions=[
+    {'label': '返回列表', 'type': 'link', 'href': '/production/operation-reports', 'icon': 'bi-arrow-left'},
+    {'label': '编辑' if report_status in ['草稿', '已提交'] else '只读', 'type': 'link' if report_status in ['草稿', '已提交'] else 'disabled', 'href': '/production/operation-reports/' ~ report.id ~ '/edit', 'icon': 'bi-pencil-square'},
+    {'label': '提交', 'type': 'button' if report_status == '草稿' else 'disabled', 'event': 'operation-report-submit', 'icon': 'bi-send'},
+    {'label': '审核回写', 'type': 'button' if report_status == '已提交' else 'disabled', 'event': 'operation-report-audit', 'icon': 'bi-check2-circle'},
+    {'label': '作废', 'type': 'button' if report_status in ['草稿', '已提交'] else 'disabled', 'event': 'operation-report-void', 'icon': 'bi-x-circle'},
+    {'type': 'nav', 'items': [
+        {'label': '首张', 'event': 'doc-nav-first', 'icon': 'bi-chevron-double-left'},
+        {'label': '上一张', 'event': 'doc-nav-prev', 'icon': 'bi-chevron-left'},
+        {'label': '下一张', 'event': 'doc-nav-next', 'icon': 'bi-chevron-right'},
+        {'label': '末张', 'event': 'doc-nav-last', 'icon': 'bi-chevron-double-right'}
+    ]}
+], aria_label='工序报工单据操作菜单') }}
+<div id="doc-nav-config" data-nav-table="operation_reports" data-nav-base="/production/operation-reports/" data-doc-id="{{ report.id }}" style="display:none"></div>
+<div class="page-card mb-3">
+    <div class="d-flex justify-content-between align-items-start">
+        <div>
+            <h1 class="h4 mb-1">工序报工单：{{ report.report_no or report.id }}</h1>
+            <div class="text-muted small">
+                来源工单：
+                {% if report.work_order_id %}<a href="/work-orders/{{ report.work_order_id }}">{{ report.wo_no or report.work_order_id }}</a>{% else %}-{% endif %}
+                {% if report.operation_name %} / 工序 {{ report.operation_no or report.work_order_process_id }} {{ report.operation_name }}{% endif %}
+                {% if report.project_code %} / 项目 {{ report.project_code }}{% endif %}
+                {% if report.serial_no %} / 机号 {{ report.serial_no }}{% endif %}
+            </div>
+        </div>
+        <span class="badge text-bg-primary">{{ status_label(report.status) }}</span>
+    </div>
+    <div class="row g-2 mt-2">
+        <div class="col-md-3"><strong>报工单号：</strong>{{ report.report_no or report.id }}</div>
+        <div class="col-md-3"><strong>报工类型：</strong>{{ report_type_label(report.report_type) }}</div>
+        <div class="col-md-3"><strong>报工日期：</strong>{{ report.report_date or '-' }}</div>
+        <div class="col-md-3"><strong>工作中心：</strong>{{ report.work_center_name or '-' }}</div>
+        <div class="col-md-3"><strong>来源状态：</strong>{{ report.work_order_status or '-' }}</div>
+        <div class="col-md-3"><strong>合格数量：</strong>{{ report.good_qty|qty }}</div>
+        <div class="col-md-3"><strong>返工数量：</strong>{{ report.rework_qty|qty }}</div>
+        <div class="col-md-3"><strong>报废数量：</strong>{{ report.scrap_qty|qty }}</div>
+        <div class="col-md-3"><strong>本次报工：</strong>{{ ((report.good_qty or 0) + (report.rework_qty or 0) + (report.scrap_qty or 0))|qty }}</div>
+        <div class="col-md-3"><strong>人工工时：</strong>{{ report.labor_hours|qty }}</div>
+        <div class="col-md-3"><strong>设备工时：</strong>{{ report.equipment_hours|qty }}</div>
+        <div class="col-md-3"><strong>工序状态：</strong>{{ process_status_label(report.process_status) }}</div>
+        <div class="col-md-3"><strong>工序合格累计：</strong>{{ report.process_good_quantity|qty }}</div>
+        <div class="col-md-6"><strong>阻塞原因：</strong>{{ report.blocked_reason or '-' }}</div>
+        <div class="col-md-6"><strong>下一步：</strong>{{ report.next_action or '-' }}</div>
+        <div class="col-12"><strong>备注：</strong>{{ report.remark or '-' }}</div>
+    </div>
+    <div class="d-flex gap-2 justify-content-end mt-3 d-none">
+        <a class="btn btn-outline-secondary btn-sm" href="/production/operation-reports">返回列表</a>
+        {% if status_label(report.status) == '草稿' %}
+        <a class="btn btn-outline-secondary btn-sm" href="/production/operation-reports/{{ report.id }}/edit">编辑</a>
+        <form method="post" action="/production/operation-reports/{{ report.id }}/submit"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-outline-primary btn-sm">提交</button></form>
+        <form method="post" action="/production/operation-reports/{{ report.id }}/void"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-outline-danger btn-sm">作废</button></form>
+        {% elif status_label(report.status) == '已提交' %}
+        <a class="btn btn-outline-secondary btn-sm" href="/production/operation-reports/{{ report.id }}/edit">编辑</a>
+        <form method="post" action="/production/operation-reports/{{ report.id }}/audit"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-primary btn-sm">审核回写</button></form>
+        <form method="post" action="/production/operation-reports/{{ report.id }}/void"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-outline-danger btn-sm">作废</button></form>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{% if report %}
+<script>
+document.addEventListener('click', function(event) {
+    const button = event.target.closest('[data-menu-event]');
+    if (!button || button.disabled) return;
+    const action = button.dataset.menuEvent;
+    const actionMap = {
+        'operation-report-submit': 'submit',
+        'operation-report-audit': 'audit',
+        'operation-report-void': 'void'
+    };
+    if (!actionMap[action]) return;
+    const form = document.createElement('form');
+    form.method = 'post';
+    form.action = '/production/operation-reports/{{ report.id }}/' + actionMap[action];
+    const token = document.createElement('input');
+    token.type = 'hidden';
+    token.name = 'csrf_token';
+    token.value = '{{ csrf_token() }}';
+    form.appendChild(token);
+    document.body.appendChild(form);
+    form.submit();
+});
+</script>
+{% endif %}
+{% endblock %}

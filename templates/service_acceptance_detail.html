@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}安装验收详情{% endblock %}
+{% block content %}
+{% if acceptance %}
+{{ document_menu_bar(actions=[
+    {'label': '返回列表', 'type': 'link', 'href': back_url or '/service-acceptance', 'icon': 'bi-arrow-left'},
+    {'label': '编辑', 'type': 'link', 'href': '/service-acceptance/' ~ acceptance.id ~ '/edit', 'disabled': (acceptance.result or '') not in ['', '待整改', '客户待确认', 'pending', 'draft'], 'icon': 'bi-pencil-square'},
+    {'label': '新增服务单', 'type': 'link', 'href': '/service-orders/new?service_card_id=' ~ acceptance.service_card_id},
+    {'label': '下查', 'type': 'dropdown', 'items': [
+        {'label': '设备服务档案', 'type': 'link', 'href': '/service-cards/' ~ acceptance.service_card_id if acceptance.service_card_id else '/service-cards', 'disabled': not acceptance.service_card_id},
+        {'label': '售后服务单列表', 'type': 'link', 'href': '/service-orders?keyword=' ~ ((acceptance.serial_no or acceptance.project_code or '')|urlencode)},
+        {'label': '项目台账', 'type': 'link', 'href': '/projects?keyword=' ~ ((acceptance.project_code or acceptance.serial_no or '')|urlencode)}
+    ]},
+    {'label': '附件/备注', 'type': 'button', 'event': 'focus-attachments'},
+    {'type': 'nav', 'items': [
+        {'label': '首张', 'event': 'doc-nav-first', 'icon': 'bi-chevron-double-left'},
+        {'label': '上一张', 'event': 'doc-nav-prev', 'icon': 'bi-chevron-left'},
+        {'label': '下一张', 'event': 'doc-nav-next', 'icon': 'bi-chevron-right'},
+        {'label': '末张', 'event': 'doc-nav-last', 'icon': 'bi-chevron-double-right'}
+    ]}
+]) }}
+<div id="doc-nav-config" data-nav-table="service_acceptances" data-nav-base="{{ (back_url or '/service-acceptance') }}/" data-doc-id="{{ acceptance.id }}" style="display:none"></div>
+{% endif %}
+<div class="mb-3 d-none">
+    <a class="btn btn-outline-secondary btn-sm" href="{{ back_url or '/service-acceptance' }}">返回验收列表</a>
+</div>
+{% if acceptance and (acceptance.result or '') in ['', '待整改', '客户待确认', 'pending', 'draft'] %}
+<div class="mb-3 d-none">
+    <a class="btn btn-outline-secondary btn-sm" href="/service-acceptance/{{ acceptance.id }}/edit">编辑</a>
+</div>
+{% endif %}
+
+{% if acceptance %}
+<div class="page-card mb-3">
+    <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+        <div>
+            <h1 class="h4 mb-1">安装验收：{{ acceptance.acceptance_no or ('#' ~ acceptance.id) }}{% if acceptance.item_name %} - {{ acceptance.item_name }}{% endif %}</h1>
+            <div class="text-muted">{{ acceptance.customer_name or '-' }} / {{ acceptance.card_serial_no or acceptance.serial_no or '-' }} / {{ acceptance.machine_model or '-' }}</div>
+        </div>
+        <span class="badge text-bg-primary">{{ acceptance.result or '-' }}</span>
+    </div>
+</div>
+
+<div class="page-card mb-3">
+    <h2 class="h5 mb-3">验收信息</h2>
+    <div class="row g-2">
+        <div class="col-md-3"><strong>验收单号：</strong>{{ acceptance.acceptance_no or ('#' ~ acceptance.id) }}</div>
+        <div class="col-md-3"><strong>验收日期：</strong>{{ acceptance.check_date or '-' }}</div>
+        <div class="col-md-3"><strong>验收类型：</strong>{{ acceptance.checklist_type or '-' }}</div>
+        <div class="col-md-3"><strong>项目号：</strong>{{ acceptance.project_code or '-' }}</div>
+        <div class="col-md-3"><strong>机号：</strong>{{ acceptance.serial_no or acceptance.card_serial_no or '-' }}</div>
+        <div class="col-md-3"><strong>销售订单：</strong>{{ acceptance.sales_order_no or '-' }}</div>
+        <div class="col-md-3"><strong>工单：</strong>{{ acceptance.wo_no or '-' }}</div>
+        <div class="col-md-3"><strong>物料：</strong>{{ acceptance.product_code or '-' }} {{ acceptance.product_name or '' }}</div>
+        <div class="col-md-3"><strong>结果：</strong>{{ acceptance.result or '-' }}</div>
+        <div class="col-12"><strong>验收项目：</strong>{{ acceptance.item_name or '-' }}</div>
+        <div class="col-12"><strong>备注：</strong>{{ acceptance.remark or '-' }}</div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-6">
+        <div class="page-card h-100" id="acceptanceAttachmentsPanel">
+            <div class="section-title"><div><h2>验收附件</h2><span>保存客户签字、验收单、现场照片和整改资料</span></div></div>
+            <form class="row g-2 align-items-end mb-3" method="post" action="/service-acceptance/{{ acceptance.id }}/attachments" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="col-md-5"><label class="form-label">选择文件</label><input class="form-control" type="file" name="file" required></div>
+                <div class="col-md-5"><label class="form-label">备注</label><input class="form-control" name="remark"></div>
+                <div class="col-md-2 d-grid"><button class="btn btn-primary" type="submit"><i class="bi bi-upload"></i> 上传</button></div>
+            </form>
+            {% for file in attachments %}
+            <div class="d-flex justify-content-between border-top py-2">
+                <a href="{{ url_for('static', filename=file.stored_path) }}" target="_blank">{{ file.file_name }}</a>
+                <form method="post" action="/service-acceptance/{{ acceptance.id }}/attachments/{{ file.id }}/delete">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-outline-danger btn-sm" type="submit">删除</button>
+                </form>
+            </div>
+            {% else %}
+            <div class="text-muted">暂无附件。</div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="page-card h-100">
+            <div class="section-title"><div><h2>备注/操作记录</h2><span>记录验收确认、整改和客户沟通说明</span></div></div>
+            <form class="row g-2 align-items-end mb-3" method="post" action="/service-acceptance/{{ acceptance.id }}/notes">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="col-md-9"><label class="form-label">新增备注</label><input class="form-control" name="note" required></div>
+                <div class="col-md-3 d-grid"><button class="btn btn-primary" type="submit">记录</button></div>
+            </form>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead><tr><th>时间</th><th>人员</th><th>动作</th><th>说明</th></tr></thead>
+                    <tbody>
+                    {% for log in activity_logs %}
+                    <tr><td>{{ log.created_at or '-' }}</td><td>{{ log.username or '-' }}</td><td>{{ log.action or '-' }}</td><td>{{ log.remark or log.target or '-' }}</td></tr>
+                    {% else %}
+                    <tr><td colspan="4" class="text-muted">暂无记录。</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+document.addEventListener('click', function(event) {
+    const action = event.target.closest('[data-menu-event="focus-attachments"]');
+    if (!action) return;
+    const target = document.getElementById('acceptanceAttachmentsPanel');
+    if (target) {
+        target.scrollIntoView({behavior: 'smooth', block: 'start'});
+        target.querySelector('input, button')?.focus({preventScroll: true});
+    }
+});
+</script>
+{% else %}
+<div class="page-card"><div class="text-muted">安装验收记录不存在。</div></div>
+{% endif %}
+{% endblock %}

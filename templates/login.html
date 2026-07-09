@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>登录 - 机床制造 ERP</title>
+    <link href="{{ url_for('static', filename='cdn/bootstrap-5.3.0.min.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='cdn/bootstrap-icons-1.10.0.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/erp_ui.css', v='20260618_bugfix_v1') }}" rel="stylesheet">
+</head>
+<body>
+<main class="login-page login-soft-page">
+    <div class="login-soft-scene" aria-hidden="true">
+        <div class="login-sky-layer login-sky-one"></div>
+        <div class="login-sky-layer login-sky-two"></div>
+        <div class="login-light-band login-light-band-one"></div>
+        <div class="login-light-band login-light-band-two"></div>
+        <div class="login-glow login-glow-one"></div>
+        <div class="login-glow login-glow-two"></div>
+        <div class="login-hero-shape login-hero-shape-main"></div>
+        <div class="login-hero-shape login-hero-shape-fin"></div>
+        <div class="login-floating-shape login-floating-shape-one"></div>
+        <div class="login-floating-shape login-floating-shape-two"></div>
+        <div class="login-floating-shape login-floating-shape-three"></div>
+        <div class="login-soft-horizon"></div>
+    </div>
+
+    <section class="login-soft-brand" aria-label="系统名称">
+        <div class="login-soft-logo">
+            <span class="brand-mark">机</span>
+            <strong>数控机床制造业 ERP</strong>
+        </div>
+        <p>项目交付 · 齐套进度 · 库存协同</p>
+    </section>
+
+    <form class="login-card login-card-soft" method="post" action="{{ url_for('login') }}" aria-label="系统登录">
+        <div class="login-title">
+            <span class="brand-mark">机</span>
+            <span>
+                <strong>数控机床制造业 ERP</strong>
+                <small>请输入账号进入系统</small>
+            </span>
+        </div>
+        <h2>系统登录</h2>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ 'danger' if category == 'error' else category }}">{{ message }}</div>
+        {% endfor %}
+        {% endwith %}
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="mb-3">
+            <label class="form-label" for="login-username">用户名</label>
+            <div class="login-input-wrap">
+                <i class="bi bi-person"></i>
+                <input class="form-control" id="login-username" name="username" required autofocus autocomplete="username">
+            </div>
+        </div>
+        <div class="mb-3">
+            <label class="form-label" for="login-password">密码</label>
+            <div class="login-input-wrap">
+                <i class="bi bi-shield-lock"></i>
+                <input class="form-control" type="password" id="login-password" name="password" required autocomplete="current-password">
+            </div>
+        </div>
+        <button class="btn btn-primary w-100 login-submit" type="submit">
+            <span>登录</span>
+            <i class="bi bi-arrow-right"></i>
+        </button>
+    </form>
+</main>
+<script>
+    try {
+        localStorage.removeItem('wms1.pageTabs');
+        sessionStorage.removeItem('wms1.pageTabs');
+    } catch (err) {}
+</script>
+</body>
+</html>

@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}工程变更单{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <div>
+        <h1>工程变更单</h1>
+        <p>BOM/工程一期变更闭环：记录变更原因、影响BOM、升版关联和只读影响摘要；不扩展完整PLM。</p>
+    </div>
+    <a class="btn btn-outline-secondary btn-sm" href="/bom">BOM清单</a>
+</div>
+
+<div class="alert alert-info py-2">
+    边界：本页是工程变更单据列表，只做查询、状态跟踪和进入详情；BOM行维护在独立BOM单据页，工单/MRP/采购影响为只读提示。
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div><h2>查询条件</h2><span>按变更单、主题、原因、状态和影响BOM筛选。</span></div>
+        {% if active_filter_count %}<a class="btn btn-outline-secondary btn-sm" href="/bom/ecn">清除条件</a>{% endif %}
+    </div>
+    <form method="get" class="row g-2 align-items-end" data-list-filter-form>
+        <div class="col-md-4">
+            <label class="form-label">综合关键字</label>
+            <input class="form-control form-control-sm" name="keyword" value="{{ filters.keyword }}" placeholder="ECN/主题/原因/BOM">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">影响BOM</label>
+            <input class="form-control form-control-sm" name="bom_no" value="{{ filters.bom_no }}">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">状态</label>
+            <select class="form-select form-select-sm" name="status">
+                {% for value, label in status_options %}
+                <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2 d-grid">
+            <button class="btn btn-primary btn-sm" type="submit"><i class="bi bi-search"></i> 查询</button>
+        </div>
+    </form>
+</div>
+
+<div class="page-card">
+    <div class="section-title">
+        <div><h2>变更单列表</h2><span>当前显示 {{ rows|length }} 条；列表不承担BOM编辑。</span></div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle client-paginate">
+            <thead><tr><th>变更单号</th><th>主题</th><th>状态</th><th>影响BOM</th><th>升版BOM</th><th>负责人</th><th>申请日期</th><th class="text-end">操作</th></tr></thead>
+            <tbody>
+            {% for row in rows %}
+            <tr>
+                <td><a href="{{ url_for('bom_ecn_detail', ecn_key=row.ecn_no) }}">{{ row.ecn_no }}</a></td>
+                <td>{{ row.title|clean_text }}</td>
+                <td><span class="badge bg-light text-dark border">{{ row.status_label }}</span></td>
+                <td>{{ row.source_bom_label|clean_text }}</td>
+                <td>{{ row.target_bom_label|clean_text }}</td>
+                <td>{{ row.owner|clean_text or '-' }}</td>
+                <td>{{ row.requested_date or '-' }}</td>
+                <td class="text-end"><a class="btn btn-outline-primary btn-sm" href="{{ url_for('bom_ecn_detail', ecn_key=row.ecn_no) }}">详情</a></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="8" class="text-muted">暂无工程变更单。</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

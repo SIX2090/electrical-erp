@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block title %}{{ '修改图纸' if mode == 'edit' else '新增图纸' }}{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <h1>{{ '修改图纸' if mode == 'edit' else '新增图纸' }}</h1>
+    <p>登记受控图纸版本、发布依据和业务引用；设计源文件仍由 CAD/PDM 或文件服务器管理。</p>
+</div>
+
+<form method="post" action="{{ action_url }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="page-card mb-3">
+        <div class="section-title">
+            <div>
+                <h2>图纸信息</h2>
+                <span>同一图号可维护多个版本，已发布版本供技术确认、生产、采购、外协、质检和售后引用。</span>
+            </div>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">图号</label>
+                <input class="form-control" name="drawing_no" value="{{ drawing.drawing_no or '' }}" required {% if drawing.status in ['released', 'obsolete', 'frozen'] %}readonly{% endif %}>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">版本</label>
+                <input class="form-control" name="version" value="{{ drawing.version or 'A' }}" required>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">图纸名称</label>
+                <input class="form-control" name="drawing_name" value="{{ drawing.drawing_name or '' }}" required>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">图纸类型</label>
+                <select class="form-select" name="drawing_type">
+                    {% for value, label in drawing_type_options %}
+                    <option value="{{ value }}" {% if drawing.drawing_type == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">状态</label>
+                <input type="hidden" name="status" value="{{ drawing.status or 'draft' }}">
+                <div class="form-control bg-light">{{ drawing.status_label|clean_text if drawing.status_label else '草稿' }}</div>
+                <div class="form-text">状态由详情页发布、变更、作废动作控制。</div>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">负责人</label>
+                <input class="form-control" name="owner" value="{{ drawing.owner or '' }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">发布日期</label>
+                <input class="form-control" type="date" name="released_date" value="{{ drawing.released_date or '' }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">生效日期</label>
+                <input class="form-control" type="date" name="effective_date" value="{{ drawing.effective_date or '' }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">作废日期</label>
+                <input class="form-control" type="date" name="obsolete_date" value="{{ drawing.obsolete_date or '' }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">受控等级</label>
+                <select class="form-select" name="security_level">
+                    {% for value, label in security_level_options %}
+                    <option value="{{ value }}" {% if (drawing.security_level or 'normal') == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">发布单号</label>
+                <input class="form-control" name="release_no" value="{{ drawing.release_no or '' }}" placeholder="ECN/ECR/发布单号">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">批准人</label>
+                <input class="form-control" name="approved_by" value="{{ drawing.approved_by or '' }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">批准日期</label>
+                <input class="form-control" type="date" name="approval_date" value="{{ drawing.approval_date or '' }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">来源系统</label>
+                <input class="form-control" name="source_system" value="{{ drawing.source_system or '设计/PDM' }}">
+            </div>
+            <div class="col-md-1">
+                <label class="form-label">格式</label>
+                <input class="form-control" name="file_format" value="{{ drawing.file_format or '' }}" placeholder="PDF/DWG">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">文件位置</label>
+                <input class="form-control" name="file_location" value="{{ drawing.file_location or '' }}" placeholder="文件服务器/PDM链接/PDF位置">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">校验值</label>
+                <input class="form-control" name="checksum" value="{{ drawing.checksum or '' }}" placeholder="可选：文件哈希或受控编号">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">变更原因</label>
+                <textarea class="form-control" name="change_reason" rows="3">{{ drawing.change_reason or '' }}</textarea>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">备注</label>
+                <textarea class="form-control" name="remark" rows="3">{{ drawing.remark or '' }}</textarea>
+            </div>
+        </div>
+    </div>
+
+    {% if mode == 'new' %}
+    <div class="page-card mb-3">
+        <div class="section-title">
+            <div>
+                <h2>初始业务引用</h2>
+                <span>可选。保存后可继续维护更多物料、BOM、项目号或机号引用。</span>
+            </div>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">关联物料</label>
+                <select class="form-select" name="product_id">
+                    <option value="">不关联</option>
+                    {% for product in options.products %}
+                    <option value="{{ product.id }}">{{ product.code|clean_text }} {{ product.name|clean_text }} {{ product.specification|clean_text or '' }} {{ product.unit|clean_text or '' }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">关联BOM</label>
+                <select class="form-select" name="bom_id">
+                    <option value="">不关联</option>
+                    {% for bom in options.boms %}
+                    <option value="{{ bom.id }}">{{ bom.bom_no|clean_text }} / {{ bom.version|clean_text }} {{ bom.product_code|clean_text or '' }} {{ bom.product_name|clean_text or '' }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">项目号</label>
+                <input class="form-control" name="project_code">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">机号</label>
+                <input class="form-control" name="serial_no">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">使用范围</label>
+                <input class="form-control" name="usage_scope" placeholder="采购/外协/装配/质检/售后">
+            </div>
+            <div class="col-md-9">
+                <label class="form-label">引用说明</label>
+                <input class="form-control" name="link_remark">
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="d-flex gap-2">
+        <button class="btn btn-primary" type="submit"><i class="bi bi-save"></i> 保存</button>
+        <a class="btn btn-outline-secondary" href="/engineering/drawings">返回列表</a>
+    </div>
+</form>
+{% endblock %}

@@ -1,0 +1,37 @@
+﻿Inventory reverse audit delivery artifacts
+=========================================
+
+Do not run git add . for this worktree.
+
+Backups:
+- backups/pre_migration_inventory_reverse_audit.dump
+
+Patch files:
+- inventory_reverse_audit_worktree.patch
+- inventory_reverse_audit_scoped.patch
+
+Handoff:
+- INVENTORY_REVERSE_AUDIT_HANDOFF.md
+
+Primary commit candidate files:
+- routes/registry.py
+- services/schema_migrations.py
+- templates/inventory_adjustment_form.html
+- templates/inventory_transfer_form.html
+- templates/inventory_assembly_form.html
+- templates/inventory_document_detail.html
+- templates/inventory_assembly_detail.html
+- templates/inventory_movement_form.html
+- templates/purchase_receipt_detail.html
+
+Final verification passed:
+- compileall
+- source_integrity_audit
+- erp_prelaunch_audit
+- audit_erp_crud_completeness
+- audit_inventory_operation_gaps
+- audit_inventory_pending_posting_flow
+- audit_inventory_return_and_reports
+- audit_inventory_balance_consistency
+- audit_trial_visible_navigation
+- audit_trial_direct_access_matrix

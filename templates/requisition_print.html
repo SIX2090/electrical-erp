@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>工单领料单打印 - {{ requisition.doc_no }}</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: #f3f4f6;
+            color: #111827;
+            font-family: "Microsoft YaHei", SimSun, serif;
+            font-size: 13px;
+        }
+        .no-print {
+            background: #fff;
+            border-bottom: 1px solid #d1d5db;
+            padding: 12px 18px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .btn {
+            height: 34px;
+            border: 1px solid #cbd5e1;
+            background: #fff;
+            color: #111827;
+            border-radius: 5px;
+            padding: 0 14px;
+            cursor: pointer;
+        }
+        .btn-primary { background: #2563eb; border-color: #2563eb; color: #fff; }
+        .sheet {
+            width: 210mm;
+            min-height: 297mm;
+            margin: 16px auto;
+            background: #fff;
+            padding: 16mm 14mm;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, .12);
+        }
+        .title { text-align: center; font-size: 24px; font-weight: 700; margin-bottom: 4px; }
+        .subtitle { text-align: center; color: #6b7280; margin-bottom: 18px; }
+        .topline {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            border-top: 2px solid #111827;
+            border-bottom: 1px solid #111827;
+            padding: 9px 0;
+            margin-bottom: 12px;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px 16px;
+            margin-bottom: 14px;
+        }
+        .field-label { color: #374151; font-weight: 700; }
+        table { width: 100%; border-collapse: collapse; table-layout: auto; }
+        th, td {
+            border: 1px solid #111827;
+            padding: 6px 7px;
+            vertical-align: middle;
+            word-break: break-word;
+        }
+        th { background: #f3f4f6; font-weight: 700; text-align: center; }
+        .center { text-align: center; }
+        .right { text-align: right; }
+        .summary { margin-top: 10px; display: flex; justify-content: flex-end; gap: 22px; font-weight: 700; }
+        .remark { margin-top: 12px; min-height: 22px; }
+        .signatures {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-top: 38px;
+        }
+        .signature-line { border-bottom: 1px solid #111827; height: 28px; margin-left: 48px; }
+        .footer {
+            color: #6b7280;
+            font-size: 12px;
+            margin-top: 26px;
+            display: flex;
+            justify-content: space-between;
+        }
+        @media print {
+            @page { size: A4; margin: 10mm; }
+            body { background: #fff; }
+            .no-print { display: none !important; }
+            .sheet { width: auto; min-height: auto; margin: 0; padding: 0; box-shadow: none; }
+            th { background: #f3f4f6 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+    </style>
+</head>
+<body>
+    <div class="no-print">
+        <button class="btn btn-primary" onclick="window.print()">打印</button>
+        <button class="btn" onclick="history.back()">返回</button>
+        <button class="btn" onclick="window.close()">关闭</button>
+    </div>
+    <main class="sheet">
+        <div class="title">工单领料单</div>
+        <div class="subtitle">生产工单派生领料处理打印</div>
+
+        <div class="topline">
+            <div><span class="field-label">领料单号：</span>{{ requisition.doc_no }}</div>
+            <div><span class="field-label">来源工单：</span>{{ requisition.wo_no or requisition.work_order_id or '-' }}</div>
+            <div><span class="field-label">状态：</span>{{ requisition.status or '-' }}</div>
+        </div>
+
+        <section class="info-grid">
+            <div><span class="field-label">项目号：</span>{{ requisition.project_code or '-' }}</div>
+            <div><span class="field-label">机号：</span>{{ requisition.serial_no or '-' }}</div>
+            <div><span class="field-label">生产物料：</span>{{ ((requisition.product_code or '') ~ ' ' ~ (requisition.product_name or ''))|trim or '-' }}</div>
+            <div><span class="field-label">用途：</span>{{ requisition.purpose or '-' }}</div>
+            <div><span class="field-label">备注：</span>{{ requisition.remark or '-' }}</div>
+            <div><span class="field-label">打印时间：</span>{{ print_time.strftime('%Y-%m-%d %H:%M') if print_time else '' }}</div>
+        </section>
+
+        <table>
+            <thead>
+                <tr>
+                    <th style="width:42px;">序号</th>
+                    <th>物料编码</th>
+                    <th>物料名称</th>
+                    <th>规格</th>
+                    <th>数量</th>
+                    <th>单位</th>
+                    <th>仓库</th>
+                    <th>库位</th>
+                    <th>批号</th>
+                    <th>机号</th>
+                    <th>备注</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for line in lines %}
+                <tr>
+                    <td class="center">{{ loop.index }}</td>
+                    <td>{{ line.material_code or '' }}</td>
+                    <td>{{ line.material_name or '' }}</td>
+                    <td>{{ line.specification or '' }}</td>
+                    <td class="right">{{ '%.3f'|format(line.quantity or 0) }}</td>
+                    <td class="center">{{ line.unit or '' }}</td>
+                    <td>{{ line.warehouse_name or '' }}</td>
+                    <td>{{ line.location_name or '' }}</td>
+                    <td>{{ line.lot_no or '' }}</td>
+                    <td>{{ line.line_serial_no or '' }}</td>
+                    <td>{{ line.remark or '' }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td class="center" colspan="11">暂无物料明细</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="summary">
+            <div>数量合计：{{ '%.3f'|format(total_quantity or 0) }}</div>
+        </div>
+
+        <div class="remark"><span class="field-label">用途/备注：</span>{{ requisition.purpose or '' }}{% if requisition.purpose and requisition.remark %} / {% endif %}{{ requisition.remark or '' }}</div>
+
+        <section class="signatures">
+            {% for label in ['制单', '生产', '仓库', '审核'] %}
+            <div>
+                <span class="field-label">{{ label }}：</span>
+                <div class="signature-line"></div>
+            </div>
+            {% endfor %}
+        </section>
+
+        <div class="footer">
+            <span>工单领料为生产工单派生处理，本页仅用于打印留档。</span>
+            <span>{{ requisition.doc_no }}</span>
+        </div>
+    </main>
+</body>
+</html>

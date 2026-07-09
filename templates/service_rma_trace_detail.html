@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}RMA详情 - {{ rma.rma_no }}{% endblock %}
+{% block content %}
+{% set is_closed = not can_operate %}
+{{ document_menu_bar(actions=[
+    {'label': '返回列表', 'type': 'link', 'href': back_url or '/service-rmas', 'icon': 'bi-arrow-left'},
+    {'label': '编辑', 'type': 'link', 'href': '/service-rmas/' ~ rma.id ~ '/edit', 'disabled': (rma.status or '') not in ['', '待处理', 'pending', 'draft', 'open'], 'icon': 'bi-pencil-square'},
+    {'label': '诊断', 'type': 'button', 'event': 'focus-diagnose', 'disabled': is_closed},
+    {'label': '索赔', 'type': 'button', 'event': 'focus-claim', 'disabled': is_closed},
+    {'label': '追回', 'type': 'button', 'event': 'focus-recover', 'disabled': is_closed},
+    {'label': '关闭', 'type': 'button', 'event': 'focus-close', 'disabled': is_closed},
+    {'label': '下查', 'type': 'dropdown', 'items': [
+        {'label': '来源服务单', 'type': 'link', 'href': '/service-orders/' ~ rma.order_id if rma.order_id else '/service-orders', 'disabled': not rma.order_id},
+        {'label': '设备服务档案', 'type': 'link', 'href': '/service-cards/' ~ rma.service_card_id if rma.service_card_id else '/service-cards', 'disabled': not rma.service_card_id},
+        {'label': 'RMA索赔报表', 'type': 'link', 'href': '/service/reports/rma-claim?keyword=' ~ ((rma.rma_no or rma.serial_no or rma.project_code or '')|urlencode)},
+        {'label': '项目台账', 'type': 'link', 'href': '/projects?keyword=' ~ ((rma.project_code or rma.serial_no or rma.rma_no or '')|urlencode)}
+    ]},
+    {'label': '附件/备注', 'type': 'button', 'event': 'focus-attachments'}
+]) }}
+<div id="doc-nav-config" data-nav-table="service_rmas" data-nav-base="/service-rmas/" data-doc-id="{{ rma.id }}" style="display:none"></div>
+<div class="mb-3 d-none">
+    <a class="btn btn-outline-secondary btn-sm" href="{{ back_url or '/service-rmas' }}">返回RMA</a>
+    {% if (rma.status or '') in ['', '待处理', 'pending', 'draft', 'open'] %}
+    <a class="btn btn-outline-secondary btn-sm ms-2" href="/service-rmas/{{ rma.id }}/edit">编辑</a>
+    {% endif %}
+    {% if rma.order_id %}<a class="btn btn-outline-primary btn-sm ms-2" href="/service-orders/{{ rma.order_id }}">服务单</a>{% endif %}
+    {% if rma.service_card_id %}<a class="btn btn-outline-primary btn-sm ms-2" href="/service-cards/{{ rma.service_card_id }}">设备档案</a>{% endif %}
+</div>
+
+<div class="page-card mb-3">
+    <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+        <div>
+            <h1 class="h4 mb-1">RMA：{{ rma.rma_no }}</h1>
+            <div class="text-muted">{{ rma.customer_name or '-' }} / {{ rma.card_serial_no or rma.serial_no or '-' }} / {{ rma.machine_model or '-' }}</div>
+        </div>
+        <span class="badge {{ 'text-bg-secondary' if not can_operate else 'text-bg-primary' }}">{{ rma.status or '-' }}</span>
+    </div>
+</div>
+
+<div class="page-card mb-3" data-testid="service-rma-status-flow">
+    <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+        <div>
+            <h2 class="h5 mb-1">RMA状态 / 下一步</h2>
+            <div class="text-muted">{{ next_step }}</div>
+        </div>
+        <span class="badge text-bg-info">{{ rma.claim_status or '-' }}</span>
+    </div>
+    {% if can_operate %}
+    {% if nav_mode in ['gt_pilot', 'pilot_gtym', 'gtym_pilot'] and (not rma.project_code or not (rma.serial_no or rma.card_serial_no)) %}
+    <div class="alert alert-info mt-3 mb-0">项目号和机号用于RMA追溯；系统启用强制项目号/机号时，RMA必须补齐后才能继续流转。</div>
+    {% endif %}
+    <div class="row g-3 mt-2">
+        <div class="col-lg-6">
+            <form class="border rounded p-3 h-100" id="rmaDiagnosePanel" method="post" action="/service-rmas/{{ rma.id }}/diagnose" data-testid="service-rma-diagnose-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <h3 class="h6">诊断</h3>
+                <div class="row g-2">
+                    <div class="col-md-6"><input class="form-control" name="warranty_scope" value="{{ rma.warranty_scope or '待判定' }}"></div>
+                    <div class="col-md-6"><input class="form-control" name="responsibility_type" value="{{ rma.responsibility_type or '待判定' }}"></div>
+                    <div class="col-12"><input class="form-control" name="fault_summary" placeholder="故障摘要" value="{{ rma.fault_summary or '' }}"></div>
+                    <div class="col-12"><input class="form-control" name="diagnosis" placeholder="诊断结论" value="{{ rma.diagnosis or '' }}" required></div>
+                    <div class="col-12 d-grid"><button class="btn btn-primary" type="submit">登记诊断</button></div>
+                </div>
+            </form>
+        </div>
+        <div class="col-lg-6">
+            <form class="border rounded p-3 h-100" id="rmaClaimPanel" method="post" action="/service-rmas/{{ rma.id }}/claim" data-testid="service-rma-claim-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <h3 class="h6">索赔</h3>
+                <div class="row g-2">
+                    <div class="col-md-4"><input class="form-control" type="number" step="0.01" name="internal_claim_amount" value="{{ rma.internal_claim_amount or 0 }}"></div>
+                    <div class="col-md-4"><input class="form-control" type="number" step="0.01" name="supplier_claim_amount" value="{{ rma.supplier_claim_amount or 0 }}"></div>
+                    <div class="col-md-4"><input class="form-control" name="claim_status" value="{{ rma.claim_status or '索赔中' }}"></div>
+                    <div class="col-12"><input class="form-control" name="claim_note" placeholder="索赔说明" value="{{ rma.claim_note or '' }}"></div>
+                    <div class="col-12 d-grid"><button class="btn btn-primary" type="submit">登记索赔</button></div>
+                </div>
+            </form>
+        </div>
+        <div class="col-lg-6">
+            <form class="border rounded p-3 h-100" id="rmaRecoverPanel" method="post" action="/service-rmas/{{ rma.id }}/recover" data-testid="service-rma-recover-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <h3 class="h6">追回</h3>
+                <div class="row g-2">
+                    <div class="col-md-5"><input class="form-control" type="number" step="0.01" name="supplier_recovered_amount" value="{{ rma.supplier_recovered_amount or 0 }}"></div>
+                    <div class="col-md-5"><input class="form-control" name="claim_note" placeholder="追回说明"></div>
+                    <div class="col-md-2 d-grid"><button class="btn btn-primary" type="submit">登记</button></div>
+                </div>
+            </form>
+        </div>
+        <div class="col-lg-6">
+            <form class="border rounded p-3 h-100" id="rmaClosePanel" method="post" action="/service-rmas/{{ rma.id }}/close" data-testid="service-rma-close-form" onsubmit="return confirm('确认关闭该RMA？')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <h3 class="h6">关闭</h3>
+                <div class="row g-2">
+                    <div class="col-md-9"><input class="form-control" name="remark" placeholder="关闭说明"></div>
+                    <div class="col-md-3 d-grid"><button class="btn btn-outline-danger" type="submit">关闭RMA</button></div>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-6">
+        <div class="page-card h-100" id="rmaAttachmentsPanel">
+            <h2 class="h5 mb-3">RMA信息</h2>
+            <div class="row g-2">
+                <div class="col-md-6"><strong>日期：</strong>{{ rma.rma_date or '-' }}</div>
+                <div class="col-md-6"><strong>服务单：</strong>{{ rma.service_order_no or '-' }}</div>
+                <div class="col-md-6"><strong>质保：</strong>{{ rma.warranty_scope or '-' }}</div>
+                <div class="col-md-6"><strong>责任：</strong>{{ rma.responsibility_type or '-' }}</div>
+                <div class="col-md-6"><strong>需返厂：</strong>{{ '是' if rma.return_factory_required else '否' }}</div>
+                <div class="col-md-6"><strong>项目号：</strong>{{ rma.project_code or '-' }}</div>
+                <div class="col-md-6"><strong>机号：</strong>{{ rma.serial_no or rma.card_serial_no or '-' }}</div>
+                <div class="col-md-6"><strong>产品分类：</strong>{{ rma.product_family|clean_text if rma.product_family else '-' }}</div>
+                <div class="col-md-6"><strong>BOM：</strong>{% if rma.bom_no %}<a href="/bom/{{ rma.bom_no }}">{{ rma.bom_display }}</a>{% else %}{{ rma.bom_display or '-' }}{% endif %}</div>
+                <div class="col-md-6"><strong>管控：</strong>{{ rma.control_display or '-' }}</div>
+                <div class="col-md-6"><strong>工单：</strong>{{ rma.wo_no or '-' }}</div>
+                <div class="col-md-6"><strong>销售订单：</strong>{{ rma.sales_order_no or '-' }}</div>
+                <div class="col-md-6"><strong>物料：</strong>{{ rma.product_code or '-' }} {{ rma.product_name or '' }}</div>
+                <div class="col-md-12"><strong>故障：</strong>{{ rma.fault_summary or rma.service_issue or '-' }}</div>
+                <div class="col-md-12"><strong>诊断：</strong>{{ rma.diagnosis or '-' }}</div>
+                <div class="col-md-12"><strong>备注：</strong>{{ rma.remark or '-' }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="page-card h-100">
+            <h2 class="h5 mb-3">索赔金额</h2>
+            <div class="row g-3">
+                <div class="col-md-4"><div class="metric"><div class="label">内部损失</div><div class="value">{{ rma.internal_claim_amount|money }}</div></div></div>
+                <div class="col-md-4"><div class="metric"><div class="label">供应商索赔</div><div class="value">{{ rma.supplier_claim_amount|money }}</div></div></div>
+                <div class="col-md-4"><div class="metric"><div class="label">已追回</div><div class="value">{{ rma.supplier_recovered_amount|money }}</div></div></div>
+                <div class="col-12"><strong>索赔说明：</strong>{{ rma.claim_note or '-' }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="page-card mt-3">
+    <h2 class="h5 mb-3">RMA退回/故障/更换物料明细</h2>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+            <tr>
+                <th data-column-key="source_line">来源行</th>
+                <th data-column-key="material_code">物料编码</th>
+                <th data-column-key="material_name">物料名称</th>
+                <th data-column-key="specification">规格型号</th>
+                <th data-column-key="unit">单位</th>
+                <th class="text-end" data-column-key="quantity">数量</th>
+                <th class="text-end" data-column-key="unit_cost">成本单价</th>
+                <th class="text-end" data-column-key="amount">成本金额</th>
+                <th data-column-key="warehouse">仓库</th>
+                <th data-column-key="location">库位</th>
+                <th data-column-key="lot_no">批号</th>
+                <th data-column-key="project_code">项目号</th>
+                <th data-column-key="serial_no">机号</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for item in rma_items %}
+            <tr>
+                <td>{{ item.source_line_no or '-' }}</td>
+                <td>{{ item.material_code or item.product_code or '-' }}</td>
+                <td>{{ item.material_name or item.product_name or '-' }}</td>
+                <td>{{ item.material_spec or item.specification or '-' }}</td>
+                <td>{{ item.material_unit or item.unit or '-' }}</td>
+                <td class="text-end">{{ '%.2f'|format(item.quantity or 0) }}</td>
+                <td class="text-end">{{ (item.unit_cost or 0)|money }}</td>
+                <td class="text-end">{{ (item.amount or 0)|money }}</td>
+                <td>{{ item.warehouse_name or item.warehouse_id or '-' }}</td>
+                <td>{{ item.location_name or item.location_id or '-' }}</td>
+                <td>{{ item.lot_no or '-' }}</td>
+                <td>{{ item.line_project_code or item.project_code or '-' }}</td>
+                <td>{{ item.line_serial_no or item.serial_no or '-' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="13" class="text-muted">暂无RMA物料明细。</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="row g-3 mt-1">
+    <div class="col-lg-6">
+        <div class="page-card h-100">
+            <h2 class="h5 mb-3">RMA附件</h2>
+            <form class="row g-2 align-items-end mb-3" method="post" action="/service-rmas/{{ rma.id }}/attachments" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="col-md-7"><input class="form-control" type="file" name="file" required></div>
+                <div class="col-md-3"><input class="form-control" name="remark" placeholder="备注"></div>
+                <div class="col-md-2 d-grid"><button class="btn btn-primary" type="submit">上传</button></div>
+            </form>
+            {% for file in attachments %}
+            <div class="d-flex justify-content-between border-top py-2">
+                <a href="{{ url_for('static', filename=file.stored_path) }}" target="_blank">{{ file.file_name }}</a>
+                <form method="post" action="/service-rmas/{{ rma.id }}/attachments/{{ file.id }}/delete">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-outline-danger btn-sm" type="submit">删除</button>
+                </form>
+            </div>
+            {% else %}
+            <div class="text-muted">暂无附件。</div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="page-card h-100">
+            <h2 class="h5 mb-3">备注/操作记录</h2>
+            <form class="row g-2 align-items-end mb-3" method="post" action="/service-rmas/{{ rma.id }}/notes">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="col-md-9"><input class="form-control" name="note" placeholder="新增备注" required></div>
+                <div class="col-md-3 d-grid"><button class="btn btn-primary" type="submit">记录</button></div>
+            </form>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead><tr><th>时间</th><th>人员</th><th>动作</th><th>说明</th></tr></thead>
+                    <tbody>
+                    {% for log in activity_logs %}
+                    <tr><td>{{ log.created_at or '-' }}</td><td>{{ log.username or '-' }}</td><td>{{ log.action or '-' }}</td><td>{{ log.remark or log.target or '-' }}</td></tr>
+                    {% else %}
+                    <tr><td colspan="4" class="text-muted">暂无记录。</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+document.addEventListener('click', function(event) {
+    const action = event.target.closest('[data-menu-event]');
+    if (!action) return;
+    const targets = {
+        'focus-diagnose': '#rmaDiagnosePanel',
+        'focus-claim': '#rmaClaimPanel',
+        'focus-recover': '#rmaRecoverPanel',
+        'focus-close': '#rmaClosePanel',
+        'focus-attachments': '#rmaAttachmentsPanel'
+    };
+    const target = document.querySelector(targets[action.dataset.menuEvent] || '');
+    if (target) {
+        target.scrollIntoView({behavior: 'smooth', block: 'start'});
+        target.querySelector('input, select, textarea, button')?.focus({preventScroll: true});
+    }
+});
+</script>
+{% endblock %}

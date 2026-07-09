@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <h1>{{ title }}</h1>
+    <p>{{ subtitle }}</p>
+</div>
+
+<div class="page-card mb-3">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+        <div>
+            <h2 class="h5 mb-1">销售订单筛选</h2>
+            <div class="text-muted small">列表用于查询、筛选和追踪销售订单；发货需进入独立发货单据流程处理。</div>
+        </div>
+    </div>
+    <div class="filter-schemes" aria-label="过滤方案">
+        <a class="filter-scheme {% if not filters.risk and not filters.status %}active{% endif %}" href="{{ back_url }}">全部</a>
+        <a class="filter-scheme {% if filters.risk == 'pending_ship' %}active{% endif %}" href="{{ back_url }}?risk=pending_ship">待发货</a>
+        <a class="filter-scheme {% if filters.risk == 'receivable' %}active{% endif %}" href="{{ back_url }}?risk=receivable">待回款</a>
+        <a class="filter-scheme {% if filters.risk == 'overdue' %}active{% endif %}" href="{{ back_url }}?risk=overdue">逾期交付</a>
+        <a class="filter-scheme {% if filters.risk == 'credit' %}active{% endif %}" href="{{ back_url }}?risk=credit">信用预警</a>
+    </div>
+    <form class="row g-2" method="get" action="{{ back_url }}" data-list-filter-form>
+        <div class="col-lg-3"><input class="form-control" name="keyword" value="{{ filters.keyword }}" placeholder="销售订单、客户、项目号、机号"></div>
+        <div class="col-lg-2">
+            <select class="form-select" name="customer_id">
+                <option value="">全部客户</option>
+                {% for row in customers %}<option value="{{ row.id }}" {% if filters.customer_id|string == row.id|string %}selected{% endif %}>{{ row.name|clean_text }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-lg-2">
+            <select class="form-select" name="product_family">
+                <option value="">全部产品分类</option>
+                {% for row in product_families %}<option value="{{ row.name }}" {% if filters.product_family == row.name %}selected{% endif %}>{{ row.name|clean_text }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-lg-2">
+            <select class="form-select" name="status">
+                <option value="">全部状态</option>
+                {% for row in status_rows %}<option value="{{ row.status }}" {% if filters.status == row.status %}selected{% endif %}>{{ (row.display_status or row.status)|clean_text }} ({{ row.count }})</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-lg-2">
+            <select class="form-select" name="risk">
+                <option value="">全部风险</option>
+                <option value="pending_ship" {% if filters.risk == 'pending_ship' %}selected{% endif %}>待发货</option>
+                <option value="receivable" {% if filters.risk == 'receivable' %}selected{% endif %}>待回款</option>
+                <option value="overdue" {% if filters.risk == 'overdue' %}selected{% endif %}>逾期交付</option>
+                <option value="credit" {% if filters.risk == 'credit' %}selected{% endif %}>信用预警</option>
+            </select>
+        </div>
+        <div class="col-lg-1"><input class="form-control" type="date" name="date_from" value="{{ filters.date_from or '' }}" title="开始日期"></div>
+        <div class="col-lg-1"><input class="form-control" type="date" name="date_to" value="{{ filters.date_to or '' }}" title="结束日期"></div>
+        <div class="col-lg-1 d-grid"><button class="btn btn-primary" type="submit"><i class="bi bi-search"></i> 查询</button></div>
+    </form>
+</div>
+
+<div class="page-card">
+    <div class="section-title">
+        <div><h2>销售订单列表</h2>{% if orders %}<span>{{ orders|length }} 条记录</span>{% endif %}</div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle simple-list-table client-paginate">
+            <thead><tr><th>销售订单</th><th>客户</th><th>项目/机号</th><th>产品分类/BOM</th><th>交货日期</th><th class="text-end">数量</th><th class="text-end">待发货</th><th class="text-end">应收余额</th><th data-column-key="status">状态</th><th>下一步</th><th>发货条件</th><th data-column-system="actions">操作</th></tr></thead>
+            <tbody>
+            {% if orders %}
+            {% for row in orders %}
+            <tr>
+                <td><a href="/sales/{{ row.id }}">{{ row.order_no }}</a><div class="text-muted small">{{ row.order_date or '-' }}</div></td>
+                <td>{{ row.customer_name|clean_text }}</td>
+                <td>{{ row.project_code|clean_text }} / {{ row.serial_no|clean_text }}</td>
+                <td>
+                    {{ row.product_families|clean_text }}
+                    <div class="text-muted small">{{ row.bom_versions|clean_text }}</div>
+                </td>
+                <td>{{ row.delivery_date or '-' }}</td>
+                <td class="text-end">{{ row.ordered_qty|qty }}</td>
+                <td class="text-end {% if row.pending_ship_qty %}fw-semibold text-primary{% endif %}">{{ row.pending_ship_qty|qty }}</td>
+                <td class="text-end">{{ row.receivable_balance|money }}</td>
+                <td>{{ (row.display_status or row.status)|clean_text }}</td>
+                <td>{{ row.next_action|clean_text }}</td>
+                <td>{{ row.blocked_reason|clean_text if row.blocked_reason else '-' }}</td>
+                <td class="text-nowrap">
+                    <a class="btn btn-outline-primary btn-sm" href="/sales/{{ row.id }}">详情</a>
+                    {% set trace_key = row.project_code or row.serial_no or row.order_no %}
+                    <a class="btn btn-outline-secondary btn-sm" href="/projects?keyword={{ trace_key|urlencode }}">项目/机号台账</a>
+                </td>
+            </tr>
+            {% endfor %}
+            {% else %}
+            <tr><td class="text-muted text-center" colspan="12">没有匹配销售订单。</td></tr>
+            {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

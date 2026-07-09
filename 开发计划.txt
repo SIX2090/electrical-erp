@@ -1,0 +1,921 @@
+下面给你一份适合当前 C:\ERP 的 P0 首期开发计划。
+
+目标是：先补齐数控机床制造业 ERP 最核心、最影响落地的能力，不要继续无序增加页面和报表。
+
+数控机床制造业 ERP
+P0 首期开发计划
+一、首期目标
+P0 首期只做最关键的 5 件事：
+
+MRP / 齐套净需求引擎
+项目号 + 机号全链路追溯引擎
+单机成本 / 项目成本归集引擎
+BOM / 图纸 / 工艺 / ECN 快照与影响控制
+数据级权限控制
+这 5 个能力是数控机床项目制 ERP 的底座。
+
+二、为什么 P0 首期先做这 5 个
+当前系统已经有很多模块、单据和报表，但核心不足是：
+
+问题	影响
+有缺料查询，但没有完整 MRP 引擎	采购、生产仍靠人工判断
+有项目号/机号字段，但没有统一追溯链	问题追责和成本复盘困难
+有成本报表，但没有成本归集引擎	单台机床毛利不准
+有 BOM、图纸、工艺，但缺少版本快照	生产可能使用错误版本
+有角色权限，但缺少数据权限	项目、客户、供应商数据容易越权
+所以首期不建议先做更多页面，而是先补“业务引擎”。
+
+三、P0 首期范围
+P0-1：MRP / 齐套净需求引擎
+目标
+实现从销售订单、项目、机号或生产工单出发，自动计算物料净需求，并生成采购、生产、委外建议。
+
+1.1 核心功能
+A. MRP 运算入口
+支持以下来源发起 MRP：
+
+销售订单
+项目
+机号
+生产工单
+手工选择产品/BOM
+B. 多层 BOM 展开
+支持：
+
+成品
+部件
+零件
+原材料
+标准件
+外购件
+委外件
+自制件
+C. 净需求计算
+需求量应扣减：
+
+可用库存
+项目专用库存
+已预留库存
+采购在途
+委外在途
+生产在制
+已下达未领料数量
+D. 替代料计算
+支持：
+
+主料
+替代料
+替代优先级
+替代比例
+是否允许自动替代
+替代审批
+E. 损耗率
+支持 BOM 行损耗率：
+
+Text
+毛需求 = 净用量 × 需求数量 × (1 + 损耗率)
+F. 项目/机号专用料隔离
+区分：
+
+通用库存
+项目专用库存
+机号专用库存
+冻结库存
+不可用库存
+G. 运算快照
+每次 MRP 运算保存：
+
+运算时间
+运算人
+来源单据
+BOM 版本
+库存快照
+在途快照
+替代料使用情况
+净需求结果
+H. 自动生成建议
+MRP 结果生成：
+
+采购建议
+生产建议
+委外建议
+调拨建议
+1.2 建议新增服务
+Text
+services/mrp_engine.py
+services/mrp_snapshot_service.py
+services/mrp_suggestion_service.py
+1.3 建议新增数据表
+mrp_runs
+MRP 运算主表。
+
+字段	说明
+id	主键
+run_no	运算编号
+source_type	来源类型
+source_id	来源单据 ID
+project_id	项目 ID
+serial_no	机号
+bom_version_id	BOM 版本
+status	状态
+created_by	创建人
+created_at	创建时间
+mrp_run_items
+MRP 运算明细。
+
+字段	说明
+id	主键
+run_id	MRP 运算 ID
+material_id	物料 ID
+material_code	物料编码
+gross_qty	毛需求
+available_qty	可用库存
+reserved_qty	已预留
+purchase_on_order_qty	采购在途
+production_on_order_qty	生产在制
+outsource_on_order_qty	委外在制
+net_qty	净需求
+suggestion_type	建议类型
+required_date	需求日期
+project_id	项目 ID
+serial_no	机号
+mrp_suggestions
+MRP 建议表。
+
+字段	说明
+id	主键
+run_id	运算 ID
+suggestion_type	purchase / production / outsource / transfer
+material_id	物料 ID
+qty	建议数量
+required_date	需求日期
+status	状态
+converted_doc_type	转换单据类型
+converted_doc_id	转换单据 ID
+1.4 页面建议
+新增页面：
+
+Text
+/mrp/run
+/mrp/runs
+/mrp/runs/<id>
+/mrp/suggestions
+/mrp/kitting
+页面功能：
+
+发起 MRP 运算
+查看运算历史
+查看缺料明细
+查看齐套率
+转采购申请
+转生产工单
+转委外订单
+1.5 验收标准
+MRP 首期验收必须满足：
+
+能从一个项目/机号展开多层 BOM。
+能扣减库存和在途。
+能计算净需求。
+能保存运算快照。
+能生成采购/生产/委外建议。
+同一数据重复运行结果一致。
+能解释每一条建议从哪里来。
+P0-2：项目号 + 机号全链路追溯引擎
+2.1 目标
+实现任意项目/机号从销售到售后的全链路追溯。
+
+追溯链路：
+
+Text
+销售订单
+ -> 技术确认
+ -> BOM / 图纸 / 工艺
+ -> 采购申请 / 采购订单
+ -> 采购收货
+ -> 库存
+ -> 生产工单
+ -> 领料 / 退料
+ -> 工序报工
+ -> 完工入库
+ -> 发货
+ -> 开票 / 应收
+ -> 售后服务
+ -> 成本 / 总账
+2.2 核心功能
+A. 统一追溯关系表
+不要只依赖各业务表里散落的 project_id、serial_no 字段。
+
+建议建立统一关系表。
+
+B. 正向追溯
+从销售订单开始，追到：
+
+采购
+库存
+生产
+发货
+售后
+财务
+C. 反向追溯
+从任意单据反查：
+
+属于哪个项目
+属于哪个机号
+来源销售订单
+来源 BOM
+来源工单
+来源采购订单
+D. 追溯完整性检查
+自动检查：
+
+单据缺项目号
+单据缺机号
+入库未关联采购
+领料未关联工单
+发货未关联销售订单
+售后未关联机号
+E. 追溯图谱
+页面展示：
+
+单据链
+时间线
+责任人
+当前状态
+异常节点
+2.3 建议新增服务
+Text
+services/trace_engine.py
+services/trace_integrity_service.py
+2.4 建议新增数据表
+trace_links
+统一追溯关系表。
+
+字段	说明
+id	主键
+source_type	来源单据类型
+source_id	来源单据 ID
+target_type	目标单据类型
+target_id	目标单据 ID
+project_id	项目 ID
+serial_no	机号
+relation_type	关系类型
+created_at	创建时间
+created_by	创建人
+trace_snapshots
+追溯快照表。
+
+字段	说明
+id	主键
+project_id	项目 ID
+serial_no	机号
+snapshot_json	追溯快照 JSON
+completeness_score	完整度评分
+created_at	创建时间
+2.5 页面建议
+Text
+/trace/project/<project_id>
+/trace/serial/<serial_no>
+/trace/document/<doc_type>/<doc_id>
+/trace/integrity
+页面功能：
+
+项目追溯
+机号追溯
+单据追溯
+追溯完整性检查
+缺失链路修复建议
+2.6 验收标准
+从任一销售订单可追到对应生产、采购、库存、发货、财务、售后数据。
+从任一库存流水可反查项目/机号/来源单据。
+能列出追溯断点。
+能给出追溯完整率。
+新增关键单据时自动写入 trace_links。
+P0-3：单机成本 / 项目成本归集引擎
+3.1 目标
+实现项目、机号、工单维度的成本自动归集。
+
+成本包括：
+
+材料成本
+人工成本
+制造费用
+委外成本
+质量成本
+售后成本
+3.2 核心功能
+A. 材料成本
+来源：
+
+生产领料
+生产退料
+其他出库
+委外发料
+报废
+B. 人工成本
+来源：
+
+工序报工
+工时记录
+人员工资率
+工作中心费率
+C. 制造费用
+来源：
+
+设备工时
+工作中心费率
+月度制造费用分摊
+D. 委外成本
+来源：
+
+委外订单
+委外收货
+委外发票
+委外差异
+E. 质量成本
+来源：
+
+报废
+返工
+让步接收
+质量索赔
+F. 售后成本
+来源：
+
+服务单
+备件领用
+差旅
+工时
+RMA
+G. 成本快照
+每次成本计算保存：
+
+计算期间
+项目
+机号
+成本构成
+来源单据
+计算人
+计算时间
+3.3 建议新增服务
+Text
+services/cost_engine.py
+services/serial_cost_engine.py
+services/project_cost_engine.py
+services/cost_reconciliation_service.py
+3.4 建议新增数据表
+cost_runs
+成本计算主表。
+
+字段	说明
+id	主键
+run_no	成本计算编号
+period	成本期间
+project_id	项目 ID
+serial_no	机号
+status	状态
+created_by	创建人
+created_at	创建时间
+cost_run_items
+成本明细表。
+
+字段	说明
+id	主键
+run_id	成本计算 ID
+cost_type	material / labor / overhead / outsource / quality / service
+source_type	来源单据类型
+source_id	来源单据 ID
+amount	金额
+project_id	项目 ID
+serial_no	机号
+work_order_id	工单 ID
+cost_reconciliation_results
+成本对账结果。
+
+字段	说明
+id	主键
+period	期间
+project_id	项目 ID
+serial_no	机号
+business_cost	业务成本
+inventory_cost	库存成本
+gl_cost	总账成本
+difference	差异
+status	状态
+3.5 页面建议
+Text
+/cost/runs
+/cost/runs/<id>
+/cost/project/<project_id>
+/cost/serial/<serial_no>
+/cost/reconciliation
+页面功能：
+
+成本计算
+单机成本明细
+项目成本明细
+成本构成分析
+成本差异分析
+成本与库存/总账对账
+3.6 验收标准
+能计算一个机号的材料成本。
+能归集工时报工形成直接人工。
+能归集委外成本。
+能展示项目/机号成本构成。
+能追溯每一笔成本来源单据。
+能与库存成本、总账成本做对账。
+P0-4：BOM / 图纸 / 工艺 / ECN 快照与影响控制
+4.1 目标
+保证生产执行使用正确版本，防止 BOM、图纸、工艺变更影响历史工单。
+
+4.2 核心功能
+A. BOM 版本管理
+支持：
+
+BOM 版本
+生效日期
+失效日期
+状态
+适用项目
+适用机号
+审核发布
+B. 工单 BOM 快照
+生产工单下达时固化：
+
+BOM 版本
+BOM 明细
+用量
+替代料
+损耗率
+C. 图纸版本快照
+工单下达时固化：
+
+图纸编号
+图纸版本
+图纸状态
+图纸文件位置
+D. 工艺路线快照
+固化：
+
+工艺路线版本
+工序
+标准工时
+工作中心
+质检点
+工装刀具要求
+NC 程序号
+E. ECN 影响分析
+工程变更时自动分析影响：
+
+销售订单
+项目
+机号
+采购订单
+委外订单
+生产工单
+库存
+售后设备
+F. 变更执行控制
+ECN 批准后，根据影响对象生成处理任务：
+
+采购变更
+工单变更
+领料调整
+图纸替换
+售后通知
+4.3 建议新增服务
+Text
+services/bom_snapshot_service.py
+services/process_snapshot_service.py
+services/drawing_snapshot_service.py
+services/ecn_impact_service.py
+4.4 建议新增数据表
+bom_versions
+字段	说明
+id	主键
+bom_id	BOM ID
+version_no	版本号
+status	draft / approved / released / obsolete
+effective_date	生效日期
+expire_date	失效日期
+approved_by	审核人
+approved_at	审核时间
+work_order_bom_snapshots
+字段	说明
+id	主键
+work_order_id	工单 ID
+bom_version_id	BOM 版本
+snapshot_json	BOM 快照
+created_at	创建时间
+work_order_process_snapshots
+字段	说明
+id	主键
+work_order_id	工单 ID
+route_version_id	工艺版本
+snapshot_json	工艺快照
+created_at	创建时间
+work_order_drawing_snapshots
+字段	说明
+id	主键
+work_order_id	工单 ID
+drawing_version_id	图纸版本
+snapshot_json	图纸快照
+created_at	创建时间
+ecn_impact_results
+字段	说明
+id	主键
+ecn_id	ECN ID
+affected_type	受影响对象类型
+affected_id	受影响对象 ID
+impact_level	影响等级
+action_required	需采取动作
+status	状态
+4.5 页面建议
+Text
+/bom/versions
+/bom/versions/<id>
+/work-orders/<id>/snapshots
+/ecn/<id>/impact
+/ecn/impact-tasks
+4.6 验收标准
+BOM 修改不会影响已下达工单。
+工单可查看当时使用的 BOM、图纸、工艺版本。
+ECN 可分析影响对象。
+ECN 可生成变更执行任务。
+MRP 使用明确的 BOM 版本。
+P0-5：数据级权限控制
+5.1 目标
+在角色权限和菜单权限基础上，增加业务数据范围控制。
+
+5.2 核心功能
+A. 项目权限
+用户只能查看授权项目。
+
+B. 机号权限
+用户只能查看授权机号。
+
+C. 部门权限
+按组织结构限制数据范围。
+
+D. 客户权限
+销售只能看授权客户。
+
+E. 供应商权限
+采购只能看授权供应商。
+
+F. 报表权限
+报表查询结果也必须套用数据权限。
+
+G. 导出权限
+敏感数据导出需要权限和审计。
+
+H. API 权限
+所有 API 必须经过数据权限过滤。
+
+5.3 建议新增服务
+Text
+services/data_permission_service.py
+services/query_scope_service.py
+5.4 建议新增数据表
+data_permission_rules
+字段	说明
+id	主键
+subject_type	user / role
+subject_id	用户或角色 ID
+scope_type	project / serial / department / customer / supplier
+scope_id	范围 ID
+permission	view / edit / approve / export
+created_at	创建时间
+data_access_logs
+字段	说明
+id	主键
+user_id	用户 ID
+resource_type	资源类型
+resource_id	资源 ID
+action	view / export / edit
+allowed	是否允许
+reason	原因
+created_at	创建时间
+5.5 页面建议
+Text
+/security/data-permissions
+/security/data-access-logs
+/security/export-approvals
+5.6 验收标准
+普通销售只能看自己客户和项目。
+项目经理只能看授权项目。
+采购只能看授权供应商相关数据。
+报表数据受同样权限限制。
+导出敏感数据有审计记录。
+API 直接访问也不能绕过权限。
+四、P0 首期实施节奏
+建议按 12 周推进。
+
+第 1-2 周：基础梳理和数据标准化
+任务
+梳理现有表结构。
+统一项目号、机号字段。
+梳理 BOM、工单、库存、采购、销售、财务单据关系。
+定义统一单据类型编码。
+制定 MRP、追溯、成本的基础数据标准。
+确定哪些业务单据必须带项目号/机号。
+交付物
+数据字典
+单据类型编码表
+项目/机号字段规范
+P0 表结构设计
+迁移方案
+第 3-4 周：追溯引擎优先落地
+为什么先做追溯
+MRP、成本、权限都依赖单据关系。
+
+先做追溯引擎，可以把数据链路打通。
+
+任务
+新增 trace_links。
+对销售、采购、库存、生产、发货、售后、财务单据写入追溯关系。
+实现项目追溯页面。
+实现机号追溯页面。
+实现追溯断点检查。
+交付物
+trace_engine.py
+追溯关系表
+项目/机号追溯页面
+追溯完整率报告
+第 5-7 周：MRP 引擎落地
+任务
+新增 MRP 运算表。
+实现多层 BOM 展开。
+实现库存、在途、在制扣减。
+实现替代料和损耗率。
+保存 MRP 快照。
+生成采购/生产/委外建议。
+建立 MRP 结果页面。
+交付物
+mrp_engine.py
+mrp_runs
+mrp_run_items
+mrp_suggestions
+MRP 运算页面
+缺料明细页面
+齐套分析页面
+第 8-9 周：BOM / 图纸 / 工艺快照
+任务
+新增 BOM 版本表。
+工单下达时固化 BOM 快照。
+工单下达时固化图纸快照。
+工单下达时固化工艺快照。
+ECN 影响分析初版。
+MRP 指定使用 BOM 版本。
+交付物
+BOM 版本管理
+工单快照表
+ECN 影响分析页面
+工单快照查看页面
+第 10-11 周：成本引擎初版
+任务
+新增成本计算表。
+归集生产领料形成材料成本。
+归集工时报工形成人工成本。
+归集委外收货/发票形成委外成本。
+按项目/机号展示成本构成。
+成本来源单据追溯。
+初步成本对账。
+交付物
+cost_engine.py
+cost_runs
+cost_run_items
+项目成本页面
+机号成本页面
+成本来源追溯页面
+第 12 周：数据权限和联调验收
+任务
+新增数据权限规则表。
+实现项目/机号/客户/供应商权限过滤。
+报表套用数据权限。
+API 套用数据权限。
+导出记录审计。
+做 P0 全链路验收。
+交付物
+data_permission_service.py
+数据权限配置页面
+数据访问审计日志
+P0 验收报告
+五、P0 首期全链路验收场景
+必须用一个完整机床项目做测试。
+
+测试场景
+1. 创建销售订单
+录入：
+
+客户
+项目号
+机号
+产品型号
+交期
+2. 创建 BOM / 工艺 / 图纸
+录入：
+
+BOM 版本
+图纸版本
+工艺路线
+标准工时
+关键件
+3. 运行 MRP
+系统应输出：
+
+缺料清单
+采购建议
+生产建议
+委外建议
+齐套率
+4. 转采购和生产
+从 MRP 建议生成：
+
+采购申请
+采购订单
+生产工单
+委外订单
+5. 入库和领料
+执行：
+
+采购收货
+生产领料
+生产退料
+6. 报工和完工
+执行：
+
+工序报工
+完工入库
+7. 发货和开票
+执行：
+
+销售发货
+销售发票
+应收生成
+8. 成本归集
+系统应能看到：
+
+材料成本
+人工成本
+委外成本
+总成本
+毛利
+9. 追溯检查
+从机号反查：
+
+销售订单
+BOM
+图纸
+工艺
+采购
+库存
+领料
+工单
+完工
+发货
+发票
+成本
+10. 权限检查
+用不同角色登录：
+
+销售
+采购
+仓库
+生产
+财务
+项目经理
+验证只能看到授权范围内的数据。
+
+六、开发任务拆解清单
+后端任务
+MRP
+ 新建 MRP 表结构
+ 多层 BOM 展开
+ 库存可用量计算
+ 在途采购计算
+ 在制生产计算
+ 委外在制计算
+ 替代料逻辑
+ 损耗率逻辑
+ MRP 快照
+ MRP 建议转换
+追溯
+ 新建 trace_links
+ 单据写入追溯关系
+ 正向追溯
+ 反向追溯
+ 追溯完整率检查
+ 追溯图谱数据接口
+成本
+ 新建成本表
+ 材料成本归集
+ 人工成本归集
+ 委外成本归集
+ 售后成本归集
+ 质量成本归集
+ 成本来源追溯
+ 成本对账
+BOM / 工艺 / 图纸
+ BOM 版本表
+ BOM 快照
+ 工艺快照
+ 图纸快照
+ ECN 影响分析
+ 工单快照查看
+权限
+ 数据权限规则表
+ 查询范围过滤
+ 报表权限过滤
+ API 权限过滤
+ 导出审计
+前端任务
+ MRP 运算页面
+ MRP 结果页面
+ 齐套分析页面
+ 采购/生产/委外建议页面
+ 项目追溯页面
+ 机号追溯页面
+ 单据追溯页面
+ 项目成本页面
+ 机号成本页面
+ 工单快照页面
+ ECN 影响分析页面
+ 数据权限配置页面
+测试任务
+ MRP 多层 BOM 测试
+ MRP 库存扣减测试
+ MRP 在途扣减测试
+ 替代料测试
+ 损耗率测试
+ 追溯正向测试
+ 追溯反向测试
+ 成本归集测试
+ BOM 快照测试
+ ECN 影响测试
+ 数据权限测试
+ API 越权测试
+ 全链路业务测试
+七、P0 首期开发顺序建议
+我建议实际开发顺序是：
+
+Text
+1. 数据标准化
+2. 追溯引擎
+3. BOM / 工艺 / 图纸快照
+4. MRP 引擎
+5. 成本引擎
+6. 数据级权限
+7. 全链路联调
+原因：
+
+追溯引擎是 MRP、成本、权限的基础。
+BOM 快照是 MRP 正确性的基础。
+MRP 结果会驱动采购、生产、委外。
+成本引擎依赖库存、生产、委外、追溯。
+数据权限最后统一套到所有新页面和接口上。
+八、P0 首期完成后的效果
+完成后，系统应该能做到：
+
+一个项目/机号可以自动算缺料。
+每一条采购建议都能解释来源。
+每一台机床能看到完整业务链路。
+每一台机床能计算材料、人工、委外成本。
+工单使用的 BOM、图纸、工艺版本可追溯。
+工程变更能看到影响哪些单据。
+不同用户只能看授权项目、客户、供应商和机号。
+管理层能看到项目交付、缺料、成本、风险闭环。
+九、P0 首期不建议做的内容
+为了避免范围失控，首期不建议做：
+
+完整 APS 高级排程
+完整 MES 设备联网
+完整移动 PDA
+完整 QMS
+完整 EAM
+完整 BI
+完整 AI 分析
+客户门户
+供应商门户
+税控、银行接口
+这些可以放到 P1 / P2。
+
+十、最终建议
+P0 首期不要追求“页面多”，要追求：
+
+Text
+算得准
+追得到
+控得住
+成本清
+权限严
+推荐首期主线：
+
+Text
+项目/机号
+  -> BOM/图纸/工艺快照
+  -> MRP 运算
+  -> 采购/生产/委外建议
+  -> 单据追溯
+  -> 成本归集
+  -> 数据权限控制
+这条线打通以后，当前 ERP 才能真正从“单据系统”升级成“数控机床制造业 ERP 核心平台”。

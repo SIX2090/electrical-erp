@@ -1,0 +1,301 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+{% set doc = doc or {} %}
+{% set settlement_values = settlement_values or {} %}
+{% set is_customer_receipt = partner_field == 'customer_id' %}
+{% set document_label = document_label or ('收款单' if is_customer_receipt else '付款单') %}
+{% set new_document_label = new_document_label or ('新增收款单' if is_customer_receipt else '新增付款单') %}
+{% set ledger_label = '应收账款' if is_customer_receipt else '应付账款' %}
+{% set ledger_url = '/receivables' if is_customer_receipt else '/payables' %}
+{% set line_section_title = line_section_title or ('收款信息' if is_customer_receipt else '付款信息') %}
+{% set line_amount_label = line_amount_label or amount_label %}
+{% set line_account_label = line_account_label or ('收款账户' if is_customer_receipt else '付款账户') %}
+{% set line_remark_label = line_remark_label or ('收款备注' if is_customer_receipt else '付款备注') %}
+{% set settlement_enabled = true if settlement_enabled is not defined else settlement_enabled %}
+{{ document_menu_bar(actions=[
+    {'label': '选择源单', 'type': 'button', 'event': 'focus-source-documents'} if settlement_enabled else {'label': '选择源单', 'type': 'disabled'},
+    {'label': '历史单据', 'type': 'link', 'href': list_url},
+    {'label': '选项', 'type': 'dropdown', 'items': [
+        {'label': '自动分摊', 'type': 'button', 'event': 'auto-allocate-settlements'},
+        {'label': '清空核销', 'type': 'button', 'event': 'clear-settlements'}
+    ]},
+    {'label': '更多', 'type': 'dropdown', 'items': [
+        {'label': ledger_label, 'type': 'link', 'href': ledger_url},
+        {'label': document_label + '列表', 'type': 'link', 'href': list_url},
+        {'label': '现金银行流水', 'type': 'link', 'href': '/finance/cash-bank/journal'}
+    ]}
+]) }}
+<div class="mb-3">
+    <a class="btn btn-outline-secondary btn-sm" href="{{ list_url }}">返回列表</a>
+</div>
+
+<form id="fundsDocumentForm" method="post" action="{{ post_url }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="page-card mb-3">
+        <div class="section-title">
+            <div>
+                <h2>{{ title }}</h2>
+                <span>资金单据按往来单位登记；先选择客户/供应商，再在源单明细填写本次核销。</span>
+            </div>
+            <button class="btn btn-primary btn-sm" type="submit">
+                <i class="bi bi-check2-circle"></i> 保存
+            </button>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">单据编号</label>
+                <input class="form-control" type="text" value="{{ doc.receipt_no or doc.payment_no or '' }}" placeholder="保存时自动生成" readonly>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">{{ partner_label }}</label>
+                <select class="form-select" id="partnerSelector" name="{{ partner_field }}" required onchange="if(this.value){location.href='{{ post_url }}?{{ partner_field }}='+this.value;}">
+                    <option value="">请选择</option>
+                    {% for partner in partners %}
+                    <option value="{{ partner.id }}" {% if selected_partner_id|string == partner.id|string %}selected{% endif %}>{{ partner.name|clean_text }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">单据日期</label>
+                <input class="form-control" type="date" name="{{ date_field }}" value="{{ request.args.get(date_field) or doc.get(date_field) or '' }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">{{ amount_label }}</label>
+                <input class="form-control" id="fundAmount" type="number" step="0.01" min="0.01" name="amount" value="{{ doc.amount or '' }}" required>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">{{ method_label }}</label>
+                <select class="form-select" name="payment_method">
+                    {% for method in methods %}
+                    <option value="{{ method }}" {% if doc.payment_method == method %}selected{% endif %}>{{ method }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">资金账户/票据号</label>
+                <input class="form-control" name="bank_account" value="{{ doc.bank_account or '' }}" placeholder="银行账号、承兑票号或现金账户">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">项目号 <span class="text-muted small">建议</span></label>
+                <input class="form-control" name="project_code" value="{{ doc.project_code or '' }}" placeholder="预收/预付请填写项目号">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">机号 <span class="text-muted small">建议</span></label>
+                <input class="form-control" name="serial_no" value="{{ doc.serial_no or '' }}" placeholder="预收/预付请填写机号">
+            </div>
+            <div class="col-12">
+                <label class="form-label">备注</label>
+                <input class="form-control" name="remark" value="{{ doc.remark or '' }}" placeholder="对账说明、未分配原因或收付款凭证摘要">
+            </div>
+        </div>
+    </div>
+
+    <div class="page-card mb-3">
+        <div class="section-title">
+            <div>
+                <h2>{{ line_section_title }}</h2>
+                <span>可按多个资金账户或票据拆分登记；明细金额合计自动回填{{ amount_label }}。</span>
+            </div>
+            <div class="d-flex gap-2 align-items-center">
+                <span class="text-muted small">明细合计：<strong id="receiptLineTotal">0.00</strong></span>
+                <button class="btn btn-outline-primary btn-sm" type="button" onclick="addReceiptLine()">新增行</button>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm align-middle" id="receiptLinesTable">
+                <thead>
+                <tr>
+                    <th style="width: 56px;">行号</th>
+                    <th style="width: 160px;">{{ line_account_label }}</th>
+                    <th style="width: 140px;">{{ method_label }}</th>
+                    <th style="width: 140px;">{{ line_amount_label }}</th>
+                    <th style="width: 120px;">手续费</th>
+                    <th style="width: 180px;">交易号/票据号</th>
+                    <th>{{ line_remark_label }}</th>
+                    <th style="width: 70px;">操作</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td>1</td>
+                    <td><input class="form-control form-control-sm" name="receipt_line_account_1" value="{{ doc.bank_account or '' }}" placeholder="银行账户/现金账户"></td>
+                    <td>
+                        <select class="form-select form-select-sm" name="receipt_line_method_1">
+                            {% for method in methods %}
+                            <option value="{{ method }}" {% if doc.payment_method == method %}selected{% endif %}>{{ method }}</option>
+                            {% endfor %}
+                        </select>
+                    </td>
+                    <td><input class="form-control form-control-sm receipt-line-amount" type="number" step="0.01" min="0" name="receipt_line_amount_1" value="{{ doc.amount or '' }}" oninput="recalcReceiptLineTotal()"></td>
+                    <td><input class="form-control form-control-sm receipt-line-fee" type="number" step="0.01" min="0" name="receipt_line_fee_1" value="0" oninput="recalcReceiptLineTotal()"></td>
+                    <td><input class="form-control form-control-sm" name="receipt_line_transaction_1" placeholder="银行流水号/承兑票号"></td>
+                    <td><input class="form-control form-control-sm" name="receipt_line_remark_1" placeholder="到账说明"></td>
+                    <td><button class="btn btn-outline-danger btn-sm" type="button" onclick="removeReceiptLine(this)">删除</button></td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {% if settlement_enabled %}
+    <div class="page-card" id="sourceDocumentsSection">
+        <div class="section-title">
+            <div>
+                <h2>核销明细</h2>
+                <span>本次核销合计不能超过{{ amount_label }}；未核销部分会保留为未分配金额。</span>
+            </div>
+            <div class="d-flex gap-2 align-items-center">
+                <span class="text-muted small">本次核销合计：<strong id="settlementTotal">0.00</strong></span>
+                <span class="text-muted small">未分配：<strong id="unappliedTotal">0.00</strong></span>
+                <button class="btn btn-outline-secondary btn-sm" type="button" onclick="autoAllocateSettlements()">自动分摊</button>
+                <button class="btn btn-outline-secondary btn-sm" type="button" onclick="clearSettlements()">清空核销</button>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm align-middle">
+                <thead>
+                <tr>
+                    {% for key, label in source_columns %}<th>{{ label }}</th>{% endfor %}
+                    <th style="width: 160px;">本次核销</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for row in source_rows %}
+                <tr>
+                    {% for key, label in source_columns %}
+                    <td>{{ row.get(key)|clean_text }}</td>
+                    {% endfor %}
+                    <td>
+                        <input class="form-control form-control-sm settlement-input" type="number" step="0.01" min="0" max="{{ row.balance }}" name="settle_{{ row.id }}" data-balance="{{ row.balance or 0 }}" value="{% if settlement_values.get(row.id) is not none %}{{ settlement_values.get(row.id) }}{% elif row.id in selected_ids %}{{ row.balance }}{% endif %}" oninput="recalcSettlementTotal()">
+                    </td>
+                </tr>
+                {% else %}
+                {% if not has_partner_filter %}
+                <tr><td class="text-muted" colspan="{{ source_columns|length + 1 }}">{{ empty_message }}</td></tr>
+                {% else %}
+                <tr><td class="text-muted" colspan="{{ source_columns|length + 1 }}">暂无可核销单据。</td></tr>
+                {% endif %}
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</form>
+<script>
+let receiptLineCounter = 1;
+const receiptMethods = {{ methods|tojson }};
+
+function moneyValue(value) {
+    const parsed = parseFloat(value || '0');
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function receiptMethodOptions() {
+    return receiptMethods.map(function(method) {
+        return `<option value="${method}">${method}</option>`;
+    }).join('');
+}
+
+function addReceiptLine() {
+    receiptLineCounter += 1;
+    const tbody = document.querySelector('#receiptLinesTable tbody');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+        <td>${receiptLineCounter}</td>
+        <td><input class="form-control form-control-sm" name="receipt_line_account_${receiptLineCounter}" placeholder="银行账户/现金账户"></td>
+        <td><select class="form-select form-select-sm" name="receipt_line_method_${receiptLineCounter}">${receiptMethodOptions()}</select></td>
+        <td><input class="form-control form-control-sm receipt-line-amount" type="number" step="0.01" min="0" name="receipt_line_amount_${receiptLineCounter}" oninput="recalcReceiptLineTotal()"></td>
+        <td><input class="form-control form-control-sm receipt-line-fee" type="number" step="0.01" min="0" name="receipt_line_fee_${receiptLineCounter}" value="0" oninput="recalcReceiptLineTotal()"></td>
+        <td><input class="form-control form-control-sm" name="receipt_line_transaction_${receiptLineCounter}" placeholder="银行流水号/承兑票号"></td>
+        <td><input class="form-control form-control-sm" name="receipt_line_remark_${receiptLineCounter}" placeholder="到账说明"></td>
+        <td><button class="btn btn-outline-danger btn-sm" type="button" onclick="removeReceiptLine(this)">删除</button></td>
+    `;
+    tbody.appendChild(tr);
+}
+
+function removeReceiptLine(button) {
+    const rows = document.querySelectorAll('#receiptLinesTable tbody tr');
+    if (rows.length <= 1) return;
+    button.closest('tr').remove();
+    recalcReceiptLineTotal();
+}
+
+function recalcReceiptLineTotal() {
+    let total = 0;
+    document.querySelectorAll('.receipt-line-amount').forEach(function(input) {
+        total += moneyValue(input.value);
+    });
+    document.getElementById('receiptLineTotal').textContent = total.toFixed(2);
+    const amountInput = document.getElementById('fundAmount');
+    if (amountInput) {
+        amountInput.value = total > 0 ? total.toFixed(2) : amountInput.value;
+    }
+    recalcSettlementTotal();
+}
+
+function recalcSettlementTotal() {
+    const amount = moneyValue(document.getElementById('fundAmount')?.value);
+    let total = 0;
+    document.querySelectorAll('.settlement-input').forEach(function(input) {
+        const balance = moneyValue(input.dataset.balance);
+        let value = moneyValue(input.value);
+        if (value < 0) value = 0;
+        if (balance >= 0 && value > balance) {
+            value = balance;
+            input.value = balance.toFixed(2);
+        }
+        total += value;
+    });
+    const unapplied = Math.max(amount - total, 0);
+    const settlementTotal = document.getElementById('settlementTotal');
+    const unappliedTotal = document.getElementById('unappliedTotal');
+    if (settlementTotal) settlementTotal.textContent = total.toFixed(2);
+    if (unappliedTotal) unappliedTotal.textContent = unapplied.toFixed(2);
+}
+
+function autoAllocateSettlements() {
+    let remaining = moneyValue(document.getElementById('fundAmount')?.value);
+    document.querySelectorAll('.settlement-input').forEach(function(input) {
+        const balance = moneyValue(input.dataset.balance);
+        const applied = Math.max(Math.min(remaining, balance), 0);
+        input.value = applied > 0 ? applied.toFixed(2) : '';
+        remaining -= applied;
+    });
+    recalcSettlementTotal();
+}
+
+function clearSettlements() {
+    document.querySelectorAll('.settlement-input').forEach(function(input) {
+        input.value = '';
+    });
+    recalcSettlementTotal();
+}
+
+document.querySelectorAll('[data-menu-event]').forEach(function(item) {
+    item.addEventListener('click', function(event) {
+        const action = event.currentTarget.dataset.menuEvent;
+        if (action === 'focus-source-documents') {
+            const partnerSelector = document.getElementById('partnerSelector');
+            if (partnerSelector && !partnerSelector.value) {
+                partnerSelector.focus();
+                return;
+            }
+            document.getElementById('sourceDocumentsSection')?.scrollIntoView({behavior: 'smooth', block: 'start'});
+        }
+        if (action === 'auto-allocate-settlements') {
+            autoAllocateSettlements();
+        }
+        if (action === 'clear-settlements') {
+            clearSettlements();
+        }
+    });
+});
+
+document.getElementById('fundAmount')?.addEventListener('input', recalcSettlementTotal);
+recalcReceiptLineTotal();
+recalcSettlementTotal();
+</script>
+{% endblock %}

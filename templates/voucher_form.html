@@ -1,0 +1,502 @@
+{% extends "base.html" %}
+{% from "partials/document_line_toolbar.html" import line_toolbar %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}记账凭证{% endblock %}
+{% block content %}
+{% if voucher and voucher.id %}
+<form data-doc-action="void" method="post" action="{{ '/finance/vouchers/' ~ voucher.id ~ '/void' }}" style="display:none"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+{% endif %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>{{ "凭证来源查询" if readonly else ("编辑凭证" if voucher else "新增凭证") }}</h2>
+        <a href="/finance/vouchers" class="btn btn-outline-secondary btn-sm d-none">返回列表</a>
+    </div>
+
+    <form id="voucherForm" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="id" value="{{ voucher.id if voucher else '' }}">
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-2">
+                        <label class="form-label">凭证号 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="voucher_no"
+                               value="{{ voucher.voucher_no if voucher else '' }}" required
+                               {% if readonly or (voucher and voucher.status != 'draft') %}readonly{% endif %}>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">日期 <span class="text-danger">*</span></label>
+                        <input type="date" class="form-control" name="voucher_date"
+                               value="{{ voucher.voucher_date.strftime('%Y-%m-%d') if voucher and voucher.voucher_date else today }}"
+                               {% if readonly %}readonly{% endif %}>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">凭证类型</label>
+                        <select class="form-select" name="voucher_type"
+                                {% if readonly or (voucher and voucher.status != 'draft') %}disabled{% endif %}>
+                            <option value="记账凭证" {% if not voucher or voucher.voucher_type == '记账凭证' %}selected{% endif %}>记账凭证</option>
+                            <option value="收款凭证" {% if voucher and voucher.voucher_type == '收款凭证' %}selected{% endif %}>收款凭证</option>
+                            <option value="付款凭证" {% if voucher and voucher.voucher_type == '付款凭证' %}selected{% endif %}>付款凭证</option>
+                            <option value="转账凭证" {% if voucher and voucher.voucher_type == '转账凭证' %}selected{% endif %}>转账凭证</option>
+                        </select>
+                        {% if readonly or (voucher and voucher.status != 'draft') %}
+                        <input type="hidden" name="voucher_type" value="{{ voucher.voucher_type if voucher else '记账凭证' }}">
+                        {% endif %}
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">会计期间</label>
+                        <select class="form-select" name="period" {% if readonly %}disabled{% endif %}>
+                            <option value="{{ current_period }}" {% if not voucher or (voucher.period_year|string + '-' + '%02d'|format(voucher.period_month)) == current_period %}selected{% endif %}>
+                                {{ current_period }}（当前）
+                            </option>
+                            {% for p in periods %}
+                            <option value="{{ p.value }}" {% if voucher and (voucher.period_year|string + '-' + '%02d'|format(voucher.period_month)) == p.value %}selected{% endif %}>
+                                {{ p.label }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        {% if readonly %}
+                        <input type="hidden" name="period" value="{{ (voucher.period_year|string + '-' + '%02d'|format(voucher.period_month)) if voucher else current_period }}">
+                        {% endif %}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">关联单据（可选）</label>
+                        <input type="text" class="form-control" name="source_info"
+                               placeholder="来源类型:单据号，如 收款单:SKD-20260601-001"
+                               value="{{ (voucher.source_type + ':' + voucher.source_no) if voucher and voucher.source_type else '' }}"
+                               {% if readonly or (voucher and voucher.status != 'draft') %}readonly{% endif %}>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">摘要</label>
+                        <input type="text" class="form-control" name="summary"
+                               value="{{ voucher.summary if voucher else '' }}"
+                               {% if readonly or (voucher and voucher.status != 'draft') %}readonly{% endif %}>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">备注</label>
+                        <input type="text" class="form-control" name="remark"
+                               value="{{ voucher.remark if voucher else '' }}"
+                               {% if readonly or (voucher and voucher.status != 'draft') %}readonly{% endif %}>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><strong>凭证明细行</strong></span>
+                {% if not readonly and (not voucher or voucher.status == 'draft') %}
+                <div class="d-flex flex-wrap gap-2">{{ line_toolbar('增行') }}</div>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                <table class="table table-sm" id="linesTable" data-document-grid data-grid-key="finance_voucher_lines">
+                    <thead>
+                        <tr data-grid-header>
+                            <th width="40" data-column-key="line_no">行号</th>
+                            <th data-column-key="account_code">科目编码</th>
+                            <th data-column-key="account_name">科目名称</th>
+                            <th data-column-key="summary">摘要</th>
+                            <th width="120" data-column-key="debit_amount">借方金额</th>
+                            <th width="120" data-column-key="credit_amount">贷方金额</th>
+                            <th width="120" data-column-key="project_code">项目号</th>
+                            <th width="120" data-column-key="serial_no">机号</th>
+                            {% if not readonly and (not voucher or voucher.status == 'draft') %}
+                            <th width="50" data-column-key="actions">操作</th>
+                            {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if lines %}
+                        {% for line in lines %}
+                        <tr>
+                            <td data-column-key="line_no">{{ line.line_no }}</td>
+                            <td data-column-key="account_code">
+                                <span class="account-code-display">{{ line.account_code or '' }}</span>
+                                <input type="hidden" name="line_id_{{ line.line_no }}" value="{{ line.id }}">
+                                <input type="hidden" name="line_account_id_{{ line.line_no }}" value="{{ line.account_id }}">
+                            </td>
+                            <td data-column-key="account_name"><span class="account-name-display">{{ line.account_name or '' }}</span></td>
+                            <td data-column-key="summary"><input type="text" class="form-control form-control-sm" name="line_summary_{{ line.line_no }}" value="{{ line.summary or '' }}"
+                                       {% if readonly or (voucher and voucher.status != 'draft') %}readonly{% endif %}></td>
+                            <td data-column-key="debit_amount"><input type="number" step="0.01" class="form-control form-control-sm debit-amount" name="line_debit_{{ line.line_no }}" value="{{ '%.2f'|format(line.debit_amount|default(0)) if line.debit_amount else '0.00' }}"
+                                       onchange="calcTotals()" {% if readonly or (voucher and voucher.status != 'draft') %}readonly{% endif %}></td>
+                            <td data-column-key="credit_amount"><input type="number" step="0.01" class="form-control form-control-sm credit-amount" name="line_credit_{{ line.line_no }}" value="{{ '%.2f'|format(line.credit_amount|default(0)) if line.credit_amount else '0.00' }}"
+                                       onchange="calcTotals()" {% if readonly or (voucher and voucher.status != 'draft') %}readonly{% endif %}></td>
+                            <td data-column-key="project_code">{{ line.project_code or '' }}</td>
+                            <td data-column-key="serial_no">{{ line.serial_no or '' }}</td>
+                            {% if not readonly and (not voucher or voucher.status == 'draft') %}
+                            <td data-column-key="actions"><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeLine(this)">×</button></td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr id="emptyLine">
+                            <td colspan="{% if not readonly and (not voucher or voucher.status == 'draft') %}9{% else %}8{% endif %}" class="text-center text-muted">
+                                {% if readonly %}无明细行。{% else %}无明细行，请点击"添加行"添加会计分录{% endif %}
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                    <tfoot>
+                        <tr class="fw-bold">
+                            <td colspan="4" class="text-end">合计:</td>
+                            <td><span id="totalDebit">{{ '%.2f'|format(voucher.total_debit|default(0)) if voucher else '0.00' }}</span></td>
+                            <td><span id="totalCredit">{{ '%.2f'|format(voucher.total_credit|default(0)) if voucher else '0.00' }}</span></td>
+                            <td colspan="{% if not readonly and (not voucher or voucher.status == 'draft') %}3{% else %}2{% endif %}"></td>
+                        </tr>
+                        <tr>
+                            <td colspan="4" class="text-end text-muted">借贷差额:</td>
+                            <td colspan="{% if not readonly and (not voucher or voucher.status == 'draft') %}5{% else %}4{% endif %}" id="diffCell" class="text-muted">0.00</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        <div class="d-flex gap-2">
+            {% if not readonly and (not voucher or voucher.status == 'draft') %}
+            <button type="button" class="btn btn-primary" onclick="saveDraft()">保存草稿</button>
+            <button type="button" class="btn btn-success" onclick="submitAndReview()">保存并提交复核</button>
+            {% endif %}
+            {% if not readonly and voucher and voucher.status == '已复核' %}
+            <button type="button" class="btn btn-success" onclick="postVoucher()">过账</button>
+            <button type="button" class="btn btn-warning" onclick="unReview()">撤销复核</button>
+            {% endif %}
+            {% if not readonly and voucher and voucher.status == '已过账' %}
+            <button type="button" class="btn btn-warning" onclick="reversePost()">反过账</button>
+            {% endif %}
+            {% if not readonly and voucher and voucher.status and voucher.status != '已过账' %}
+            <button type="button" class="btn btn-danger" onclick="voidVoucher()">作废</button>
+            {% endif %}
+            <a href="/finance/vouchers" class="btn btn-secondary">返回</a>
+        </div>
+    </form>
+</div>
+
+<script src="{{ url_for('static', filename='js/document_grid.js') }}"></script>
+<script>
+document.addEventListener('click', function(event) {
+    var item = event.target.closest('[data-menu-event]');
+    if (!item || item.disabled) return;
+    var action = item.dataset.menuEvent;
+    if (action === 'toolbar-save' || action === 'toolbar-save-new') {
+        event.preventDefault();
+        if (typeof saveDraft === 'function') {
+            saveDraft();
+        } else {
+            var form = document.getElementById('voucherForm');
+            if (form) { if (form.requestSubmit) form.requestSubmit(); else form.submit(); }
+        }
+    }
+});
+
+let lineCounter = {{ (lines|length) or 0 }};
+
+function addLine() {
+    document.getElementById('emptyLine')?.remove();
+    lineCounter++;
+    const tbody = document.querySelector('#linesTable tbody');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+        <td data-column-key="line_no">${lineCounter}</td>
+        <td data-column-key="account_code">
+            <input type="text" class="form-control form-control-sm account-code-search" name="line_account_code_${lineCounter}" placeholder="搜索科目编码" oninput="searchAccount(this, 'name_${lineCounter}')" autocomplete="off">
+            <input type="hidden" name="line_account_id_${lineCounter}">
+            <div class="account-suggestions" style="display:none;position:absolute;z-index:1000;background:white;border:1px solid #ddd;max-height:200px;overflow-y:auto;width:200px"></div>
+        </td>
+        <td data-column-key="account_name">
+            <span class="account-name-display" id="name_${lineCounter}"></span>
+        </td>
+        <td data-column-key="summary"><input type="text" class="form-control form-control-sm" name="line_summary_${lineCounter}"></td>
+        <td data-column-key="debit_amount"><input type="number" step="0.01" class="form-control form-control-sm debit-amount" name="line_debit_${lineCounter}" value="0.00" onchange="calcTotals()"></td>
+        <td data-column-key="credit_amount"><input type="number" step="0.01" class="form-control form-control-sm credit-amount" name="line_credit_${lineCounter}" value="0.00" onchange="calcTotals()"></td>
+        <td data-column-key="actions"><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeLine(this)">×</button></td>
+    `;
+    tbody.appendChild(tr);
+    tr.querySelector('.account-code-search').focus();
+    if (window.documentGridApi) window.documentGridApi.refresh();
+}
+
+function removeLine(btn) {
+    btn.closest('tr').remove();
+    if (document.querySelectorAll('#linesTable tbody tr').length === 0) {
+        document.querySelector('#linesTable tbody').innerHTML = '<tr id="emptyLine"><td colspan="7" class="text-center text-muted">无明细行</td></tr>';
+    }
+    calcTotals();
+    if (window.documentGridApi) window.documentGridApi.refresh();
+}
+
+function activeVoucherLine() {
+    const active = document.activeElement && document.activeElement.closest && document.activeElement.closest('#linesTable tbody tr');
+    return active && !active.id ? active : document.querySelector('#linesTable tbody tr:not(#emptyLine)');
+}
+
+function cloneVoucherLine(source) {
+    if (!source) {
+        addLine();
+        return activeVoucherLine();
+    }
+    lineCounter++;
+    const row = source.cloneNode(true);
+    row.querySelector('[data-column-key="line_no"]').textContent = lineCounter;
+    row.querySelectorAll('input').forEach(function(input) {
+        input.name = input.name.replace(/_\d+$/, '_' + lineCounter);
+        if (input.type === 'hidden' && input.name.indexOf('line_id_') === 0) input.value = '';
+    });
+    const nameSpan = row.querySelector('.account-name-display');
+    if (nameSpan) nameSpan.id = 'name_' + lineCounter;
+    const searchInput = row.querySelector('.account-code-search');
+    if (searchInput) searchInput.setAttribute('oninput', "searchAccount(this, 'name_" + lineCounter + "')");
+    return row;
+}
+
+function bindVoucherGridToolbar() {
+    const table = document.getElementById('linesTable');
+    const tbody = table.querySelector('tbody');
+    const api = window.initDocumentGrid && window.initDocumentGrid(table);
+    document.querySelectorAll('[data-grid-action]').forEach(function(button) {
+        button.addEventListener('click', function() {
+            const grid = window.documentGridApi || (window.initDocumentGrid && window.initDocumentGrid(table));
+            if (!grid) return;
+            const action = button.dataset.gridAction;
+            if (action === 'columns') grid.openColumnPanel(button);
+            if (action === 'custom-field') grid.addCustomField();
+            if (action === 'reset') grid.reset();
+            if (action === 'sort-help') showToast('点击明细表头可按该列升序/降序排序。', 'info');
+        });
+    });
+    document.getElementById('addLineBtn')?.addEventListener('click', addLine);
+    document.querySelectorAll('[data-line-action]').forEach(function(button) {
+        button.addEventListener('click', function() {
+            const grid = window.documentGridApi || (window.initDocumentGrid && window.initDocumentGrid(table));
+            const row = activeVoucherLine();
+            const action = button.dataset.lineAction;
+            if (action === 'insert') {
+                const newRow = cloneVoucherLine(row);
+                if (row) tbody.insertBefore(newRow, row); else tbody.appendChild(newRow);
+                newRow.querySelector('input:not([type=hidden])')?.focus();
+            }
+            if (action === 'copy' && grid) grid.copyCurrentRow();
+            if (action === 'paste' && grid) grid.pasteToCurrentRow();
+            if (action === 'up' && grid) grid.moveCurrentRow(-1);
+            if (action === 'down' && grid) grid.moveCurrentRow(1);
+            if (action === 'delete' && row) removeLine(row.querySelector('button'));
+            calcTotals();
+            if (grid) grid.refresh();
+        });
+    });
+    if (api) api.refresh();
+}
+
+let accountSearchTimer = null;
+function searchAccount(input, nameId) {
+    clearTimeout(accountSearchTimer);
+    const q = input.value.trim();
+    if (!q || q.length < 1) {
+        input.nextElementSibling?.style && (input.nextElementSibling.style.display = 'none');
+        return;
+    }
+    accountSearchTimer = setTimeout(function() {
+        fetch(`/api/accounts/search?q=${encodeURIComponent(q)}`)
+            .then(res => res.json())
+            .then(data => {
+                let dropdown = input.nextElementSibling;
+                if (!dropdown || !dropdown.classList.contains('account-suggestions')) {
+                    dropdown = input.parentElement.querySelector('.account-suggestions');
+                }
+                if (!data.accounts || data.accounts.length === 0) {
+                    dropdown.style.display = 'none';
+                    return;
+                }
+                dropdown.innerHTML = data.accounts.map(function(a) {
+                    var safeCode = String(a.code || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+                    var safeName = String(a.name || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+                    return `<div class="suggestion-item" style="padding:4px 8px;cursor:pointer;font-size:13px"
+                            onmousedown="selectAccount('${safeCode}', '${safeName}', '${a.id}', '${nameId}')">
+                            ${safeCode} - ${safeName}</div>`;
+                }).join('');
+                dropdown.style.display = 'block';
+            });
+    }, 200);
+}
+
+function selectAccount(code, name, id, nameId) {
+    // find the closest row
+    const event = window._lastSearchEvent;
+    // We need a better approach - find by nameId
+    const nameSpan = document.getElementById(nameId);
+    if (nameSpan) {
+        const row = nameSpan.closest('tr');
+        row.querySelector('.account-code-search').value = code;
+        nameSpan.textContent = name;
+        row.querySelector('[name^="line_account_id_"]').value = id;
+        row.querySelector('.account-suggestions').style.display = 'none';
+    }
+}
+
+// Override: when mousedown on suggestion, prevent blur
+document.addEventListener('mousedown', function(e) {
+    if (e.target.classList.contains('suggestion-item')) {
+        const code = e.target.textContent.split(' - ')[0].trim();
+        const name = e.target.textContent.split(' - ').slice(1).join(' - ').trim();
+        const id = '';
+        e.target.closest('tr')?.querySelector('[name^="line_account_code_"]') && (e.target.closest('tr').querySelector('[name^="line_account_code_"]').value = code);
+        e.target.closest('tr')?.querySelector('.account-name-display') && (e.target.closest('tr').querySelector('.account-name-display').textContent = name);
+        // Find account_id from data
+        const allAccounts = window._allAccounts || [];
+        const found = allAccounts.find(a => a.code === code);
+        if (found) {
+            e.target.closest('tr').querySelector('[name^="line_account_id_"]') && (e.target.closest('tr').querySelector('[name^="line_account_id_"]').value = found.id);
+        }
+        e.target.closest('.account-suggestions') && (e.target.closest('.account-suggestions').style.display = 'none');
+        e.preventDefault();
+    }
+});
+
+function calcTotals() {
+    let totalDebit = 0, totalCredit = 0;
+    document.querySelectorAll('.debit-amount').forEach(function(el) {
+        totalDebit += parseFloat(el.value) || 0;
+    });
+    document.querySelectorAll('.credit-amount').forEach(function(el) {
+        totalCredit += parseFloat(el.value) || 0;
+    });
+    document.getElementById('totalDebit').textContent = totalDebit.toFixed(2);
+    document.getElementById('totalCredit').textContent = totalCredit.toFixed(2);
+    const diff = Math.abs(totalDebit - totalCredit);
+    const diffCell = document.getElementById('diffCell');
+    diffCell.textContent = diff.toFixed(2);
+    diffCell.style.color = diff < 0.005 ? 'green' : 'red';
+}
+
+function getFormData() {
+    const fd = new FormData(document.getElementById('voucherForm'));
+    fd.delete('line_account_code_1'); // cleanup search fields
+    return fd;
+}
+
+function saveDraft() {
+    const fd = getFormData();
+    const id = fd.get('id');
+    const url = id ? `/finance/vouchers/${id}/save` : '/finance/vouchers/save';
+    fd.set('status', 'draft');
+    sendForm(url, fd);
+}
+
+function submitAndReview() {
+    if (!validateLines()) return;
+    const fd = getFormData();
+    const id = fd.get('id');
+    const url = id ? `/finance/vouchers/${id}/save` : '/finance/vouchers/save';
+    fd.set('status', 'audited');
+    sendForm(url, fd);
+}
+
+function validateLines() {
+    const rows = document.querySelectorAll('#linesTable tbody tr');
+    if (rows.length === 0 || rows[0].id === 'emptyLine') {
+        alert('请至少添加一行会计分录。');
+        return false;
+    }
+    let totalDebit = 0, totalCredit = 0;
+    document.querySelectorAll('.debit-amount').forEach(function(el) { totalDebit += parseFloat(el.value) || 0; });
+    document.querySelectorAll('.credit-amount').forEach(function(el) { totalCredit += parseFloat(el.value) || 0; });
+    if (Math.abs(totalDebit - totalCredit) > 0.005) {
+        alert('借贷不平衡！借方合计: ' + totalDebit.toFixed(2) + ' 贷方合计: ' + totalCredit.toFixed(2));
+        return false;
+    }
+    if (totalDebit < 0.005 && totalCredit < 0.005) {
+        alert('借贷金额均为零，无法保存。');
+        return false;
+    }
+    return true;
+}
+
+function getCsrfToken() {
+    const el = document.querySelector('input[name="csrf_token"]');
+    return el ? el.value : '';
+}
+
+function sendForm(url, fd) {
+    const btns = document.querySelectorAll('#voucherForm button[type="button"]');
+    btns.forEach(b => { b.dataset._origHtml = b.innerHTML; b.disabled = true; b.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 处理中...'; });
+    fetch(url, { method: 'POST', body: fd, headers: { 'X-CSRFToken': getCsrfToken() } })
+        .then(res => res.json())
+        .then(data => {
+            if (data.ok) {
+                showToast(data.message || '保存成功', 'success');
+                setTimeout(function() { location.href = '/finance/vouchers'; }, 800);
+            } else {
+                showToast(data.error || '保存失败', 'danger', 3600);
+                btns.forEach(b => { b.disabled = false; if (b.dataset._origHtml) b.innerHTML = b.dataset._origHtml; });
+            }
+        })
+        .catch(function() {
+            btns.forEach(b => { b.disabled = false; if (b.dataset._origHtml) b.innerHTML = b.dataset._origHtml; });
+        });
+}
+
+function postVoucher() {
+    if (!confirm('确认过账此凭证？过账后将计入总账。')) return;
+    const voucherId = {{ voucher.id if voucher else 0 }};
+    const btn = event.currentTarget; if (btn) { btn.disabled = true; btn.dataset._origHtml = btn.innerHTML; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 处理中...'; }
+    fetch('/finance/vouchers/' + voucherId + '/post', { method: 'POST', headers: { 'X-CSRFToken': getCsrfToken() } })
+        .then(res => res.json())
+        .then(data => {
+            if (data.ok) { showToast('过账成功', 'success'); setTimeout(function() { location.reload(); }, 800); }
+            else { showToast(data.error || '过账失败', 'danger', 3600); if (btn) { btn.disabled = false; if (btn.dataset._origHtml) btn.innerHTML = btn.dataset._origHtml; } }
+        })
+        .catch(function() { if (btn) { btn.disabled = false; if (btn.dataset._origHtml) btn.innerHTML = btn.dataset._origHtml; } });
+}
+
+function unReview() {
+    if (!confirm('确认撤销复核？凭证将退回草稿状态。')) return;
+    const voucherId = {{ voucher.id if voucher else 0 }};
+    const btn = event.currentTarget; if (btn) { btn.disabled = true; btn.dataset._origHtml = btn.innerHTML; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 处理中...'; }
+    fetch('/finance/vouchers/' + voucherId + '/unreview', { method: 'POST', headers: { 'X-CSRFToken': getCsrfToken() } })
+        .then(res => res.json())
+        .then(data => {
+            if (data.ok) { showToast('已撤销复核', 'success'); setTimeout(function() { location.reload(); }, 800); }
+            else { showToast(data.error || '操作失败', 'danger', 3600); if (btn) { btn.disabled = false; if (btn.dataset._origHtml) btn.innerHTML = btn.dataset._origHtml; } }
+        })
+        .catch(function() { if (btn) { btn.disabled = false; if (btn.dataset._origHtml) btn.innerHTML = btn.dataset._origHtml; } });
+}
+
+function reversePost() {
+    if (!confirm('确认反过账？将生成红字冲销凭证并从总账中剔除。')) return;
+    const voucherId = {{ voucher.id if voucher else 0 }};
+    const btn = event.currentTarget; if (btn) { btn.disabled = true; btn.dataset._origHtml = btn.innerHTML; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 处理中...'; }
+    fetch('/finance/vouchers/' + voucherId + '/reverse-post', { method: 'POST', headers: { 'X-CSRFToken': getCsrfToken() } })
+        .then(res => res.json())
+        .then(data => {
+            if (data.ok) { showToast('反过账成功', 'success'); setTimeout(function() { location.reload(); }, 800); }
+            else { showToast(data.error || '操作失败', 'danger', 3600); if (btn) { btn.disabled = false; if (btn.dataset._origHtml) btn.innerHTML = btn.dataset._origHtml; } }
+        })
+        .catch(function() { if (btn) { btn.disabled = false; if (btn.dataset._origHtml) btn.innerHTML = btn.dataset._origHtml; } });
+}
+
+function voidVoucher() {
+    if (!confirm('确认作废此凭证？作废后不可恢复。')) return;
+    const voucherId = {{ voucher.id if voucher else 0 }};
+    const btn = event.currentTarget; if (btn) { btn.disabled = true; btn.dataset._origHtml = btn.innerHTML; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 处理中...'; }
+    fetch('/finance/vouchers/' + voucherId + '/void', { method: 'POST', headers: { 'X-CSRFToken': getCsrfToken() } })
+        .then(res => res.json())
+        .then(data => {
+            if (data.ok) { showToast('已作废', 'success'); setTimeout(function() { location.href = '/finance/vouchers'; }, 800); }
+            else { showToast(data.error || '操作失败', 'danger', 3600); if (btn) { btn.disabled = false; if (btn.dataset._origHtml) btn.innerHTML = btn.dataset._origHtml; } }
+        })
+        .catch(function() { if (btn) { btn.disabled = false; if (btn.dataset._origHtml) btn.innerHTML = btn.dataset._origHtml; } });
+}
+
+// Load all accounts for search on init
+fetch('/api/accounts/all')
+    .then(res => res.json())
+    .then(data => { window._allAccounts = data.accounts || []; });
+
+document.addEventListener('DOMContentLoaded', function() {
+    bindVoucherGridToolbar();
+    calcTotals();
+});
+</script>
+{% endblock %}

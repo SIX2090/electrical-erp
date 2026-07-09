@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}委外收货单详情{% endblock %}
+{% block content %}
+{% set receive_refresh_url = request.path %}
+{% set receive_order_url = '/subcontract/' ~ order.subcontract_order_id if order and order.subcontract_order_id else '#' %}
+{% set receive_raw_status = order.status if order else '' %}
+{% if receive_raw_status in ['audited', '已审核'] %}
+    {% set receive_status_key = 'audited' %}
+    {% set receive_status_label = '已审核' %}
+{% elif receive_raw_status in ['submitted', '已提交'] %}
+    {% set receive_status_key = 'submitted' %}
+    {% set receive_status_label = '已提交' %}
+{% elif receive_raw_status in ['void', 'voided', '已作废'] %}
+    {% set receive_status_key = 'void' %}
+    {% set receive_status_label = '已作废' %}
+{% elif receive_raw_status in ['completed', '已完成'] %}
+    {% set receive_status_key = 'legacy_completed' %}
+    {% set receive_status_label = '已完成' %}
+{% else %}
+    {% set receive_status_key = 'pending' %}
+    {% set receive_status_label = '草稿' %}
+{% endif %}
+{{ document_menu_bar(actions=[
+    {'label': '修改', 'type': 'link', 'href': '/subcontract_receive/' ~ (order.id if order else '') ~ '/edit' if order and receive_status_key == 'pending' else '#', 'disabled': not order or receive_status_key != 'pending'},
+    {'label': '提交', 'type': 'button', 'event': 'receive-submit', 'disabled': not order or receive_status_key != 'pending'},
+    {'label': '审核', 'type': 'button', 'event': 'receive-audit', 'disabled': not order or receive_status_key != 'submitted'},
+    {'label': '反审核', 'type': 'button', 'event': 'receive-unaudit', 'disabled': not order or receive_status_key != 'audited' or not order.posted},
+    {'label': '删除', 'type': 'button', 'button_type': 'submit', 'form': 'receiveDeleteForm', 'disabled': not order or receive_status_key != 'pending', 'icon': 'bi-trash', 'title': '' if order and receive_status_key == 'pending' else '当前状态不能删除；已过账单据请先反审。'},
+    {'label': '复制', 'type': 'button', 'button_type': 'submit', 'form': 'copyForm', 'icon': 'bi-copy', 'title': '复制为新的草稿单据'},
+    {'label': '下查', 'type': 'dropdown', 'items': [
+        {'label': '查看委外订单', 'type': 'link', 'href': receive_order_url, 'disabled': not order or not order.subcontract_order_id},
+        {'label': '查看委外发料列表', 'type': 'link', 'href': '/subcontract_issue?keyword=' ~ (order.order_no|urlencode) if order and order.order_no else '/subcontract_issue'},
+        {'label': '查看应付列表', 'type': 'link', 'href': '/payables?keyword=' ~ (order.order_no|urlencode) if order and order.order_no else '/payables'}
+    ]},
+    {'type': 'nav', 'items': [
+        {'label': '首张', 'event': 'doc-nav-first', 'icon': 'bi-chevron-double-left'},
+        {'label': '上一张', 'event': 'doc-nav-prev', 'icon': 'bi-chevron-left'},
+        {'label': '下一张', 'event': 'doc-nav-next', 'icon': 'bi-chevron-right'},
+        {'label': '末张', 'event': 'doc-nav-last', 'icon': 'bi-chevron-double-right'}
+    ]}
+]) }}
+<div id="doc-nav-config" data-nav-table="subcontract_receives" data-nav-base="{{ (back_url or '/subcontract_receive') }}/" data-doc-id="{{ order.id }}" style="display:none"></div>
+{% if order and receive_status_key == 'pending' %}
+<div class="mb-3 d-none">
+    <a class="btn btn-outline-secondary btn-sm" href="/subcontract_receive/{{ order.id }}/edit">编辑</a>
+</div>
+{% endif %}
+{% if order %}
+<form id="receiveSubmitForm" method="post" action="/subcontract_receive/{{ order.id }}/submit"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+<form id="receiveAuditForm" method="post" action="/subcontract_receive/{{ order.id }}/audit"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+<form id="receiveUnauditForm" method="post" action="/subcontract_receive/{{ order.id }}/unaudit"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+<form id="receiveVoidForm" method="post" action="/subcontract_receive/{{ order.id }}/void"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+<form id="receiveDeleteForm" method="post" action="/subcontract_receive/{{ order.id }}/delete" onsubmit="return confirm('确认删除这张未过账委外收货单？');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+<form id="copyForm" method="post" action="/subcontract_receive/{{ order.id }}/copy"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+{% endif %}
+<div class="page-heading">
+    <h1>委外收货单详情</h1>
+    <p>{{ order.receive_no|clean_text if order else '记录不存在' }}</p>
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>{{ order.receive_no|clean_text if order else '收货单不存在' }}</h2>
+            <span>委外加工回厂凭证；审核后写入库存流水，后续用于应付核对。</span>
+        </div>
+        <span class="badge text-bg-secondary">{{ receive_status_label }}</span>
+    </div>
+
+    {% if order %}
+    <dl class="row mb-0">
+        <dt class="col-sm-2">收货单号</dt>
+        <dd class="col-sm-4">{{ order.receive_no|clean_text or '-' }}</dd>
+        <dt class="col-sm-2">状态</dt>
+        <dd class="col-sm-4">{{ receive_status_label }}</dd>
+
+        <dt class="col-sm-2">委外订单</dt>
+        <dd class="col-sm-4">{{ order.order_no|clean_text or '-' }}</dd>
+        <dt class="col-sm-2">加工商</dt>
+        <dd class="col-sm-4">{{ order.supplier_name|clean_text or '-' }}</dd>
+
+        <dt class="col-sm-2">项目号</dt>
+        <dd class="col-sm-4">{{ order.project_code|clean_text or '-' }}</dd>
+        <dt class="col-sm-2">机号</dt>
+        <dd class="col-sm-4">{{ order.serial_no|clean_text or '-' }}</dd>
+
+        <dt class="col-sm-2">收货日期</dt>
+        <dd class="col-sm-4">{{ order.date or '-' }}</dd>
+        <dt class="col-sm-2">备注</dt>
+        <dd class="col-sm-4">{{ order.remark|clean_text or '-' }}</dd>
+    </dl>
+    {% else %}
+    <div class="text-muted">未找到委外收货单。</div>
+    {% endif %}
+</div>
+
+{% if order %}
+<div class="page-card">
+    <div class="section-title">
+        <div>
+            <h2>收货明细</h2>
+            <span>合格数量与报废数量</span>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-outline-primary btn-sm" href="/material?keyword={{ (order.product_code or '')|urlencode }}">
+                <i class="bi bi-box-seam"></i> 查看物料
+            </a>
+            <button class="btn btn-outline-secondary btn-sm" type="button" data-copy-detail="receive">
+                <i class="bi bi-clipboard"></i> 复制明细
+            </button>
+            <button class="btn btn-outline-secondary btn-sm" type="button" disabled>
+                <i class="bi bi-printer"></i> 打印明细
+            </button>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0" id="receiveDetailTable">
+            <thead>
+            <tr>
+                <th style="width:48px;">行号</th>
+                <th>物料编码</th>
+                <th>物料名称</th>
+                <th>规格</th>
+                <th>单位</th>
+                <th class="text-end">合格数量</th>
+                <th class="text-end">报废数量</th>
+                <th>仓库</th>
+                <th>库位</th>
+                <th>项目号</th>
+                <th>机号</th>
+                <th style="width:90px;">操作</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% set detail_rows = items if items is defined and items else [order] %}
+            {% for item in detail_rows %}
+            <tr>
+                <td class="text-center text-muted">{{ loop.index }}</td>
+                <td>{{ item.product_code|clean_text or item.material_code|clean_text or '-' }}</td>
+                <td>{{ item.product_name|clean_text or item.material_name|clean_text or '-' }}</td>
+                <td>{{ item.specification|clean_text or item.material_spec|clean_text or '-' }}</td>
+                <td>{{ item.unit_name|clean_text or item.unit|clean_text or '-' }}</td>
+                <td class="text-end">{{ (item.good_quantity or item.quantity or item.total_quantity or 0)|qty }}</td>
+                <td class="text-end">{{ (item.scrap_quantity or item.total_scrap or 0)|qty }}</td>
+                <td>{{ item.warehouse_name|clean_text or '-' }}</td>
+                <td>{{ item.location_code|clean_text or item.location_name|clean_text or '-' }}</td>
+                <td>{{ item.project_code|clean_text or '-' }}</td>
+                <td>{{ item.serial_no|clean_text or '-' }}</td>
+                <td><a class="btn btn-outline-primary btn-sm" href="/material?keyword={{ (item.product_code or item.material_code or '')|urlencode }}">物料</a></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="11" class="text-muted">暂无明细。</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+<script>
+document.addEventListener('click', function(event) {
+    const menuAction = event.target.closest('[data-menu-event]');
+    if (menuAction) {
+        const forms = {
+            'receive-submit': 'receiveSubmitForm',
+            'receive-audit': 'receiveAuditForm',
+            'receive-unaudit': 'receiveUnauditForm',
+            'receive-void': 'receiveVoidForm'
+        };
+        const formId = forms[menuAction.dataset.menuEvent];
+        if (formId && document.getElementById(formId)) document.getElementById(formId).requestSubmit();
+    }
+    const button = event.target.closest('[data-copy-detail="receive"]');
+    if (!button) return;
+    const rows = Array.from(document.querySelectorAll('#receiveDetailTable tbody tr')).map(function(row) {
+        return Array.from(row.cells).slice(0, 10).map(function(cell) { return cell.innerText.trim(); }).join('\t');
+    }).join('\n');
+    if (navigator.clipboard && rows) {
+        navigator.clipboard.writeText(rows);
+    }
+});
+</script>
+{% endblock %}

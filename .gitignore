@@ -1,0 +1,104 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+eggs/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+test_offline_venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Environment variables with secrets
+.env
+.env.local
+.env.production
+runtime_local_secrets.cmd
+
+# Database data - NEVER commit
+pgdata/
+pgsql*/
+db/*.dump
+db/*.sql
+!db/.gitkeep
+
+# Database backups
+backups/
+*.dump
+*.backup
+*.bak
+
+# Logs
+logs/
+*.log
+postgres*.log
+server.log
+log.txt
+*.out
+
+# Cache directories
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+.cache/
+
+# Test artifacts and reports
+reports/
+output/
+screenshots/
+_e2e_cookies.json
+scripts/_e2e_*.py
+deep_bug_report.json
+full_bug_report.json
+ui_quality_issues.json
+
+# Memory and local AI files
+memory/
+.memory/
+
+# Payload/runtime bundles
+payload/
+payload_python/
+
+# Temporary and backup files
+*.tmp
+*.temp
+*.bak
+*.backup
+app.py.backup_*
+*.zip
+*.rar
+*.7z
+
+# Build output
+installer/
+*.msi
+*.exe
+*.spec
+
+# Node dependencies
+node_modules/
+
+# Local improvement/scratch files
+improvements/
+
+# OS generated files
+Desktop.ini
+ehthumbs.db

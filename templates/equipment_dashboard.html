@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <div>
+        <h1>{{ title }}</h1>
+        <p>{{ subtitle }}</p>
+    </div>
+</div>
+
+<div class="metric-grid mb-3">
+    {% for metric in metrics %}
+    <div class="metric">
+        <div class="label">{{ metric.label }}</div>
+        <div class="value">{{ metric.value }}</div>
+        <div class="metric-hint">{{ metric.hint }}</div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>设备台账</h2>
+            <span>设备状态、维护状态和OEE</span>
+        </div>
+        <form class="d-flex flex-wrap gap-2" method="get">
+            <input class="form-control form-control-sm" name="keyword" value="{{ filters.keyword }}" placeholder="设备编码/名称/型号/工作中心">
+            <select class="form-select form-select-sm" name="status">
+                <option value="">全部状态</option>
+                {% for item in ['启用', '停用', '维修中', '封存'] %}
+                <option value="{{ item }}" {% if filters.status == item %}selected{% endif %}>{{ item }}</option>
+                {% endfor %}
+            </select>
+            <button class="btn btn-outline-primary btn-sm" type="submit"><i class="bi bi-search"></i> 查询</button>
+        </form>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+            <tr>
+                <th>设备编码</th>
+                <th>设备名称</th>
+                <th>型号</th>
+                <th>工作中心</th>
+                <th>状态</th>
+                <th>维护状态</th>
+                <th class="text-end">开动率</th>
+                <th class="text-end">性能率</th>
+                <th class="text-end">良品率</th>
+                <th class="text-end">OEE</th>
+                <th>下一步</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for row in equipment_rows %}
+            <tr>
+                <td>{{ row.code or '-' }}</td>
+                <td>{{ row.name or '-' }}</td>
+                <td>{{ row.model or '-' }}</td>
+                <td>{{ row.work_center or '-' }}</td>
+                <td>{{ row.status or '-' }}</td>
+                <td>{{ row.maintenance_status or '-' }}</td>
+                <td class="text-end">{{ row.availability_rate or 0 }}%</td>
+                <td class="text-end">{{ row.performance_rate or 0 }}%</td>
+                <td class="text-end">{{ row.quality_rate or 0 }}%</td>
+                <td class="text-end fw-semibold">{{ row.oee_rate or 0 }}%</td>
+                <td><span class="badge text-bg-light">{{ row.next_step }}</span></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="11" class="text-muted">暂无设备台账。请先导入或新增设备主数据。</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-xl-6">
+        <div class="page-card h-100">
+            <div class="section-title">
+                <div>
+                    <h2>最近OEE记录</h2>
+                    <span>计划、运行、停机、产出和良品</span>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead>
+                    <tr>
+                        <th>日期</th>
+                        <th>设备</th>
+                        <th class="text-end">计划分钟</th>
+                        <th class="text-end">运行分钟</th>
+                        <th class="text-end">停机分钟</th>
+                        <th class="text-end">产量</th>
+                        <th class="text-end">良品</th>
+                        <th>状态</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for row in recent_records %}
+                    <tr>
+                        <td>{{ row.record_date or '-' }}</td>
+                        <td>{{ row.equipment_code or '-' }} {{ row.equipment_name or '' }}</td>
+                        <td class="text-end">{{ row.planned_minutes|qty }}</td>
+                        <td class="text-end">{{ row.run_minutes|qty }}</td>
+                        <td class="text-end">{{ row.downtime_minutes|qty }}</td>
+                        <td class="text-end">{{ row.total_quantity|qty }}</td>
+                        <td class="text-end">{{ row.good_quantity|qty }}</td>
+                        <td>{{ row.status or '-' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="8" class="text-muted">暂无OEE记录。</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-6">
+        <div class="page-card h-100">
+            <div class="section-title">
+                <div>
+                    <h2>关联工序</h2>
+                    <span>设备被工单工序占用的最近记录</span>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead>
+                    <tr>
+                        <th>工单</th>
+                        <th>物料</th>
+                        <th>计划开始</th>
+                        <th>计划结束</th>
+                        <th class="text-end">计划数</th>
+                        <th class="text-end">完成数</th>
+                        <th>状态</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for row in process_rows %}
+                    <tr>
+                        <td>{{ row.order_no or '-' }}</td>
+                        <td>{{ row.product_code or '-' }} {{ row.product_name or '' }}</td>
+                        <td>{{ row.planned_start_date or '-' }}</td>
+                        <td>{{ row.planned_end_date or '-' }}</td>
+                        <td class="text-end">{{ row.planned_quantity|qty }}</td>
+                        <td class="text-end">{{ row.actual_quantity|qty }}</td>
+                        <td>{{ row.status or '-' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="7" class="text-muted">暂无关联工序。</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

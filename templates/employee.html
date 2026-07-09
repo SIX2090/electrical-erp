@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% from '_list_macros.html' import sort_th %}
+{% block title %}员工管理{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <h2><i class="bi bi-people"></i> 员工管理</h2>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="get" class="row g-2 align-items-end mb-3">
+            {% if request.args.get('embedded') == '1' %}
+            <input type="hidden" name="embedded" value="1">
+            {% endif %}
+            <div class="col-md-10">
+                <label class="form-label small text-muted mb-1">关键词</label>
+                <input type="text" name="search" class="form-control form-control-sm" placeholder="搜索姓名、职位、电话" value="{{ filters.search }}">
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-primary btn-sm flex-fill">筛选</button>
+                {% if filters.search %}
+                <a href="/employee{% if request.args.get('embedded') == '1' %}?embedded=1{% endif %}" class="btn btn-outline-secondary btn-sm">清除</a>
+                {% endif %}
+            </div>
+        </form>
+        <table class="table table-bordered table-hover" id="employeeTable">
+            <thead>
+                <tr>
+                    <th width="50"><input type="checkbox" id="checkAll"></th>
+                    {{ sort_th('ID', 'id', sort_by, sort_order) }}
+                    {{ sort_th('姓名', 'name', sort_by, sort_order) }}
+                    {{ sort_th('职位', 'position', sort_by, sort_order) }}
+                    {{ sort_th('电话', 'phone', sort_by, sort_order) }}
+                    {{ sort_th('创建时间', 'created_at', sort_by, sort_order) }}
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for emp in employees %}
+                <tr>
+                    <td><input type="checkbox" class="check-item" value="{{ emp.id }}"></td>
+                    <td>{{ emp.id }}</td>
+                    <td>{{ emp.name }}</td>
+                    <td>{{ emp.position or '-' }}</td>
+                    <td>{{ emp.phone or '-' }}</td>
+                    <td>{{ emp.created_at.strftime('%Y-%m-%d') if emp.created_at else '-' }}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteItem('{{ url_for('employee_delete', employee_id=emp.id) }}')">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="7" class="text-center text-muted">暂无数据，请添加员工</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal fade" id="addModal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">新增员工</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="addForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">姓名 *</label>
+                        <input type="text" class="form-control" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">职位</label>
+                        <input type="text" class="form-control" name="position">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">电话</label>
+                        <input type="text" class="form-control" name="phone">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    initCheckAll('employeeTable');
+
+    // 新增员工
+    var addForm = document.getElementById('addForm');
+    if (addForm) {
+        addForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            var formData = new FormData(this);
+            fetch('/employee/new', {
+                method: 'POST',
+                headers: {'X-CSRFToken': (document.querySelector('meta[name="csrf-token"]') || {}).content || ''},
+                body: formData
+            })
+            .then(function(r){ return r.json(); })
+            .then(function(res) {
+                if (res.status === 'success') {
+                    showToast('员工已创建，正在刷新列表…', 'success');
+                    setTimeout(function(){ location.reload(); }, 650);
+                }
+                else showToast(res.msg || '保存失败', 'danger', 3600);
+            })
+            .catch(function(err){ showToast('保存失败: ' + err.message, 'danger', 3600); });
+        });
+    }
+});
+</script>
+
+<!-- 导入弹窗 -->
+<div class="modal fade" id="importModal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-upload"></i> 导入员工</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="/employee/import" method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">选择 Excel 文件</label>
+                        <input type="file" name="file" class="form-control" accept=".xlsx,.xls" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">导入</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,304 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <div>
+        <h1>{{ title }}</h1>
+        <p>{{ subtitle }}</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="/finance/reports/aging" class="btn btn-sm {% if view_mode == 'aging' %}btn-primary{% else %}btn-outline-primary{% endif %}">应收应付账龄</a>
+        <a href="/finance/reports/aging-buckets" class="btn btn-sm {% if view_mode == 'buckets' %}btn-primary{% else %}btn-outline-primary{% endif %}">账龄区间汇总</a>
+        <a href="/finance/reports/balance" class="btn btn-sm {% if view_mode == 'balance' %}btn-primary{% else %}btn-outline-primary{% endif %}">往来余额明细</a>
+    </div>
+</div>
+
+{{ document_menu_bar(actions=[
+    {'label': '应收应付账龄', 'type': 'link', 'href': '/finance/reports/aging'},
+    {'label': '账龄区间汇总', 'type': 'link', 'href': '/finance/reports/aging-buckets'},
+    {'label': '往来余额明细', 'type': 'link', 'href': '/finance/reports/balance'}
+], aria_label='报表操作菜单') }}
+
+<div class="page-card mb-3">
+    <form id="financeAgingReportFilterForm" method="get" class="row g-2 align-items-end">
+        <div class="col-md-3">
+            <label class="form-label small text-muted mb-1">关键字</label>
+            <input class="form-control form-control-sm" name="keyword" value="{{ request.args.get('keyword', '') }}" placeholder="单号、项目号、机号">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small text-muted mb-1">类型</label>
+            <select class="form-select form-select-sm" name="kind">
+                <option value="">全部</option>
+                <option value="receivable" {% if request.args.get('kind') == 'receivable' %}selected{% endif %}>应收</option>
+                <option value="payable" {% if request.args.get('kind') == 'payable' %}selected{% endif %}>应付</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small text-muted mb-1">账龄</label>
+            <select class="form-select form-select-sm" name="bucket">
+                <option value="">全部</option>
+                <option value="not_due" {% if request.args.get('bucket') == 'not_due' %}selected{% endif %}>未到期</option>
+                <option value="0_30" {% if request.args.get('bucket') == '0_30' %}selected{% endif %}>0-30天</option>
+                <option value="31_60" {% if request.args.get('bucket') == '31_60' %}selected{% endif %}>31-60天</option>
+                <option value="61_90" {% if request.args.get('bucket') == '61_90' %}selected{% endif %}>61-90天</option>
+                <option value="over_90" {% if request.args.get('bucket') == 'over_90' %}selected{% endif %}>90天以上</option>
+            </select>
+        </div>
+        <div class="col-md-2 d-grid">
+            <button class="btn btn-primary btn-sm" type="submit"><i class="bi bi-search"></i> 查询</button>
+        </div>
+        <div class="col-md-2 d-grid">
+            <a class="btn btn-outline-secondary btn-sm" href="{{ request.path }}">重置</a>
+        </div>
+    </form>
+</div>
+
+{% if view_mode == 'aging' %}
+<!-- 应收应付账龄专题 -->
+<div class="row g-3 mb-3">
+    <div class="col-md-3">
+        <div class="stats-card">
+            <div class="stats-card-label">应收余额</div>
+            <div class="stats-card-value">{{ metrics.receivable_balance | money }}</div>
+            <div class="stats-card-hint">客户未回款</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stats-card">
+            <div class="stats-card-label">应付余额</div>
+            <div class="stats-card-value">{{ metrics.payable_balance | money }}</div>
+            <div class="stats-card-hint">供应商未付款</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stats-card">
+            <div class="stats-card-label">逾期单据</div>
+            <div class="stats-card-value">{{ metrics.overdue_count }}</div>
+            <div class="stats-card-hint">已超过到期日</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stats-card">
+            <div class="stats-card-label">逾期金额</div>
+            <div class="stats-card-value text-danger">{{ metrics.overdue_amount | money }}</div>
+            <div class="stats-card-hint">需催收/安排付款</div>
+        </div>
+    </div>
+</div>
+
+<div class="page-card">
+    <table class="data-table table-striped">
+        <thead>
+            <tr>
+                <th>类型</th>
+                <th>来源单号</th>
+                <th>单据日期</th>
+                <th>到期日</th>
+                <th>逾期天数</th>
+                <th>账龄区间</th>
+                <th class="text-end">金额</th>
+                <th class="text-end">已核销</th>
+                <th class="text-end">余额</th>
+                <th>核销状态</th>
+                <th>项目号</th>
+                <th>机号</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                <td>
+                    <span class="badge {% if row.kind == '应收' %}bg-warning text-dark{% else %}bg-info text-dark{% endif %}">{{ row.kind }}</span>
+                </td>
+                <td><a href="{{ row.detail_url }}">{{ row.doc_no }}</a></td>
+                <td>{{ row.doc_date }}</td>
+                <td>{{ row.due_date or '-' }}</td>
+                <td>
+                    {% if row.aging_bucket == '未到期' %}
+                    <span class="text-success">{{ row.age_days }}天</span>
+                    {% elif row.aging_bucket == '0-30天' %}
+                    <span class="text-warning">{{ row.age_days }}天</span>
+                    {% elif row.aging_bucket == '31-60天' %}
+                    <span class="text-warning fw-bold">{{ row.age_days }}天</span>
+                    {% else %}
+                    <span class="text-danger fw-bold">{{ row.age_days }}天</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if row.aging_bucket == '未到期' %}
+                    <span class="badge bg-success">未到期</span>
+                    {% elif row.aging_bucket == '0-30天' %}
+                    <span class="badge bg-warning text-dark">0-30天</span>
+                    {% elif row.aging_bucket == '31-60天' %}
+                    <span class="badge bg-warning">31-60天</span>
+                    {% elif row.aging_bucket == '61-90天' %}
+                    <span class="badge bg-danger">61-90天</span>
+                    {% else %}
+                    <span class="badge bg-danger">90天以上</span>
+                    {% endif %}
+                </td>
+                <td class="text-end">{{ row.total_amount | money }}</td>
+                <td class="text-end">{{ row.settled_amount | money }}</td>
+                <td class="text-end fw-bold">{{ row.balance | money }}</td>
+                <td>
+                    {% if row.settlement_status == '已核销' %}
+                    <span class="text-success">已核销</span>
+                    {% elif row.settlement_status == '部分核销' %}
+                    <span class="text-warning">部分核销</span>
+                    {% else %}
+                    <span class="text-muted">未核销</span>
+                    {% endif %}
+                </td>
+                <td>{{ row.project_code or '-' }}</td>
+                <td>{{ row.serial_no or '-' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="12" class="text-center text-muted py-4">暂无应收应付数据。</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% elif view_mode == 'buckets' %}
+<!-- 账龄区间汇总 -->
+<div class="row g-3 mb-3">
+    {% for b in buckets %}
+    <div class="col">
+        <div class="stats-card">
+            <div class="stats-card-label">{{ b.bucket }}</div>
+            <div class="stats-card-value">{{ b.amount | money }}</div>
+            <div class="stats-card-hint">{{ b.count }}笔 | 应收 {{ b.receivable_amount | money }} | 应付 {{ b.payable_amount | money }}</div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="page-card">
+    <table class="data-table table-striped">
+        <thead>
+            <tr>
+                <th>账龄区间</th>
+                <th class="text-end">单据数</th>
+                <th class="text-end">应收余额</th>
+                <th class="text-end">应付余额</th>
+                <th class="text-end">余额合计</th>
+                <th class="text-end">占比</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% set total_amount = buckets | sum(attribute='amount') %}
+            {% for b in buckets %}
+            <tr>
+                <td>
+                    {% if b.bucket == '未到期' %}
+                    <span class="badge bg-success">未到期</span>
+                    {% elif b.bucket == '0-30天' %}
+                    <span class="badge bg-warning text-dark">0-30天</span>
+                    {% elif b.bucket == '31-60天' %}
+                    <span class="badge bg-warning">31-60天</span>
+                    {% elif b.bucket == '61-90天' %}
+                    <span class="badge bg-danger">61-90天</span>
+                    {% else %}
+                    <span class="badge bg-danger">90天以上</span>
+                    {% endif %}
+                </td>
+                <td class="text-end">{{ b.count }}</td>
+                <td class="text-end">{{ b.receivable_amount | money }}</td>
+                <td class="text-end">{{ b.payable_amount | money }}</td>
+                <td class="text-end fw-bold">{{ b.amount | money }}</td>
+                <td class="text-end">
+                    {% if total_amount > 0 %}
+                    {{ "%.1f" | format(b.amount / total_amount * 100) }}%
+                    {% else %}0%{% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="text-center text-muted py-4">暂无账龄数据。</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% elif view_mode == 'balance' %}
+<!-- 往来余额明细 -->
+<div class="row g-3 mb-3">
+    <div class="col-md-3">
+        <div class="stats-card">
+            <div class="stats-card-label">应收余额</div>
+            <div class="stats-card-value">{{ metrics.receivable_balance | money }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stats-card">
+            <div class="stats-card-label">应付余额</div>
+            <div class="stats-card-value">{{ metrics.payable_balance | money }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stats-card">
+            <div class="stats-card-label">应收已核销</div>
+            <div class="stats-card-value text-success">{{ metrics.receivable_settled | money }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stats-card">
+            <div class="stats-card-label">应付已核销</div>
+            <div class="stats-card-value text-success">{{ metrics.payable_settled | money }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="page-card">
+    <table class="data-table table-striped">
+        <thead>
+            <tr>
+                <th>类型</th>
+                <th>来源单号</th>
+                <th>日期</th>
+                <th class="text-end">金额</th>
+                <th class="text-end">已核销</th>
+                <th class="text-end">余额</th>
+                <th>核销状态</th>
+                <th>业务状态</th>
+                <th>项目号</th>
+                <th>机号</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                <td>
+                    <span class="badge {% if row.kind == '应收' %}bg-warning text-dark{% else %}bg-info text-dark{% endif %}">{{ row.kind }}</span>
+                </td>
+                <td><a href="{{ row.detail_url }}">{{ row.doc_no }}</a></td>
+                <td>{{ row.doc_date }}</td>
+                <td class="text-end">{{ row.total_amount | money }}</td>
+                <td class="text-end">{{ row.settled_amount | money }}</td>
+                <td class="text-end fw-bold">{{ row.balance | money }}</td>
+                <td>
+                    {% if row.settlement_status == '已核销' %}
+                    <span class="text-success">已核销</span>
+                    {% elif row.settlement_status == '部分核销' %}
+                    <span class="text-warning">部分核销</span>
+                    {% else %}
+                    <span class="text-muted">未核销</span>
+                    {% endif %}
+                </td>
+                <td>{{ row.status or '-' }}</td>
+                <td>{{ row.project_code or '-' }}</td>
+                <td>{{ row.serial_no or '-' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="10" class="text-center text-muted py-4">暂无往来余额数据。</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+<script>
+document.getElementById('financeAgingReportPrintBtn')?.addEventListener('click', function () {
+    window.print();
+});
+</script>
+{% endblock %}

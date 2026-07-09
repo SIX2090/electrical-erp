@@ -1,0 +1,276 @@
+{% extends "base.html" %}
+{% from '_list_macros.html' import sort_th %}
+{% block title %}部门档案{% endblock %}
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>部门档案</h2>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <form method="get" class="row g-2 align-items-end mb-3">
+                {% if request.args.get('embedded') == '1' %}
+                <input type="hidden" name="embedded" value="1">
+                {% endif %}
+                <div class="col-md-2">
+                    <label class="form-label small text-muted mb-1">状态</label>
+                    <select name="status" class="form-select form-select-sm">
+                        <option value="" {% if not filters.status %}selected{% endif %}>全部状态</option>
+                        <option value="active" {% if filters.status == 'active' %}selected{% endif %}>启用</option>
+                        <option value="inactive" {% if filters.status == 'inactive' %}selected{% endif %}>停用</option>
+                    </select>
+                </div>
+                <div class="col-md-8">
+                    <label class="form-label small text-muted mb-1">关键词</label>
+                    <input type="text" name="search" class="form-control form-control-sm" placeholder="搜索部门编码、名称、备注、启用、停用" value="{{ filters.search }}">
+                </div>
+                <div class="col-md-2 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary btn-sm flex-fill">筛选</button>
+                    {% if filters.status or filters.search %}
+                    <a href="/department{% if request.args.get('embedded') == '1' %}?embedded=1{% endif %}" class="btn btn-outline-secondary btn-sm">清除</a>
+                    {% endif %}
+                </div>
+            </form>
+
+            <table class="table table-striped table-hover" id="departmentTable">
+                <thead>
+                    <tr>
+                        <th width="50"><input type="checkbox" id="checkAll"></th>
+                        {{ sort_th('部门编码', 'code', sort_by, sort_order) }}
+                        {{ sort_th('部门名称', 'name', sort_by, sort_order) }}
+                        {{ sort_th('状态', 'status', sort_by, sort_order) }}
+                        <th>备注</th>
+                        {{ sort_th('创建时间', 'created_at', sort_by, sort_order) }}
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for d in departments %}
+                    <tr>
+                        <td><input type="checkbox" class="check-item" value="{{ d.id }}"></td>
+                        <td>{{ d.code }}</td>
+                        <td>{{ d.name }}</td>
+                        <td>
+                            {% if d.status == 'active' %}
+                            <span class="badge bg-success">启用</span>
+                            {% else %}
+                            <span class="badge bg-secondary">停用</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ d.remark or '' }}</td>
+                        <td>{{ d.created_at.strftime('%Y-%m-%d %H:%M') if d.created_at else '-' }}</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" onclick="editDepartment({{ d.id }})">编辑</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteDepartment({{ d.id }})">删除</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            {% if pagination.pages > 1 %}
+            <nav>
+                <ul class="pagination">
+                    {% if pagination.has_prev %}
+                    <li class="page-item"><a class="page-link" href="{{ url_with_query(page=pagination.prev_num, per_page=per_page, sort=sort_by, order=sort_order) }}">上一页</a></li>
+                    {% endif %}
+                    {% for p in pagination.iter_pages() %}
+                        {% if p %}
+                            <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                                <a class="page-link" href="{{ url_with_query(page=p, per_page=per_page, sort=sort_by, order=sort_order) }}">{{ p }}</a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled"><span class="page-link">...</span></li>
+                        {% endif %}
+                    {% endfor %}
+                    {% if pagination.has_next %}
+                    <li class="page-item"><a class="page-link" href="{{ url_with_query(page=pagination.next_num, per_page=per_page, sort=sort_by, order=sort_order) }}">下一页</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- 新增部门模态框 -->
+<div class="modal fade" id="addModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">新增部门</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addForm">
+                    <div class="mb-3">
+                        <label class="form-label">部门编码 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="code" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">部门名称 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">状态</label>
+                        <select class="form-select" name="status">
+                            <option value="active">启用</option>
+                            <option value="inactive">停用</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">备注</label>
+                        <textarea class="form-control" name="remark" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="submitAdd()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 编辑部门模态框 -->
+<div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">编辑部门</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editForm">
+                    <input type="hidden" name="id">
+                    <div class="mb-3">
+                        <label class="form-label">部门编码 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="code" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">部门名称 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">状态</label>
+                        <select class="form-select" name="status">
+                            <option value="active">启用</option>
+                            <option value="inactive">停用</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">备注</label>
+                        <textarea class="form-control" name="remark" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="submitEdit()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    initCheckAll('departmentTable');
+});
+
+function submitAdd() {
+    const form = document.getElementById('addForm');
+    const formData = new FormData(form);
+
+    fetch('/department/new', {
+        method: 'POST',
+        headers: {'X-CSRFToken': (document.querySelector('meta[name="csrf-token"]') || {}).content || ''},
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'success') {
+            notifyMasterDataChanged('department_updated');
+            showToast('新增成功', 'success');
+            setTimeout(() => location.reload(), 800);
+        } else {
+            showToast(data.msg || '新增失败', 'danger', 3600);
+        }
+    })
+    .catch(err => showToast('新增失败：' + err.message, 'danger', 3600));
+}
+
+function editDepartment(id) {
+    fetch('/department/' + id)
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'success') {
+            const d = data.department;
+            const form = document.getElementById('editForm');
+            form.querySelector('[name="id"]').value = d.id;
+            form.querySelector('[name="code"]').value = d.code;
+            form.querySelector('[name="name"]').value = d.name;
+            form.querySelector('[name="status"]').value = d.status;
+            form.querySelector('[name="remark"]').value = d.remark || '';
+            new bootstrap.Modal(document.getElementById('editModal')).show();
+        } else {
+            showToast(data.msg || '获取数据失败', 'danger', 3600);
+        }
+    })
+    .catch(err => showToast('获取数据失败：' + err.message, 'danger', 3600));
+}
+
+function submitEdit() {
+    const form = document.getElementById('editForm');
+    const formData = new FormData(form);
+    const id = formData.get('id');
+
+    fetch('/department/' + id + '/edit', {
+        method: 'POST',
+        headers: {'X-CSRFToken': (document.querySelector('meta[name="csrf-token"]') || {}).content || ''},
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'success') {
+            notifyMasterDataChanged('department_updated');
+            showToast('编辑成功', 'success');
+            setTimeout(() => location.reload(), 800);
+        } else {
+            showToast(data.msg || '编辑失败', 'danger', 3600);
+        }
+    })
+    .catch(err => showToast('编辑失败：' + err.message, 'danger', 3600));
+}
+
+function deleteDepartment(id) {
+    if (!confirm('确定要删除这个部门吗？')) return;
+
+    fetch('/department/' + id + '/delete', {
+        method: 'POST',
+        headers: {'X-CSRFToken': (document.querySelector('meta[name="csrf-token"]') || {}).content || ''}
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'success') {
+            notifyMasterDataChanged('department_updated');
+            showToast('删除成功', 'success');
+            setTimeout(() => location.reload(), 800);
+        } else {
+            showToast(data.msg || '删除失败', 'danger', 3600);
+        }
+    })
+    .catch(err => showToast('删除失败：' + err.message, 'danger', 3600));
+}
+
+function notifyMasterDataChanged(type) {
+    try {
+        if (typeof BroadcastChannel !== 'undefined') {
+            const bc = new BroadcastChannel('wms_master_data_update');
+            bc.postMessage({type: type, timestamp: Date.now()});
+            bc.close();
+        }
+    } catch(e) {}
+}
+</script>
+{% endblock %}

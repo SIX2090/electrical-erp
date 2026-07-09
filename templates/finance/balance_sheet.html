@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+
+{% block title %}资产负债表{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <form id="reportFilterForm" method="get" class="d-none">
+        <input type="hidden" name="period" value="{{ period or '' }}">
+    </form>
+    <!-- 页面标题 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-balance-scale"></i> 资产负债表</h2>
+        <div class="d-none">
+            <button class="btn btn-primary" onclick="window.print()">
+                <i class="fas fa-print"></i> 打印
+            </button>
+            <button class="btn btn-success" onclick="exportReportTable()">
+                <i class="fas fa-file-excel"></i> 导出Excel
+            </button>
+            <a href="/finance/reports/" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> 返回
+            </a>
+        </div>
+    </div>
+
+    {% if error %}
+    <div class="alert alert-danger">
+        <i class="fas fa-exclamation-triangle"></i> {{ error }}
+    </div>
+    {% endif %}
+
+    <!-- 报表头部 -->
+    <div class="card mb-4">
+        <div class="card-body text-center">
+            <h3>资产负债表</h3>
+            <p class="mb-1">编制单位：[企业名称]</p>
+            <p class="mb-1">报表期间：{{ period }} ({{ period|replace('-', '年')|replace('年', '年', 1) }}月)</p>
+            <p class="mb-0">生成时间：{{ report_data.generated_at if report_data.generated_at else '' }}</p>
+        </div>
+    </div>
+
+    {% if report_data and report_data.assets %}
+    <!-- 平衡校验 -->
+    {% if report_data.balanced %}
+    <div class="alert alert-success">
+        <i class="fas fa-check-circle"></i> 资产负债平衡
+    </div>
+    {% else %}
+    <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle"></i> 资产负债不平衡，差异：{{ "{:,.2f}".format(report_data.balance_diff) }}
+    </div>
+    {% endif %}
+
+    <!-- 报表主体 -->
+    <div class="row">
+        <!-- 资产 -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">资产</h5>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-sm mb-0">
+                        <!-- 流动资产 -->
+                        <tr class="table-active">
+                            <td colspan="2"><strong>流动资产</strong></td>
+                        </tr>
+                        {% for key, value in report_data.assets['流动资产'].items() %}
+                        {% if key != '流动资产合计' %}
+                        <tr>
+                            <td class="pl-4">{{ key }}</td>
+                            <td class="text-right">{{ "{:,.2f}".format(value) }}</td>
+                        </tr>
+                        {% endif %}
+                        {% endfor %}
+                        <tr class="font-weight-bold">
+                            <td class="pl-4">流动资产合计</td>
+                            <td class="text-right">{{ "{:,.2f}".format(report_data.assets['流动资产']['流动资产合计']) }}</td>
+                        </tr>
+
+                        <!-- 非流动资产 -->
+                        <tr class="table-active">
+                            <td colspan="2"><strong>非流动资产</strong></td>
+                        </tr>
+                        {% for key, value in report_data.assets['非流动资产'].items() %}
+                        {% if key != '非流动资产合计' %}
+                        <tr>
+                            <td class="pl-4">{{ key }}</td>
+                            <td class="text-right">{{ "{:,.2f}".format(value) }}</td>
+                        </tr>
+                        {% endif %}
+                        {% endfor %}
+                        <tr class="font-weight-bold">
+                            <td class="pl-4">非流动资产合计</td>
+                            <td class="text-right">{{ "{:,.2f}".format(report_data.assets['非流动资产']['非流动资产合计']) }}</td>
+                        </tr>
+
+                        <!-- 资产总计 -->
+                        <tr class="table-primary font-weight-bold">
+                            <td><strong>资产总计</strong></td>
+                            <td class="text-right"><strong>{{ "{:,.2f}".format(report_data.assets['资产总计']) }}</strong></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 负债和所有者权益 -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">负债和所有者权益</h5>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-sm mb-0">
+                        <!-- 流动负债 -->
+                        <tr class="table-active">
+                            <td colspan="2"><strong>流动负债</strong></td>
+                        </tr>
+                        {% for key, value in report_data.liabilities['流动负债'].items() %}
+                        {% if key != '流动负债合计' %}
+                        <tr>
+                            <td class="pl-4">{{ key }}</td>
+                            <td class="text-right">{{ "{:,.2f}".format(value) }}</td>
+                        </tr>
+                        {% endif %}
+                        {% endfor %}
+                        <tr class="font-weight-bold">
+                            <td class="pl-4">流动负债合计</td>
+                            <td class="text-right">{{ "{:,.2f}".format(report_data.liabilities['流动负债']['流动负债合计']) }}</td>
+                        </tr>
+
+                        <!-- 非流动负债 -->
+                        <tr class="table-active">
+                            <td colspan="2"><strong>非流动负债</strong></td>
+                        </tr>
+                        {% for key, value in report_data.liabilities['非流动负债'].items() %}
+                        {% if key != '非流动负债合计' %}
+                        <tr>
+                            <td class="pl-4">{{ key }}</td>
+                            <td class="text-right">{{ "{:,.2f}".format(value) }}</td>
+                        </tr>
+                        {% endif %}
+                        {% endfor %}
+                        <tr class="font-weight-bold">
+                            <td class="pl-4">非流动负债合计</td>
+                            <td class="text-right">{{ "{:,.2f}".format(report_data.liabilities['非流动负债']['非流动负债合计']) }}</td>
+                        </tr>
+
+                        <!-- 负债合计 -->
+                        <tr class="font-weight-bold">
+                            <td>负债合计</td>
+                            <td class="text-right">{{ "{:,.2f}".format(report_data.liabilities['负债合计']) }}</td>
+                        </tr>
+
+                        <!-- 所有者权益 -->
+                        <tr class="table-active">
+                            <td colspan="2"><strong>所有者权益</strong></td>
+                        </tr>
+                        {% for key, value in report_data.equity.items() %}
+                        {% if key != '所有者权益合计' %}
+                        <tr>
+                            <td class="pl-4">{{ key }}</td>
+                            <td class="text-right">{{ "{:,.2f}".format(value) }}</td>
+                        </tr>
+                        {% endif %}
+                        {% endfor %}
+                        <tr class="font-weight-bold">
+                            <td class="pl-4">所有者权益合计</td>
+                            <td class="text-right">{{ "{:,.2f}".format(report_data.equity['所有者权益合计']) }}</td>
+                        </tr>
+
+                        <!-- 负债和所有者权益总计 -->
+                        <tr class="table-danger font-weight-bold">
+                            <td><strong>负债和所有者权益总计</strong></td>
+                            <td class="text-right"><strong>{{ "{:,.2f}".format(report_data.liabilities['负债合计'] + report_data.equity['所有者权益合计']) }}</strong></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i> 暂无报表数据
+    </div>
+    {% endif %}
+
+</div>
+
+<style>
+@media print {
+    .btn, .alert { display: none; }
+}
+</style>
+
+<script>
+function exportReportTable() {
+    var table = document.querySelector('.table');
+    if (!table) return;
+    var html = table.outerHTML;
+    var url = 'data:application/vnd.ms-excel,' + encodeURIComponent(html);
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = '{{ title }}_' + new Date().toISOString().substr(0,10) + '.xls';
+    link.click();
+}
+</script>
+{% endblock %}

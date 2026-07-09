@@ -1,0 +1,627 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}{{ doc_type }}详情 - {{ order.order_no }}{% endblock %}
+{% block content %}
+{% set status = order.status or '' %}
+{% set final_statuses = ['已关闭', '已作废', '已发货', '已收货', '已完成'] %}
+{% set execution_statuses = ['已发货', '已收货', '部分发货', '部分收货', '已完成'] %}
+{% set can_submit = status not in ['已提交', '已审核', '部分发货', '部分收货', '已发货', '已收货', '已关闭', '已作废', '已完成'] %}
+{% set can_audit = status in ['已提交', '待审核'] %}
+{% set can_unaudit = status in ['已审核', '部分发货', '部分收货'] %}
+{% set can_close = status not in ['已关闭', '已作废', '已完成'] %}
+{% set can_void = status not in execution_statuses and status not in ['已关闭', '已作废'] %}
+{% set can_execute = status in ['已审核', '已审批', '部分发货', '部分收货'] %}
+{% if status in ['已关闭', '已作废', '已完成'] %}
+    {% set next_step = '单据已结束，只保留查看、打印、复制、附件和备注。' %}
+{% elif can_submit %}
+    {% set next_step = '下一步：确认单据内容后提交审核。' %}
+{% elif can_audit %}
+    {% set next_step = '下一步：审核单据，审核后才能执行后续业务。' %}
+{% elif can_execute and doc_type == '销售订单' %}
+    {% set next_step = '下一步：生成发货单，发货后登记客户回款。' %}
+{% elif can_execute and doc_type == '采购订单' %}
+    {% set next_step = '下一步：生成采购入库单，入库后登记供应商付款。' %}
+{% else %}
+    {% set next_step = '下一步：查看执行记录，必要时关闭或复制单据。' %}
+{% endif %}
+{% set action_base = '/sales/' ~ order.id if doc_kind == 'sales' else '/purchase_order/' ~ order.id %}
+{% set nav_table = 'sales_orders' if doc_kind == 'sales' else 'purchase_orders' %}
+{% set nav_base = '/sales/' if doc_kind == 'sales' else '/purchase_order/' %}
+{{ document_menu_bar(actions=[
+    {'label': '返回列表', 'type': 'link', 'href': back_url or '/', 'icon': 'bi-arrow-left'},
+    {'label': '编辑' if status not in final_statuses else '只读', 'type': 'link' if status not in final_statuses else 'disabled', 'href': action_base ~ '/edit', 'icon': 'bi-pencil-square'},
+    {'label': '提交', 'type': 'button' if can_submit else 'disabled', 'form': 'document-trace-submit-form', 'button_type': 'submit', 'icon': 'bi-send'},
+    {'label': '审核', 'type': 'button' if can_audit else 'disabled', 'form': 'document-trace-audit-form', 'button_type': 'submit', 'icon': 'bi-check2-circle'},
+    {'label': '反审核', 'type': 'button' if can_unaudit else 'disabled', 'form': 'document-trace-unaudit-form', 'button_type': 'submit', 'icon': 'bi-arrow-counterclockwise'},
+    {'label': '关闭', 'type': 'button' if can_close else 'disabled', 'form': 'document-trace-close-form', 'button_type': 'submit', 'icon': 'bi-lock'},
+    {'label': '作废', 'type': 'button' if can_void else 'disabled', 'form': 'document-trace-void-form', 'button_type': 'submit', 'icon': 'bi-x-circle'},
+    {'label': '复制', 'type': 'button', 'form': 'document-trace-copy-form', 'button_type': 'submit', 'icon': 'bi-copy'},
+    {'label': '打印', 'type': 'link', 'href': action_base ~ '/print', 'target': '_blank', 'icon': 'bi-printer'},
+    {'type': 'nav', 'items': [
+        {'label': '首张', 'event': 'doc-nav-first', 'icon': 'bi-chevron-double-left'},
+        {'label': '上一张', 'event': 'doc-nav-prev', 'icon': 'bi-chevron-left'},
+        {'label': '下一张', 'event': 'doc-nav-next', 'icon': 'bi-chevron-right'},
+        {'label': '末张', 'event': 'doc-nav-last', 'icon': 'bi-chevron-double-right'}
+    ]}
+], aria_label='订单单据操作菜单', doc_status={'code': status, 'label': status}) }}
+<div id="doc-nav-config" data-nav-table="{{ nav_table }}" data-nav-base="{{ nav_base }}" data-doc-id="{{ order.id }}" style="display:none"></div>
+<div class="mb-3 d-none">
+    <a class="btn btn-outline-secondary btn-sm" href="{{ back_url or '/' }}">返回列表</a>
+    {% if doc_type == '销售订单' %}
+    {% if status not in final_statuses %}
+    <a class="btn btn-outline-secondary btn-sm ms-2" href="/sales/{{ order.id }}/edit">编辑</a>
+    {% endif %}
+    {% if can_submit %}
+    <form id="document-trace-submit-form" class="d-inline ms-2" method="post" action="/sales/{{ order.id }}/submit">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-outline-primary btn-sm" type="submit">提交</button>
+    </form>
+    {% endif %}
+    {% if can_audit %}
+    <form id="document-trace-audit-form" class="d-inline ms-2" method="post" action="/sales/{{ order.id }}/audit">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-outline-primary btn-sm" type="submit">审核</button>
+    </form>
+    {% endif %}
+    {% if can_unaudit %}
+    <form id="document-trace-unaudit-form" class="d-inline ms-2" method="post" action="/sales/{{ order.id }}/unaudit">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-outline-secondary btn-sm" type="submit">反审核</button>
+    </form>
+    {% endif %}
+    {% if can_close %}
+    <form id="document-trace-close-form" class="d-inline ms-2" method="post" action="/sales/{{ order.id }}/close">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-outline-secondary btn-sm" type="submit" onclick="return confirm('确认关闭这张销售订单？');">关闭</button>
+    </form>
+    {% endif %}
+    {% if can_void %}
+    <form id="document-trace-void-form" class="d-inline ms-2" method="post" action="/sales/{{ order.id }}/void">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-outline-danger btn-sm" type="submit" onclick="return confirm('确认作废这张销售订单？');">作废</button>
+    </form>
+    {% endif %}
+    <form id="document-trace-copy-form" class="d-inline ms-2" method="post" action="/sales/{{ order.id }}/copy">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-outline-primary btn-sm" type="submit">复制</button>
+    </form>
+    <a class="btn btn-outline-primary btn-sm ms-2" href="/sales/{{ order.id }}/print" target="_blank">打印</a>
+    {% else %}
+    {% if status not in final_statuses %}
+    <a class="btn btn-outline-secondary btn-sm ms-2" href="/purchase_order/{{ order.id }}/edit">编辑</a>
+    {% endif %}
+    {% if can_submit %}
+    <form id="document-trace-submit-form" class="d-inline ms-2" method="post" action="/purchase_order/{{ order.id }}/submit">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-outline-primary btn-sm" type="submit">提交</button>
+    </form>
+    {% endif %}
+    {% if can_audit %}
+    <form id="document-trace-audit-form" class="d-inline ms-2" method="post" action="/purchase_order/{{ order.id }}/audit">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-outline-primary btn-sm" type="submit">审核</button>
+    </form>
+    {% endif %}
+    {% if can_unaudit %}
+    <form id="document-trace-unaudit-form" class="d-inline ms-2" method="post" action="/purchase_order/{{ order.id }}/unaudit">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-outline-secondary btn-sm" type="submit">反审核</button>
+    </form>
+    {% endif %}
+    {% if can_close %}
+    <form id="document-trace-close-form" class="d-inline ms-2" method="post" action="/purchase_order/{{ order.id }}/close">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-outline-secondary btn-sm" type="submit" onclick="return confirm('确认关闭这张采购订单？');">关闭</button>
+    </form>
+    {% endif %}
+    {% if can_void %}
+    <form id="document-trace-void-form" class="d-inline ms-2" method="post" action="/purchase_order/{{ order.id }}/void">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-outline-danger btn-sm" type="submit" onclick="return confirm('确认作废这张采购订单？');">作废</button>
+    </form>
+    {% endif %}
+    <form id="document-trace-copy-form" class="d-inline ms-2" method="post" action="/purchase_order/{{ order.id }}/copy">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-outline-primary btn-sm" type="submit">复制</button>
+    </form>
+    <a class="btn btn-outline-primary btn-sm ms-2" href="/purchase_order/{{ order.id }}/print" target="_blank">打印</a>
+    {% endif %}
+    {% if doc_type == '销售订单' %}
+    <a class="btn btn-outline-primary btn-sm ms-2" href="/projects/{{ order.id }}">项目台账</a>
+    {% endif %}
+</div>
+
+<div class="alert alert-info mb-3">
+    <strong>当前状态：</strong>{{ status or '未定' }}。
+    <span>{{ next_step }}</span>
+</div>
+
+{% if doc_type == '销售订单' %}
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>信用与审批状态</h2>
+            <span>销售订单审核、发货放行和回款风险的操作依据。</span>
+        </div>
+    </div>
+    <div class="row g-3 mb-3">
+        <div class="col-md-3"><div class="metric"><div class="label">信用额度</div><div class="value h5">{{ order.credit_limit|money }}</div></div></div>
+        <div class="col-md-3"><div class="metric"><div class="label">未清应收</div><div class="value h5">{{ order.receivable_balance|money }}</div></div></div>
+        <div class="col-md-3"><div class="metric"><div class="label">其他未结订单</div><div class="value h5">{{ order.open_order_amount|money }}</div></div></div>
+        <div class="col-md-3">
+            <div class="metric">
+                <div class="label">信用检查</div>
+                <div class="value h5">
+                    {% if order.credit_limit and order.credit_exposure > order.credit_limit %}超额度{% else %}通过{% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% if approval_records %}
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+            <thead><tr><th>审批节点</th><th>审批人</th><th>动作</th><th>意见</th><th>时间</th></tr></thead>
+            <tbody>
+            {% for row in approval_records %}
+            <tr>
+                <td>{{ row.step_id or '-' }}</td>
+                <td>{{ row.approver_id or '-' }}</td>
+                <td>{{ row.action or '-' }}</td>
+                <td>{{ row.comment or '-' }}</td>
+                <td>{{ row.approved_at or '-' }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-muted">暂无审批记录；当前状态以销售订单状态为准。</div>
+    {% endif %}
+</div>
+{% endif %}
+
+<div class="page-card mb-3">
+    <div class="d-flex justify-content-between align-items-start gap-3">
+        <div>
+            <h1 class="h4 mb-1">{{ doc_type }}：{{ order.order_no }}</h1>
+            <div class="text-muted">
+                {{ partner_label }}：{{ partner_name or '-' }}
+                {% if order.contact_person %} / {{ order.contact_person }}{% endif %}
+                {% if order.customer_phone or order.supplier_phone %} / {{ order.customer_phone or order.supplier_phone }}{% endif %}
+            </div>
+        </div>
+        <span class="badge text-bg-primary">{{ order.status or '未定' }}</span>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-3"><div class="metric"><div class="label">单据日期</div><div class="value h5">{{ order.order_date or '-' }}</div></div></div>
+    <div class="col-md-3"><div class="metric"><div class="label">{{ partner_label }}</div><div class="value h5">{{ partner_name or '-' }}</div></div></div>
+    <div class="col-md-3"><div class="metric"><div class="label">项目号</div><div class="value h5">{{ order.project_code or '-' }}</div></div></div>
+    <div class="col-md-3"><div class="metric"><div class="label">机号</div><div class="value h5">{{ order.serial_no or '-' }}</div></div></div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-3"><div class="metric"><div class="label">含税金额</div><div class="value">{{ order.amount_with_tax|money }}</div></div></div>
+    <div class="col-md-3"><div class="metric"><div class="label">未税金额</div><div class="value h5">{{ order.total_amount|money }}</div></div></div>
+    <div class="col-md-3"><div class="metric"><div class="label">税额</div><div class="value h5">{{ order.tax_amount|money }}</div></div></div>
+    {% if doc_type == '销售订单' %}
+    <div class="col-md-3"><div class="metric"><div class="label">已发货金额</div><div class="value h5">{{ order.shipped_amount|money }}</div></div></div>
+    <div class="col-md-3"><div class="metric"><div class="label">交期</div><div class="value h5">{{ order.delivery_date or '-' }}</div></div></div>
+    {% else %}
+    <div class="col-md-3"><div class="metric"><div class="label">已收货金额</div><div class="value h5">{{ order.received_amount|money }}</div></div></div>
+    <div class="col-md-3"><div class="metric"><div class="label">预计到货</div><div class="value h5">{{ order.expected_date or '-' }}</div></div></div>
+    {% endif %}
+</div>
+
+<div class="page-card mb-3">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="h5 mb-0">物料明细</h2>
+        {% if doc_type == '销售订单' and can_execute %}
+        <form method="post" action="/sales/{{ order.id }}/ship" class="d-flex flex-wrap gap-2 align-items-center justify-content-end">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input class="form-control form-control-sm" type="date" name="shipment_date" id="shipmentDate" value="{{ order.delivery_date or '' }}" style="width: 150px;">
+            <select class="form-select form-select-sm" name="warehouse_id" id="shipmentWarehouse" style="width: 180px;">
+                <option value="">按销售订单仓库</option>
+                {% for warehouse in warehouses or [] %}
+                <option value="{{ warehouse.id }}" {% if order.warehouse_id|string == warehouse.id|string %}selected{% endif %}>{{ warehouse.name }}</option>
+                {% endfor %}
+            </select>
+            <span id="salesShipmentSelectionSummary" class="text-muted small">已选 0 行</span>
+            <button class="btn btn-primary btn-sm" type="button" onclick="createSelectedSalesShipment({{ order.id }})">
+                <i class="bi bi-truck"></i> 选中生成发货单
+            </button>
+            <button class="btn btn-outline-primary btn-sm" type="submit">
+                <i class="bi bi-truck"></i> 生成发货单
+            </button>
+        </form>
+        {% endif %}
+        {% if doc_type == '采购订单' and can_execute %}
+        <form method="post" action="/purchase_order/{{ order.id }}/receive">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-outline-primary btn-sm" type="submit">
+                <i class="bi bi-box-arrow-in-down"></i> 生成采购入库单
+            </button>
+        </form>
+        {% endif %}
+    </div>
+    {% if items %}
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+            <tr>
+                {% if doc_kind == 'sales' and can_execute %}
+                <th style="width: 120px;"><input type="checkbox" id="selectAllSalesShipmentItems" onchange="toggleSalesShipmentSelection(this.checked)"> 本次</th>
+                {% endif %}
+                <th>物料编码</th>
+                <th>物料名称</th>
+                <th>规格</th>
+                <th>产品分类</th>
+                <th>BOM版本</th>
+                <th>管控</th>
+                <th class="text-end">数量</th>
+                <th class="text-end">{{ '已发货' if doc_type == '销售订单' else '已入库' }}</th>
+                {% if doc_type == '采购订单' %}<th class="text-end">未入库</th>{% endif %}
+                <th>单位</th>
+                <th class="text-end">单价</th>
+                <th class="text-end">金额</th>
+                <th class="text-end">税率</th>
+                <th class="text-end">税额</th>
+                <th class="text-end">含税金额</th>
+                <th>批号</th>
+                <th>项目号</th>
+                <th>机号</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for item in items %}
+            {% set shipped_qty = item.shipped_qty or 0 %}
+            {% set open_ship_qty = (item.quantity or 0) - shipped_qty %}
+            <tr>
+                {% if doc_kind == 'sales' and can_execute %}
+                <td>
+                    <div class="d-flex gap-1 align-items-center">
+                        <input type="checkbox" class="sales-shipment-item-check" data-item-id="{{ item.id }}" {% if open_ship_qty <= 0 %}disabled{% endif %} onchange="updateSalesShipmentSelectionSummary()">
+                        <input type="number" class="form-control form-control-sm text-end sales-shipment-qty" data-item-id="{{ item.id }}" min="0" max="{{ open_ship_qty }}" step="0.01" value="{{ open_ship_qty }}" {% if open_ship_qty <= 0 %}readonly{% endif %} oninput="updateSalesShipmentSelectionSummary()">
+                    </div>
+                </td>
+                {% endif %}
+                <td>{{ item.product_code or item.product_id }}</td>
+                <td>{{ item.product_name or '-' }}</td>
+                <td>{{ item.specification or '-' }}</td>
+                <td>{{ item.product_family|clean_text if item.product_family else '-' }}</td>
+                <td>
+                    {% set bom_text = [item.default_bom_no, item.default_bom_version]|select|join(' / ') %}
+                    {{ bom_text|clean_text if bom_text else '-' }}
+                </td>
+                <td>
+                    {% if item.batch_control %}<span class="badge text-bg-light border">批次</span>{% endif %}
+                    {% if item.serial_control %}<span class="badge text-bg-light border">序列</span>{% endif %}
+                    {% if item.inspection_required %}<span class="badge text-bg-light border">需检</span>{% endif %}
+                    {% if not item.batch_control and not item.serial_control and not item.inspection_required %}-{% endif %}
+                </td>
+                <td class="text-end">{{ item.quantity|qty }}</td>
+                <td class="text-end">{{ (item.shipped_qty if doc_type == '销售订单' else item.received_qty)|qty }}</td>
+                {% if doc_type == '采购订单' %}<td class="text-end {% if item.pending_receive_qty %}fw-semibold text-primary{% endif %}">{{ item.pending_receive_qty|qty }}</td>{% endif %}
+                <td>{{ item.product_unit or '-' }}</td>
+                <td class="text-end">{{ item.unit_price|money }}</td>
+                <td class="text-end">{{ item.amount|money }}</td>
+                <td class="text-end">{{ item.tax_rate|default(0, true) }}%</td>
+                <td class="text-end">{{ item.tax_amount|money }}</td>
+                <td class="text-end">{{ item.amount_with_tax|money }}</td>
+                <td>{{ item.item_lot_no or '-' }}</td>
+                <td>{{ item.line_project_code|clean_text or order.project_code|clean_text or '-' }}</td>
+                <td>{{ item.line_serial_no|clean_text or order.serial_no|clean_text or '-' }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-muted">暂无明细。</div>
+    {% endif %}
+</div>
+
+{% if doc_type == '销售订单' and status not in ['已关闭', '已作废'] %}
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>登记回款</h2>
+            <span>登记客户回款后会自动冲减当前销售订单应收余额</span>
+        </div>
+    </div>
+    <form class="row g-2 align-items-end" method="post" action="/sales/{{ order.id }}/receive-payment">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="col-md-3">
+            <label class="form-label">回款日期</label>
+            <input class="form-control" type="date" name="receipt_date" value="">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">回款金额</label>
+            <input class="form-control" type="number" step="0.01" name="amount" value="{{ order.amount_with_tax|default(order.total_amount, true) }}" required>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">方式</label>
+            <input class="form-control" name="payment_method" value="银行转账">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">账户/备注</label>
+            <input class="form-control" name="remark" placeholder="付款账号、流水号或备注">
+        </div>
+        <div class="col-md-1 d-grid">
+            <button class="btn btn-primary" type="submit">保存</button>
+        </div>
+    </form>
+</div>
+{% elif doc_type == '采购订单' and status not in ['已关闭', '已作废'] %}
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>登记付款</h2>
+            <span>登记供应商付款后会自动冲减当前采购订单应付余额</span>
+        </div>
+    </div>
+    <form class="row g-2 align-items-end" method="post" action="/purchase_order/{{ order.id }}/pay">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="col-md-3">
+            <label class="form-label">付款日期</label>
+            <input class="form-control" type="date" name="payment_date" value="">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">付款金额</label>
+            <input class="form-control" type="number" step="0.01" name="amount" value="{{ order.amount_with_tax|default(order.total_amount, true) }}" required>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">方式</label>
+            <input class="form-control" name="payment_method" value="银行转账">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">账户/备注</label>
+            <input class="form-control" name="remark" placeholder="付款账号、流水号或备注">
+        </div>
+        <div class="col-md-1 d-grid">
+            <button class="btn btn-primary" type="submit">保存</button>
+        </div>
+    </form>
+</div>
+{% endif %}
+
+<div class="row g-3">
+    {% for section in related_sections %}
+    <div class="col-lg-6">
+        <div class="page-card h-100">
+            <h2 class="h5 mb-3">{{ section.title }}</h2>
+            {% if section.rows %}
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead>
+                    <tr>
+                        {% for column in section.columns %}
+                        <th>{{ column.label }}</th>
+                        {% endfor %}
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for row in section.rows %}
+                    <tr>
+                        {% for column in section.columns %}
+                        <td>{{ row.get(column.key, '') }}</td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-muted">暂无记录。</div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% if order.remark or order.machine_config %}
+<div class="page-card mt-3">
+    <h2 class="h5 mb-2">备注与配置</h2>
+    {% if order.machine_config %}<pre class="mb-2 small">{{ order.machine_config }}</pre>{% endif %}
+    {% if order.remark %}<div>{{ order.remark }}</div>{% endif %}
+</div>
+{% endif %}
+
+{% set action_prefix = '/sales' if doc_kind == 'sales' else '/purchase_order' %}
+<div class="row g-3 mt-1">
+    <div class="col-lg-6">
+        <div class="page-card h-100">
+            <div class="section-title">
+                <div>
+                    <h2>单据附件</h2>
+                    <span>保存合同、图纸、报价单、客户确认件和往来凭证</span>
+                </div>
+            </div>
+            <form class="row g-2 align-items-end mb-3" method="post" action="{{ action_prefix }}/{{ order.id }}/attachments" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="col-md-5">
+                    <label class="form-label">选择文件</label>
+                    <input class="form-control" type="file" name="file" required>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label">备注</label>
+                    <input class="form-control" name="remark" placeholder="例如：合同、图纸、客户确认">
+                </div>
+                <div class="col-md-2 d-grid">
+                    <button class="btn btn-primary" type="submit"><i class="bi bi-upload"></i> 上传</button>
+                </div>
+            </form>
+            {% if attachments %}
+            <div class="list-group list-group-flush">
+                {% for file in attachments %}
+                <div class="list-group-item px-0">
+                    <div class="d-flex justify-content-between gap-3">
+                        <div class="min-w-0">
+                            <div class="fw-semibold text-truncate">
+                                {% if file.attachment_type == 'image' %}
+                                <i class="bi bi-image text-primary"></i>
+                                {% else %}
+                                <i class="bi bi-file-earmark-text text-primary"></i>
+                                {% endif %}
+                                <a href="{{ url_for('static', filename=file.stored_path) }}" target="_blank">{{ file.file_name }}</a>
+                            </div>
+                            <div class="text-muted small">{{ file.remark or '-' }}</div>
+                            <div class="text-muted small">{{ file.uploaded_at or '-' }} / {{ ((file.file_size or 0) / 1024)|round(1) }} KB</div>
+                        </div>
+                        <form method="post" action="{{ action_prefix }}/{{ order.id }}/attachments/{{ file.id }}/delete">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="btn btn-outline-danger btn-sm" type="submit">删除</button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-muted">暂无附件。</div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="page-card h-100">
+            <div class="section-title">
+                <div>
+                    <h2>备注/操作记录</h2>
+                    <span>记录改单原因、客户确认、采购沟通和内部处理意见</span>
+                </div>
+            </div>
+            <form class="row g-2 align-items-end mb-3" method="post" action="{{ action_prefix }}/{{ order.id }}/notes">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="col-md-9">
+                    <label class="form-label">新增备注</label>
+                    <input class="form-control" name="note" placeholder="输入本次沟通、变更或处理说明" required>
+                </div>
+                <div class="col-md-3 d-grid">
+                    <button class="btn btn-primary" type="submit"><i class="bi bi-clock-history"></i> 记录</button>
+                </div>
+            </form>
+            {% if activity_logs %}
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead>
+                    <tr>
+                        <th>时间</th>
+                        <th>人员</th>
+                        <th>操作</th>
+                        <th>说明</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for log in activity_logs %}
+                    <tr>
+                        <td class="text-muted small">{{ log.created_at or '-' }}</td>
+                        <td>{{ log.username or '-' }}</td>
+                        <td>{{ log.action or '-' }}</td>
+                        <td>{{ log.remark or log.target or '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-muted">暂无操作记录。</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function traceCsrfToken() {
+    const hidden = document.querySelector('input[name="csrf_token"]');
+    if (hidden && hidden.value) return hidden.value;
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    return meta && meta.content ? meta.content : '';
+}
+
+function toggleSalesShipmentSelection(checked) {
+    document.querySelectorAll('.sales-shipment-item-check:not(:disabled)').forEach(input => {
+        input.checked = checked;
+    });
+    updateSalesShipmentSelectionSummary();
+}
+
+function updateSalesShipmentSelectionSummary() {
+    const checkedRows = Array.from(document.querySelectorAll('.sales-shipment-item-check:checked'));
+    let qty = 0;
+    checkedRows.forEach(input => {
+        const qtyInput = document.querySelector('.sales-shipment-qty[data-item-id="' + input.dataset.itemId + '"]');
+        qty += parseFloat(qtyInput ? qtyInput.value : '0') || 0;
+    });
+    const summary = document.getElementById('salesShipmentSelectionSummary');
+    if (summary) summary.textContent = '已选 ' + checkedRows.length + ' 行，本次发货 ' + qty.toFixed(2);
+    const selectAll = document.getElementById('selectAllSalesShipmentItems');
+    if (selectAll) {
+        const enabledRows = Array.from(document.querySelectorAll('.sales-shipment-item-check:not(:disabled)'));
+        selectAll.checked = enabledRows.length > 0 && enabledRows.every(input => input.checked);
+    }
+}
+
+function collectSelectedSalesShipmentItems() {
+    const checkedRows = Array.from(document.querySelectorAll('.sales-shipment-item-check:checked'));
+    const items = [];
+    for (const checkbox of checkedRows) {
+        const itemId = checkbox.dataset.itemId;
+        const qtyInput = document.querySelector('.sales-shipment-qty[data-item-id="' + itemId + '"]');
+        const quantity = parseFloat(qtyInput ? qtyInput.value : '0');
+        const maxQty = parseFloat(qtyInput ? qtyInput.getAttribute('max') : '0');
+        if (!Number.isFinite(quantity) || quantity <= 0) {
+            showToast('本次发货数量必须大于 0', 'warning');
+            if (qtyInput) qtyInput.focus();
+            return null;
+        }
+        if (Number.isFinite(maxQty) && quantity - maxQty > 0.000001) {
+            showToast('本次发货数量不能大于未发数量', 'warning');
+            if (qtyInput) qtyInput.focus();
+            return null;
+        }
+        items.push({ sales_order_item_id: itemId, quantity: quantity });
+    }
+    if (!items.length) {
+        showToast('请先勾选要发货的销售明细', 'warning');
+        return null;
+    }
+    return items;
+}
+
+function createSelectedSalesShipment(orderId) {
+    const selectedItems = collectSelectedSalesShipmentItems();
+    if (!selectedItems) return;
+    showConfirm('确认将选中的销售明细生成发货单？', { title: '选中生成发货单' }).then(confirmed => {
+        if (!confirmed) return;
+        const dateInput = document.getElementById('shipmentDate');
+        const warehouseInput = document.getElementById('shipmentWarehouse');
+        fetch('/sales/' + orderId + '/ship', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': traceCsrfToken()
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+                shipment_date: dateInput ? dateInput.value : '',
+                warehouse_id: warehouseInput ? warehouseInput.value : '',
+                items: selectedItems
+            })
+        }).then(async res => {
+            const data = await res.json();
+            if (!res.ok || !data.ok) throw new Error(data.error || data.msg || '生成失败');
+            showToast(data.msg || '销售发货单生成成功', 'success');
+            setTimeout(() => {
+                window.location.href = data.url || ('/shipments/' + data.id);
+            }, 500);
+        }).catch(error => {
+            showToast('生成失败：' + error.message, 'danger', 3600);
+        });
+    });
+}
+
+document.addEventListener('DOMContentLoaded', updateSalesShipmentSelectionSummary);
+</script>
+{% endblock %}

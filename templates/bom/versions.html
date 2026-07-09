@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}BOM版本管理{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <h1>BOM版本管理</h1>
+    <p>管理BOM的版本生命周期：草稿、已审核、已发布、已作废；发布时自动作废旧版本，工单发布时按版本快照执行。</p>
+</div>
+
+{% set document_menu_actions = [
+    {'label': 'BOM清单', 'type': 'link', 'href': '/bom'},
+    {'label': '工程变更单', 'type': 'link', 'href': '/bom/ecn'},
+    {'label': 'ECN影响任务', 'type': 'link', 'href': url_for('ecn_impact_tasks')},
+    {'label': '刷新', 'type': 'link', 'href': request.full_path.rstrip('?')},
+    {'label': '返回首页', 'type': 'link', 'href': '/', 'icon': 'bi-house'}
+] %}
+{{ document_menu_bar(document_menu_actions) }}
+
+<div class="alert alert-info py-2">
+    边界：本页只做BOM版本查询和状态管理；BOM明细维护在BOM单据页，工单按发布时的快照执行，不在本页修改。
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div><h2>查询条件</h2><span>按BOM编号、版本号、产品筛选。</span></div>
+        {% if filters.bom_id or filters.keyword %}<a class="btn btn-outline-secondary btn-sm" href="{{ url_for('bom_version_list') }}">清除条件</a>{% endif %}
+    </div>
+    <form method="get" class="row g-2 align-items-end">
+        <div class="col-md-3">
+            <label class="form-label">BOM ID</label>
+            <input class="form-control form-control-sm" name="bom_id" value="{{ filters.bom_id }}" placeholder="按BOM ID筛选">
+        </div>
+        <div class="col-md-5">
+            <label class="form-label">综合关键字</label>
+            <input class="form-control form-control-sm" name="keyword" value="{{ filters.keyword }}" placeholder="版本号/BOM编号/产品编码/产品名称">
+        </div>
+        <div class="col-md-2 d-grid">
+            <button class="btn btn-primary btn-sm" type="submit"><i class="bi bi-search"></i> 查询</button>
+        </div>
+    </form>
+</div>
+
+<div class="page-card">
+    <div class="section-title">
+        <div><h2>版本列表</h2><span>当前显示 {{ versions|length }} 条；发布版本会自动作废同BOM的原已发布版本。</span></div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+                <tr>
+                    <th>BOM编号</th>
+                    <th>产品</th>
+                    <th>版本号</th>
+                    <th>状态</th>
+                    <th>生效日期</th>
+                    <th>失效日期</th>
+                    <th>审核人</th>
+                    <th>创建人</th>
+                    <th>变更说明</th>
+                    <th class="text-end">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for row in versions %}
+            <tr>
+                <td><a href="{{ url_for('bom_detail', bom_key=row.bom_no) if row.bom_no else '#' }}">{{ row.bom_no|clean_text or '-' }}</a></td>
+                <td>{{ row.product_code|clean_text }} {{ row.product_name|clean_text }}</td>
+                <td><a href="{{ url_for('bom_version_detail', version_id=row.id) }}">{{ row.version_no|clean_text }}</a></td>
+                <td>
+                    {% if row.status == 'released' %}<span class="badge bg-success">{{ row.status_label }}</span>
+                    {% elif row.status == 'approved' %}<span class="badge bg-primary">{{ row.status_label }}</span>
+                    {% elif row.status == 'obsolete' %}<span class="badge bg-secondary">{{ row.status_label }}</span>
+                    {% else %}<span class="badge bg-light text-dark border">{{ row.status_label }}</span>{% endif %}
+                </td>
+                <td>{{ row.effective_date or '-' }}</td>
+                <td>{{ row.expire_date or '-' }}</td>
+                <td>{{ row.approver_name|clean_text or '-' }}</td>
+                <td>{{ row.creator_name|clean_text or '-' }}</td>
+                <td>{{ row.change_note|clean_text or '-' }}</td>
+                <td class="text-end"><a class="btn btn-outline-primary btn-sm" href="{{ url_for('bom_version_detail', version_id=row.id) }}">详情</a></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="10" class="text-muted">暂无BOM版本，请先在BOM清单中创建BOM并新增版本。</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

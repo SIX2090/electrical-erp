@@ -1,0 +1,468 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+
+{% block title %}采购申请详情{% endblock %}
+
+{% block extra_css %}
+<link href="{{ url_for('static', filename='css/order-detail.css') }}" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+{{ document_menu_bar(actions=[
+    {'type': 'nav', 'items': [
+        {'label': '首张', 'event': 'doc-nav-first', 'icon': 'bi-chevron-double-left'},
+        {'label': '上一张', 'event': 'doc-nav-prev', 'icon': 'bi-chevron-left'},
+        {'label': '下一张', 'event': 'doc-nav-next', 'icon': 'bi-chevron-right'},
+        {'label': '末张', 'event': 'doc-nav-last', 'icon': 'bi-chevron-double-right'}
+    ]},
+    {'label': '生成采购订单', 'type': 'button' if order.status in ['approved', 'completed'] else 'disabled', 'event': 'legacy-create-purchase-order', 'icon': 'bi-arrow-right-square'},
+    {'label': '编辑' if order.status == 'pending' else '只读', 'type': 'link' if order.status == 'pending' else 'disabled', 'href': '/purchase_request/' ~ order.id ~ '/edit', 'icon': 'bi-pencil-square'},
+    {'label': '更多', 'type': 'dropdown', 'icon': 'bi-three-dots', 'items': [
+        {'label': '审核', 'type': 'button' if order.status == 'pending' else 'disabled', 'event': 'legacy-approve-purchase-request', 'icon': 'bi-check2-circle'},
+        {'label': '驳回', 'type': 'button' if order.status == 'pending' else 'disabled', 'event': 'legacy-reject-purchase-request', 'icon': 'bi-x-circle'},
+        {'label': '反审核', 'type': 'button' if order.status in ['approved', 'completed'] and not related_purchase_orders else 'disabled', 'event': 'legacy-revert-purchase-request', 'icon': 'bi-arrow-counterclockwise'},
+        {'label': '完成', 'type': 'button' if order.status == 'approved' else 'disabled', 'event': 'legacy-complete-purchase-request', 'icon': 'bi-check-double'}
+    ]}
+], aria_label='采购申请单据操作菜单') }}
+<div id="doc-nav-config" data-nav-table="purchase_requests" data-nav-base="/purchase_request/" data-doc-id="{{ order.id }}" style="display:none"></div>
+<div class="page-header d-flex justify-content-between align-items-center d-none">
+    <h2><i class="bi bi-cart-plus"></i> 采购申请详情</h2>
+    <div>
+        <a href="/purchase_request" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> 返回列表
+        </a>
+        <a href="{{ url_for('print_purchase_request', id=order.id) }}" target="_blank" class="btn btn-outline-primary">
+            <i class="bi bi-printer"></i> 打印
+        </a>
+        {% if order.status in ['approved', 'completed'] %}
+        <button class="btn btn-primary" onclick="createPurchaseOrder({{ order.id }})">
+            <i class="bi bi-arrow-right-square"></i> 生成采购订单（生成采购单）
+        </button>
+        {% endif %}
+        {% if order.status == 'pending' %}
+        <a href="{{ url_for('purchase_request_edit_page', id=order.id) }}" class="btn btn-outline-secondary">
+            <i class="bi bi-pencil-square"></i> 编辑
+        </a>
+        <button class="btn btn-success" onclick="approveOrder({{ order.id }})">
+            <i class="bi bi-check"></i> 审批通过
+        </button>
+        <button class="btn btn-danger" onclick="rejectOrder({{ order.id }})">
+            <i class="bi bi-x"></i> 驳回
+        </button>
+        {% elif order.status == 'approved' %}
+        {% if not related_purchase_orders %}
+        <button class="btn btn-warning" onclick="revertOrder({{ order.id }})">
+            <i class="bi bi-arrow-counterclockwise"></i> 反审
+        </button>
+        {% endif %}
+        <button class="btn btn-success" onclick="completeOrder({{ order.id }})">
+            <i class="bi bi-check-double"></i> 完成
+        </button>
+        {% elif order.status == 'completed' and not related_purchase_orders %}
+        <button class="btn btn-warning" onclick="revertOrder({{ order.id }})">
+            <i class="bi bi-arrow-counterclockwise"></i> 反审
+        </button>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">基本信息</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-3">
+                <p><strong>单据编号：</strong>{{ order.request_no }}</p>
+            </div>
+            <div class="col-md-3">
+                <p><strong>申请日期：</strong>{{ order.date.strftime('%Y-%m-%d') if order.date else '-' }}</p>
+            </div>
+            <div class="col-md-3">
+                <p><strong>申请人：</strong>{{ order.applicant or '-' }}</p>
+            </div>
+            <div class="col-md-3">
+                <p><strong>申请部门：</strong>{{ order.department or '-' }}</p>
+            </div>
+            <div class="col-md-3">
+                <p><strong>紧急程度：</strong>
+                    {% if order.urgency == 'normal' %}
+                    <span class="badge bg-info">普通</span>
+                    {% elif order.urgency == 'urgent' %}
+                    <span class="badge bg-warning">紧急</span>
+                    {% elif order.urgency == 'emergency' %}
+                    <span class="badge bg-danger">特急</span>
+                    {% else %}
+                    <span class="badge bg-secondary">{{ order.urgency }}</span>
+                    {% endif %}
+                </p>
+            </div>
+            <div class="col-md-3">
+                <p><strong>期望到货：</strong>{{ order.expected_date.strftime('%Y-%m-%d') if order.expected_date else '-' }}</p>
+            </div>
+            <div class="col-md-3">
+                <p><strong>状态：</strong>
+                    {% if order.status == 'pending' %}
+                    <span class="badge bg-warning">待审批</span>
+                    {% elif order.status == 'approved' %}
+                    <span class="badge bg-info">已审批</span>
+                    {% elif order.status == 'rejected' %}
+                    <span class="badge bg-danger">已驳回</span>
+                    {% elif order.status == 'completed' %}
+                    <span class="badge bg-success">已完成</span>
+                    {% else %}
+                    <span class="badge bg-secondary">{{ order.status }}</span>
+                    {% endif %}
+                </p>
+            </div>
+            <div class="col-md-3">
+                <p><strong>操作人：</strong>{{ order.operator.username if order.operator else '-' }}</p>
+            </div>
+            <div class="col-md-6">
+                <p><strong>申请原因：</strong>{{ order.reason or '-' }}</p>
+            </div>
+            <div class="col-md-12">
+                <p><strong>备注：</strong>{{ order.remark or '' }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">物料明细</h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="order-table-container">
+            <div class="order-toolbar">
+                <div class="table-header-custom">
+                    <span><i class="bi bi-list-ul"></i> 物料明细</span>
+                    <span class="badge bg-primary">{{ valid_items|length }} 项</span>
+                </div>
+                {% if order.status in ['approved', 'completed'] %}
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <span id="pushSelectionSummary" class="text-muted small">已选 0 行</span>
+                    <button type="button" class="btn btn-sm btn-primary" onclick="createPurchaseOrder({{ order.id }}, true)">
+                        <i class="bi bi-arrow-right-square"></i> 选中下推采购订单
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+            <div class="table-responsive">
+                <table class="table order-table mb-0" id="itemTable">
+                    <thead>
+                        <tr>
+                            {% if order.status in ['approved', 'completed'] %}
+                            <th width="40"><input type="checkbox" id="selectAllPushItems" onchange="togglePushItemSelection(this.checked)"></th>
+                            {% endif %}
+                            <th>序号</th>
+                            <th>物料编码</th>
+                            <th>物料名称</th>
+                            <th>规格</th>
+                            <th>单位</th>
+                            <th class="text-end">当前库存</th>
+                            <th>数量</th>
+                            <th class="text-end">已下推</th>
+                            <th class="text-end">已入库</th>
+                            <th class="text-end">未下推</th>
+                            {% if order.status in ['approved', 'completed'] %}
+                            <th class="text-end">本次下推</th>
+                            {% endif %}
+                            <th>执行状态</th>
+                            <th>下游采购订单（下游采购单）</th>
+                            <th>预估单价</th>
+                            <th>预估金额</th>
+                            <th>推荐供应商</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in valid_items %}
+                        {% set exec = item_execution.get(item.id, {}) %}
+                        {% set remaining_to_order = exec.get('remaining_to_order', item.quantity or 0) %}
+                        <tr>
+                            {% if order.status in ['approved', 'completed'] %}
+                            <td>
+                                <input type="checkbox" class="push-item-check" data-item-id="{{ item.id }}" {% if remaining_to_order <= 0 %}disabled{% endif %} onchange="updatePushSelectionSummary()">
+                            </td>
+                            {% endif %}
+                            <td>{{ loop.index }}</td>
+                            <td>{{ item.material_code or (item.material.code if item.material else '-') }}</td>
+                            <td>{{ item.material_name or (item.material.name if item.material else '-') }}</td>
+                            <td>{{ item.spec or (item.material.spec if item.material else '-') }}</td>
+                            <td>{{ item.unit.name if item.unit else (item.material.unit.name if item.material and item.material.unit else '-') }}</td>
+                            <td class="text-end">{{ "%.2f"|format(item.material.stock or 0) if item.material else '-' }}</td>
+                            <td>{{ item.quantity }}</td>
+                            <td class="text-end" data-ordered-quantity="{{ '%.2f'|format(exec.get('ordered_quantity', 0)) }}">{{ "%.2f"|format(exec.get('ordered_quantity', 0)) }}</td>
+                            <td class="text-end" data-received-quantity="{{ '%.2f'|format(exec.get('received_quantity', 0)) }}">{{ "%.2f"|format(exec.get('received_quantity', 0)) }}</td>
+                            <td class="text-end" data-remaining-to-order="{{ '%.2f'|format(remaining_to_order) }}">{{ "%.2f"|format(remaining_to_order) }}</td>
+                            {% if order.status in ['approved', 'completed'] %}
+                            <td>
+                                <input type="number" class="form-control form-control-sm text-end push-item-qty" data-item-id="{{ item.id }}" min="0" max="{{ '%.2f'|format(remaining_to_order) }}" step="0.01" value="{{ '%.2f'|format(remaining_to_order) }}" {% if remaining_to_order <= 0 %}readonly{% endif %} oninput="updatePushSelectionSummary()">
+                            </td>
+                            {% endif %}
+                            <td data-execution-status="{{ exec.get('status', 'pending') }}">
+                                {% if exec.get('status') == 'completed' %}
+                                <span class="badge bg-success">已完成</span>
+                                {% elif exec.get('status') == 'partial' %}
+                                <span class="badge bg-info text-dark">部分执行</span>
+                                {% else %}
+                                <span class="badge bg-secondary">未执行</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% for po in item_purchase_orders.get(item.id, []) %}
+                                <a href="/purchase_order/{{ po.id }}">{{ po.order_no }}</a>{% if not loop.last %}, {% endif %}
+                                {% else %}
+                                -
+                                {% endfor %}
+                            </td>
+                            <td>¥{{ "%.2f"|format(item.estimated_price or 0) }}</td>
+                            <td>¥{{ "%.2f"|format(item.estimated_amount or 0) }}</td>
+                            <td>{{ item.supplier.name if item.supplier else (item.supplier_name or '-') }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="{{ 18 if order.status in ['approved', 'completed'] else 15 }}" class="text-center text-muted">暂无明细</td></tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="{{ 16 if order.status in ['approved', 'completed'] else 13 }}" class="text-end"><strong>合计：</strong></td>
+                            <td><strong>¥{{ "%.2f"|format(order.total_amount or 0) }}</strong></td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/xlsx.full.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/excel-import-export.js') }}"></script>
+<script>
+function getCsrfToken() {
+    var tokenNode = document.querySelector('meta[name="csrf-token"]');
+    if (tokenNode && tokenNode.content) return tokenNode.content;
+    try {
+        tokenNode = window.parent && window.parent.document
+            ? window.parent.document.querySelector('meta[name="csrf-token"]')
+            : null;
+        return tokenNode && tokenNode.content ? tokenNode.content : '';
+    } catch (e) {
+        return '';
+    }
+}
+
+function csrfFetch(url, options) {
+    options = Object.assign({method: 'POST'}, options || {});
+    var headers = new Headers(options.headers || {});
+    var token = getCsrfToken();
+    if (token && !headers.has('X-CSRFToken')) {
+        headers.set('X-CSRFToken', token);
+    }
+    options.headers = headers;
+    options.credentials = options.credentials || 'same-origin';
+    return fetch(url, options);
+}
+
+document.addEventListener('click', function(event) {
+    const button = event.target.closest('[data-menu-event]');
+    if (!button || button.disabled) return;
+    const action = button.dataset.menuEvent;
+    if (action === 'legacy-create-purchase-order') createPurchaseOrder({{ order.id }});
+    if (action === 'legacy-approve-purchase-request') approveOrder({{ order.id }});
+    if (action === 'legacy-reject-purchase-request') rejectOrder({{ order.id }});
+    if (action === 'legacy-revert-purchase-request') revertOrder({{ order.id }});
+    if (action === 'legacy-complete-purchase-request') completeOrder({{ order.id }});
+});
+
+// 初始化Excel导入导出
+document.addEventListener('DOMContentLoaded', function() {
+    new ExcelImportExport({
+        tableId: 'itemTable',
+        fileName: '采购申请明细',
+        columns: [
+            {label: '物料编码', field: 'material_code', required: true, example: 'MAT001'},
+            {label: '物料名称', field: 'material_name', required: false, example: '螺丝'},
+            {label: '规格', field: 'spec', required: false, example: 'M6*20'},
+            {label: '单位', field: 'unit', required: false, example: '个'},
+            {label: '当前库存', field: 'stock', required: false, example: '100'},
+            {label: '数量', field: 'quantity', required: true, example: '100'},
+            {label: '预估单价', field: 'estimated_price', required: false, example: '0.5'},
+            {label: '预估金额', field: 'estimated_amount', required: false, example: '50.00'},
+            {label: '推荐供应商', field: 'supplier', required: false, example: '供应商A'}
+        ]
+    });
+});
+
+function approveOrder(id) {
+    showConfirm('确认审批通过此采购申请？', { title: '审批通过采购申请' }).then(function(confirmed) {
+        if (!confirmed) return;
+        csrfFetch(`/purchase_request/${id}/approve`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'}
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                showToast('采购申请已审批通过，正在刷新详情…', 'success');
+                setTimeout(function(){ location.reload(); }, 650);
+            } else {
+                showToast('操作失败：' + data.msg, 'danger', 3600);
+            }
+        })
+        .catch(err => showToast('操作失败：' + err.message, 'danger', 3600));
+    });
+}
+
+function rejectOrder(id) {
+    const remark = prompt('请输入驳回原因：');
+    if (remark === null) return;
+    csrfFetch(`/purchase_request/${id}/reject`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ remark: remark })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'success') {
+            showToast('采购申请已驳回，正在刷新详情…', 'success');
+            setTimeout(function(){ location.reload(); }, 650);
+        } else {
+            showToast('操作失败：' + data.msg, 'danger', 3600);
+        }
+    })
+    .catch(err => showToast('操作失败：' + err.message, 'danger', 3600));
+}
+
+function revertOrder(id) {
+    showConfirm('确认反审此采购申请？反审后单据将退回待审批状态。', { title: '反审采购申请' }).then(function(confirmed) {
+        if (!confirmed) return;
+        csrfFetch(`/purchase_request/${id}/revert`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'}
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                showToast(data.msg || '反审成功，正在刷新详情…', 'success');
+                setTimeout(function(){ location.reload(); }, 650);
+            } else {
+                showToast('反审失败：' + data.msg, 'danger', 3600);
+            }
+        })
+        .catch(err => showToast('反审失败：' + err.message, 'danger', 3600));
+    });
+}
+
+function completeOrder(id) {
+    showConfirm('确认完成此采购申请？', { title: '完成采购申请' }).then(function(confirmed) {
+        if (!confirmed) return;
+        csrfFetch(`/purchase_request/${id}/complete`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'}
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                showToast('采购申请已完成，正在刷新详情…', 'success');
+                setTimeout(function(){ location.reload(); }, 650);
+            } else {
+                showToast('操作失败：' + data.msg, 'danger', 3600);
+            }
+        })
+        .catch(err => showToast('操作失败：' + err.message, 'danger', 3600));
+    });
+}
+
+function togglePushItemSelection(checked) {
+    document.querySelectorAll('.push-item-check:not(:disabled)').forEach(function(input) {
+        input.checked = checked;
+    });
+    updatePushSelectionSummary();
+}
+
+function updatePushSelectionSummary() {
+    const checkedRows = Array.from(document.querySelectorAll('.push-item-check:checked'));
+    let qty = 0;
+    checkedRows.forEach(function(input) {
+        const itemId = input.dataset.itemId;
+        const qtyInput = document.querySelector('.push-item-qty[data-item-id="' + itemId + '"]');
+        qty += parseFloat(qtyInput ? qtyInput.value : '0') || 0;
+    });
+    const summary = document.getElementById('pushSelectionSummary');
+    if (summary) {
+        summary.textContent = '已选 ' + checkedRows.length + ' 行，本次下推 ' + qty.toFixed(2);
+    }
+    const selectAll = document.getElementById('selectAllPushItems');
+    if (selectAll) {
+        const enabledRows = Array.from(document.querySelectorAll('.push-item-check:not(:disabled)'));
+        selectAll.checked = enabledRows.length > 0 && enabledRows.every(function(input) { return input.checked; });
+    }
+}
+
+function collectSelectedPushItems() {
+    const checkedRows = Array.from(document.querySelectorAll('.push-item-check:checked'));
+    const items = [];
+    for (const checkbox of checkedRows) {
+        const itemId = checkbox.dataset.itemId;
+        const qtyInput = document.querySelector('.push-item-qty[data-item-id="' + itemId + '"]');
+        const quantity = parseFloat(qtyInput ? qtyInput.value : '0');
+        const maxQty = parseFloat(qtyInput ? qtyInput.getAttribute('max') : '0');
+        if (!Number.isFinite(quantity) || quantity <= 0) {
+            showToast('本次下推数量必须大于 0', 'warning');
+            if (qtyInput) qtyInput.focus();
+            return null;
+        }
+        if (Number.isFinite(maxQty) && quantity - maxQty > 0.000001) {
+            showToast('本次下推数量不能大于未下推数量', 'warning');
+            if (qtyInput) qtyInput.focus();
+            return null;
+        }
+        items.push({ purchase_request_item_id: itemId, quantity: quantity });
+    }
+    if (!items.length) {
+        showToast('请先勾选要下推的明细', 'warning');
+        return null;
+    }
+    return items;
+}
+
+function createPurchaseOrder(id, selectedOnly) {
+    let selectedItems = null;
+    if (selectedOnly) {
+        selectedItems = collectSelectedPushItems();
+        if (!selectedItems) return;
+    }
+    showConfirm('确认由此采购申请生成采购订单？', { title: '生成采购订单' }).then(function(confirmed) {
+        if (!confirmed) return;
+        const options = {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'}
+        };
+        if (selectedOnly) {
+            options.body = JSON.stringify({ items: selectedItems });
+        }
+        csrfFetch(`/purchase_request/${id}/create_purchase_order`, options)
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                showToast(data.msg || '采购订单生成成功', 'success');
+                setTimeout(function() {
+                    window.location.href = data.redirect_url || ('/purchase_order/' + data.id);
+                }, 500);
+            } else {
+                showToast('生成失败：' + data.msg, 'danger', 3600);
+            }
+        })
+        .catch(err => showToast('生成失败：' + err.message, 'danger', 3600));
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    updatePushSelectionSummary();
+});
+</script>
+{% endblock %}

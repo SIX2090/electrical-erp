@@ -1,0 +1,18 @@
+{% macro line_toolbar(add_label='增行', allow_add_rows=True, allow_fill_down=False) -%}
+<button class="btn btn-outline-secondary btn-sm" type="button" data-grid-action="columns"><i class="bi bi-layout-three-columns"></i> 列设置</button>
+<button class="btn btn-outline-secondary btn-sm" type="button" data-grid-action="reset"><i class="bi bi-arrow-counterclockwise"></i> 重置列</button>
+<button class="btn btn-outline-secondary btn-sm" type="button" data-grid-action="sort-help" title="点击明细表头可升序/降序排序"><i class="bi bi-sort-down"></i> 排序</button>
+{% if allow_add_rows %}
+<button class="btn btn-outline-secondary btn-sm" type="button" data-grid-action="custom-field"><i class="bi bi-input-cursor-text"></i> 自定义字段</button>
+<button class="btn btn-outline-primary btn-sm" type="button" id="addLineBtn"><i class="bi bi-plus-lg"></i> {{ add_label }}</button>
+<button class="btn btn-outline-primary btn-sm" type="button" data-line-action="insert"><i class="bi bi-plus-square"></i> 插入行</button>
+<button class="btn btn-outline-secondary btn-sm" type="button" data-line-action="copy"><i class="bi bi-files"></i> 复制行</button>
+<button class="btn btn-outline-secondary btn-sm" type="button" data-line-action="paste"><i class="bi bi-clipboard"></i> 粘贴行</button>
+{% if allow_fill_down %}
+<button class="btn btn-outline-secondary btn-sm" type="button" data-line-action="fill-down" title="将当前明细格向下填充到后续行"><i class="bi bi-arrow-down-square"></i> 向下填充</button>
+{% endif %}
+<button class="btn btn-outline-secondary btn-sm" type="button" data-line-action="up"><i class="bi bi-arrow-up"></i> 上移</button>
+<button class="btn btn-outline-secondary btn-sm" type="button" data-line-action="down"><i class="bi bi-arrow-down"></i> 下移</button>
+<button class="btn btn-outline-danger btn-sm" type="button" data-line-action="delete"><i class="bi bi-trash"></i> 删行</button>
+{% endif %}
+{%- endmacro %}

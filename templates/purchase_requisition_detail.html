@@ -1,0 +1,312 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}采购申请单明细{% endblock %}
+{% block content %}
+{% set req_status = req.status or '' %}
+{{ document_menu_bar(actions=[
+    {'label': '提交', 'type': 'button' if can_submit else 'disabled', 'form': 'purchase-requisition-submit-form', 'button_type': 'submit', 'icon': 'bi-send'},
+    {'label': '审核', 'type': 'button' if can_approve else 'disabled', 'form': 'purchase-requisition-approve-form', 'button_type': 'submit', 'icon': 'bi-check2-circle'},
+    {'label': '全部生成采购订单', 'type': 'button' if can_create_po and not push_blockers else 'disabled', 'form': 'purchase-requisition-create-order-form', 'button_type': 'submit', 'icon': 'bi-arrow-right-square'},
+    {'label': '更多', 'type': 'dropdown', 'icon': 'bi-three-dots', 'items': [
+        {'label': '驳回', 'type': 'button' if can_approve else 'disabled', 'form': 'purchase-requisition-reject-form', 'button_type': 'submit', 'icon': 'bi-x-circle'},
+        {'label': '反审核', 'type': 'button' if can_create_po else 'disabled', 'form': 'purchase-requisition-revert-form', 'button_type': 'submit', 'icon': 'bi-arrow-counterclockwise'},
+        {'label': '关闭', 'type': 'button' if can_create_po else 'disabled', 'form': 'purchase-requisition-close-form', 'button_type': 'submit', 'icon': 'bi-lock'},
+        {'label': '下游采购订单', 'type': 'link', 'href': '#purchase-requisition-downstream-orders', 'icon': 'bi-diagram-3'}
+    ]},
+    {'type': 'nav', 'items': [
+        {'label': '首张', 'event': 'doc-nav-first', 'icon': 'bi-chevron-double-left'},
+        {'label': '上一张', 'event': 'doc-nav-prev', 'icon': 'bi-chevron-left'},
+        {'label': '下一张', 'event': 'doc-nav-next', 'icon': 'bi-chevron-right'},
+        {'label': '末张', 'event': 'doc-nav-last', 'icon': 'bi-chevron-double-right'}
+    ]}
+], aria_label='采购申请单据操作菜单') }}
+<div id="doc-nav-config" data-nav-table="purchase_requisitions" data-nav-base="{{ (back_url or '/purchase_request') }}/" data-doc-id="{{ req.id }}" style="display:none"></div>
+<div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+    <div>
+        <a class="btn btn-outline-secondary btn-sm mb-3" href="{{ back_url or '/purchase_request' }}">返回采购申请</a>
+        <h1 class="h4 mb-1">{{ req.req_no }}</h1>
+        <div class="text-muted">项目号：{{ req.project_code or '-' }} / 机号：{{ req.serial_no or '-' }}</div>
+        <div class="text-muted small mt-1">流程：提交 -> 审核 -> 生成采购单 -> 关闭。</div>
+    </div>
+    <div class="d-none">
+        <form id="purchase-requisition-submit-form" method="post" action="/purchase_request/{{ req.id }}/submit">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-primary" type="submit">
+                <i class="bi bi-send"></i> 提交
+            </button>
+        </form>
+        <form id="purchase-requisition-void-form" method="post" action="/purchase_request/{{ req.id }}/void" onsubmit="return confirm('确认作废该采购申请？');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-outline-danger" type="submit">
+                <i class="bi bi-slash-circle"></i> 作废
+            </button>
+        </form>
+        <form id="purchase-requisition-approve-form" method="post" action="/purchase_request/{{ req.id }}/approve">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-success" type="submit">
+                <i class="bi bi-check2-circle"></i> 审核
+            </button>
+        </form>
+        <form id="purchase-requisition-reject-form" method="post" action="/purchase_request/{{ req.id }}/reject" onsubmit="return confirm('确认驳回该采购申请？');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-outline-warning" type="submit">
+                <i class="bi bi-x-circle"></i> 驳回
+            </button>
+        </form>
+        <form id="purchase-requisition-create-order-form" method="post" action="/purchase_request/{{ req.id }}/create_purchase_order">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-primary" type="submit" {% if (not can_create_po) or push_blockers %}disabled title="{{ push_blockers[0].reason if push_blockers else '当前状态或剩余数量不允许生成采购订单' }}"{% endif %}>
+                <i class="bi bi-arrow-right-square"></i> 生成采购订单（生成采购单）
+            </button>
+        </form>
+        <form id="purchase-requisition-revert-form" method="post" action="/purchase_request/{{ req.id }}/revert" onsubmit="return confirm('确认反审核该采购申请？');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-outline-warning" type="submit">
+                <i class="bi bi-arrow-counterclockwise"></i> 反审核
+            </button>
+        </form>
+        <form id="purchase-requisition-close-form" method="post" action="/purchase_request/{{ req.id }}/close" onsubmit="return confirm('确认关闭该采购申请？');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-outline-secondary" type="submit">
+                <i class="bi bi-lock"></i> 关闭
+            </button>
+        </form>
+    </div>
+</div>
+
+{% if push_blockers %}
+<div class="alert alert-warning d-flex align-items-start gap-2 mb-3" role="alert">
+    <i class="bi bi-exclamation-triangle-fill"></i>
+    <div>
+        <div class="fw-semibold">当前采购申请不能生成采购订单</div>
+        {% for blocker in push_blockers %}
+        <div>{{ blocker.reason }}涉及 {{ blocker.line_count }} 行。责任：{{ blocker.owner }}；下一步：{{ blocker.next_action }}</div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<div class="row g-3 mb-3">
+    {% for metric in metrics %}
+    <div class="col-md-6 col-xl-3">
+        <div class="metric h-100">
+            <div class="label">{{ metric.label }}</div>
+            <div class="value">{{ metric.value }}</div>
+            <div class="text-muted small mt-1">{{ metric.hint }}</div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="page-card mb-3">
+    <h2 class="h5 mb-3">基本信息</h2>
+    <div class="row g-2">
+        <div class="col-md-3"><strong>申请日期：</strong>{{ req.req_date or '-' }}</div>
+        <div class="col-md-3"><strong>部门：</strong>{{ req.department or '-' }}</div>
+        <div class="col-md-3"><strong>申请人：</strong>{{ req.requester_name or req.requester_id or '-' }}</div>
+        <div class="col-md-3"><strong>状态：</strong><span class="badge text-bg-primary">{{ req.status or '-' }}</span></div>
+        <div class="col-md-6"><strong>用途：</strong>{{ req.purpose or '-' }}</div>
+        <div class="col-md-6"><strong>备注：</strong>{{ req.remark or '-' }}</div>
+    </div>
+</div>
+
+<div class="page-card mb-3">
+    <div class="d-flex justify-content-between align-items-center gap-2 mb-3 flex-wrap">
+        <h2 class="h5 mb-0">申请明细</h2>
+        {% if can_create_po and not push_blockers and items %}
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <span id="pushSelectionSummary" class="text-muted small">已选 0 行</span>
+            <button type="button" class="btn btn-primary btn-sm" onclick="createSelectedPurchaseOrder({{ req.id }})">
+                <i class="bi bi-arrow-right-square"></i> 选中下推采购订单
+            </button>
+        </div>
+        {% endif %}
+    </div>
+    {% if items %}
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+            <tr>
+                {% if can_create_po and not push_blockers %}
+                <th style="width: 40px;"><input type="checkbox" id="selectAllPushItems" onchange="togglePushItemSelection(this.checked)"></th>
+                {% endif %}
+                <th>物料</th>
+                <th>规格</th>
+                <th>项目/机号</th>
+                <th class="text-end">申请数量</th>
+                <th class="text-end">已下推</th>
+                <th class="text-end">未下推</th>
+                {% if can_create_po and not push_blockers %}
+                <th class="text-end">本次下推</th>
+                {% endif %}
+                <th class="text-end">单价</th>
+                <th class="text-end">金额</th>
+                <th>需求日期</th>
+                <th>建议供应商</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for item in items %}
+            {% set remaining_qty = item.remaining_qty or 0 %}
+            <tr>
+                {% if can_create_po and not push_blockers %}
+                <td>
+                    <input type="checkbox" class="push-item-check" data-item-id="{{ item.id }}" {% if remaining_qty <= 0 %}disabled{% endif %} onchange="updatePushSelectionSummary()">
+                </td>
+                {% endif %}
+                <td>{{ item.product_code or item.product_id }} / {{ item.product_name or '-' }}</td>
+                <td>{{ item.specification or '-' }}</td>
+                <td>{{ item.project_code or '-' }} / {{ item.serial_no or '-' }}</td>
+                <td class="text-end">{{ item.quantity|qty }} {{ item.unit or '' }}</td>
+                <td class="text-end">{{ item.ordered_qty|qty }}</td>
+                <td class="text-end {% if item.remaining_qty %}fw-semibold text-primary{% endif %}">{{ remaining_qty|qty }}</td>
+                {% if can_create_po and not push_blockers %}
+                <td>
+                    <input type="number" class="form-control form-control-sm text-end push-item-qty" data-item-id="{{ item.id }}" min="0" max="{{ remaining_qty }}" step="0.01" value="{{ remaining_qty }}" {% if remaining_qty <= 0 %}readonly{% endif %} oninput="updatePushSelectionSummary()">
+                </td>
+                {% endif %}
+                <td class="text-end">{{ item.unit_price|money }}</td>
+                <td class="text-end">{{ item.amount|money }}</td>
+                <td>{{ item.need_date or '-' }}</td>
+                <td>
+                    {% if item.id in missing_supplier_item_ids %}
+                    <span class="text-danger fw-semibold">未指定，阻塞下推</span>
+                    {% else %}
+                    {{ item.supplier_name or '未指定，下推后在采购订单维护' }}
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-muted">暂无申请明细。</div>
+    {% endif %}
+</div>
+
+<div class="page-card" id="purchase-requisition-downstream-orders">
+    <h2 class="h5 mb-3">下游采购订单（下游采购单）</h2>
+    {% if purchase_orders %}
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+            <tr>
+                <th>采购订单</th>
+                <th>日期</th>
+                <th>供应商</th>
+                <th>项目号</th>
+                <th>机号</th>
+                <th class="text-end">金额</th>
+                <th>状态</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for po in purchase_orders %}
+            <tr>
+                <td><a href="/purchase_order/{{ po.id }}">{{ po.order_no }}</a></td>
+                <td>{{ po.order_date or '-' }}</td>
+                <td>{{ po.supplier_name or '-' }}</td>
+                <td>{{ po.project_code or '-' }}</td>
+                <td>{{ po.serial_no or '-' }}</td>
+                <td class="text-end">{{ po.total_amount|money }}</td>
+                <td>{{ po.status or '-' }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-muted">暂无下游采购订单（下游采购单）。</div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function getCsrfToken() {
+    const hidden = document.querySelector('input[name="csrf_token"]');
+    if (hidden && hidden.value) return hidden.value;
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    return meta && meta.content ? meta.content : '';
+}
+
+function togglePushItemSelection(checked) {
+    document.querySelectorAll('.push-item-check:not(:disabled)').forEach(input => {
+        input.checked = checked;
+    });
+    updatePushSelectionSummary();
+}
+
+function updatePushSelectionSummary() {
+    const checkedRows = Array.from(document.querySelectorAll('.push-item-check:checked'));
+    let qty = 0;
+    checkedRows.forEach(input => {
+        const qtyInput = document.querySelector('.push-item-qty[data-item-id="' + input.dataset.itemId + '"]');
+        qty += parseFloat(qtyInput ? qtyInput.value : '0') || 0;
+    });
+    const summary = document.getElementById('pushSelectionSummary');
+    if (summary) summary.textContent = '已选 ' + checkedRows.length + ' 行，本次下推 ' + qty.toFixed(2);
+    const selectAll = document.getElementById('selectAllPushItems');
+    if (selectAll) {
+        const enabledRows = Array.from(document.querySelectorAll('.push-item-check:not(:disabled)'));
+        selectAll.checked = enabledRows.length > 0 && enabledRows.every(input => input.checked);
+    }
+}
+
+function collectSelectedPushItems() {
+    const checkedRows = Array.from(document.querySelectorAll('.push-item-check:checked'));
+    const items = [];
+    for (const checkbox of checkedRows) {
+        const itemId = checkbox.dataset.itemId;
+        const qtyInput = document.querySelector('.push-item-qty[data-item-id="' + itemId + '"]');
+        const quantity = parseFloat(qtyInput ? qtyInput.value : '0');
+        const maxQty = parseFloat(qtyInput ? qtyInput.getAttribute('max') : '0');
+        if (!Number.isFinite(quantity) || quantity <= 0) {
+            showToast('本次下推数量必须大于 0', 'warning');
+            if (qtyInput) qtyInput.focus();
+            return null;
+        }
+        if (Number.isFinite(maxQty) && quantity - maxQty > 0.000001) {
+            showToast('本次下推数量不能大于未下推数量', 'warning');
+            if (qtyInput) qtyInput.focus();
+            return null;
+        }
+        items.push({ purchase_request_item_id: itemId, quantity: quantity });
+    }
+    if (!items.length) {
+        showToast('请先勾选要下推的明细', 'warning');
+        return null;
+    }
+    return items;
+}
+
+function createSelectedPurchaseOrder(reqId) {
+    const selectedItems = collectSelectedPushItems();
+    if (!selectedItems) return;
+    showConfirm('确认将选中的申请明细生成采购订单？', { title: '选中下推采购订单' }).then(confirmed => {
+        if (!confirmed) return;
+        fetch('/purchase_request/' + reqId + '/create_purchase_order', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({ items: selectedItems })
+        }).then(async res => {
+            const data = await res.json();
+            if (!res.ok || data.status !== 'success') throw new Error(data.msg || '生成失败');
+            showToast(data.msg || '采购订单生成成功', 'success');
+            setTimeout(() => {
+                window.location.href = data.redirect_url || ('/purchase_request/' + reqId);
+            }, 500);
+        }).catch(error => {
+            showToast('生成失败：' + error.message, 'danger', 3600);
+        });
+    });
+}
+
+document.addEventListener('DOMContentLoaded', updatePushSelectionSummary);
+</script>
+{% endblock %}

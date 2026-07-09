@@ -1,0 +1,713 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% from "partials/document_line_toolbar.html" import line_toolbar %}
+{% block title %}{{ page_title or '新增采购订单' }}{% endblock %}
+{% block extra_css %}
+<style>
+.material-input-wrap { position: relative; display: flex; gap: 4px; }
+.material-select-btn { flex: 0 0 28px; border: 1px solid #ced4da; background: #fff; border-radius: 4px; }
+.material-dropdown {
+    position: fixed; z-index: 1200; min-width: 360px; max-width: min(640px, calc(100vw - 24px));
+    max-height: 280px; overflow-y: auto; background: #fff; border: 1px solid #d9e2ef;
+    border-radius: 6px; box-shadow: 0 8px 24px rgba(15, 23, 42, .14);
+}
+.material-dropdown-item { padding: 8px 10px; cursor: pointer; border-bottom: 1px solid #f1f3f5; font-size: 13px; }
+.material-dropdown-item:hover, .material-dropdown-item.active { background: #eef6ff; }
+.material-dropdown-item .code { font-weight: 600; color: #0d6efd; }
+.material-dropdown-item .meta { display: inline-block; margin-left: 8px; color: #6c757d; }
+.supplier-input-wrap { position: relative; }
+.supplier-dropdown {
+    position: fixed; z-index: 1200; min-width: 280px; max-width: min(520px, calc(100vw - 24px));
+    max-height: 260px; overflow-y: auto; background: #fff; border: 1px solid #d9e2ef;
+    border-radius: 6px; box-shadow: 0 8px 24px rgba(15, 23, 42, .14);
+}
+.supplier-dropdown-item { padding: 8px 10px; cursor: pointer; border-bottom: 1px solid #f1f3f5; font-size: 13px; }
+.supplier-dropdown-item:hover, .supplier-dropdown-item.active { background: #eef6ff; }
+.supplier-dropdown-item .code { color: #6c757d; margin-left: 8px; }
+
+@media (max-width: 768px) {
+    .material-input-wrap {
+        min-width: 150px;
+    }
+
+    .material-select-btn {
+        flex-basis: 36px;
+        min-height: 34px;
+    }
+
+    .material-dropdown,
+    .supplier-dropdown {
+        left: 8px !important;
+        right: 8px !important;
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: calc(100vw - 16px) !important;
+        max-height: min(320px, 55vh);
+        z-index: 2300;
+    }
+
+    .material-dropdown-item,
+    .supplier-dropdown-item {
+        min-height: 44px;
+        padding: 10px 12px;
+        font-size: 14px;
+    }
+
+    #materialTable {
+        min-width: 940px;
+    }
+
+    #materialTable td:nth-child(3),
+    #materialTable th:nth-child(3) {
+        min-width: 170px;
+    }
+
+    #materialTable td:nth-child(2),
+    #materialTable th:nth-child(2) {
+        min-width: 160px;
+    }
+
+    .mt-3.d-flex.justify-content-end.gap-2 {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px !important;
+    }
+
+    .mt-3.d-flex.justify-content-end.gap-2 .btn {
+        width: 100%;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <h2 class="mb-0"><i class="bi bi-bag-check"></i> {{ page_title or '新增采购订单' }}</h2>
+    <div class="d-flex gap-2 flex-wrap d-none">
+        <button type="button" class="btn btn-primary" onclick="submitForm()">
+            <i class="bi bi-save"></i> 保存
+        </button>
+        <a href="/purchase-orders" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> 返回列表</a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form id="purchaseOrderForm">
+            <input type="hidden" name="order_id" value="{{ order_id or '' }}">
+            <input type="hidden" name="order_no" value="{{ order_no }}">
+
+            <div class="row g-2 mb-3">
+                <div class="col-md-3">
+                    <label class="form-label small text-muted mb-1">采购订单号</label>
+                    <input class="form-control form-control-sm" value="{{ order_no }}" readonly>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small text-muted mb-1">采购日期</label>
+                    <input type="date" class="form-control form-control-sm" name="date" value="{{ order_date }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small text-muted mb-1">供应商</label>
+                    <div class="supplier-input-wrap">
+                        <input type="text" class="form-control form-control-sm" id="supplierName" name="supplier_name" value="{{ order.supplier.name if order and order.supplier else '' }}" placeholder="可选择或手工输入" autocomplete="off">
+                        <input type="hidden" id="supplierId" name="supplier_id" value="{{ order.supplier_id if order and order.supplier_id else '' }}">
+                        <div class="supplier-dropdown" id="supplierDropdown" style="display:none;"></div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small text-muted mb-1">预计到货</label>
+                    <input type="date" class="form-control form-control-sm" name="expected_date" value="{{ expected_date }}">
+                </div>
+                <div class="col-md-12">
+                    <label class="form-label small text-muted mb-1">备注</label>
+                    <input class="form-control form-control-sm" name="remark" value="{{ order.remark if order else '' }}">
+                </div>
+            </div>
+
+            <div class="mb-2 d-flex gap-2 flex-wrap">
+                {{ line_toolbar('添加物料') }}
+                <button type="button" class="btn btn-primary btn-sm" onclick="addNewRow()">
+                    <i class="bi bi-plus"></i> 添加物料
+                </button>
+                <button type="button" class="btn btn-outline-primary btn-sm" onclick="copyPreviousRow()">
+                    <i class="bi bi-copy"></i> 复制上一行
+                </button>
+            </div>
+
+            <div class="table-responsive document-grid-scroll">
+                <table class="table table-bordered table-hover table-sm mb-0" id="materialTable" data-document-grid data-grid-key="purchase_order_add_lines">
+                    <thead class="table-light">
+                        <tr data-grid-header>
+                            <th width="50" data-column-key="row_no">序号</th>
+                            <th style="width: 160px;" data-column-key="material_code">物料编码</th>
+                            <th data-column-key="material_name">物料名称</th>
+                            <th style="width: 120px;" data-column-key="specification">规格</th>
+                            <th style="width: 80px;" data-column-key="unit">单位</th>
+                            <th style="width: 100px;" class="text-end" data-column-key="quantity">数量</th>
+                            <th style="width: 100px;" class="text-end" data-column-key="price">单价</th>
+                            <th style="width: 110px;" class="text-end" data-column-key="amount">金额</th>
+                            <th style="width: 140px;" data-column-key="remark">备注</th>
+                            <th style="width: 90px;" data-column-key="actions">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="materialTableBody"></tbody>
+                    <tfoot>
+                        <tr class="table-warning">
+                            <td colspan="7" class="text-end"><strong>合计：</strong></td>
+                            <td class="text-end"><strong id="totalAmount">¥0.00</strong></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/document_grid.js') }}"></script>
+<script>
+const materials = {{ materials|tojson }};
+const suppliers = {{ suppliers|tojson }};
+let activeDropdown = null;
+let activeSupplierDropdown = null;
+const initialItems = [
+{% if order %}
+{% for item in order.items %}
+    {
+        material_id: {{ item.material_id|tojson }},
+        material_code: {{ item.material.code|tojson if item.material else '""' }},
+        material_name: {{ item.material.name|tojson if item.material else '""' }},
+        spec: {{ item.material.spec|tojson if item.material else '""' }},
+        unit_name: {{ item.material.unit.name|tojson if item.material and item.material.unit else '""' }},
+        quantity: {{ item.quantity or 0 }},
+        price: {{ item.price or 0 }},
+        remark: {{ (item.remark or '')|tojson }}
+    }{{ "," if not loop.last else "" }}
+{% endfor %}
+{% endif %}
+];
+
+function getMaterialUnit(material) {
+    if (!material || !material.unit) return '';
+    return typeof material.unit === 'object' ? (material.unit.name || '') : material.unit;
+}
+
+function formatMoney(value) {
+    const n = parseFloat(value) || 0;
+    return '¥' + n.toFixed(2);
+}
+
+function escapeHtml(value) {
+    return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function supplierSearchText(supplier) {
+    return [supplier.name, supplier.code, supplier.contact, supplier.phone]
+        .map(v => String(v || '').toLowerCase())
+        .join(' ');
+}
+
+function findSupplierByName(name) {
+    const normalized = String(name || '').trim().toLowerCase();
+    if (!normalized) return null;
+    return suppliers.find(s => String(s.name || '').toLowerCase() === normalized)
+        || suppliers.find(s => String(s.code || '').toLowerCase() === normalized)
+        || null;
+}
+
+function setSupplier(supplier) {
+    const nameInput = document.getElementById('supplierName');
+    const idInput = document.getElementById('supplierId');
+    if (!nameInput || !idInput || !supplier) return;
+    nameInput.value = supplier.name || supplier.code || '';
+    idInput.value = supplier.id || '';
+    hideSupplierDropdown();
+}
+
+function showSupplierDropdown(showAll = false) {
+    const input = document.getElementById('supplierName');
+    const idInput = document.getElementById('supplierId');
+    const dropdown = document.getElementById('supplierDropdown');
+    if (!input || !idInput || !dropdown) return;
+    const keyword = input.value.trim().toLowerCase();
+    const exact = findSupplierByName(input.value);
+    idInput.value = exact ? exact.id : '';
+    if (!showAll && !keyword) {
+        hideSupplierDropdown();
+        return;
+    }
+    const filtered = suppliers.filter(s => showAll || supplierSearchText(s).includes(keyword)).slice(0, 80);
+    if (!filtered.length) {
+        dropdown.innerHTML = '<div class="supplier-dropdown-item text-muted">无匹配供应商，保存时将自动新增</div>';
+    } else {
+        dropdown.innerHTML = filtered.map((s, index) => `
+            <div class="supplier-dropdown-item ${index === 0 ? 'active' : ''}" data-id="${escapeHtml(s.id)}">
+                <span>${escapeHtml(s.name || '')}</span>
+                ${s.code ? `<span class="code">${escapeHtml(s.code)}</span>` : ''}
+            </div>
+        `).join('');
+        dropdown.querySelectorAll('.supplier-dropdown-item[data-id]').forEach(item => {
+            item.addEventListener('mousedown', function(event) {
+                event.preventDefault();
+                const supplier = suppliers.find(s => String(s.id) === String(this.dataset.id));
+                setSupplier(supplier);
+            });
+        });
+    }
+    const rect = input.getBoundingClientRect();
+    dropdown.style.top = (rect.bottom + 5) + 'px';
+    dropdown.style.left = rect.left + 'px';
+    dropdown.style.display = 'block';
+    activeSupplierDropdown = dropdown;
+}
+
+function moveSupplierActive(delta) {
+    const dropdown = document.getElementById('supplierDropdown');
+    if (!dropdown || dropdown.style.display === 'none') return;
+    const items = Array.from(dropdown.querySelectorAll('.supplier-dropdown-item[data-id]'));
+    if (!items.length) return;
+    const current = Math.max(0, items.findIndex(item => item.classList.contains('active')));
+    const next = (current + delta + items.length) % items.length;
+    items[current]?.classList.remove('active');
+    items[next].classList.add('active');
+    items[next].scrollIntoView({block: 'nearest'});
+}
+
+function hideSupplierDropdown() {
+    if (activeSupplierDropdown) {
+        activeSupplierDropdown.style.display = 'none';
+        activeSupplierDropdown = null;
+    }
+}
+
+function setupSupplierInput() {
+    const input = document.getElementById('supplierName');
+    const idInput = document.getElementById('supplierId');
+    if (!input || !idInput) return;
+    input.addEventListener('input', function() {
+        showSupplierDropdown();
+    });
+    input.addEventListener('focus', function() {
+        showSupplierDropdown(true);
+    });
+    input.addEventListener('keydown', function(event) {
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            event.preventDefault();
+            moveSupplierActive(event.key === 'ArrowDown' ? 1 : -1);
+            return;
+        }
+        if (event.key === 'Escape') {
+            hideSupplierDropdown();
+            return;
+        }
+        if (event.key === 'Enter') {
+            const active = document.querySelector('#supplierDropdown .supplier-dropdown-item.active[data-id]');
+            if (active) {
+                event.preventDefault();
+                const supplier = suppliers.find(s => String(s.id) === String(active.dataset.id));
+                setSupplier(supplier);
+            }
+        }
+    });
+    input.addEventListener('blur', function() {
+        const supplier = findSupplierByName(input.value);
+        idInput.value = supplier ? supplier.id : '';
+    });
+}
+
+function materialSearchText(material) {
+    return [material.code, material.name, material.spec, getMaterialUnit(material)]
+        .map(v => String(v || '').toLowerCase())
+        .join(' ');
+}
+
+function findMaterial(code) {
+    const normalized = String(code || '').trim().toLowerCase();
+    if (!normalized) return null;
+    return materials.find(m => String(m.code || '').toLowerCase() === normalized)
+        || materials.find(m => String(m.name || '').toLowerCase() === normalized)
+        || null;
+}
+
+function findMaterialByKeyword(keyword) {
+    const normalized = String(keyword || '').trim().toLowerCase();
+    if (!normalized) return null;
+    return findMaterial(normalized)
+        || materials.find(m => materialSearchText(m).includes(normalized))
+        || null;
+}
+
+function addNewRow(data = {}, insertBeforeRow = null) {
+    const tbody = document.getElementById('materialTableBody');
+    const row = document.createElement('tr');
+    row.innerHTML = `
+        <td class="row-num" data-column-key="row_no"></td>
+        <td data-column-key="material_code"><input class="form-control form-control-sm material-code" value="${escapeHtml(data.material_code || '')}" readonly tabindex="-1"></td>
+        <td data-column-key="material_name">
+            <div class="material-input-wrap">
+                <input class="form-control form-control-sm material-name" value="${escapeHtml(data.material_name || '')}" autocomplete="off">
+                <button type="button" class="material-select-btn" title="选择物料">▼</button>
+                <div class="material-dropdown" style="display:none;"></div>
+            </div>
+        </td>
+        <td data-column-key="specification"><input class="form-control form-control-sm material-spec" value="${escapeHtml(data.spec || '')}" readonly></td>
+        <td data-column-key="unit"><input class="form-control form-control-sm material-unit" value="${escapeHtml(data.unit_name || '')}" readonly></td>
+        <td data-column-key="quantity"><input type="number" class="form-control form-control-sm text-end material-qty" min="0" step="0.01" value="${escapeHtml(data.quantity || '')}"></td>
+        <td data-column-key="price"><input type="number" class="form-control form-control-sm text-end material-price" min="0" step="0.01" value="${escapeHtml(data.price || '')}"></td>
+        <td data-column-key="amount"><input class="form-control form-control-sm text-end material-amount" readonly></td>
+        <td data-column-key="remark"><input type="text" class="form-control form-control-sm material-remark" maxlength="500" value="${escapeHtml(data.remark || '')}"></td>
+        <td class="text-center" data-column-key="actions">
+            <button type="button" class="btn btn-sm btn-outline-primary me-1" onclick="insertRowBefore(this)" title="插入"><i class="bi bi-plus-circle"></i></button>
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteRow(this)" title="删除"><i class="bi bi-trash"></i></button>
+        </td>
+    `;
+    if (insertBeforeRow) {
+        tbody.insertBefore(row, insertBeforeRow);
+    } else {
+        tbody.appendChild(row);
+    }
+    bindRow(row);
+    if (data.material_id) {
+        row.querySelector('.material-name').dataset.materialId = data.material_id;
+    }
+    calcAmount(row);
+    renumberRows();
+    return row;
+}
+
+function bindRow(row) {
+    const nameInput = row.querySelector('.material-name');
+    nameInput.addEventListener('input', function() {
+        const material = findMaterial(this.value);
+        if (material) fillMaterial(row, material);
+        else clearMaterial(row);
+        showMaterialDropdown(row);
+    });
+    nameInput.addEventListener('keydown', function(event) {
+        const dropdown = row.querySelector('.material-dropdown');
+        const active = dropdown.querySelector('.material-dropdown-item.active');
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            event.preventDefault();
+            moveDropdownActive(dropdown, event.key === 'ArrowDown' ? 1 : -1);
+            return;
+        }
+        if (event.key === 'Escape') {
+            hideMaterialDropdown();
+            return;
+        }
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            if (active) {
+                selectMaterial(row, active.dataset.code);
+                return;
+            }
+            const material = findMaterialByKeyword(this.value);
+            if (material) fillMaterial(row, material);
+            hideMaterialDropdown();
+            row.querySelector('.material-qty').focus();
+            row.querySelector('.material-qty').select();
+        }
+    });
+    nameInput.addEventListener('focus', function() {
+        if (this.value.trim()) showMaterialDropdown(row);
+    });
+    row.querySelector('.material-select-btn').addEventListener('click', function() {
+        showMaterialDropdown(row, true);
+    });
+    row.querySelector('.material-qty').addEventListener('input', () => calcAmount(row));
+    row.querySelector('.material-price').addEventListener('input', () => calcAmount(row));
+    row.querySelector('.material-qty').addEventListener('keydown', function(event) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            row.querySelector('.material-price').focus();
+            row.querySelector('.material-price').select();
+        }
+    });
+    row.querySelector('.material-price').addEventListener('keydown', function(event) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            let next = row.nextElementSibling;
+            if (!next) next = addNewRow();
+            next.querySelector('.material-name').focus();
+        }
+    });
+}
+
+function showMaterialDropdown(row, showAll = false) {
+    const input = row.querySelector('.material-name');
+    const dropdown = row.querySelector('.material-dropdown');
+    const keyword = input.value.trim().toLowerCase();
+    if (!showAll && !keyword) {
+        dropdown.style.display = 'none';
+        return;
+    }
+    if (activeDropdown && activeDropdown !== dropdown) {
+        activeDropdown.style.display = 'none';
+    }
+    const filtered = materials.filter(m => showAll || materialSearchText(m).includes(keyword)).slice(0, 80);
+    if (!filtered.length) {
+        dropdown.innerHTML = '<div class="material-dropdown-item text-muted">无匹配物料</div>';
+    } else {
+        dropdown.innerHTML = filtered.map((m, index) => `
+            <div class="material-dropdown-item ${index === 0 ? 'active' : ''}" data-code="${escapeHtml(m.code)}">
+                <span class="code">${escapeHtml(m.code)}</span>
+                <span>${escapeHtml(m.name)}</span>
+                <span class="meta">${escapeHtml(m.spec || '')}</span>
+                <span class="meta">${escapeHtml(getMaterialUnit(m))}</span>
+            </div>
+        `).join('');
+        dropdown.querySelectorAll('.material-dropdown-item[data-code]').forEach(item => {
+            item.addEventListener('mousedown', function(event) {
+                event.preventDefault();
+                selectMaterial(row, this.dataset.code);
+            });
+        });
+    }
+    const rect = input.getBoundingClientRect();
+    dropdown.style.top = (rect.bottom + 5) + 'px';
+    dropdown.style.left = rect.left + 'px';
+    dropdown.style.display = 'block';
+    activeDropdown = dropdown;
+}
+
+function moveDropdownActive(dropdown, delta) {
+    const items = Array.from(dropdown.querySelectorAll('.material-dropdown-item[data-code]'));
+    if (!items.length) return;
+    const current = Math.max(0, items.findIndex(item => item.classList.contains('active')));
+    const next = (current + delta + items.length) % items.length;
+    items[current]?.classList.remove('active');
+    items[next].classList.add('active');
+    items[next].scrollIntoView({block: 'nearest'});
+}
+
+function hideMaterialDropdown() {
+    if (activeDropdown) {
+        activeDropdown.style.display = 'none';
+        activeDropdown = null;
+    }
+}
+
+function selectMaterial(row, code) {
+    const material = findMaterial(code);
+    if (!material) return;
+    fillMaterial(row, material);
+    hideMaterialDropdown();
+    row.querySelector('.material-qty').focus();
+    row.querySelector('.material-qty').select();
+}
+
+function fillMaterial(row, material) {
+    row.querySelector('.material-name').dataset.materialId = material.id || '';
+    row.querySelector('.material-code').value = material.code || '';
+    row.querySelector('.material-name').value = material.name || '';
+    row.querySelector('.material-spec').value = material.spec || '';
+    row.querySelector('.material-unit').value = getMaterialUnit(material);
+    const price = row.querySelector('.material-price');
+    if (!price.value) price.value = material.price || '';
+    calcAmount(row);
+}
+
+function clearMaterial(row) {
+    row.querySelector('.material-name').dataset.materialId = '';
+    row.querySelector('.material-code').value = '';
+    row.querySelector('.material-spec').value = '';
+    row.querySelector('.material-unit').value = '';
+    calcAmount(row);
+}
+
+function calcAmount(row) {
+    const qty = parseFloat(row.querySelector('.material-qty').value) || 0;
+    const price = parseFloat(row.querySelector('.material-price').value) || 0;
+    row.querySelector('.material-amount').value = qty || price ? (qty * price).toFixed(2) : '';
+    calcTotal();
+}
+
+function calcTotal() {
+    let total = 0;
+    document.querySelectorAll('#materialTableBody tr').forEach(row => {
+        total += parseFloat(row.querySelector('.material-amount').value) || 0;
+    });
+    document.getElementById('totalAmount').textContent = formatMoney(total);
+}
+
+function renumberRows() {
+    document.querySelectorAll('#materialTableBody tr').forEach((row, index) => {
+        row.querySelector('.row-num').textContent = index + 1;
+    });
+}
+
+function deleteRow(btn) {
+    btn.closest('tr').remove();
+    renumberRows();
+    calcTotal();
+}
+
+function rowData(row) {
+    return {
+        material_id: row.querySelector('.material-name').dataset.materialId,
+        material_code: row.querySelector('.material-code').value,
+        material_name: row.querySelector('.material-name').value,
+        spec: row.querySelector('.material-spec').value,
+        unit_name: row.querySelector('.material-unit').value,
+        quantity: row.querySelector('.material-qty').value,
+        price: row.querySelector('.material-price').value,
+        remark: row.querySelector('.material-remark')?.value || ''
+    };
+}
+
+function insertRowBefore(btn) {
+    const row = addNewRow({}, btn.closest('tr'));
+    row.querySelector('.material-name').focus();
+    return row;
+}
+
+function copyPreviousRow() {
+    const rows = Array.from(document.querySelectorAll('#materialTableBody tr'));
+    const source = rows.reverse().find(row => row.querySelector('.material-name').value.trim());
+    if (!source) {
+        addNewRow();
+        return;
+    }
+    const row = addNewRow(rowData(source));
+    row.querySelector('.material-qty').focus();
+    row.querySelector('.material-qty').select();
+}
+
+function copyRowAfter(row) {
+    if (!row) {
+        copyPreviousRow();
+        return;
+    }
+    const target = addNewRow(rowData(row), row.nextElementSibling);
+    target.querySelector('.material-qty').focus();
+    target.querySelector('.material-qty').select();
+}
+
+function collectItems() {
+    return Array.from(document.querySelectorAll('#materialTableBody tr')).map(row => ({
+        material_id: row.querySelector('.material-name').dataset.materialId || (findMaterialByKeyword(row.querySelector('.material-name').value)?.id || null),
+        material_code: findMaterialByKeyword(row.querySelector('.material-name').value)?.code || row.querySelector('.material-code').value.trim(),
+        quantity: row.querySelector('.material-qty').value,
+        price: row.querySelector('.material-price').value,
+        remark: (row.querySelector('.material-remark')?.value || '').trim()
+    })).filter(item => item.material_id || item.material_code);
+}
+
+function submitForm() {
+    const form = document.getElementById('purchaseOrderForm');
+    const formData = new FormData(form);
+    const payload = {
+        order_id: formData.get('order_id') || null,
+        order_no: formData.get('order_no'),
+        date: formData.get('date'),
+        supplier_id: formData.get('supplier_id'),
+        supplier_name: formData.get('supplier_name'),
+        expected_date: formData.get('expected_date'),
+        remark: formData.get('remark'),
+        items: collectItems()
+    };
+    if (!payload.date) {
+        showToast('请选择采购日期', 'warning');
+        return;
+    }
+    if (!payload.items.length) {
+        showToast('请至少添加一条采购明细', 'warning');
+        return;
+    }
+    fetch('/purchase_order/new', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': (document.querySelector('meta[name="csrf-token"]') || {}).content || ''
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'success') {
+            showToast('采购订单保存成功', 'success');
+            setTimeout(() => window.location.href = '/purchase_order/' + data.id, 500);
+        } else {
+            showToast(data.msg || '保存失败', 'danger', 3600);
+        }
+    })
+    .catch(error => showToast('保存失败：' + error.message, 'danger', 3600));
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    setupSupplierInput();
+    if (initialItems.length) {
+        initialItems.forEach(item => addNewRow(item));
+    } else {
+        for (let i = 0; i < 15; i++) addNewRow();
+    }
+    if (typeof registerDetailRowActions === 'function') {
+        registerDetailRowActions({
+            tableSelector: '#materialTable',
+            rowSelector: '#materialTableBody tr',
+            add: function() {
+                const row = addNewRow();
+                row.querySelector('.material-name').focus();
+            },
+            insert: function(row) { insertRowBefore(row); },
+            copy: function(row) { copyRowAfter(row); },
+            remove: function(row) { deleteRow(row); }
+        });
+    }
+    document.getElementById('addLineBtn')?.addEventListener('click', function() {
+        const row = addNewRow();
+        row.querySelector('.material-name').focus();
+        if (window.documentGridApi) window.documentGridApi.refresh();
+    });
+    document.querySelectorAll('[data-line-action]').forEach(function(button) {
+        button.addEventListener('click', function() {
+            const api = window.documentGridApi;
+            const row = api && api.currentRow ? api.currentRow() : document.querySelector('#materialTableBody tr:last-child');
+            const action = button.dataset.lineAction;
+            if (action === 'insert') insertRowBefore(row || document.querySelector('#materialTableBody tr'));
+            if (action === 'copy') copyRowAfter(row);
+            if (action === 'paste' && api) api.pasteToCurrentRow();
+            if (action === 'up' && api) api.moveCurrentRow(-1);
+            if (action === 'down' && api) api.moveCurrentRow(1);
+            if (action === 'delete' && row && document.querySelectorAll('#materialTableBody tr').length > 1) deleteRow(row);
+            renumberRows();
+            calcTotal();
+            if (api) api.refresh();
+        });
+    });
+    document.querySelectorAll('[data-grid-action]').forEach(function(button) {
+        button.addEventListener('click', function() {
+            const api = window.documentGridApi;
+            if (!api) return;
+            const action = button.dataset.gridAction;
+            if (action === 'columns') api.openColumnPanel(button);
+            if (action === 'custom-field') api.addCustomField();
+            if (action === 'reset') api.reset();
+        });
+    });
+});
+document.addEventListener('click', function(event) {
+    if (!event.target.closest('.material-input-wrap')) hideMaterialDropdown();
+    if (!event.target.closest('.supplier-input-wrap')) hideSupplierDropdown();
+});
+document.addEventListener('click', function(event) {
+    var item = event.target.closest('[data-menu-event]');
+    if (!item || item.disabled) return;
+    var action = item.dataset.menuEvent;
+    if (action && action.indexOf('toolbar-save-new') === 0) {
+        event.preventDefault();
+        if (typeof submitForm === 'function') { submitForm(); }
+        else { var form = document.querySelector('form'); if (form) form.submit(); }
+    }
+    if (action && action.indexOf('toolbar-save') === 0 && action.indexOf('toolbar-save-new') !== 0) {
+        event.preventDefault();
+        if (typeof submitForm === 'function') { submitForm(); }
+        else { var form = document.querySelector('form'); if (form) form.submit(); }
+    }
+});
+</script>
+{% endblock %}

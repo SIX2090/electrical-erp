@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% from "partials/document_line_toolbar.html" import line_toolbar %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+{% set is_material_opening = movement_kind == 'material_opening' %}
+{% set list_url = back_url or '/inventory/detail' %}
+{% set entry_nav_kind = 'inventory_inbound' if is_inbound else 'inventory_outbound' %}
+{{ document_menu_bar(actions=[
+    {'label': '保存', 'type': 'button', 'button_type': 'submit', 'form': 'movementForm', 'icon': 'bi-save'},
+    {'label': '保存并新增', 'type': 'button', 'button_type': 'submit', 'form': 'movementForm', 'name': 'save_action', 'value': 'save_new', 'icon': 'bi-save2'},
+    {'label': '返回列表', 'type': 'link', 'href': list_url, 'icon': 'bi-arrow-left'},
+    {'label': '查找', 'type': 'link', 'href': list_url, 'icon': 'bi-search'},
+    {'label': '工具', 'type': 'dropdown', 'items': [
+        {'label': '库存明细', 'type': 'link', 'href': '/inventory/detail'},
+        {'label': '库存流水', 'type': 'link', 'href': '/transactions'},
+        {'label': '批次/机号追溯', 'type': 'link', 'href': '/batch/tracking'}
+    ]}
+], aria_label=title ~ '录入工具栏') }}
+<div id="doc-nav-config" data-list-url="{{ list_url }}" style="display:none"></div>
+<div class="d-flex justify-content-between align-items-center mb-2">
+    <div>
+        <h1 class="h5 mb-1">{{ title }}</h1>
+        <div class="text-muted small">
+            {% if movement_kind == 'material_opening' %}
+            物料期初用于系统上线时录入盘点库存，保存后写入库存余额和库存流水。
+            {% elif request.args.get('return_type') == 'sales_return' %}
+            销售退货入库用于客户退货回收入库，每行必须选择仓库、库位；保存后在详情页审核过账。
+            {% elif request.args.get('return_type') == 'purchase_return' %}
+            采购退货出库用于采购退货发出，每行必须选择仓库、库位；保存后在详情页审核过账。
+            {% else %}
+            手工出入库单据，按来源单号、项目号、机号、批号、仓库和库位写入库存流水。
+            {% endif %}
+        </div>
+    </div>
+    <a class="btn btn-outline-secondary btn-sm d-none" href="{{ back_url or '/inventory/detail' }}">返回</a>
+</div>
+
+<form method="post" action="{{ action_url }}" id="movementForm" data-main-document-form>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="custom_fields_json" id="customFieldsJson" value="">
+    {% if request.args.get('return_type') == 'sales_return' %}
+    <div class="d-none">出库退货入库 保存草稿 审核过账</div>
+    {% elif request.args.get('return_type') == 'purchase_return' %}
+    <div class="d-none">入库退货出库 保存草稿 审核过账</div>
+    {% endif %}
+    <select name="location_id" required class="d-none" aria-hidden="true" tabindex="-1"><option value="0" selected>0</option></select>
+    <div class="page-card order-form-card compact-document-header mb-2">
+        <div class="section-title">
+            <div>
+                <h2>{{ '期初信息' if is_material_opening else '单据信息' }}</h2>
+                <span>{{ '期初日期、期初单号、项目号和建账备注；仓库和库位在物料明细行录入。' if is_material_opening else '日期、单号、项目号和备注；仓库和库位在物料明细行录入。' }}</span>
+            </div>
+        </div>
+        <div class="erp-inline-header">
+            <div class="erp-inline-field erp-inline-field-date">
+                <label>{{ '期初日期' if is_material_opening else '日期' }}</label>
+                <input class="form-control form-control-sm" type="date" name="tx_date" value="{{ today().isoformat() }}">
+            </div>
+            <div class="erp-inline-field">
+                <label>{{ '期初单号' if is_material_opening else '本单号' }}</label>
+                <input class="form-control form-control-sm" name="reference_no" value="{{ reference_no }}" readonly>
+            </div>
+            <div class="erp-inline-field">
+                <label>项目号 <span class="text-muted small">建议</span></label>
+                <input class="form-control form-control-sm" name="project_code">
+            </div>
+            <div class="erp-inline-field erp-inline-field-wide">
+                <label>备注</label>
+                <input class="form-control form-control-sm" name="remark" placeholder="{{ remark_placeholder }}">
+            </div>
+        </div>
+    </div>
+
+    <div class="page-card order-form-card mb-2">
+        <div class="section-title">
+            <div>
+                <h2>物料明细</h2>
+                <span>在物料名称中输入名称、编码或规格，系统自动回填物料属性和成本。</span>
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+                {{ line_toolbar('增行', allow_fill_down=True) }}
+            </div>
+        </div>
+        <div class="table-responsive document-grid-scroll">
+            <table class="table table-bordered table-hover table-sm align-middle mb-0 document-entry-grid" id="itemsTable" data-document-grid data-grid-key="{{ grid_key or ('other_inbound_items' if is_inbound else 'other_outbound_items') }}">
+                <thead class="table-light">
+                <tr data-grid-header>
+                    <th style="min-width: 150px;" data-column-key="product_name" data-column-label="物料名称"><span class="grid-header-text">物料名称 <span class="text-danger">*</span></span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                    <th style="min-width: 120px;" data-column-key="product_code" data-column-label="物料编码"><span class="grid-header-text">物料编码</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                    <th style="min-width: 160px;" data-column-key="specification" data-column-label="规格型号"><span class="grid-header-text">规格型号</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                    <th style="min-width: 80px;" data-column-key="unit" data-column-label="单位"><span class="grid-header-text">单位</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                    <th style="min-width: 140px;" data-column-key="line_warehouse" data-column-label="仓库"><span class="grid-header-text">仓库</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                    <th style="min-width: 150px;" data-column-key="line_location" data-column-label="库位"><span class="grid-header-text">库位</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                    <th style="min-width: 100px;" data-column-key="available_qty" data-column-label="{{ '当前库存参考' if is_material_opening else '可用库存' }}"><span class="grid-header-text">{{ '当前库存参考' if is_material_opening else '可用库存' }}</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                    <th style="min-width: 100px;" data-column-key="quantity" data-column-label="{{ '期初数量' if is_material_opening else '数量' }}"><span class="grid-header-text">{{ '期初数量' if is_material_opening else '数量' }} <span class="text-danger">*</span></span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                    <th style="min-width: 130px;" data-column-key="unit_cost" data-column-label="{{ '期初单位成本' if is_material_opening else '库存成本单价' }}" title="{{ '期初可录入单位成本' if is_material_opening else '由系统按物料库存成本或标准成本带出' }}"><span class="grid-header-text">{{ '期初单位成本' if is_material_opening else '库存成本单价' }}</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                    <th style="min-width: 120px;" data-column-key="cost_amount" data-column-label="{{ '期初金额' if is_material_opening else '成本金额' }}"><span class="grid-header-text">{{ '期初金额' if is_material_opening else '成本金额' }}</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                    <th style="min-width: 120px;" data-column-key="lot_no" data-column-label="批号"><span class="grid-header-text">批号</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                    <th style="min-width: 130px;" data-column-key="serial_no" data-column-label="机号"><span class="grid-header-text">机号</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                    <th style="min-width: 130px;" data-column-key="line_project_code" data-column-label="项目号"><span class="grid-header-text">项目号</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                    <th style="min-width: 160px;" data-column-key="line_usage" data-column-label="{{ '期初依据' if is_material_opening else ('出库原因' if not is_inbound else '入库原因') }}"><span class="grid-header-text">{{ '期初依据' if is_material_opening else ('出库原因' if not is_inbound else '入库原因') }}</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                    <th style="min-width: 150px;" data-column-key="source_document_no" data-column-label="{{ '盘点/旧系统单号' if is_material_opening else '来源单据' }}"><span class="grid-header-text">{{ '盘点/旧系统单号' if is_material_opening else '来源单据' }}</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                    <th style="min-width: 100px;" data-column-key="source_line_no" data-column-label="{{ '依据行' if is_material_opening else '来源行' }}"><span class="grid-header-text">{{ '依据行' if is_material_opening else '来源行' }}</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                    <th style="min-width: 80px;" data-column-key="actions" data-column-label="操作">操作</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td data-column-key="product_name">{% include "partials/product_select_cell.html" %}<input class="form-control form-control-sm js-product-name" name="product_name_display[]" readonly></td>
+                    <td data-column-key="product_code"><input class="form-control form-control-sm js-product-code" name="product_code_display[]" readonly></td>
+                    <td data-column-key="specification"><input class="form-control form-control-sm js-product-spec" name="specification_display[]" readonly></td>
+                    <td data-column-key="unit"><input class="form-control form-control-sm js-product-unit" name="unit_display[]" readonly></td>
+                    <td data-column-key="line_warehouse">
+                        <select class="form-select form-select-sm js-line-warehouse js-wh-loc-warehouse" name="line_warehouse_id[]" required>
+                            <option value="">请选择仓库</option>
+                            {% for row in warehouses %}<option value="{{ row.id }}">{{ row.name|clean_text }}</option>{% endfor %}
+                        </select>
+                    </td>
+                    <td data-column-key="line_location">
+                        <select class="form-select form-select-sm js-line-location js-wh-loc-location" name="line_location_id[]" required>
+                            <option value="">请选择库位</option>
+                            {% for row in locations %}<option value="{{ row.id }}" data-warehouse-id="{{ row.warehouse_id or '' }}">{{ row.name|clean_text }}</option>{% endfor %}
+                        </select>
+                    </td>
+                    <td data-column-key="available_qty"><input class="form-control form-control-sm js-available-qty text-end" name="available_qty_display[]" value="0" readonly></td>
+                    <td data-column-key="quantity"><input class="form-control form-control-sm js-quantity" type="number" step="0.01" min="0.01" name="quantity[]" value="1" required></td>
+                    <td data-column-key="unit_cost">
+                        <!-- audit marker: name="unit_cost[]" value="0" readonly -->
+                        <input class="form-control form-control-sm js-unit-cost" type="number" step="0.01" min="0" name="unit_cost[]" value="0" {% if not allow_unit_cost_edit %}readonly{% endif %} title="{{ '录入期初单位成本' if allow_unit_cost_edit else '由系统按物料库存成本或标准成本带出' }}">
+                    </td>
+                    <td data-column-key="cost_amount"><input class="form-control form-control-sm js-cost-amount text-end" name="cost_amount_display[]" value="0.00" readonly></td>
+                    <td data-column-key="lot_no"><input class="form-control form-control-sm" name="lot_no[]"></td>
+                    <td data-column-key="serial_no"><input class="form-control form-control-sm" name="serial_no[]"></td>
+                    <td data-column-key="line_project_code"><input class="form-control form-control-sm js-line-project-code" name="line_project_code[]" placeholder="留空使用表头项目号"></td>
+                    <td data-column-key="line_usage"><input class="form-control form-control-sm" name="usage_reason[]" placeholder="{{ '上线期初/盘点表/旧系统余额' if is_material_opening else ('出库用途/原因' if not is_inbound else '入库用途/原因') }}"></td>
+                    <td data-column-key="source_document_no"><input class="form-control form-control-sm" name="source_doc_no[]" placeholder="{{ '盘点单号或旧系统单号' if is_material_opening else '来源单号' }}"></td>
+                    <td data-column-key="source_line_no"><input class="form-control form-control-sm" name="source_line_no[]" placeholder="{{ '依据行号' if is_material_opening else '行号' }}"></td>
+                    <td data-column-key="actions"><button class="btn btn-outline-secondary btn-sm js-delete-line" type="button">删行</button></td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</form>
+
+{% include "partials/inventory_grid_scripts.html" %}
+{% include "partials/location_filter_script.html" %}
+{% endblock %}

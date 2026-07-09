@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}工艺路线详情{% endblock %}
+{% block content %}
+{{ document_menu_bar(actions=[
+    {'type': 'nav', 'items': [
+        {'label': '首张', 'event': 'doc-nav-first', 'icon': 'bi-chevron-double-left'},
+        {'label': '上一张', 'event': 'doc-nav-prev', 'icon': 'bi-chevron-left'},
+        {'label': '下一张', 'event': 'doc-nav-next', 'icon': 'bi-chevron-right'},
+        {'label': '末张', 'event': 'doc-nav-last', 'icon': 'bi-chevron-double-right'}
+    ]}
+], aria_label='工艺路线操作菜单') }}
+{% if routing %}
+<div id="doc-nav-config" data-nav-table="production_routings" data-nav-base="{{ (back_url or '/production-routings') }}/" data-doc-id="{{ routing.id }}" style="display:none"></div>
+{% endif %}
+<div class="page-heading">
+    <h1>工艺路线详情</h1>
+    <p>技术主数据详情页，只展示标准工序、工作中心和质量控制点，不生成生产事务。</p>
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>基础信息</h2>
+            <span>{{ routing.routing_no|clean_text if routing else '' }}</span>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            {% if routing %}
+            <a class="btn btn-outline-primary btn-sm" href="/production-routings/{{ routing.id }}/edit"><i class="bi bi-pencil-square"></i> 编辑</a>
+            {% endif %}
+            <a class="btn btn-outline-secondary btn-sm" href="{{ back_url or '/production-routings' }}">返回</a>
+        </div>
+    </div>
+    {% if routing %}
+    <dl class="row mb-0">
+        <dt class="col-sm-2">路线编号</dt>
+        <dd class="col-sm-4">{{ routing.routing_no|clean_text }}</dd>
+        <dt class="col-sm-2">路线名称</dt>
+        <dd class="col-sm-4">{{ routing.name|clean_text }}</dd>
+        <dt class="col-sm-2">适用产品</dt>
+        <dd class="col-sm-4">{{ routing.product_code|clean_text }} {{ routing.product_name|clean_text }}</dd>
+        <dt class="col-sm-2">规格</dt>
+        <dd class="col-sm-4">{{ routing.product_specification|clean_text or '-' }}</dd>
+        <dt class="col-sm-2">版本</dt>
+        <dd class="col-sm-4">{{ routing.revision|clean_text or '-' }}</dd>
+        <dt class="col-sm-2">状态</dt>
+        <dd class="col-sm-4">{{ routing.status_display }}</dd>
+        <dt class="col-sm-2">备注</dt>
+        <dd class="col-sm-10">{{ routing.remark|clean_text or '-' }}</dd>
+    </dl>
+    {% else %}
+    <div class="text-muted">记录不存在。</div>
+    {% endif %}
+</div>
+
+<div class="alert alert-info py-2 mb-3">
+    <strong>使用边界：</strong>
+    本页用于技术、生产负责人维护和查看标准工艺路线；生产工单、领料、报工、完工和入库在各自单据页面处理。
+</div>
+
+<div class="page-card">
+    <div class="section-title">
+        <div>
+            <h2>标准总装流程</h2>
+            <span>{{ operations|length }} 道工序</span>
+        </div>
+    </div>
+    {% for group in operation_groups %}
+    {% if group.rows %}
+    <div class="mb-3">
+        <div class="d-flex justify-content-between align-items-end mb-2">
+            <div>
+                <h3 class="h6 mb-1">{{ group.title }}</h3>
+                <div class="text-muted small">{{ group.hint }}</div>
+            </div>
+            <span class="badge text-bg-light">{{ group.rows|length }} 项</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm align-middle">
+                <thead>
+                <tr>
+                    <th style="width: 72px;">序号</th>
+                    <th style="width: 90px;">工序号</th>
+                    <th style="min-width: 220px;">工序名称</th>
+                    <th style="min-width: 140px;">工作中心</th>
+                    <th style="min-width: 280px;">工艺要求</th>
+                    <th style="min-width: 280px;">质量标准</th>
+                    <th style="width: 110px;">准备工时</th>
+                    <th style="width: 110px;">运行工时</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for op in group.rows %}
+                <tr>
+                    <td>{{ op.sequence }}</td>
+                    <td>{{ op.operation_no|clean_text }}</td>
+                    <td class="fw-semibold">{{ op.operation_name|clean_text }}</td>
+                    <td>{{ op.work_center|clean_text or '-' }}</td>
+                    <td>{{ op.process_note|clean_text or '-' }}</td>
+                    <td>{{ op.quality_note|clean_text or '-' }}</td>
+                    <td>{{ op.setup_time or '-' }}</td>
+                    <td>{{ op.run_time or '-' }}</td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+    {% else %}
+    <div class="text-muted">暂无工序明细。</div>
+    {% endfor %}
+</div>
+
+{% if routing %}
+<div class="mt-3">
+    <form method="post" action="/production-routings/{{ routing.id }}/delete" onsubmit="return confirm('确认删除这条未被引用的工艺路线？');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-outline-danger btn-sm" type="submit"><i class="bi bi-trash"></i> 删除未引用路线</button>
+    </form>
+</div>
+{% endif %}
+{% endblock %}

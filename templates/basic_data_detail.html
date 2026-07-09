@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} - {{ record_name or record_id }}{% endblock %}
+{% block content %}
+<div id="doc-nav-config" data-nav-table="{{ nav_table or '' }}" data-nav-base="{{ (back_url or '/') }}/" data-doc-id="{{ record_id }}" style="display:none"></div>
+<div class="mb-3">
+    <a class="btn btn-outline-secondary btn-sm" href="{{ back_url or '/' }}">返回列表</a>
+    {% if edit_url %}
+    <a class="btn btn-outline-primary btn-sm ms-2" href="{{ edit_url }}"><i class="bi bi-pencil"></i> 编辑</a>
+    {% endif %}
+    {% if delete_url %}
+    <form class="d-inline ms-2" method="post" action="{{ delete_url }}" onsubmit="return confirm('确认删除这条基础资料？已被业务引用的数据会被系统拦截。');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-outline-danger btn-sm" type="submit"><i class="bi bi-trash"></i> 删除</button>
+    </form>
+    {% endif %}
+</div>
+
+<div class="page-card mb-3">
+    <div class="d-flex justify-content-between align-items-start gap-3">
+        <div>
+            <h1 class="h4 mb-1">{{ (record_name or record.get('name') or record.get('code') or '-')|clean_text }}</h1>
+            <div class="text-muted">{{ title }} / 基础资料</div>
+        </div>
+        <span class="badge text-bg-primary">ID {{ record_id }}</span>
+    </div>
+</div>
+
+{% if metrics %}
+<div class="row g-3 mb-3">
+    {% for metric in metrics %}
+    <div class="col-md-6 col-xl-3">
+        <div class="metric h-100">
+            <div class="label">{{ metric.label }}</div>
+            <div class="value">{{ metric.value|clean_text }}</div>
+            {% if metric.hint %}<div class="text-muted small mt-1">{{ metric.hint|clean_text }}</div>{% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<div class="page-card mb-3">
+    <h2 class="h5 mb-3">基础信息</h2>
+    <div class="row g-2 small">
+        {% for label, value in info_rows %}
+        <div class="col-md-4"><span class="text-muted">{{ label }}：</span>{{ (value if value is not none and value != '' else '-')|erp_value|clean_text }}</div>
+        {% endfor %}
+    </div>
+</div>
+
+{% for section in sections %}
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>{{ section.title }}</h2>
+            {% if section.rows %}<span>{{ section.rows|length }} 条记录</span>{% endif %}
+        </div>
+    </div>
+    {% if section.rows %}
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+            <tr>
+                {% for column in section.columns %}<th>{{ column.label }}</th>{% endfor %}
+                {% if section.detail_base %}<th>操作</th>{% endif %}
+            </tr>
+            </thead>
+            <tbody>
+            {% for row in section.rows %}
+            <tr>
+                {% for column in section.columns %}
+                {% set value = row.get(column.key) %}
+                <td>{{ ('-' if value is none else value)|erp_value|clean_text }}</td>
+                {% endfor %}
+                {% if section.detail_base %}
+                <td><a class="btn btn-outline-primary btn-sm" href="{{ section.detail_base }}/{{ row.get('id') }}">详情</a></td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-muted">暂无记录。</div>
+    {% endif %}
+</div>
+{% endfor %}
+{% endblock %}

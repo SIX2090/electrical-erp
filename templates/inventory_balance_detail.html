@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}库存明细 - {{ balance.product_code or balance.id }}{% endblock %}
+{% block content %}
+<div class="mb-3">
+    <a class="btn btn-outline-secondary btn-sm" href="{{ back_url or '/inventory/detail' }}">返回库存明细</a>
+    {% if balance.product_id %}
+    <a class="btn btn-outline-primary btn-sm ms-2" href="/material/{{ balance.product_id }}">物料台账</a>
+    {% endif %}
+</div>
+
+<div class="page-card mb-3">
+    <div class="d-flex justify-content-between align-items-start gap-3">
+        <div>
+            <h1 class="h4 mb-1">{{ balance.product_code or balance.product_id }} / {{ balance.product_name or '-' }}</h1>
+            <div class="text-muted">
+                仓库 {{ balance.warehouse_name or '-' }} / 库位 {{ balance.location_code or balance.location_name or '-' }}
+                / 批号 {{ balance.lot_no or '-' }} / 机号 {{ balance.serial_no or '-' }}
+            </div>
+        </div>
+        <span class="badge text-bg-primary">库存余额</span>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    {% for metric in metrics %}
+    <div class="col-md-6 col-xl-3">
+        <div class="metric h-100">
+            <div class="label">{{ metric.label }}</div>
+            <div class="value">{{ metric.value }}</div>
+            <div class="text-muted small mt-1">{{ metric.hint }}</div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="page-card mb-3">
+    <h2 class="h5 mb-3">库存定位</h2>
+    <div class="row g-2 small">
+        <div class="col-md-3"><span class="text-muted">规格：</span>{{ balance.specification or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">单位：</span>{{ balance.unit or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">仓库：</span>{{ balance.warehouse_name or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">库位：</span>{{ balance.location_code or balance.location_name or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">批号：</span>{{ balance.lot_no or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">机号：</span>{{ balance.serial_no or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">有效期：</span>{{ balance.expire_date or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">更新时间：</span>{{ balance.updated_at or '-' }}</div>
+    </div>
+</div>
+
+<div class="page-card">
+    <h2 class="h5 mb-3">同库存维度流水</h2>
+    {% if transactions %}
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+            <tr>
+                <th>日期</th>
+                <th>类型</th>
+                <th class="text-end">数量</th>
+                <th class="text-end">成本</th>
+                <th>来源</th>
+                <th>批号</th>
+                <th>机号</th>
+                <th>备注</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for row in transactions %}
+            <tr>
+                <td>{{ row.transaction_date or '-' }}</td>
+                <td>{{ row.transaction_type or '-' }}</td>
+                <td class="text-end">{{ row.quantity|qty }}</td>
+                <td class="text-end">{{ row.unit_cost|money }}</td>
+                <td>{{ row.reference_no or '-' }}</td>
+                <td>{{ row.lot_no or '-' }}</td>
+                <td>{{ row.serial_no or '-' }}</td>
+                <td>{{ row.remark or '-' }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-muted">暂无同维度库存流水。</div>
+    {% endif %}
+</div>
+{% endblock %}

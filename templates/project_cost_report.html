@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}{{ title }}{% endblock %}
+{% block header_title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <h1>{{ title }}</h1>
+    <p>{{ subtitle }}</p>
+</div>
+
+<div class="row g-3 mb-3">
+    {% for metric in metrics %}
+    <div class="col-md-6 col-xl-3">
+        <div class="metric">
+            <div class="label">{{ metric.label }}</div>
+            <div class="value">{{ metric.value }}</div>
+            <div class="metric-hint">{{ metric.hint }}</div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>查询条件</h2>
+            <span>只读成本查询，支持项目号、机号、来源类型、期间、日期和来源单号筛选。</span>
+        </div>
+        <span class="badge text-bg-light">readonly / 只读</span>
+    </div>
+    <form id="projectCostReportFilterForm" class="row g-2" method="get">
+        <div class="col-lg-2">
+            <input class="form-control" name="keyword" value="{{ filters.keyword }}" placeholder="来源单号/项目/机号">
+        </div>
+        <div class="col-lg-2">
+            <input class="form-control" name="project_code" value="{{ filters.project_code }}" placeholder="项目号">
+        </div>
+        <div class="col-lg-2">
+            <input class="form-control" name="serial_no" value="{{ filters.serial_no }}" placeholder="机号">
+        </div>
+        <div class="col-lg-2">
+            <select class="form-select" name="source_type">
+                <option value="">全部来源</option>
+                {% for option in source_types %}
+                <option value="{{ option }}" {% if filters.source_type == option %}selected{% endif %}>{{ option }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-lg-1">
+            <input class="form-control" name="period" value="{{ filters.period }}" placeholder="期间">
+        </div>
+        <div class="col-lg-1">
+            <input class="form-control" type="date" name="date_start" value="{{ filters.date_start }}">
+        </div>
+        <div class="col-lg-1">
+            <input class="form-control" type="date" name="date_end" value="{{ filters.date_end }}">
+        </div>
+        <div class="col-lg-1 d-grid">
+            <button class="btn btn-primary" type="submit"><i class="bi bi-search"></i> 查询</button>
+        </div>
+    </form>
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>期间结转准备</h2>
+            <span>本区只显示成本结转准备状态，不生成总账凭证、不关闭期间。</span>
+        </div>
+        <span class="badge text-bg-secondary">{{ period_status.label }}</span>
+    </div>
+    <div class="row g-3 small">
+        <div class="col-lg-4">
+            <div class="text-muted">阻塞原因</div>
+            <div>{{ period_status.blocked_reason }}</div>
+        </div>
+        <div class="col-lg-4">
+            <div class="text-muted">下一步</div>
+            <div>{{ period_status.next_action }}</div>
+        </div>
+        <div class="col-lg-4">
+            <div class="text-muted">下游影响</div>
+            <div>{{ period_status.downstream_impact }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>{{ group_label }}汇总</h2>
+            <span>按当前筛选条件汇总成本来源，销售收入仅用于毛利参考。</span>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm table-hover erp-list-table">
+            <thead>
+            <tr>
+                <th>{{ group_label }}</th>
+                <th>项目号</th>
+                <th>机号</th>
+                <th class="text-end">销售收入</th>
+                <th class="text-end">采购材料</th>
+                <th class="text-end">委外成本</th>
+                <th class="text-end">工单实际</th>
+                <th class="text-end">库存出库</th>
+                <th class="text-end">售后成本</th>
+                <th class="text-end">标准成本</th>
+                <th class="text-end">实际成本</th>
+                <th class="text-end">成本差异</th>
+                <th>责任人</th>
+                <th>阻塞原因</th>
+                <th>下一步</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for row in groups %}
+            <tr>
+                <td>{{ row.group_key }}</td>
+                <td>{{ row.project_code }}</td>
+                <td>{{ row.serial_no }}</td>
+                <td class="text-end">{{ row.sales_amount|money }}</td>
+                <td class="text-end">{{ row.purchase_cost|money }}</td>
+                <td class="text-end">{{ row.subcontract_cost|money }}</td>
+                <td class="text-end">{{ row.work_order_cost|money }}</td>
+                <td class="text-end">{{ row.inventory_issue_cost|money }}</td>
+                <td class="text-end">{{ row.service_cost|money }}</td>
+                <td class="text-end">{{ row.standard_cost|money }}</td>
+                <td class="text-end fw-bold">{{ row.total_cost|money }}</td>
+                <td class="text-end">{{ row.variance_amount|money }}</td>
+                <td>{{ row.owner }}</td>
+                <td>{{ row.blocked_reason }}</td>
+                <td>{{ row.next_action }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="15" class="text-muted">没有匹配的成本来源。</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="page-card">
+    <div class="section-title">
+        <div>
+            <h2>来源明细</h2>
+            <span>来源单据只用于追溯和对账；本页不修改单据状态、库存成本或财务分录。</span>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm table-hover erp-list-table">
+            <thead>
+            <tr>
+                <th>来源类型</th>
+                <th>来源单号</th>
+                <th>日期</th>
+                <th>项目号</th>
+                <th>机号</th>
+                <th>来源名称</th>
+                <th>对象</th>
+                <th class="text-end">数量</th>
+                <th class="text-end">实际金额</th>
+                <th class="text-end">标准金额</th>
+                <th class="text-end">差异金额</th>
+                <th>状态</th>
+                <th>成本口径说明</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for row in rows %}
+            <tr>
+                <td>{{ row.source_type }}</td>
+                <td>
+                    {% if row.source_url %}
+                    <a href="{{ row.source_url }}">{{ row.source_no }}</a>
+                    {% else %}
+                    {{ row.source_no }}
+                    {% endif %}
+                </td>
+                <td>{{ row.cost_date }}</td>
+                <td>{{ row.project_code }}</td>
+                <td>{{ row.serial_no }}</td>
+                <td>{{ row.source_name }}</td>
+                <td>{{ row.partner_name }}</td>
+                <td class="text-end">{{ row.quantity|qty }}</td>
+                <td class="text-end">{{ row.cost_amount|money }}</td>
+                <td class="text-end">{{ row.standard_amount|money }}</td>
+                <td class="text-end">{{ row.variance_amount|money }}</td>
+                <td>{{ row.status }}</td>
+                <td>{{ row.basis_note }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="13" class="text-muted">没有匹配的来源明细。</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+<script>
+document.getElementById('projectCostReportPrintBtn')?.addEventListener('click', function () {
+    window.print();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}MRP 建议处理{% endblock %}
+{% block content %}
+<div class="page-heading erp-list-heading">
+    <div>
+        <h1>MRP 建议处理</h1>
+        <p>查看所有 MRP 建议并按类型筛选；可单条转换或批量转换为采购申请、工单或委外订单。</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-outline-secondary btn-sm" href="/mrp"><i class="bi bi-house"></i> MRP 首页</a>
+        <a class="btn btn-outline-secondary btn-sm" href="/mrp/runs"><i class="bi bi-list-ul"></i> 运行记录</a>
+        <a class="btn btn-outline-secondary btn-sm" href="/"><i class="bi bi-house"></i> 返回首页</a>
+    </div>
+</div>
+
+<div class="page-card mb-3">
+    <form class="row g-2 align-items-end" method="get" action="/mrp/suggestions">
+        <div class="col-md-3">
+            <label class="form-label small text-muted mb-1">状态</label>
+            <select class="form-select form-select-sm" name="status">
+                <option value="">全部</option>
+                <option value="open" {{ 'selected' if status_filter == 'open' else '' }}>待处理</option>
+                <option value="converted" {{ 'selected' if status_filter == 'converted' else '' }}>已转换</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small text-muted mb-1">建议类型</label>
+            <select class="form-select form-select-sm" name="suggestion_type">
+                <option value="">全部</option>
+                <option value="purchase" {{ 'selected' if suggestion_type_filter == 'purchase' else '' }}>建议采购</option>
+                <option value="production" {{ 'selected' if suggestion_type_filter == 'production' else '' }}>建议生产</option>
+                <option value="transfer" {{ 'selected' if suggestion_type_filter == 'transfer' else '' }}>建议调拨</option>
+                <option value="outsource" {{ 'selected' if suggestion_type_filter == 'outsource' else '' }}>建议委外</option>
+            </select>
+        </div>
+        <div class="col-md-2 d-grid">
+            <button class="btn btn-primary btn-sm" type="submit">查询</button>
+        </div>
+    </form>
+</div>
+
+<div class="page-card">
+    <div class="section-title">
+        <div>
+            <h2>建议清单</h2>
+            <span>共 {{ suggestions|length }} 条建议。</span>
+        </div>
+        {% if suggestions %}
+        <button class="btn btn-primary btn-sm" type="submit" form="mrp-batch-convert-form">
+            <i class="bi bi-card-checklist"></i> 批量转换所选
+        </button>
+        {% endif %}
+    </div>
+    {% if suggestions %}
+    <form id="mrp-batch-convert-form" method="post" action="/mrp/suggestions/batch-convert">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="table-responsive">
+            <table class="table table-sm align-middle erp-list-table">
+                <thead>
+                <tr>
+                    <th><input type="checkbox" id="mrp-select-all"></th>
+                    <th>建议类型</th>
+                    <th>运行号</th>
+                    <th>物料编码</th>
+                    <th>物料名称</th>
+                    <th class="text-end">数量</th>
+                    <th>项目/机号</th>
+                    <th>状态</th>
+                    <th>已转单据</th>
+                    <th class="text-end">操作</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for s in suggestions %}
+                <tr>
+                    <td>
+                        {% if s.status == 'open' %}
+                        <input type="checkbox" name="suggestion_ids" value="{{ s.id }}" class="mrp-row-check">
+                        {% endif %}
+                    </td>
+                    <td><span class="badge bg-info text-dark">{{ s.suggestion_label }}</span></td>
+                    <td>{{ s.run_no or '-' }}</td>
+                    <td>{{ s.material_code or '-' }}</td>
+                    <td>{{ s.material_name or '-' }}</td>
+                    <td class="text-end">{{ qty(s.qty) }}</td>
+                    <td>{{ s.project_code or '-' }} / {{ s.serial_no or '-' }}</td>
+                    <td>
+                        {% if s.status == 'open' %}<span class="badge bg-warning text-dark">待处理</span>
+                        {% elif s.status == 'converted' %}<span class="badge bg-success">已转换</span>
+                        {% else %}<span class="badge bg-secondary">{{ s.status }}</span>{% endif %}
+                    </td>
+                    <td>{{ s.converted_doc_no or '-' }}</td>
+                    <td class="text-end">
+                        {% if s.status == 'open' %}
+                        <form method="post" action="/mrp/suggestions/{{ s.id }}/convert" class="d-inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="action" value="auto">
+                            <button class="btn btn-outline-primary btn-sm" type="submit">转换</button>
+                        </form>
+                        {% else %}
+                        <span class="text-muted small">已处理</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </form>
+    <script>
+    (function () {
+        var selectAll = document.getElementById('mrp-select-all');
+        if (!selectAll) return;
+        selectAll.addEventListener('change', function () {
+            var checked = selectAll.checked;
+            document.querySelectorAll('.mrp-row-check').forEach(function (cb) { cb.checked = checked; });
+        });
+    })();
+    </script>
+    {% else %}
+    <div class="erp-empty-line">暂无 MRP 建议。</div>
+    {% endif %}
+</div>
+{% endblock %}

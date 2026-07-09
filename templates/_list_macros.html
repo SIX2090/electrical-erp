@@ -1,0 +1,9 @@
+{% macro sort_th(label, field, sort_by, sort_order, extra_class='', width='', style='') -%}
+<th data-sortable="{{ field }}" class="sortable-header {{ extra_class }}"{% if width %} width="{{ width }}"{% endif %}{% if style %} style="{{ style }}"{% endif %}>
+    {{ label }} {% if sort_by == field %}<i class="bi bi-caret-{{ 'up' if sort_order == 'asc' else 'down' }}-fill small"></i>{% endif %}
+</th>
+{%- endmacro %}
+
+{% macro sort_th_center(label, field, sort_by, sort_order, width='', style='') -%}
+{{ sort_th(label, field, sort_by, sort_order, 'text-center', width, style) }}
+{%- endmacro %}

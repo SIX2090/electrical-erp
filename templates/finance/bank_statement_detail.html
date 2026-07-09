@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}对账单详情{% endblock %}
+{% block header_title %}对账单详情{% endblock %}
+{% block content %}
+{{ document_menu_bar(actions=[
+    {'type': 'nav', 'items': [
+        {'label': '首张', 'event': 'doc-nav-first', 'icon': 'bi-chevron-double-left'},
+        {'label': '上一张', 'event': 'doc-nav-prev', 'icon': 'bi-chevron-left'},
+        {'label': '下一张', 'event': 'doc-nav-next', 'icon': 'bi-chevron-right'},
+        {'label': '末张', 'event': 'doc-nav-last', 'icon': 'bi-chevron-double-right'}
+    ]}
+], aria_label='银行对账单操作菜单') }}
+{% if statement %}
+<div id="doc-nav-config" data-nav-table="bank_statements" data-nav-base="/finance/bank-statements/" data-doc-id="{{ statement.id }}" style="display:none"></div>
+{% endif %}
+<div class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+    <h2 class="mb-0"><i class="bi bi-bank2"></i> 对账单详情</h2>
+    <div class="d-flex gap-2">
+        <form method="post" action="/finance/bank-statements/{{ statement.id }}/auto-match" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-success btn-sm" onclick="return confirm('立即自动匹配所有未匹配的对账单行？')">
+                <i class="bi bi-magic"></i> 自动匹配
+            </button>
+        </form>
+        <a class="btn btn-outline-secondary btn-sm" href="/finance/bank-statements"><i class="bi bi-arrow-left"></i> 返回列表</a>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body py-2">
+                <div class="text-muted small">银行账户</div>
+                <div class="fw-bold">{{ statement.account_name }}</div>
+                <div class="small text-muted">{{ statement.bank_account_no or '' }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card text-center">
+            <div class="card-body py-2">
+                <div class="text-muted small">对账单日期</div>
+                <div class="fw-bold">{{ statement.statement_date }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card text-center">
+            <div class="card-body py-2">
+                <div class="text-muted small">期初/期末余额</div>
+                <div class="fw-bold">{{ '%.2f'|format(statement.opening_balance or 0) }} / {{ '%.2f'|format(statement.closing_balance or 0) }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card text-center">
+            <div class="card-body py-2">
+                <div class="text-muted small">收入/支出合计</div>
+                <div class="fw-bold text-success">{{ '%.2f'|format(statement.total_deposits or 0) }}</div>
+                <div class="fw-bold text-danger">{{ '%.2f'|format(statement.total_withdrawals or 0) }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body py-2">
+                <div class="text-muted small">匹配率</div>
+                <div class="h4 mb-0 {% if summary.match_rate >= 80 %}text-success{% elif summary.match_rate >= 50 %}text-warning{% else %}text-danger{% endif %}">
+                    {{ '%.0f'|format(summary.match_rate) }}%
+                </div>
+                <div class="small text-muted">{{ summary.matched }}/{{ summary.total_lines }} 已匹配</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header py-2 d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-list-ul"></i> 对账单明细</span>
+        <span class="badge text-bg-secondary">{{ summary.total_lines }} 行</span>
+    </div>
+    <div class="card-body p-0">
+        {% if lines %}
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover table-sm mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th width="40">行号</th>
+                        <th>交易日期</th>
+                        <th>方向</th>
+                        <th class="text-end">金额</th>
+                        <th>对方户名</th>
+                        <th>摘要</th>
+                        <th>匹配状态</th>
+                        <th>匹配日记账</th>
+                        <th>匹配方式</th>
+                        <th width="120">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for l in lines %}
+                    <tr>
+                        <td>{{ l.line_no }}</td>
+                        <td>{{ l.transaction_date }}</td>
+                        <td>
+                            {% if l.direction == 'in' %}
+                            <span class="badge text-bg-success">收入</span>
+                            {% else %}
+                            <span class="badge text-bg-danger">支出</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">{{ '%.2f'|format(l.amount or 0) }}</td>
+                        <td>{{ l.counterparty_name or '-' }}</td>
+                        <td>{{ l.summary or '-' }}</td>
+                        <td>
+                            {% if l.match_status == 'matched' %}
+                            <span class="badge text-bg-success">已匹配</span>
+                            {% else %}
+                            <span class="badge text-bg-warning">未匹配</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if l.matched_journal_id %}
+                            <small>{{ l.journal_entry_no or l.journal_source_no or '#' ~ l.matched_journal_id }}</small>
+                            {% else %}-{% endif %}
+                        </td>
+                        <td>
+                            {% if l.match_method == 'exact_amount_date' %}金额+日期
+                            {% elif l.match_method == 'amount_date_tolerance' %}金额+日期容差
+                            {% elif l.match_method == 'amount_partner_name' %}金额+对方名称
+                            {% elif l.match_method == 'manual' %}人工勾选
+                            {% else %}-{% endif %}
+                        </td>
+                        <td>
+                            {% if l.match_status == 'matched' %}
+                            <form method="post" action="/finance/bank-statements/lines/{{ l.id }}/unmatch" class="d-inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-outline-warning btn-sm py-0 px-2" onclick="return confirm('取消此匹配？')">取消匹配</button>
+                            </form>
+                            {% else %}
+                            <button type="button" class="btn btn-outline-primary btn-sm py-0 px-2" onclick="openMatchModal({{ l.id }})">人工匹配</button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-muted p-3 text-center">无明细行。</div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 人工匹配弹窗 -->
+<div class="modal fade" id="matchModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">人工匹配 - 选择日记账记录</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="matchModalBody" class="text-center text-muted">
+                    <i class="bi bi-arrow-repeat"></i> 加载中...
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function openMatchModal(lineId) {
+    var modal = new bootstrap.Modal(document.getElementById('matchModal'));
+    var body = document.getElementById('matchModalBody');
+    body.innerHTML = '<i class="bi bi-arrow-repeat"></i> 加载中...';
+    fetch('/finance/bank-statements/lines/' + lineId + '/unmatched-journals')
+        .then(r => r.json())
+        .then(data => {
+            if (!data.journals || data.journals.length === 0) {
+                body.innerHTML = '<div class="text-muted">没有可匹配的日记账记录。</div>';
+                return;
+            }
+            var html = '<div class="table-responsive"><table class="table table-sm table-hover"><thead><tr><th>日期</th><th>方向</th><th>金额</th><th>对方</th><th>摘要</th><th>操作</th></tr></thead><tbody>';
+            data.journals.forEach(function(j) {
+                html += '<tr><td>' + (j.entry_date || '') + '</td>';
+                html += '<td>' + (j.direction === 'in' ? '<span class="badge text-bg-success">收入</span>' : '<span class="badge text-bg-danger">支出</span>') + '</td>';
+                html += '<td class="text-end">' + parseFloat(j.amount || 0).toFixed(2) + '</td>';
+                html += '<td>' + (j.partner_name || '-') + '</td>';
+                html += '<td>' + (j.summary || '-') + '</td>';
+                html += '<td><form method="post" action="/finance/bank-statements/lines/' + lineId + '/match" class="d-inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="journal_id" value="' + j.id + '"><button type="submit" class="btn btn-primary btn-sm py-0 px-2">匹配</button></form></td></tr>';
+            });
+            html += '</tbody></table></div>';
+            body.innerHTML = html;
+        })
+        .catch(function() {
+            body.innerHTML = '<div class="text-danger">加载失败。</div>';
+        });
+    modal.show();
+}
+</script>
+{% endblock %}

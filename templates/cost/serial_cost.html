@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}{{ title }}{% endblock %}
+{% block header_title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <h1>{{ title }}</h1>
+    <p>{{ subtitle }}</p>
+</div>
+
+{{ document_menu_bar(actions=[
+    {'label': '发起成本计算', 'type': 'link', 'href': '/cost'},
+    {'label': '成本运行列表', 'type': 'link', 'href': '/cost/runs'},
+    {'label': '成本对账', 'type': 'link', 'href': '/cost/reconciliation'}
+], aria_label='机号成本汇总操作菜单') }}
+
+<div class="row g-3 mb-3">
+    {% for metric in metrics %}
+    <div class="col-md-6 col-xl-3">
+        <div class="metric">
+            <div class="label">{{ metric.label }}</div>
+            <div class="value">{{ metric.value }}</div>
+            <div class="metric-hint">{{ metric.hint }}</div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>机号成本汇总</h2>
+            <span>按成本类型汇总该机号的所有已完成成本运行。</span>
+        </div>
+        <span class="badge text-bg-light">readonly / 只读</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>成本类型</th>
+                    <th class="text-end">金额</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>材料成本</td><td class="text-end">{{ money(summary.material) }}</td></tr>
+                <tr><td>人工成本</td><td class="text-end">{{ money(summary.labor) }}</td></tr>
+                <tr><td>制造费用</td><td class="text-end">{{ money(summary.overhead) }}</td></tr>
+                <tr><td>委外成本</td><td class="text-end">{{ money(summary.outsource) }}</td></tr>
+                <tr><td>售后服务成本</td><td class="text-end">{{ money(summary.service) }}</td></tr>
+                <tr><td>质量成本</td><td class="text-end">{{ money(summary.quality) }}</td></tr>
+            </tbody>
+            <tfoot class="table-light">
+                <tr>
+                    <th>总成本</th>
+                    <th class="text-end">{{ money(summary.total) }}</th>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>机号相关成本运行</h2>
+            <span>该机号下的所有成本运行记录。</span>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>运行编号</th>
+                    <th>期间</th>
+                    <th>项目号</th>
+                    <th>工单</th>
+                    <th>状态</th>
+                    <th class="text-end">总成本</th>
+                    <th>创建时间</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for run in runs %}
+                <tr>
+                    <td><a href="/cost/runs/{{ run.id }}">{{ run.run_no }}</a></td>
+                    <td>{{ run.period or '-' }}</td>
+                    <td>{{ run.project_code or '-' }}</td>
+                    <td>{{ run.work_order_id or '-' }}</td>
+                    <td>
+                        {% if run.status == 'completed' %}
+                        <span class="badge text-bg-success">已完成</span>
+                        {% else %}
+                        <span class="badge text-bg-secondary">{{ run.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">{{ money(run.total_cost) }}</td>
+                    <td>{{ run.created_at }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="7" class="text-center text-muted">暂无成本运行记录</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

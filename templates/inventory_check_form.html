@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% from "partials/document_line_toolbar.html" import line_toolbar %}
+{% set form_order = order|default({}) %}
+{% set form_items = items if items else [{}] %}
+{% block title %}{{ '编辑库存盘点单' if mode == 'edit' else '新增库存盘点单' }}{% endblock %}
+{% block content %}
+{% if mode == 'edit' and order and order.id %}
+<form data-doc-action="void" method="post" action="{{ '/inventory_checks/' ~ order.id ~ '/cancel' }}" style="display:none"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+{% endif %}
+<div class="mb-3 d-none"><a class="btn btn-outline-secondary btn-sm" href="/inventory_checks">返回盘点列表</a></div>
+<div class="page-heading">
+    <h1>{{ '编辑库存盘点单' if mode == 'edit' else '新增库存盘点单' }}</h1>
+    <p>盘点单保存时按当前库存重算账存和差异，确认过账后才调整库存。</p>
+</div>
+<form method="post" action="{{ action_url|default('/inventory_checks/new') }}" id="checkForm" data-main-document-form>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="custom_fields_json" id="customFieldsJson" value="">
+    <div class="page-card mb-3">
+        <div class="section-title"><div><h2>盘点信息</h2><span>表头仓库和库位作为盘点范围。</span></div></div>
+        <div class="row g-3">
+            <div class="col-md-6 col-xl-4"><label class="form-label">单据编号</label><input class="form-control" type="text" value="{{ form_order.check_no|default('') }}" placeholder="保存时自动生成" readonly></div>
+            <div class="col-md-6 col-xl-4"><label class="form-label">仓库 <span class="text-danger">*</span></label><select class="form-select js-wh-loc-warehouse" name="warehouse_id" data-wh-loc-target="#chk_location_id" required><option value="">请选择仓库</option>{% for row in warehouses %}<option value="{{ row.id }}" {% if row.id == form_order.warehouse_id %}selected{% endif %}>{{ row.name }}</option>{% endfor %}</select></div>
+            <div class="col-md-6 col-xl-4"><label class="form-label">库位 <span class="text-danger">*</span></label><select class="form-select js-wh-loc-location" id="chk_location_id" name="location_id" required><option value="">请选择库位</option>{% for row in locations %}<option value="{{ row.id }}" data-warehouse-id="{{ row.warehouse_id or '' }}" {% if row.id == form_order.location_id %}selected{% endif %}>{{ row.code or row.name }}</option>{% endfor %}</select></div>
+            <div class="col-md-6 col-xl-4"><label class="form-label">盘点日期</label><input class="form-control" type="date" name="check_date" value="{{ form_order.check_date or today().isoformat() }}"></div>
+            <div class="col-md-6 col-xl-4"><label class="form-label">项目号 <span class="text-muted small">建议</span></label><input class="form-control" name="project_code" value="{{ form_order.project_code or '' }}"></div>
+            <div class="col-12"><label class="form-label">备注</label><input class="form-control" name="remark" value="{{ form_order.remark or '' }}"></div>
+        </div>
+    </div>
+    <div class="page-card mb-3">
+        <div class="section-title"><div><h2>盘点明细</h2><span>录入实盘数量，系统保存时计算账存和差异。</span></div><div class="d-flex flex-wrap gap-2">{{ line_toolbar(allow_fill_down=True) }}</div></div>
+        <div class="table-responsive document-grid-scroll">
+            <table class="table table-bordered table-hover table-sm align-middle mb-0 document-entry-grid" id="itemsTable" data-document-grid data-grid-key="inventory_check_items">
+                <thead class="table-light"><tr data-grid-header><th data-column-key="product_name">物料名称 <span class="text-danger">*</span></th><th data-column-key="product_code">物料编码</th><th data-column-key="specification">规格型号</th><th data-column-key="unit">单位</th><th data-column-key="line_warehouse">仓库</th><th data-column-key="line_location">库位</th><th data-column-key="actual_qty" class="text-end">实盘数量 <span class="text-danger">*</span></th><th data-column-key="unit_cost" class="text-end">库存成本单价</th><th data-column-key="cost_amount" class="text-end">实盘金额</th><th data-column-key="lot_no">批号</th><th data-column-key="serial_no">机号</th><th data-column-key="line_project_code">项目号</th><th data-column-key="source_line_no">来源行</th><th data-column-key="remark">行备注</th><th data-column-key="actions">操作</th></tr></thead>
+                <tbody>{% for item in form_items %}<tr>
+                    <td data-column-key="product_name"><select class="form-select form-select-sm d-none js-product-id-source" name="product_id[]"><option value="">请选择</option>{% for product in product_options %}<option value="{{ product.id }}" {% if product.id == item.product_id %}selected{% endif %} data-code="{{ product.code or '' }}" data-name="{{ product.name or '' }}" data-specification="{{ product.specification or '' }}" data-unit="{{ product.unit or '' }}" data-price="{{ product.unit_cost or product.standard_price or 0 }}">{{ product.display_name or product.name }}</option>{% endfor %}</select><input class="form-control form-control-sm js-product-name" name="product_name_display[]" value="{{ item.product_name or item.material_name or '' }}" readonly required></td>
+                    <td data-column-key="product_code"><input class="form-control form-control-sm js-product-code" value="{{ item.product_code or item.material_code or '' }}" readonly></td><td data-column-key="specification"><input class="form-control form-control-sm js-product-spec" value="{{ item.specification or item.material_spec or '' }}" readonly></td><td data-column-key="unit"><input class="form-control form-control-sm js-product-unit" value="{{ item.unit or item.material_unit or '' }}" readonly></td>
+                    <td data-column-key="line_warehouse"><select class="form-select form-select-sm js-wh-loc-warehouse" name="line_warehouse_id[]"><option value="">使用表头仓库</option>{% for row in warehouses %}<option value="{{ row.id }}" {% if row.id == item.warehouse_id %}selected{% endif %}>{{ row.name }}</option>{% endfor %}</select></td>
+                    <td data-column-key="line_location"><select class="form-select form-select-sm js-wh-loc-location" name="line_location_id[]"><option value="">使用表头库位</option>{% for row in locations %}<option value="{{ row.id }}" data-warehouse-id="{{ row.warehouse_id or '' }}" {% if row.id == item.location_id %}selected{% endif %}>{{ row.code or row.name }}</option>{% endfor %}</select></td>
+                    <td data-column-key="actual_qty"><input class="form-control form-control-sm js-qty text-end" type="number" step="0.01" name="actual_qty[]" value="{{ item.actual_qty if item.actual_qty is defined else (item.quantity or 0) }}" required></td>
+                    <td data-column-key="unit_cost"><input class="form-control form-control-sm js-unit-cost text-end" type="number" step="0.01" name="unit_cost[]" value="{{ item.unit_cost or 0 }}"></td><td data-column-key="cost_amount"><input class="form-control form-control-sm js-cost-amount text-end" value="0.00" readonly></td>
+                    <td data-column-key="lot_no"><input class="form-control form-control-sm" name="lot_no[]" value="{{ item.lot_no or '' }}"></td><td data-column-key="serial_no"><input class="form-control form-control-sm" name="serial_no[]" value="{{ item.serial_no or '' }}"></td><td data-column-key="line_project_code"><input class="form-control form-control-sm js-line-project-code" name="line_project_code[]" value="{{ item.line_project_code or form_order.project_code or '' }}"></td><td data-column-key="source_line_no"><input class="form-control form-control-sm" name="source_line_no[]" value="{{ item.source_line_no or '' }}"></td><td data-column-key="remark"><input class="form-control form-control-sm" name="remark[]" value="{{ item.remark or '' }}"></td><td data-column-key="actions"><button class="btn btn-outline-danger btn-sm js-delete-line" type="button">删行</button></td>
+                </tr>{% endfor %}</tbody>
+            </table>
+        </div>
+    </div>
+</form>
+{% include "partials/inventory_grid_scripts.html" %}
+{% include "partials/location_filter_script.html" %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('click', function(event) {
+    var item = event.target.closest('[data-menu-event]');
+    if (!item || item.disabled) return;
+    var action = item.dataset.menuEvent;
+    if (action === 'toolbar-save-new') {
+        event.preventDefault();
+        var form = document.getElementById('checkForm') || document.querySelector('.content form[data-main-document-form]');
+        if (form) {
+            var input = form.querySelector('input[name="save_action"]');
+            if (!input) { input = document.createElement('input'); input.type='hidden'; input.name='save_action'; form.appendChild(input); }
+            input.value = 'save_new';
+            if (form.requestSubmit) form.requestSubmit(); else form.submit();
+        }
+    }
+    if (action === 'toolbar-save') {
+        event.preventDefault();
+        var form = document.getElementById('checkForm') || document.querySelector('.content form[data-main-document-form]');
+        if (form) { if (form.requestSubmit) form.requestSubmit(); else form.submit(); }
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+
+{% block title %}存货核算{% endblock %}
+
+{% block content %}
+<form id="reportFilterForm" method="get" class="d-none"></form>
+<div class="container-fluid">
+    <div class="page-header">
+        <h1>存货核算</h1>
+        <p class="text-muted">移动加权平均法 - 入库核算与出库成本结转</p>
+    </div>
+
+    <!-- 统计卡片 -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-warning">
+                <div class="card-body">
+                    <h5 class="card-title text-warning">
+                        <i class="fas fa-inbox"></i> 待核算入库
+                    </h5>
+                    <h2 class="mb-0">{{ pending_receipts_count }}</h2>
+                    <small class="text-muted">笔入库单据未核算成本</small>
+                    <div class="mt-2">
+                        <a href="/finance/inventory-costing/cost-ledger" class="btn btn-sm btn-warning">
+                            前往核算
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card border-danger">
+                <div class="card-body">
+                    <h5 class="card-title text-danger">
+                        <i class="fas fa-box-open"></i> 待核算出库
+                    </h5>
+                    <h2 class="mb-0">{{ pending_issues_count }}</h2>
+                    <small class="text-muted">笔出库单据未核算成本</small>
+                    <div class="mt-2">
+                        <a href="/finance/inventory-costing/cost-ledger" class="btn btn-sm btn-danger">
+                            前往核算
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card border-info">
+                <div class="card-body">
+                    <h5 class="card-title text-info">
+                        <i class="fas fa-file-invoice"></i> 成本明细账
+                    </h5>
+                    <p class="mb-2">查询存货成本流水</p>
+                    <a href="/finance/inventory-costing/cost-ledger" class="btn btn-sm btn-info">
+                        查看明细账
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card border-success">
+                <div class="card-body">
+                    <h5 class="card-title text-success">
+                        <i class="fas fa-balance-scale"></i> 存货对账
+                    </h5>
+                    <p class="mb-2">存货与总账科目对账</p>
+                    <a href="/finance/inventory-costing/reconciliation" class="btn btn-sm btn-success">
+                        进行对账
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 最近核算记录 -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-history"></i> 最近核算记录
+            </h5>
+        </div>
+        <div class="card-body">
+            {% if recent_costings %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>核算日期</th>
+                            <th>产品编号</th>
+                            <th>产品名称</th>
+                            <th>交易类型</th>
+                            <th>单号</th>
+                            <th class="text-right">数量</th>
+                            <th class="text-right">单位成本</th>
+                            <th class="text-right">总成本</th>
+                            <th class="text-right">平均成本</th>
+                            <th>项目号</th>
+                            <th>机号</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in recent_costings %}
+                        <tr>
+                            <td>{{ row.costing_date }}</td>
+                            <td>{{ row.product_code }}</td>
+                            <td>{{ row.product_name }}</td>
+                            <td>
+                                {% if row.quantity > 0 %}
+                                    <span class="badge badge-success">{{ row.transaction_type }}</span>
+                                {% else %}
+                                    <span class="badge badge-danger">{{ row.transaction_type }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <small>{{ row.transaction_no }}</small>
+                            </td>
+                            <td class="text-right">
+                                {% if row.quantity > 0 %}
+                                    <span class="text-success">+{{ "%.2f"|format(row.quantity) }}</span>
+                                {% else %}
+                                    <span class="text-danger">{{ "%.2f"|format(row.quantity) }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-right">{{ "%.2f"|format(row.unit_cost) }}</td>
+                            <td class="text-right">
+                                {% if row.total_cost > 0 %}
+                                    <span class="text-success">{{ "%.2f"|format(row.total_cost) }}</span>
+                                {% else %}
+                                    <span class="text-danger">{{ "%.2f"|format(row.total_cost) }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-right">
+                                <strong>{{ "%.2f"|format(row.avg_cost) }}</strong>
+                            </td>
+                            <td>
+                                {% if row.project_code %}
+                                    <small class="badge badge-info">{{ row.project_code }}</small>
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if row.serial_no %}
+                                    <small class="badge badge-secondary">{{ row.serial_no }}</small>
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info mb-0">
+                <i class="fas fa-info-circle"></i> 暂无核算记录
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 成本差异较大的产品 -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-exclamation-triangle text-warning"></i> 成本差异较大的产品
+            </h5>
+            <small class="text-muted">当前成本与最近采购成本差异 &gt; 10元</small>
+        </div>
+        <div class="card-body">
+            {% if cost_variance_products %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>产品编号</th>
+                            <th>产品名称</th>
+                            <th class="text-right">当前库存</th>
+                            <th class="text-right">当前成本</th>
+                            <th class="text-right">最近采购成本</th>
+                            <th class="text-right">差异</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in cost_variance_products %}
+                        <tr>
+                            <td>{{ row.code }}</td>
+                            <td>{{ row.name }}</td>
+                            <td class="text-right">{{ "%.2f"|format(row.quantity) }}</td>
+                            <td class="text-right">{{ "%.2f"|format(row.current_cost) }}</td>
+                            <td class="text-right">{{ "%.2f"|format(row.last_purchase_cost) }}</td>
+                            <td class="text-right">
+                                {% if row.variance > 0 %}
+                                    <span class="text-danger">+{{ "%.2f"|format(row.variance) }}</span>
+                                {% else %}
+                                    <span class="text-success">{{ "%.2f"|format(row.variance) }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="/products/{{ row.code }}" class="btn btn-sm btn-outline-primary">
+                                    查看详情
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-success mb-0">
+                <i class="fas fa-check-circle"></i> 所有产品成本差异在正常范围内
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+
+<style>
+.card {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.card-body h2 {
+    font-size: 2.5rem;
+    font-weight: bold;
+}
+
+.badge {
+    font-size: 0.85rem;
+}
+
+.table td, .table th {
+    vertical-align: middle;
+}
+</style>
+{% endblock %}

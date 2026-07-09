@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+{% block title %}物料档案 - {{ product.code or product.id }}{% endblock %}
+{% block content %}
+<div id="doc-nav-config" data-nav-table="products" data-nav-base="/material/" data-doc-id="{{ product.id }}" style="display:none"></div>
+<div class="mb-3">
+    <a class="btn btn-outline-secondary btn-sm" href="{{ back_url or '/material' }}">返回物料档案</a>
+    <a class="btn btn-outline-primary btn-sm ms-2" href="/material/{{ product.id }}/edit">编辑</a>
+    <form class="d-inline ms-2" method="post" action="/material/{{ product.id }}/submit">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-outline-primary btn-sm" type="submit">提交</button>
+    </form>
+    <form class="d-inline ms-2" method="post" action="/material/{{ product.id }}/audit">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-outline-primary btn-sm" type="submit">审核</button>
+    </form>
+    {% if product.status == '停用' %}
+    <form class="d-inline ms-2" method="post" action="/material/{{ product.id }}/enable">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-outline-success btn-sm" type="submit">启用</button>
+    </form>
+    {% else %}
+    <form class="d-inline ms-2" method="post" action="/material/{{ product.id }}/disable">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-outline-warning btn-sm" type="submit">禁用</button>
+    </form>
+    {% endif %}
+    <form class="d-inline ms-2" method="post" action="{{ delete_url or ('/material/' ~ product.id ~ '/delete') }}" onsubmit="return confirm('确认删除该物料档案？已被业务引用的数据不会被删除。');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-outline-danger btn-sm" type="submit">删除</button>
+    </form>
+</div>
+
+<div class="page-card mb-3">
+    <div class="d-flex justify-content-between align-items-start gap-3">
+        <div>
+            <h1 class="h4 mb-1">{{ product.code or product.id }} / {{ product.name or '-' }}</h1>
+            <div class="text-muted">规格：{{ product.specification or '-' }} / 单位：{{ product.unit or '-' }} / 分类：{{ product.category_name or product.category or product.item_type or '-' }}</div>
+        </div>
+        <span class="badge text-bg-primary">{{ product.status or '启用' }}</span>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    {% for metric in metrics %}
+    <div class="col-md-6 col-xl-3">
+        <div class="metric h-100">
+            <div class="label">{{ metric.label }}</div>
+            <div class="value">{{ metric.value }}</div>
+            {% if metric.hint %}<div class="text-muted small mt-1">{{ metric.hint }}</div>{% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="page-card mb-3">
+    <h2 class="h5 mb-3">基础资料</h2>
+    <div class="row g-2 small">
+        <div class="col-md-3"><span class="text-muted">分类</span>{{ product.category_name or product.category or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">条码</span>{{ product.barcode or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">图号</span>{{ product.drawing_no or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">材质</span>{{ product.material_grade or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">品牌/产地</span>{{ product.brand or '-' }} / {{ product.origin_place or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">ABC分类</span>{{ product.abc_class or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">状态</span>{{ product.status or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">标准价</span>{{ product.standard_price|money }}</div>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-lg-6">
+        <div class="page-card h-100">
+            <h2 class="h5 mb-3">单位信息</h2>
+            <div class="row g-2 small">
+                <div class="col-md-4"><span class="text-muted">基本单位</span>{{ product.unit or '-' }}</div>
+                <div class="col-md-4"><span class="text-muted">辅助单位</span>{{ product.aux_unit or '-' }}</div>
+                <div class="col-md-4"><span class="text-muted">换算率</span>{{ product.conversion_rate or '-' }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="page-card h-100">
+            <h2 class="h5 mb-3">采购主数据</h2>
+            <div class="row g-2 small">
+                <div class="col-md-6"><span class="text-muted">默认供应商</span>{{ product.default_supplier_display or product.default_supplier_name or '-' }}</div>
+                <div class="col-md-6"><span class="text-muted">采购提前期</span>{{ product.purchase_lead_days or '-' }}</div>
+                <div class="col-md-6"><span class="text-muted">最小采购量</span>{{ product.min_order_qty|qty }}</div>
+                <div class="col-md-6"><span class="text-muted">默认税率</span>{{ product.default_tax_rate or '-' }}%</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="page-card h-100">
+            <h2 class="h5 mb-3">计划属性</h2>
+            <div class="row g-2 small">
+                <div class="col-md-6"><span class="text-muted">默认仓库</span>{{ product.default_warehouse_display or product.default_warehouse or '-' }}</div>
+                <div class="col-md-6"><span class="text-muted">默认库位</span>{{ product.default_location_display or product.default_location or '-' }}</div>
+                <div class="col-md-6"><span class="text-muted">安全库存</span>{{ product.safety_stock|qty }}</div>
+                <div class="col-md-6"><span class="text-muted">成本方法</span>{{ product.cost_method or '-' }}</div>
+                <div class="col-md-6"><span class="text-muted">保质期</span>{{ product.shelf_life_days or '-' }}</div>
+                <div class="col-md-6"><span class="text-muted">入库检验</span>{{ '是' if product.inspection_required else '否' }}</div>
+                <div class="col-md-6"><span class="text-muted">批次管理</span>{{ '是' if product.batch_control else '否' }}</div>
+                <div class="col-md-6"><span class="text-muted">序列号管理</span>{{ '是' if product.serial_control else '否' }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="page-card h-100">
+            <h2 class="h5 mb-3">尺寸重量</h2>
+            <div class="row g-2 small">
+                <div class="col-md-6"><span class="text-muted">净重</span>{{ product.net_weight or '-' }}</div>
+                <div class="col-md-6"><span class="text-muted">毛重</span>{{ product.gross_weight or '-' }}</div>
+                <div class="col-md-6"><span class="text-muted">长</span>{{ product.length_mm or '-' }} mm</div>
+                <div class="col-md-6"><span class="text-muted">宽</span>{{ product.width_mm or '-' }} mm</div>
+                <div class="col-md-6"><span class="text-muted">高</span>{{ product.height_mm or '-' }} mm</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <span>图片/附件</span>
+        <span class="text-muted small">图纸、说明书、检验标准等主数据附件</span>
+    </div>
+    <form class="row g-2 align-items-end mb-3" method="post" action="/material/{{ product.id }}/attachments" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="col-md-5"><label class="form-label">选择文件</label><input class="form-control" type="file" name="file" required></div>
+        <div class="col-md-5"><label class="form-label">备注</label><input class="form-control" name="remark" placeholder="图纸版本、用途或说明"></div>
+        <div class="col-md-2"><button class="btn btn-outline-primary w-100" type="submit">上传</button></div>
+    </form>
+    {% if attachments %}
+    <div class="table-responsive"><table class="table table-sm align-middle"><thead><tr><th>文件</th><th>备注</th><th>上传时间</th><th>操作</th></tr></thead><tbody>
+        {% for file in attachments %}
+        <tr>
+            <td>{{ file.original_filename or file.stored_filename }}</td>
+            <td>{{ file.remark or '-' }}</td>
+            <td>{{ file.created_at or '-' }}</td>
+            <td>
+                <form method="post" action="/material/{{ product.id }}/attachments/{{ file.id }}/delete" onsubmit="return confirm('确认删除该附件？');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-outline-danger btn-sm" type="submit">删除</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody></table></div>
+    {% else %}
+    <div class="text-muted">暂无附件</div>
+    {% endif %}
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-lg-6">
+        <div class="page-card h-100">
+            <h2 class="h5 mb-3">作为父项BOM</h2>
+            {% if parent_boms %}
+            <div class="table-responsive"><table class="table table-sm align-middle"><thead><tr><th>BOM编号</th><th>版本</th><th>类型</th><th class="text-end">子项数</th><th>状态</th></tr></thead><tbody>
+                {% for row in parent_boms %}<tr><td><a href="/bom/{{ row.bom_no or row.id }}">{{ row.bom_no or row.id }}</a></td><td>{{ row.version or '-' }}</td><td>{{ row.bom_type or '-' }}</td><td class="text-end">{{ row.item_count or 0 }}</td><td>{{ row.status or '-' }}</td></tr>{% endfor %}
+            </tbody></table></div>
+            {% else %}<div class="text-muted">该物料暂无父项BOM。</div>{% endif %}
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="page-card h-100">
+            <h2 class="h5 mb-3">被哪些父项BOM使用</h2>
+            {% if used_in_boms %}
+            <div class="table-responsive"><table class="table table-sm align-middle"><thead><tr><th>BOM编号</th><th>父项</th><th class="text-end">用量</th><th>单位</th><th>损耗</th></tr></thead><tbody>
+                {% for row in used_in_boms %}<tr><td><a href="/bom/{{ row.bom_no or row.id }}">{{ row.bom_no or row.id }}</a></td><td>{{ row.parent_code or '-' }} {{ row.parent_name or '' }}</td><td class="text-end">{{ row.quantity|qty }}</td><td>{{ row.unit or '-' }}</td><td>{{ row.loss_rate or '-' }}</td></tr>{% endfor %}
+            </tbody></table></div>
+            {% else %}<div class="text-muted">暂未被其它BOM使用。</div>{% endif %}
+        </div>
+    </div>
+</div>
+
+{% for section_title, rows, columns in [
+    ('采购记录', purchase_items, [('order_no','单号'),('order_date','日期'),('supplier_name','供应商'),('project_code','项目号'),('serial_no','机号'),('quantity','数量'),('received_qty','已收'),('amount','金额')]),
+    ('销售记录', sales_items, [('order_no','单号'),('order_date','日期'),('customer_name','客户'),('project_code','项目号'),('serial_no','机号'),('quantity','数量'),('shipped_qty','已发'),('amount','金额')]),
+    ('生产工单', work_orders, [('wo_no','工单'),('wo_date','日期'),('project_code','项目号'),('serial_no','机号'),('quantity','数量'),('status','状态')])
+] %}
+<div class="page-card mb-3">
+    <h2 class="h5 mb-3">{{ section_title }}</h2>
+    {% if rows %}
+    <div class="table-responsive"><table class="table table-sm align-middle"><thead><tr>{% for key, label in columns %}<th>{{ label }}</th>{% endfor %}</tr></thead><tbody>
+        {% for row in rows %}<tr>{% for key, label in columns %}<td>{{ row.get(key) or '-' }}</td>{% endfor %}</tr>{% endfor %}
+    </tbody></table></div>
+    {% else %}<div class="text-muted">暂无记录</div>{% endif %}
+</div>
+{% endfor %}
+{% endblock %}

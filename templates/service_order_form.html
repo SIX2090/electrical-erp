@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% set form_order = order|default({}) %}
+{% set source_status = source_status|default({}) %}
+{% block title %}{{ '编辑服务单' if mode == 'edit' else '新增服务单' }}{% endblock %}
+{% block content %}
+<form id="serviceOrderForm" method="post" action="{{ action_url|default('/service-orders/new') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {{ document_menu_bar(actions=[
+        {'label': '保存', 'type': 'button', 'button_type': 'submit', 'form': 'serviceOrderForm', 'disabled': mode != 'edit' and not service_cards, 'icon': 'bi-save'},
+        {'label': '返回列表', 'type': 'link', 'href': '/service-orders', 'icon': 'bi-arrow-left'},
+        {'label': '下查', 'type': 'dropdown', 'items': [
+            {'label': '售后服务单列表', 'type': 'link', 'href': '/service-orders'},
+            {'label': '设备服务档案', 'type': 'link', 'href': '/service-cards'},
+            {'label': '安装验收列表', 'type': 'link', 'href': '/service-acceptance'},
+            {'label': 'RMA列表', 'type': 'link', 'href': '/service-rmas'}
+        ]}
+    ]) }}
+    <div class="page-heading order-form-heading">
+        <div>
+            <h1>{{ '编辑服务单' if mode == 'edit' else '新增服务单' }}</h1>
+            <p>从设备服务档案创建安装、维保、维修、调试或客户培训任务。</p>
+        </div>
+        <a class="btn btn-outline-secondary btn-sm d-none" href="/service-orders">返回售后服务单列表</a>
+    </div>
+
+    {% if mode != 'edit' and source_status.blocked_reason %}
+    <div class="alert alert-warning" data-testid="service-order-source-blocked">
+        <div class="fw-semibold">{{ source_status.blocked_reason }}</div>
+        <div class="small mt-1">{{ source_status.next_action }}</div>
+        <div class="small text-muted mt-1">服务卡 {{ source_status.card_count or 0 }} 张；已发货机号 {{ source_status.delivered_serial_count or 0 }} 个；待补服务卡 {{ source_status.cards_from_shipments_missing or 0 }} 个。</div>
+    </div>
+    {% endif %}
+
+    <div class="page-card order-form-card mb-3">
+        <div class="section-title">
+            <div>
+                <h2>表头</h2>
+                <span>项目号和机号是推荐追溯字段；启用强制项目号/机号时必须填写。</span>
+            </div>
+        </div>
+        <div class="row g-2">
+            <div class="col-md-3">
+                <label class="form-label">单据编号</label>
+                <input class="form-control form-control-sm" type="text" value="{{ form_order.order_no or '' }}" placeholder="保存时自动生成" readonly>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">设备服务档案 <span class="text-danger">*</span></label>
+                <select class="form-select form-select-sm" name="service_card_id" id="serviceCardSelect" required {% if mode != 'edit' and not service_cards %}disabled{% endif %}>
+                    <option value="">请选择</option>
+                    {% for card in service_cards %}
+                    <option value="{{ card.id }}" data-project="{{ card.project_code or '' }}" data-serial="{{ card.serial_no or '' }}" data-customer="{{ card.customer_name or '' }}" data-machine="{{ card.machine_model or '' }}" {% if selected_card_id == card.id %}selected{% endif %}>{{ card.serial_no or card.id }} / {{ card.project_code or '-' }} / {{ card.customer_name or '-' }} / {{ card.machine_model or '-' }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3"><label class="form-label">服务日期</label><input class="form-control form-control-sm" type="date" name="service_date" value="{{ form_order.service_date or today().isoformat() }}"></div>
+            <div class="col-md-3">
+                <label class="form-label">服务类型</label>
+                {% set service_type = form_order.service_type or '售后服务' %}
+                <select class="form-select form-select-sm" name="service_type">
+                    {% for label in ['安装服务','维保','维修','调试','客户培训','内部处理','售后服务'] %}
+                    <option value="{{ label }}" {% if label == service_type %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3"><label class="form-label">客户</label><input class="form-control form-control-sm" id="customerName" readonly></div>
+            <div class="col-md-3"><label class="form-label">机型</label><input class="form-control form-control-sm" id="machineModel" readonly></div>
+            <div class="col-md-3"><label class="form-label">项目号 <span class="text-muted small">建议</span></label><input class="form-control form-control-sm" name="project_code" id="projectCode" value="{{ form_order.project_code or '' }}"></div>
+            <div class="col-md-3"><label class="form-label">机号 <span class="text-muted small">建议</span></label><input class="form-control form-control-sm" name="serial_no" id="serialNo" value="{{ form_order.serial_no or '' }}"></div>
+            <div class="col-md-3">
+                <label class="form-label">计费类型</label>
+                {% set billing_type = form_order.billing_type or '保内' %}
+                <select class="form-select form-select-sm" name="billing_type">
+                    {% for label in ['保内','保外','免费','内部'] %}
+                    <option value="{{ label }}" {% if label == billing_type %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3"><label class="form-label">默认仓库</label><select class="form-select form-select-sm" name="warehouse_id"><option value="">未指定</option>{% for warehouse in warehouses %}<option value="{{ warehouse.id }}" {% if warehouse.id == form_order.warehouse_id %}selected{% endif %}>{{ warehouse.code or '' }} {{ warehouse.name }}</option>{% endfor %}</select></div>
+            {% if location_management_enabled %}<div class="col-md-3"><label class="form-label">默认库位</label><select class="form-select form-select-sm" name="location_id"><option value="">未指定</option>{% for location in locations %}<option value="{{ location.id }}" {% if location.id == form_order.location_id %}selected{% endif %}>{{ location.code or '' }} {{ location.name }}</option>{% endfor %}</select></div>{% endif %}
+            <div class="col-md-6"><label class="form-label">故障/服务分类</label><input class="form-control form-control-sm" name="fault_category" value="{{ form_order.fault_category or '' }}"></div>
+            <div class="col-12"><label class="form-label">服务事项 <span class="text-danger">*</span></label><textarea class="form-control form-control-sm" name="issue_summary" rows="3" required>{{ form_order.issue_summary or '' }}</textarea></div>
+            <div class="col-12"><label class="form-label">备注</label><input class="form-control form-control-sm" name="remark" value="{{ form_order.remark or '' }}"></div>
+        </div>
+    </div>
+    <div class="footer-bar d-none"><button class="btn btn-primary" type="submit" {% if mode != 'edit' and not service_cards %}disabled{% endif %}><i class="bi bi-save"></i> 保存服务单</button><a class="btn btn-secondary" href="/service-orders">取消</a></div>
+</form>
+<script>
+(function () {
+    const select = document.getElementById('serviceCardSelect');
+    if (!select) return;
+    function fillFromCard() {
+        const data = select.selectedOptions[0] ? select.selectedOptions[0].dataset : {};
+        if (!projectCode.value) projectCode.value = data.project || '';
+        if (!serialNo.value) serialNo.value = data.serial || '';
+        customerName.value = data.customer || '';
+        machineModel.value = data.machine || '';
+    }
+    select.addEventListener('change', function () { projectCode.value = ''; serialNo.value = ''; fillFromCard(); });
+    fillFromCard();
+})();
+</script>
+{% endblock %}

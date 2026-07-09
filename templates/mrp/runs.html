@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}MRP 运行记录{% endblock %}
+{% block content %}
+<div class="page-heading erp-list-heading">
+    <div>
+        <h1>MRP 运行记录</h1>
+        <p>查看历史 MRP 运行结果，可按状态、来源、项目/机号筛选。</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-outline-secondary btn-sm" href="/mrp/suggestions"><i class="bi bi-lightbulb"></i> 处理建议</a>
+        <a class="btn btn-outline-secondary btn-sm" href="/"><i class="bi bi-house"></i> 返回首页</a>
+    </div>
+</div>
+
+<div class="page-card mb-3">
+    <form class="row g-2 align-items-end" method="get" action="/mrp/runs">
+        <div class="col-md-3">
+            <label class="form-label small text-muted mb-1">关键字</label>
+            <input class="form-control form-control-sm" name="keyword" value="{{ filters.get('keyword', '') }}" placeholder="运行号、来源单号、项目/机号">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small text-muted mb-1">状态</label>
+            <select class="form-select form-select-sm" name="status">
+                <option value="">全部</option>
+                <option value="running" {{ 'selected' if filters.get('status') == 'running' else '' }}>运行中</option>
+                <option value="completed" {{ 'selected' if filters.get('status') == 'completed' else '' }}>已完成</option>
+                <option value="error" {{ 'selected' if filters.get('status') == 'error' else '' }}>异常</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small text-muted mb-1">来源类型</label>
+            <select class="form-select form-select-sm" name="source_type">
+                <option value="">全部</option>
+                <option value="work_order" {{ 'selected' if filters.get('source_type') == 'work_order' else '' }}>工单</option>
+                <option value="sales_order" {{ 'selected' if filters.get('source_type') == 'sales_order' else '' }}>销售订单</option>
+                <option value="product" {{ 'selected' if filters.get('source_type') == 'product' else '' }}>物料</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small text-muted mb-1">项目号</label>
+            <input class="form-control form-control-sm" name="project_code" value="{{ filters.get('project_code', '') }}">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small text-muted mb-1">机号</label>
+            <input class="form-control form-control-sm" name="serial_no" value="{{ filters.get('serial_no', '') }}">
+        </div>
+        <div class="col-md-1 d-grid">
+            <button class="btn btn-primary btn-sm" type="submit">查询</button>
+        </div>
+    </form>
+</div>
+
+<div class="page-card">
+    <div class="section-title">
+        <div>
+            <h2>运行记录</h2>
+            <span>共 {{ runs|length }} 条记录。</span>
+        </div>
+    </div>
+    {% if runs %}
+    <div class="table-responsive">
+        <table class="table table-sm align-middle erp-list-table">
+            <thead>
+            <tr>
+                <th>运行号</th>
+                <th>来源</th>
+                <th>项目号</th>
+                <th>机号</th>
+                <th>状态</th>
+                <th class="text-end">毛需求</th>
+                <th class="text-end">净需求</th>
+                <th class="text-end">缺料行</th>
+                <th class="text-end">齐套率</th>
+                <th>创建时间</th>
+                <th class="text-end">操作</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for r in runs %}
+            <tr>
+                <td>{{ r.run_no }}</td>
+                <td>{{ r.source_type }} {{ r.source_no or '' }}</td>
+                <td>{{ r.project_code or '-' }}</td>
+                <td>{{ r.serial_no or '-' }}</td>
+                <td>
+                    {% if r.status == 'completed' %}<span class="badge bg-success">已完成</span>
+                    {% elif r.status == 'running' %}<span class="badge bg-warning text-dark">运行中</span>
+                    {% else %}<span class="badge bg-secondary">{{ r.status }}</span>{% endif %}
+                </td>
+                <td class="text-end">{{ qty(r.total_gross_qty) }}</td>
+                <td class="text-end">{{ qty(r.total_net_qty) }}</td>
+                <td class="text-end">{{ r.shortage_line_count }}</td>
+                <td class="text-end">{{ percent(r.kitting_rate) }}%</td>
+                <td>{{ r.created_at }}</td>
+                <td class="text-end"><a class="btn btn-outline-primary btn-sm" href="/mrp/runs/{{ r.id }}">查看</a></td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="erp-empty-line">暂无 MRP 运行记录，请先<a href="/mrp">新增运行</a>。</div>
+    {% endif %}
+</div>
+{% endblock %}

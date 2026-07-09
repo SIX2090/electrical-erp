@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-card">
+    <div class="section-title">
+        <div>
+            <h2>产能负荷</h2>
+            <span>按工作中心和计划日期汇总派工负荷、在制、返工、报废和交付风险。</span>
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary btn-sm" href="/production-schedules">生产排程</a>
+            <a class="btn btn-outline-secondary btn-sm" href="/production/execution-wip">生产执行在制</a>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+                <tr>
+                    <th>计划日期</th>
+                    <th>工作中心</th>
+                    <th class="text-end">派工数</th>
+                    <th class="text-end">计划数量</th>
+                    <th class="text-end">合格数量</th>
+                    <th class="text-end">返工数量</th>
+                    <th class="text-end">报废数量</th>
+                    <th class="text-end">在制数量</th>
+                    <th>堵点</th>
+                    <th>下一步</th>
+                    <th>下游影响</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                <tr>
+                    <td>{{ row.planned_start_date or '-' }}</td>
+                    <td>{{ row.work_center_code|clean_text }} {{ row.work_center_name|clean_text }}</td>
+                    <td class="text-end">{{ row.schedule_count }}</td>
+                    <td class="text-end">{{ row.planned_qty|qty }}</td>
+                    <td class="text-end">{{ row.good_qty|qty }}</td>
+                    <td class="text-end">{{ row.rework_qty|qty }}</td>
+                    <td class="text-end">{{ row.scrap_qty|qty }}</td>
+                    <td class="text-end">{{ row.open_wip_qty|qty }}</td>
+                    <td>{{ row.blocked_reason|clean_text or '-' }}</td>
+                    <td>{{ row.next_action|clean_text or '-' }}</td>
+                    <td>{{ row.downstream_impact|clean_text or '-' }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="11" class="text-muted text-center py-4">暂无产能负荷数据。</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

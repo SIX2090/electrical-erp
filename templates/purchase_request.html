@@ -1,0 +1,334 @@
+{% extends "base.html" %}
+{% block title %}采购申请列表{% endblock %}
+
+{% block content %}
+<div class="visually-hidden">详情</div>
+<div class="page-header">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h2 class="mb-0"><i class="bi bi-cart-plus"></i> 采购申请列表</h2>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <form method="get" class="row g-2 align-items-end">
+            {% if request.args.get('embedded') == '1' %}
+            <input type="hidden" name="embedded" value="1">
+            {% endif %}
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">状态</label>
+                <select name="status" class="form-select form-select-sm">
+                    <option value="" {% if not filters.status %}selected{% endif %}>全部状态</option>
+                    <option value="pending" {% if filters.status == 'pending' %}selected{% endif %}>待审批</option>
+                    <option value="approved" {% if filters.status == 'approved' %}selected{% endif %}>已审批</option>
+                    <option value="rejected" {% if filters.status == 'rejected' %}selected{% endif %}>已驳回</option>
+                    <option value="completed" {% if filters.status == 'completed' %}selected{% endif %}>已完成</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">开始日期</label>
+                <input type="date" name="date_start" class="form-control form-control-sm" value="{{ filters.date_start }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">结束日期</label>
+                <input type="date" name="date_end" class="form-control form-control-sm" value="{{ filters.date_end }}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small text-muted mb-1">关键词</label>
+                <input type="text" name="search" class="form-control form-control-sm" placeholder="单号/申请人/部门/原因/备注" value="{{ filters.search }}">
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-primary btn-sm flex-fill"><i class="bi bi-search"></i> 筛选</button>
+                {% if filters.status or filters.search or filters.date_start or filters.date_end %}
+                <a href="/purchase_request{% if request.args.get('embedded') == '1' %}?embedded=1{% endif %}" class="btn btn-outline-secondary btn-sm">清除</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive-wrapper">
+        <table class="table table-bordered table-hover table-sm mb-0" id="purchaseRequestTable">
+            <thead>
+                <tr>
+                    <th width="80">序号</th>
+                    <th data-sortable="request_no" class="sortable-header">单号 {% if sort_by=='request_no' %}<i class="bi bi-caret-{{ 'up' if sort_order=='asc' else 'down' }}-fill small"></i>{% endif %}</th>
+                    <th data-sortable="date" class="sortable-header">日期 {% if sort_by=='date' %}<i class="bi bi-caret-{{ 'up' if sort_order=='asc' else 'down' }}-fill small"></i>{% endif %}</th>
+                    <th data-sortable="applicant" class="sortable-header">申请人 {% if sort_by=='applicant' %}<i class="bi bi-caret-{{ 'up' if sort_order=='asc' else 'down' }}-fill small"></i>{% endif %}</th>
+                    <th data-sortable="department" class="sortable-header">部门 {% if sort_by=='department' %}<i class="bi bi-caret-{{ 'up' if sort_order=='asc' else 'down' }}-fill small"></i>{% endif %}</th>
+                    <th data-sortable="urgency" class="sortable-header">紧急程度 {% if sort_by=='urgency' %}<i class="bi bi-caret-{{ 'up' if sort_order=='asc' else 'down' }}-fill small"></i>{% endif %}</th>
+                    <th data-sortable="expected_date" class="sortable-header">期望到货 {% if sort_by=='expected_date' %}<i class="bi bi-caret-{{ 'up' if sort_order=='asc' else 'down' }}-fill small"></i>{% endif %}</th>
+                    <th class="text-end">申请数量</th>
+                    <th class="text-end">已下推</th>
+                    <th class="text-end">已入库</th>
+                    <th class="text-end">未下推</th>
+                    <th>执行状态</th>
+                    <th data-sortable="total_amount" class="sortable-header">预估金额 {% if sort_by=='total_amount' %}<i class="bi bi-caret-{{ 'up' if sort_order=='asc' else 'down' }}-fill small"></i>{% endif %}</th>
+                    <th data-sortable="status" class="sortable-header">状态 {% if sort_by=='status' %}<i class="bi bi-caret-{{ 'up' if sort_order=='asc' else 'down' }}-fill small"></i>{% endif %}</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for order in pagination.items %}
+                <tr>
+                    <td>{{ loop.index + (pagination.page - 1) * pagination.per_page }}</td>
+                    <td><a href="/purchase_request/{{ order.id }}">{{ order.request_no }}</a></td>
+                    <td>{{ order.date.strftime('%Y-%m-%d') if order.date else '-' }}</td>
+                    <td>{{ order.applicant or '-' }}</td>
+                    <td>{{ order.department or '-' }}</td>
+                    <td>
+                        {% if order.urgency == 'normal' %}
+                        <span class="badge bg-info">普通</span>
+                        {% elif order.urgency == 'urgent' %}
+                        <span class="badge bg-warning">紧急</span>
+                        {% elif order.urgency == 'emergency' %}
+                        <span class="badge bg-danger">特急</span>
+                        {% else %}
+                        <span class="badge bg-secondary">{{ order.urgency }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ order.expected_date.strftime('%Y-%m-%d') if order.expected_date else '-' }}</td>
+                    {% set stats = execution_stats.get(order.id, {}) %}
+                    <td class="text-end" data-request-quantity="{{ '%.2f'|format(stats.get('request_quantity', 0)) }}">{{ "%.2f"|format(stats.get('request_quantity', 0)) }}</td>
+                    <td class="text-end" data-ordered-quantity="{{ '%.2f'|format(stats.get('ordered_quantity', 0)) }}">{{ "%.2f"|format(stats.get('ordered_quantity', 0)) }}</td>
+                    <td class="text-end" data-received-quantity="{{ '%.2f'|format(stats.get('received_quantity', 0)) }}">{{ "%.2f"|format(stats.get('received_quantity', 0)) }}</td>
+                    <td class="text-end {% if stats.get('remaining_to_order', 0) > 0 %}text-primary fw-semibold{% endif %}" data-remaining-to-order="{{ '%.2f'|format(stats.get('remaining_to_order', 0)) }}">{{ "%.2f"|format(stats.get('remaining_to_order', 0)) }}</td>
+                    <td data-execution-status="{{ stats.get('status', 'pending') }}">
+                        {% if stats.get('status') == 'completed' %}
+                        <span class="badge bg-success">已完成</span>
+                        {% elif stats.get('status') == 'partial' %}
+                        <span class="badge bg-info text-dark">部分执行</span>
+                        {% elif stats.get('status') == 'approved' %}
+                        <span class="badge bg-primary">待下推</span>
+                        {% elif stats.get('status') == 'rejected' %}
+                        <span class="badge bg-danger">已驳回</span>
+                        {% else %}
+                        <span class="badge bg-warning text-dark">未执行</span>
+                        {% endif %}
+                    </td>
+                    <td>¥{{ "%.2f"|format(order.total_amount or 0) }}</td>
+                    <td>
+                        {% if order.status == 'pending' %}
+                        <span class="badge bg-warning">待审批</span>
+                        {% elif order.status == 'approved' %}
+                        <span class="badge bg-info">已审批</span>
+                        {% elif order.status == 'rejected' %}
+                        <span class="badge bg-danger">已驳回</span>
+                        {% elif order.status == 'completed' %}
+                        <span class="badge bg-success">已完成</span>
+                        {% else %}
+                        <span class="badge bg-secondary">{{ order.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="/purchase_request/{{ order.id }}" class="btn btn-sm btn-outline-primary" title="查看详情">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        {% if order.status == 'pending' %}
+                        <button class="btn btn-sm btn-outline-success" onclick="approveOrder({{ order.id }})" title="审批">
+                            <i class="bi bi-check"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="rejectOrder({{ order.id }})" title="驳回">
+                            <i class="bi bi-x"></i>
+                        </button>
+                        {% elif order.status == 'rejected' %}
+                        {% elif order.status == 'approved' %}
+                        <button class="btn btn-sm btn-outline-warning" onclick="revertOrder({{ order.id }})" title="反审">
+                            <i class="bi bi-arrow-counterclockwise"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-success" onclick="completeOrder({{ order.id }})" title="完成">
+                            <i class="bi bi-check-double"></i>
+                        </button>
+                        {% elif order.status == 'completed' %}
+                        <button class="btn btn-sm btn-outline-warning" onclick="revertOrder({{ order.id }})" title="反审">
+                            <i class="bi bi-arrow-counterclockwise"></i>
+                        </button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="16" class="text-center text-muted">暂无采购申请</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        
+        {% if pagination.pages > 1 %}
+        <nav aria-label="&#20998;&#39029;&#23548;&#33322;">
+            <ul class="pagination justify-content-center mt-3">
+                {% if pagination.has_prev %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('purchase_request_list', page=pagination.prev_num, sort=sort_by, order=sort_order, per_page=per_page, status=filters.status, search=filters.search, date_start=filters.date_start, date_end=filters.date_end, embedded=request.args.get('embedded')) }}">上一页</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link">上一页</span>
+                </li>
+                {% endif %}
+                
+                {% for page_num in pagination.iter_pages(left_edge=2, left_current=2, right_current=3, right_edge=2) %}
+                    {% if page_num %}
+                        {% if page_num == pagination.page %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ page_num }}</span>
+                        </li>
+                        {% else %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('purchase_request_list', page=page_num, sort=sort_by, order=sort_order, per_page=per_page, status=filters.status, search=filters.search, date_start=filters.date_start, date_end=filters.date_end, embedded=request.args.get('embedded')) }}">{{ page_num }}</a>
+                        </li>
+                        {% endif %}
+                    {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">...</span>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if pagination.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('purchase_request_list', page=pagination.next_num, sort=sort_by, order=sort_order, per_page=per_page, status=filters.status, search=filters.search, date_start=filters.date_start, date_end=filters.date_end, embedded=request.args.get('embedded')) }}">下一页</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link">下一页</span>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function getCsrfToken() {
+    var tokenNode = document.querySelector('meta[name="csrf-token"]');
+    if (tokenNode && tokenNode.content) return tokenNode.content;
+    try {
+        tokenNode = window.parent && window.parent.document
+            ? window.parent.document.querySelector('meta[name="csrf-token"]')
+            : null;
+        return tokenNode && tokenNode.content ? tokenNode.content : '';
+    } catch (e) {
+        return '';
+    }
+}
+
+function csrfFetch(url, options) {
+    options = Object.assign({method: 'POST'}, options || {});
+    var headers = new Headers(options.headers || {});
+    var token = getCsrfToken();
+    if (token && !headers.has('X-CSRFToken')) {
+        headers.set('X-CSRFToken', token);
+    }
+    options.headers = headers;
+    options.credentials = options.credentials || 'same-origin';
+    return fetch(url, options);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.sortable-header').forEach(function(th) {
+        th.addEventListener('click', function() {
+            var sortField = this.dataset.sortable;
+            if (!sortField) return;
+            var currentSort = '{{ sort_by }}';
+            var currentOrder = '{{ sort_order }}';
+            var newOrder = (currentSort === sortField && currentOrder === 'asc') ? 'desc' : 'asc';
+            var url = new URL(window.location.href);
+            url.searchParams.set('sort', sortField);
+            url.searchParams.set('order', newOrder);
+            url.searchParams.set('page', '1');
+            window.location.href = url.toString();
+        });
+    });
+});
+
+async function approveOrder(id) {
+    const confirmed = await showConfirm('确认审批通过此采购申请？', { title: '审批通过采购申请' });
+    if (!confirmed) return;
+    csrfFetch(`/purchase_request/${id}/approve`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'}
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'success') {
+            showToast('采购申请已审批通过，正在刷新列表…', 'success');
+            setTimeout(function(){ location.reload(); }, 650);
+        } else {
+            showToast('操作失败：' + data.msg, 'danger', 3600);
+        }
+    })
+    .catch(err => showToast('操作失败：' + err.message, 'danger', 3600));
+}
+
+function rejectOrder(id) {
+    const remark = prompt('请输入驳回原因：');
+    if (remark === null) return;
+    csrfFetch(`/purchase_request/${id}/reject`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ remark: remark })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'success') {
+            showToast('采购申请已驳回，正在刷新列表…', 'success');
+            setTimeout(function(){ location.reload(); }, 650);
+        } else {
+            showToast('操作失败：' + data.msg, 'danger', 3600);
+        }
+    })
+    .catch(err => showToast('操作失败：' + err.message, 'danger', 3600));
+}
+
+async function revertOrder(id) {
+    const confirmed = await showConfirm('确认反审此采购申请？反审后单据将退回待审批状态。', { title: '反审采购申请' });
+    if (!confirmed) return;
+    csrfFetch(`/purchase_request/${id}/revert`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'}
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'success') {
+            showToast(data.msg || '反审成功，正在刷新列表…', 'success');
+            setTimeout(function(){ location.reload(); }, 650);
+        } else {
+            showToast('反审失败：' + data.msg, 'danger', 3600);
+        }
+    })
+    .catch(err => showToast('反审失败：' + err.message, 'danger', 3600));
+}
+
+async function completeOrder(id) {
+    const confirmed = await showConfirm('确认完成此采购申请？', { title: '完成采购申请' });
+    if (!confirmed) return;
+    csrfFetch(`/purchase_request/${id}/complete`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'}
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'success') {
+            showToast('采购申请已完成，正在刷新列表…', 'success');
+            setTimeout(function(){ location.reload(); }, 650);
+        } else {
+            showToast('操作失败：' + data.msg, 'danger', 3600);
+        }
+    })
+    .catch(err => showToast('操作失败：' + err.message, 'danger', 3600));
+}
+
+</script>
+
+<style>
+.sortable-header { cursor: pointer; user-select: none; white-space: nowrap; }
+.sortable-header:hover { background-color: #e9ecef; }
+.sortable-header:not([data-sort-active])::after { content: '⇅'; font-size: 0.7em; margin-left: 4px; opacity: 0.4; }
+.sortable-header:not([data-sort-active]):hover::after { opacity: 0.8; }
+</style>
+{% endblock %}

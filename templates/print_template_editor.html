@@ -1,0 +1,876 @@
+{% extends "base.html" %}
+{% block title %}打印模板设计{% endblock %}
+{% block extra_css %}
+<style>
+.template-designer{display:grid;grid-template-columns:248px minmax(0,1fr);gap:12px;min-height:calc(100vh - 150px)}
+.designer-palette,.designer-main{background:#fff;border:1px solid #d8dee8;border-radius:6px;min-width:0}
+.designer-palette{padding:10px;overflow:auto}
+.designer-palette h2{font-size:15px;margin:0 0 8px;color:#1f2937}
+.field-group{border-top:1px solid #e5e7eb;padding-top:8px;margin-top:8px}
+.field-group strong{display:block;font-size:13px;color:#475569;margin-bottom:6px}
+.field-chip{display:inline-flex;margin:0 5px 6px 0;padding:4px 7px;border:1px solid #cbd5e1;border-radius:4px;background:#f8fafc;font-size:12px;cursor:grab}
+.designer-head{display:flex;justify-content:space-between;gap:12px;padding:10px;border-bottom:1px solid #e5e7eb;align-items:center}
+.designer-title{display:flex;align-items:center;gap:8px;min-width:0}
+.designer-title h1{font-size:16px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.designer-actions{display:flex;gap:8px;white-space:nowrap}
+.designer-toolstrip{display:flex;align-items:center;gap:0;padding:6px 8px;border-bottom:1px solid #d8dee8;background:#f8fafc;overflow-x:auto;white-space:nowrap}
+.tool-tabs{display:flex;align-self:stretch;margin-right:10px;border-right:1px solid #d8dee8}
+.tool-tab{border:0;background:transparent;padding:0 14px;font-size:13px;color:#475569}
+.tool-tab.active{color:#0284c7;font-weight:600}
+.tool-group{display:inline-flex;align-items:center;gap:2px;padding:0 7px;border-right:1px solid #d8dee8}
+.tool-button{width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;border:1px solid transparent;background:transparent;border-radius:4px;color:#1f2937}
+.tool-button:hover,.tool-button.active{background:#e8eef7;border-color:#cbd5e1}
+.tool-button:disabled{color:#94a3b8;cursor:not-allowed}
+.tool-dropdown{position:relative;display:inline-flex}
+.border-menu{position:absolute;top:32px;left:0;z-index:30;width:218px;background:#fff;border:1px solid #d8dee8;border-radius:6px;box-shadow:0 10px 28px rgba(15,23,42,.16);padding:8px;display:none}
+.border-menu.open{display:block}
+.border-grid{display:grid;grid-template-columns:repeat(5,28px);gap:7px;margin-bottom:8px}
+.border-grid button{width:28px;height:28px;border:1px solid #d8dee8;background:#fff;border-radius:3px;display:flex;align-items:center;justify-content:center;color:#1f2937}
+.border-grid button:hover{background:#e8eef7;border-color:#93c5fd}
+.border-menu-row{display:flex;align-items:center;gap:8px;padding:6px 2px;border-top:1px solid #edf2f7;font-size:12px;color:#334155}
+.border-menu-row input[type="color"]{width:28px;height:24px;border:0;background:transparent;padding:0}
+.border-menu-row select{height:26px;min-width:92px;border:1px solid #cbd5e1;border-radius:4px;background:#fff;font-size:12px}
+.tool-select{height:28px;border:0;background:transparent;font-size:13px;color:#111827;max-width:88px}
+.tool-number{height:28px;width:52px;border:0;background:transparent;font-size:13px;color:#111827}
+.tool-color{width:28px;height:28px;border:0;background:transparent;padding:3px}
+.template-meta{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr));gap:8px;padding:10px;border-bottom:1px solid #e5e7eb;background:#fbfdff}
+.template-meta label{display:block;font-size:12px;color:#64748b;margin-bottom:3px}
+.template-meta .form-control,.template-meta .form-select{font-size:13px;height:32px}
+.template-meta .wide{grid-column:span 2}
+.designer-work{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:10px;padding:10px}
+.designer-work.html-collapsed{grid-template-columns:minmax(0,1fr)}
+.sheet-canvas{border:1px solid #cbd5e1;background:#f8fafc;overflow:auto;min-height:520px}
+.sheet-ruler{display:grid;grid-template-columns:42px repeat(12,92px);position:sticky;top:0;z-index:2}
+.sheet-ruler span{height:24px;border-right:1px solid #d8dee8;border-bottom:1px solid #d8dee8;background:#eef2f7;text-align:center;font-size:12px;color:#64748b;line-height:24px;user-select:none;position:relative}
+.sheet-ruler span[data-col-header]{cursor:pointer}
+.sheet-ruler span[data-col-header]:hover,.sheet-row-head:hover{background:#dbeafe;color:#1d4ed8}
+.col-resizer{position:absolute;top:0;right:-4px;width:8px;height:100%;cursor:col-resize;z-index:4}
+.sheet-canvas.is-resizing,.sheet-canvas.is-resizing *{cursor:col-resize!important;user-select:none}
+.sheet-grid{display:grid;grid-template-columns:42px repeat(12,92px)}
+.sheet-cell{height:28px;border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;background:#fff;font-size:12px;color:#94a3b8;line-height:28px;text-align:center}
+.sheet-row-head{background:#eef2f7;color:#64748b;position:sticky;left:0;z-index:1;cursor:pointer;user-select:none}
+.sheet-edit-cell{width:100%;height:28px;box-sizing:border-box;border:0;border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;background:#fff;font-size:12px;color:#1f2937;padding:2px 5px;outline:none;overflow:hidden;white-space:nowrap;line-height:24px;cursor:cell;user-select:none}
+.sheet-edit-cell:focus{background:#fff7ed;box-shadow:inset 0 0 0 1px #2563eb}
+.sheet-edit-cell.is-selected{background:#dbeafe;box-shadow:inset 0 0 0 1px #2563eb}
+.sheet-edit-cell.is-drop-target{background:#dcfce7;box-shadow:inset 0 0 0 1px #16a34a}
+.sheet-edit-cell.is-editing{background:#fff;cursor:text;user-select:text}
+.sheet-edit-cell.has-value{background:#f8fafc}
+.sheet-edit-cell.has-value.is-selected{background:#dbeafe}
+.sheet-edit-cell.merged-cell{background:#eff6ff;border:1px solid #2563eb}
+.sheet-edit-cell.is-covered{visibility:hidden;pointer-events:none}
+.template-editor-side textarea{width:100%;min-height:390px;font-family:Consolas,monospace;font-size:12px;border:1px solid #cbd5e1;border-radius:4px;padding:8px}
+.template-editor-side.is-collapsed{display:none}
+.template-html-toggle{display:inline-flex;align-items:center;gap:4px;border:1px solid #cbd5e1;background:#fff;border-radius:4px;padding:4px 8px;font-size:12px;color:#334155}
+.template-html-open{grid-column:1/-1;justify-self:end;margin-bottom:6px;display:inline-flex;align-items:center;gap:4px;border:1px solid #cbd5e1;background:#fff;border-radius:4px;padding:5px 10px;font-size:12px;color:#334155}
+.template-editor-side h2{font-size:14px;margin:0 0 6px}
+.editor-hint{font-size:12px;color:#64748b;margin-bottom:8px}
+@media (max-width: 1100px){.template-designer,.designer-work{grid-template-columns:1fr}.template-meta{grid-template-columns:repeat(2,minmax(140px,1fr))}}
+@media (max-width: 700px){.template-meta{grid-template-columns:1fr}.template-meta .wide{grid-column:auto}.designer-head{align-items:flex-start;flex-direction:column}}
+</style>
+{% endblock %}
+{% block content %}
+<form method="post" class="template-designer" id="print-template-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="grid_cells_json" id="grid_cells_json">
+    <input type="hidden" name="grid_styles_json" id="grid_styles_json">
+    <input type="hidden" name="grid_col_widths_json" id="grid_col_widths_json">
+    <aside class="designer-palette">
+        <h2>打印字段</h2>
+        {% for group in field_groups %}
+        <div class="field-group">
+            <strong>{{ group.title }}</strong>
+            {% for field in group.fields %}
+            <span class="field-chip" data-field="{{ field }}" draggable="true">{{ field }}</span>
+            {% endfor %}
+        </div>
+        {% endfor %}
+    </aside>
+
+    <section class="designer-main">
+        <div class="designer-head">
+            <div class="designer-title">
+                <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('print_template_list') }}"><i class="bi bi-arrow-left"></i></a>
+                <h1>{{ '新增打印模板' if mode == 'new' else template.template_name }}</h1>
+            </div>
+            <div class="designer-actions">
+                {% if mode == 'edit' %}
+                <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('print_template_preview', template_id=template.id) }}" target="_blank"><i class="bi bi-eye"></i> 预览</a>
+                {% endif %}
+                <button class="btn btn-primary btn-sm" type="submit"><i class="bi bi-save"></i> 保存</button>
+            </div>
+        </div>
+
+        {% set layout = template.layout_json or {} %}
+        <div class="designer-toolstrip" aria-label="打印模板工具栏">
+            <div class="tool-tabs">
+                <button class="tool-tab active" type="button">表单字段</button>
+                <button class="tool-tab" type="button">系统字段</button>
+            </div>
+            <div class="tool-group">
+                <button class="tool-button" type="button" data-action="undo" title="撤销"><i class="bi bi-arrow-counterclockwise"></i></button>
+                <button class="tool-button" type="button" data-action="redo" title="重做"><i class="bi bi-arrow-clockwise"></i></button>
+            </div>
+            <div class="tool-group">
+                <select class="tool-select" data-style-control="fontFamily" title="字体">
+                    <option value="SimSun">宋体</option>
+                    <option value="Microsoft YaHei">微软雅黑</option>
+                    <option value="KaiTi">楷体</option>
+                    <option value="Arial">Arial</option>
+                </select>
+                <input class="tool-number" data-style-control="fontSize" value="9" title="字号">
+                <button class="tool-button" type="button" data-style-toggle="fontWeight" data-style-value="700" title="加粗"><strong>B</strong></button>
+                <button class="tool-button" type="button" data-style-toggle="fontStyle" data-style-value="italic" title="斜体"><em>I</em></button>
+                <button class="tool-button" type="button" data-style-toggle="textDecoration" data-style-value="underline" title="下划线"><u>U</u></button>
+                <input class="tool-color" type="color" value="#111827" data-style-control="color" title="字体颜色">
+            </div>
+            <div class="tool-group">
+                <button class="tool-button active" type="button" data-style-action="textAlign" data-style-value="left" title="左对齐"><i class="bi bi-text-left"></i></button>
+                <button class="tool-button" type="button" data-style-action="textAlign" data-style-value="center" title="居中"><i class="bi bi-text-center"></i></button>
+                <button class="tool-button" type="button" data-style-action="textAlign" data-style-value="right" title="右对齐"><i class="bi bi-text-right"></i></button>
+                <button class="tool-button" type="button" data-action="indent" title="增加缩进"><i class="bi bi-text-indent-left"></i></button>
+            </div>
+            <div class="tool-group">
+                <div class="tool-dropdown">
+                    <button class="tool-button" type="button" data-action="border-menu" title="边框"><i class="bi bi-border-all"></i></button>
+                    <div class="border-menu" id="border-menu" aria-label="表格边框">
+                        <div class="border-grid">
+                            <button type="button" data-border-preset="all" title="所有边框"><i class="bi bi-border-all"></i></button>
+                            <button type="button" data-border-preset="outer" title="外侧边框"><i class="bi bi-border-outer"></i></button>
+                            <button type="button" data-border-preset="inner" title="内部边框"><i class="bi bi-border-inner"></i></button>
+                            <button type="button" data-border-preset="horizontal" title="内部横线"><i class="bi bi-border-middle"></i></button>
+                            <button type="button" data-border-preset="vertical" title="内部竖线"><i class="bi bi-border-center"></i></button>
+                            <button type="button" data-border-preset="top" title="上边框"><i class="bi bi-border-top"></i></button>
+                            <button type="button" data-border-preset="bottom" title="下边框"><i class="bi bi-border-bottom"></i></button>
+                            <button type="button" data-border-preset="left" title="左边框"><i class="bi bi-border-left"></i></button>
+                            <button type="button" data-border-preset="right" title="右边框"><i class="bi bi-border-right"></i></button>
+                            <button type="button" data-border-preset="none" title="无边框"><i class="bi bi-x-lg"></i></button>
+                        </div>
+                        <div class="border-menu-row">
+                            <i class="bi bi-brush"></i><span>边框颜色</span>
+                            <input type="color" id="border-color" value="#111827">
+                        </div>
+                        <div class="border-menu-row">
+                            <i class="bi bi-list"></i><span>边框样式</span>
+                            <select id="border-style">
+                                <option value="solid">实线</option>
+                                <option value="dashed">虚线</option>
+                                <option value="dotted">点线</option>
+                                <option value="double">双线</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <button class="tool-button" type="button" data-action="merge" title="合并单元格"><i class="bi bi-arrows-collapse"></i></button>
+                <button class="tool-button" type="button" data-action="row-col-size" title="行与列大小"><i class="bi bi-table"></i></button>
+            </div>
+            <div class="tool-group">
+                <button class="tool-button" type="button" data-action="insert-image" title="插入图片"><i class="bi bi-image"></i></button>
+                <button class="tool-button" type="button" data-action="background" title="设置背景图"><i class="bi bi-file-image"></i></button>
+                <button class="tool-button" type="button" data-action="watermark" title="设置水印"><i class="bi bi-droplet"></i></button>
+                <button class="tool-button" type="button" data-action="paper" title="纸张设置"><i class="bi bi-file-earmark-text"></i></button>
+                <button class="tool-button" type="button" data-action="fit-height" title="高度适应设置"><i class="bi bi-arrows-vertical"></i></button>
+                <button class="tool-button" type="button" data-action="header-footer" title="页眉页脚设置"><i class="bi bi-window"></i></button>
+                <button class="tool-button" type="button" data-action="reset-print" title="重置打印设置"><i class="bi bi-calendar-minus"></i></button>
+                <button class="tool-button" type="button" data-action="batch-print" title="批量打印设置"><i class="bi bi-printer"></i></button>
+            </div>
+        </div>
+        <div class="template-meta">
+            <div>
+                <label>模板编码</label>
+                <input class="form-control" name="template_code" value="{{ template.template_code }}" required>
+            </div>
+            <div>
+                <label>模板名称</label>
+                <input class="form-control" name="template_name" value="{{ template.template_name }}" required>
+            </div>
+            <div>
+                <label>单据类型</label>
+                <select class="form-select" name="document_type">
+                    {% for value,label,category in document_types %}
+                    <option value="{{ value }}" {% if template.document_type == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>分类</label>
+                <input class="form-control" name="category" value="{{ template.category }}">
+            </div>
+            <div>
+                <label>打印类型</label>
+                <select class="form-select" name="print_type">
+                    <option value="单据打印" {% if template.print_type == '单据打印' %}selected{% endif %}>单据打印</option>
+                    <option value="标签打印" {% if template.print_type == '标签打印' %}selected{% endif %}>标签打印</option>
+                    <option value="套打" {% if template.print_type == '套打' %}selected{% endif %}>套打</option>
+                </select>
+            </div>
+            <div>
+                <label>状态</label>
+                <select class="form-select" name="status">
+                    <option value="enabled" {% if template.status == 'enabled' %}selected{% endif %}>启用</option>
+                    <option value="disabled" {% if template.status == 'disabled' %}selected{% endif %}>停用</option>
+                </select>
+            </div>
+            <div>
+                <label>纸张</label>
+                <select class="form-select" name="paper">
+                    <option value="A4" {% if layout.paper == 'A4' %}selected{% endif %}>A4</option>
+                    <option value="A5" {% if layout.paper == 'A5' %}selected{% endif %}>A5</option>
+                    <option value="自定义" {% if layout.paper == '自定义' %}selected{% endif %}>自定义</option>
+                </select>
+            </div>
+            <div>
+                <label>方向</label>
+                <select class="form-select" name="orientation">
+                    <option value="portrait" {% if layout.orientation != 'landscape' %}selected{% endif %}>纵向</option>
+                    <option value="landscape" {% if layout.orientation == 'landscape' %}selected{% endif %}>横向</option>
+                </select>
+            </div>
+            <div>
+                <label>行数</label>
+                <input class="form-control" name="grid_rows" value="{{ layout.grid_rows or 20 }}">
+            </div>
+            <div>
+                <label>列数</label>
+                <input class="form-control" name="grid_cols" value="{{ layout.grid_cols or 12 }}">
+            </div>
+            <div>
+                <label>默认模板</label>
+                <select class="form-select" name="is_default">
+                    <option value="">否</option>
+                    <option value="1" {% if template.is_default %}selected{% endif %}>是</option>
+                </select>
+            </div>
+            <div class="wide">
+                <label>备注</label>
+                <input class="form-control" name="remark" value="{{ template.remark }}">
+            </div>
+        </div>
+
+        <div class="designer-work html-collapsed" id="designer-work">
+            {% set grid_rows = layout.grid_rows or 20 %}
+            {% set grid_cols = layout.grid_cols or 12 %}
+            {% set grid_cells = layout.cells or {} %}
+            {% set grid_styles = layout.cell_styles or {} %}
+            {% set col_widths = layout.col_widths or {} %}
+            {% set ns = namespace(grid_columns='42px') %}
+            {% for col in range(1, grid_cols + 1) %}
+                {% set ns.grid_columns = ns.grid_columns ~ ' ' ~ (col_widths.get(col|string, 92)) ~ 'px' %}
+            {% endfor %}
+            <button class="template-html-open" type="button" id="template-html-open"><i class="bi bi-code-square"></i> 显示模板内容</button>
+            <div class="sheet-canvas">
+                <div class="sheet-ruler" id="sheet-ruler" style="grid-template-columns:{{ ns.grid_columns }}">
+                    <span></span>
+                    {% for col in range(1, grid_cols + 1) %}<span data-col-header="{{ col }}">{{ col }}<i class="col-resizer" data-col-resizer="{{ col }}"></i></span>{% endfor %}
+                </div>
+                <div class="sheet-grid" id="sheet-grid" style="grid-template-columns:{{ ns.grid_columns }}">
+                    {% for row in range(1, grid_rows + 1) %}
+                    <div class="sheet-cell sheet-row-head" data-row-header="{{ row }}" style="grid-row:{{ row }};grid-column:1">{{ row }}</div>
+                    {% for col in range(1, grid_cols + 1) %}
+                    {% set cell_key = row ~ '-' ~ col %}
+                    {% set cell_value = grid_cells.get(cell_key, '') %}
+                    {% set cell_style = grid_styles.get(cell_key, {}) %}
+                    <div class="sheet-edit-cell {% if cell_value %}has-value{% endif %}" data-cell="{{ cell_key }}" data-row="{{ row }}" data-col="{{ col }}" data-style='{{ cell_style|tojson }}' title="{{ row }},{{ col }}" tabindex="0" style="grid-row:{{ row }};grid-column:{{ col + 1 }}">{{ cell_value|safe }}</div>
+                    {% endfor %}
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="template-editor-side is-collapsed">
+                <h2><button class="template-html-toggle" type="button" id="template-html-toggle"><i class="bi bi-chevron-left"></i> 隐藏模板内容</button></h2>
+                <div class="editor-hint">点击左侧字段可插入占位符。保存后可通过预览检查版式。</div>
+                <textarea name="content_html" id="content_html">{{ template.content_html }}</textarea>
+            </div>
+        </div>
+    </section>
+</form>
+<script>
+var activeTemplateCell = null;
+var selectedCells = [];
+var cellStyleState = {};
+var gridColCount = parseInt('{{ grid_cols }}', 10) || 12;
+var colWidthState = {{ col_widths|tojson }};
+var historyStack = [];
+var redoStack = [];
+function pushHistory(){
+    var snapshot = JSON.stringify({
+        cells: collectTemplateCells(),
+        styles: cellStyleState
+    });
+    if (historyStack[historyStack.length - 1] !== snapshot) {
+        historyStack.push(snapshot);
+        if (historyStack.length > 40) historyStack.shift();
+    }
+}
+function collectTemplateCells(){
+    var cells = {};
+    document.querySelectorAll('.sheet-edit-cell').forEach(function(cell){
+        if ((cellStyleState[cell.dataset.cell] || {}).covered) return;
+        var value = cell.innerHTML.trim();
+        if (value) cells[cell.dataset.cell] = value;
+    });
+    return cells;
+}
+function applyStyleToCell(cell, style){
+    if (!cell) return;
+    style = style || {};
+    cell.style.fontFamily = style.fontFamily || '';
+    cell.style.fontSize = style.fontSize ? style.fontSize + 'pt' : '';
+    cell.style.fontWeight = style.fontWeight || '';
+    cell.style.fontStyle = style.fontStyle || '';
+    cell.style.textDecoration = style.textDecoration || '';
+    cell.style.color = style.color || '';
+    cell.style.textAlign = style.textAlign || '';
+    cell.style.backgroundImage = style.backgroundImage || '';
+    cell.style.backgroundSize = style.backgroundSize || '';
+    cell.style.borderTop = style.borderTop || (style.border ? style.border : '');
+    cell.style.borderRight = style.borderRight || (style.border ? style.border : '');
+    cell.style.borderBottom = style.borderBottom || (style.border ? style.border : '');
+    cell.style.borderLeft = style.borderLeft || (style.border ? style.border : '');
+    cell.style.boxShadow = '';
+    cell.style.paddingLeft = style.paddingLeft || '';
+    cell.style.width = style.width || '100%';
+    cell.style.height = style.height || '';
+    var col = parseInt(cell.dataset.col, 10);
+    var row = parseInt(cell.dataset.row, 10);
+    cell.style.gridRow = row;
+    cell.style.gridColumn = col + 1;
+    if (style.height) cell.style.lineHeight = style.height;
+    else cell.style.lineHeight = '';
+    cell.classList.toggle('merged-cell', !!style.merged);
+    cell.classList.toggle('is-covered', !!style.covered);
+    if (style.merged && style.colSpan) {
+        var span = Math.max(1, parseInt(style.colSpan, 10) || 1);
+        cell.style.gridColumn = (col + 1) + ' / span ' + span;
+    }
+}
+function activeStyle(){
+    if (!activeTemplateCell) return {};
+    var key = activeTemplateCell.dataset.cell;
+    if (!cellStyleState[key]) cellStyleState[key] = {};
+    return cellStyleState[key];
+}
+function targetCells(){
+    if (selectedCells.length) return selectedCells;
+    return activeTemplateCell ? [activeTemplateCell] : [];
+}
+function setSelectedCells(cells){
+    document.querySelectorAll('.sheet-edit-cell.is-selected').forEach(function(cell){
+        cell.classList.remove('is-selected');
+    });
+    selectedCells = cells.filter(Boolean);
+    selectedCells.forEach(function(cell){ cell.classList.add('is-selected'); });
+    activeTemplateCell = selectedCells[0] || activeTemplateCell;
+    refreshToolbarState();
+}
+function cellAt(row, col){
+    return document.querySelector('.sheet-edit-cell[data-row="' + row + '"][data-col="' + col + '"]');
+}
+function selectionBounds(){
+    var cells = targetCells().filter(function(cell){
+        return cell && !(cellStyleState[cell.dataset.cell] || {}).covered;
+    });
+    if (!cells.length) return null;
+    var rows = cells.map(function(cell){ return parseInt(cell.dataset.row, 10); });
+    var cols = cells.map(function(cell){ return parseInt(cell.dataset.col, 10); });
+    return {
+        minRow: Math.min.apply(null, rows),
+        maxRow: Math.max.apply(null, rows),
+        minCol: Math.min.apply(null, cols),
+        maxCol: Math.max.apply(null, cols)
+    };
+}
+function clearMergeAt(anchorKey){
+    Object.keys(cellStyleState).forEach(function(key){
+        var style = cellStyleState[key] || {};
+        if (key === anchorKey) {
+            delete style.merged;
+            delete style.colSpan;
+            delete style.rowSpan;
+        }
+        if (style.mergeAnchor === anchorKey) {
+            delete style.covered;
+            delete style.mergeAnchor;
+        }
+        applyStyleToCell(document.querySelector('.sheet-edit-cell[data-cell="' + key + '"]'), style);
+    });
+}
+function mergeSelectedCells(){
+    var bounds = selectionBounds();
+    if (!bounds) return;
+    if (bounds.minRow !== bounds.maxRow) {
+        window.alert('当前版本先支持同一行的横向合并。');
+        return;
+    }
+    if (bounds.maxCol === bounds.minCol) {
+        clearMergeAt(activeTemplateCell.dataset.cell);
+        serializeTemplateCells();
+        refreshToolbarState();
+        return;
+    }
+    pushHistory();
+    var anchor = cellAt(bounds.minRow, bounds.minCol);
+    if (!anchor) return;
+    var anchorKey = anchor.dataset.cell;
+    clearMergeAt(anchorKey);
+    for (var col = bounds.minCol + 1; col <= bounds.maxCol; col++) {
+        var covered = cellAt(bounds.minRow, col);
+        if (!covered) continue;
+        var coveredStyle = cellStyleState[covered.dataset.cell] || {};
+        coveredStyle.covered = true;
+        coveredStyle.mergeAnchor = anchorKey;
+        cellStyleState[covered.dataset.cell] = coveredStyle;
+        applyStyleToCell(covered, coveredStyle);
+    }
+    var anchorStyle = cellStyleState[anchorKey] || {};
+    anchorStyle.merged = true;
+    anchorStyle.colSpan = bounds.maxCol - bounds.minCol + 1;
+    anchorStyle.border = anchorStyle.border || true;
+    cellStyleState[anchorKey] = anchorStyle;
+    applyStyleToCell(anchor, anchorStyle);
+    setSelectedCells([anchor]);
+    serializeTemplateCells();
+    refreshToolbarState();
+}
+function selectRange(startCell, endCell){
+    if (!startCell || !endCell) return;
+    var r1 = parseInt(startCell.dataset.row, 10);
+    var c1 = parseInt(startCell.dataset.col, 10);
+    var r2 = parseInt(endCell.dataset.row, 10);
+    var c2 = parseInt(endCell.dataset.col, 10);
+    var minRow = Math.min(r1, r2);
+    var maxRow = Math.max(r1, r2);
+    var minCol = Math.min(c1, c2);
+    var maxCol = Math.max(c1, c2);
+    var cells = [];
+    for (var row = minRow; row <= maxRow; row++) {
+        for (var col = minCol; col <= maxCol; col++) {
+            cells.push(cellAt(row, col));
+        }
+    }
+    setSelectedCells(cells);
+}
+function beginCellEdit(cell){
+    if (!cell) return;
+    if ((cellStyleState[cell.dataset.cell] || {}).covered) return;
+    activeTemplateCell = cell;
+    setSelectedCells([cell]);
+    cell.contentEditable = 'true';
+    cell.classList.add('is-editing');
+    cell.focus();
+    var range = document.createRange();
+    range.selectNodeContents(cell);
+    range.collapse(false);
+    var sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+}
+function endCellEdit(cell){
+    if (!cell) return;
+    cell.contentEditable = 'false';
+    cell.classList.remove('is-editing');
+    serializeTemplateCells();
+}
+function columnWidth(col){
+    var value = parseInt(colWidthState[String(col)] || '92', 10);
+    return Math.max(48, Math.min(260, value || 92));
+}
+function applyGridColumns(){
+    var columns = ['42px'];
+    for (var col = 1; col <= gridColCount; col++) columns.push(columnWidth(col) + 'px');
+    var template = columns.join(' ');
+    var ruler = document.getElementById('sheet-ruler');
+    var grid = document.getElementById('sheet-grid');
+    if (ruler) ruler.style.gridTemplateColumns = template;
+    if (grid) grid.style.gridTemplateColumns = template;
+}
+function serializeTemplateCells(){
+    var cells = {};
+    document.querySelectorAll('.sheet-edit-cell').forEach(function(cell){
+        if ((cellStyleState[cell.dataset.cell] || {}).covered) return;
+        var value = cell.innerHTML.trim();
+        cell.classList.toggle('has-value', value.length > 0);
+        if (value) cells[cell.dataset.cell] = value;
+    });
+    document.getElementById('grid_cells_json').value = JSON.stringify(cells);
+    document.getElementById('grid_styles_json').value = JSON.stringify(cellStyleState);
+    document.getElementById('grid_col_widths_json').value = JSON.stringify(colWidthState);
+}
+function syncContentFromGrid(){
+    var rows = {};
+    document.querySelectorAll('.sheet-edit-cell').forEach(function(cell){
+        if ((cellStyleState[cell.dataset.cell] || {}).covered) return;
+        var value = cell.innerHTML.trim();
+        if (!value) return;
+        var parts = cell.dataset.cell.split('-');
+        var row = parts[0];
+        if (!rows[row]) rows[row] = [];
+        rows[row].push({col: parseInt(parts[1], 10), value: value});
+    });
+    var html = '<table class="print-sheet-lines"><tbody>\n';
+    Object.keys(rows).sort(function(a,b){return parseInt(a,10)-parseInt(b,10);}).forEach(function(row){
+        rows[row].sort(function(a,b){return a.col-b.col;});
+        html += '<tr>' + rows[row].map(function(item){ return '<td>' + item.value + '</td>'; }).join('') + '</tr>\n';
+    });
+    html += '</tbody></table>';
+    if (Object.keys(rows).length) document.getElementById('content_html').value = html;
+}
+document.querySelectorAll('.sheet-edit-cell').forEach(function(cell){
+    try { cellStyleState[cell.dataset.cell] = JSON.parse(cell.dataset.style || '{}'); } catch (e) { cellStyleState[cell.dataset.cell] = {}; }
+    cell.contentEditable = 'false';
+    applyStyleToCell(cell, cellStyleState[cell.dataset.cell]);
+    cell.addEventListener('mousedown', function(event){
+        if (cell.classList.contains('is-editing')) return;
+        event.preventDefault();
+        activeTemplateCell = cell;
+        setSelectedCells([cell]);
+        var startCell = cell;
+        function onMove(moveEvent){
+            var target = document.elementFromPoint(moveEvent.clientX, moveEvent.clientY);
+            if (target && target.classList.contains('sheet-edit-cell')) selectRange(startCell, target);
+        }
+        function onUp(){
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+        }
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    });
+    cell.addEventListener('dblclick', function(){
+        beginCellEdit(cell);
+    });
+    cell.addEventListener('focus', function(){
+        activeTemplateCell = cell;
+        if (!selectedCells.length) setSelectedCells([cell]);
+        refreshToolbarState();
+    });
+    cell.addEventListener('input', function(){
+        redoStack = [];
+        serializeTemplateCells();
+    });
+    cell.addEventListener('blur', function(){
+        endCellEdit(cell);
+    });
+    cell.addEventListener('keydown', function(event){
+        if (!cell.classList.contains('is-editing') && (event.key.length === 1 || event.key === 'Enter')) {
+            event.preventDefault();
+            beginCellEdit(cell);
+            if (event.key.length === 1) {
+                cell.innerHTML = event.key;
+                serializeTemplateCells();
+            }
+        }
+        if (event.key === 'Escape') endCellEdit(cell);
+    });
+    cell.addEventListener('change', pushHistory);
+    cell.addEventListener('dragover', function(event){
+        event.preventDefault();
+        cell.classList.add('is-drop-target');
+    });
+    cell.addEventListener('dragleave', function(){
+        cell.classList.remove('is-drop-target');
+    });
+    cell.addEventListener('drop', function(event){
+        event.preventDefault();
+        cell.classList.remove('is-drop-target');
+        var field = event.dataTransfer.getData('text/plain');
+        if (!field) return;
+        activeTemplateCell = cell;
+        setSelectedCells([cell]);
+        cell.innerHTML = cell.innerHTML + '{' + '{ ' + field + ' }' + '}';
+        serializeTemplateCells();
+        pushHistory();
+    });
+});
+document.querySelectorAll('[data-row-header]').forEach(function(header){
+    header.addEventListener('click', function(){
+        var row = parseInt(header.dataset.rowHeader, 10);
+        var cells = Array.from(document.querySelectorAll('.sheet-edit-cell[data-row="' + row + '"]'));
+        setSelectedCells(cells);
+    });
+});
+document.querySelectorAll('[data-col-header]').forEach(function(header){
+    header.addEventListener('click', function(){
+        var col = parseInt(header.dataset.colHeader, 10);
+        var cells = Array.from(document.querySelectorAll('.sheet-edit-cell[data-col="' + col + '"]'));
+        setSelectedCells(cells);
+    });
+});
+document.querySelectorAll('[data-col-resizer]').forEach(function(handle){
+    handle.addEventListener('mousedown', function(event){
+        event.preventDefault();
+        event.stopPropagation();
+        var col = parseInt(handle.dataset.colResizer, 10);
+        var startX = event.clientX;
+        var startWidth = columnWidth(col);
+        var canvas = document.querySelector('.sheet-canvas');
+        if (canvas) canvas.classList.add('is-resizing');
+        function onMove(moveEvent){
+            var nextWidth = Math.max(48, Math.min(260, startWidth + moveEvent.clientX - startX));
+            colWidthState[String(col)] = nextWidth;
+            applyGridColumns();
+            serializeTemplateCells();
+        }
+        function onUp(){
+            if (canvas) canvas.classList.remove('is-resizing');
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+            pushHistory();
+        }
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    });
+});
+document.querySelectorAll('.field-chip').forEach(function(chip){
+    chip.addEventListener('dragstart', function(event){
+        event.dataTransfer.setData('text/plain', chip.dataset.field);
+        event.dataTransfer.effectAllowed = 'copy';
+    });
+    chip.addEventListener('click', function(){
+        var token = '{' + '{ ' + chip.dataset.field + ' }' + '}';
+        if (activeTemplateCell) {
+            beginCellEdit(activeTemplateCell);
+            document.execCommand('insertText', false, token);
+            serializeTemplateCells();
+            return;
+        }
+        var textarea = document.getElementById('content_html');
+        var textStart = textarea.selectionStart || 0;
+        var textEnd = textarea.selectionEnd || 0;
+        textarea.value = textarea.value.slice(0, textStart) + token + textarea.value.slice(textEnd);
+        textarea.focus();
+        textarea.selectionStart = textarea.selectionEnd = textStart + token.length;
+    });
+});
+document.getElementById('print-template-form').addEventListener('submit', function(){
+    serializeTemplateCells();
+    syncContentFromGrid();
+});
+function setTemplateHtmlVisible(visible){
+    var work = document.getElementById('designer-work');
+    var side = document.querySelector('.template-editor-side');
+    var openButton = document.getElementById('template-html-open');
+    if (work) work.classList.toggle('html-collapsed', !visible);
+    if (side) side.classList.toggle('is-collapsed', !visible);
+    if (openButton) openButton.style.display = visible ? 'none' : 'inline-flex';
+}
+document.getElementById('template-html-open').addEventListener('click', function(){
+    setTemplateHtmlVisible(true);
+});
+document.getElementById('template-html-toggle').addEventListener('click', function(){
+    setTemplateHtmlVisible(false);
+});
+function refreshToolbarState(){
+    var style = activeStyle();
+    document.querySelectorAll('[data-style-toggle]').forEach(function(button){
+        button.classList.toggle('active', style[button.dataset.styleToggle] === button.dataset.styleValue);
+    });
+    document.querySelectorAll('[data-style-action="textAlign"]').forEach(function(button){
+        button.classList.toggle('active', (style.textAlign || 'left') === button.dataset.styleValue);
+    });
+    document.querySelectorAll('[data-style-control]').forEach(function(control){
+        var key = control.dataset.styleControl;
+        if (style[key]) {
+            if (key === 'fontSize') control.value = String(style[key]).replace('pt', '');
+            else control.value = style[key];
+        }
+    });
+}
+function setActiveStyle(key, value){
+    var cells = targetCells();
+    if (!cells.length) return;
+    pushHistory();
+    cells.forEach(function(cell){
+        var style = cellStyleState[cell.dataset.cell] || {};
+        cellStyleState[cell.dataset.cell] = style;
+        if (value === '' || value === null) delete style[key];
+        else style[key] = value;
+        applyStyleToCell(cell, style);
+    });
+    serializeTemplateCells();
+    refreshToolbarState();
+}
+function borderValue(){
+    var color = (document.getElementById('border-color') || {}).value || '#111827';
+    var lineStyle = (document.getElementById('border-style') || {}).value || 'solid';
+    return '1px ' + lineStyle + ' ' + color;
+}
+function clearCellBorders(style){
+    delete style.border;
+    delete style.borderTop;
+    delete style.borderRight;
+    delete style.borderBottom;
+    delete style.borderLeft;
+}
+function syncAllBorderFlag(style){
+    if (style.borderTop && style.borderRight && style.borderBottom && style.borderLeft &&
+        style.borderTop === style.borderRight && style.borderTop === style.borderBottom && style.borderTop === style.borderLeft) {
+        style.border = style.borderTop;
+    } else {
+        delete style.border;
+    }
+}
+function applyBorderPreset(preset){
+    var cells = targetCells();
+    var bounds = selectionBounds();
+    if (!cells.length || !bounds) return;
+    pushHistory();
+    var value = borderValue();
+    cells.forEach(function(cell){
+        var row = parseInt(cell.dataset.row, 10);
+        var col = parseInt(cell.dataset.col, 10);
+        var style = cellStyleState[cell.dataset.cell] || {};
+        cellStyleState[cell.dataset.cell] = style;
+        if (preset === 'none') {
+            clearCellBorders(style);
+        } else if (preset === 'all') {
+            style.borderTop = value;
+            style.borderRight = value;
+            style.borderBottom = value;
+            style.borderLeft = value;
+        } else if (preset === 'outer') {
+            if (row === bounds.minRow) style.borderTop = value;
+            if (row === bounds.maxRow) style.borderBottom = value;
+            if (col === bounds.minCol) style.borderLeft = value;
+            if (col === bounds.maxCol) style.borderRight = value;
+        } else if (preset === 'inner') {
+            if (row > bounds.minRow) style.borderTop = value;
+            if (row < bounds.maxRow) style.borderBottom = value;
+            if (col > bounds.minCol) style.borderLeft = value;
+            if (col < bounds.maxCol) style.borderRight = value;
+        } else if (preset === 'horizontal') {
+            if (row > bounds.minRow) style.borderTop = value;
+            if (row < bounds.maxRow) style.borderBottom = value;
+        } else if (preset === 'vertical') {
+            if (col > bounds.minCol) style.borderLeft = value;
+            if (col < bounds.maxCol) style.borderRight = value;
+        } else if (preset === 'top') {
+            style.borderTop = value;
+        } else if (preset === 'bottom') {
+            style.borderBottom = value;
+        } else if (preset === 'left') {
+            style.borderLeft = value;
+        } else if (preset === 'right') {
+            style.borderRight = value;
+        }
+        syncAllBorderFlag(style);
+        applyStyleToCell(cell, style);
+    });
+    serializeTemplateCells();
+    refreshToolbarState();
+}
+document.querySelectorAll('[data-style-control]').forEach(function(control){
+    control.addEventListener('change', function(){
+        var key = control.dataset.styleControl;
+        var value = control.value;
+        if (key === 'fontSize') value = String(parseInt(value || '9', 10) || 9);
+        setActiveStyle(key, value);
+    });
+});
+document.querySelectorAll('[data-style-toggle]').forEach(function(button){
+    button.addEventListener('click', function(){
+        var style = activeStyle();
+        var key = button.dataset.styleToggle;
+        setActiveStyle(key, style[key] === button.dataset.styleValue ? '' : button.dataset.styleValue);
+    });
+});
+document.querySelectorAll('[data-style-action]').forEach(function(button){
+    button.addEventListener('click', function(){
+        setActiveStyle(button.dataset.styleAction, button.dataset.styleValue);
+    });
+});
+document.querySelectorAll('[data-border-preset]').forEach(function(button){
+    button.addEventListener('click', function(){
+        applyBorderPreset(button.dataset.borderPreset);
+        var menu = document.getElementById('border-menu');
+        if (menu) menu.classList.remove('open');
+    });
+});
+document.addEventListener('click', function(event){
+    var menu = document.getElementById('border-menu');
+    if (!menu) return;
+    if (!event.target.closest('.tool-dropdown')) menu.classList.remove('open');
+});
+function restoreSnapshot(snapshot){
+    if (!snapshot) return;
+    var state = JSON.parse(snapshot);
+    cellStyleState = state.styles || {};
+    document.querySelectorAll('.sheet-edit-cell').forEach(function(cell){
+        cell.innerHTML = (state.cells || {})[cell.dataset.cell] || '';
+        applyStyleToCell(cell, cellStyleState[cell.dataset.cell] || {});
+    });
+    serializeTemplateCells();
+}
+document.querySelectorAll('[data-action]').forEach(function(button){
+    button.addEventListener('click', function(){
+        var action = button.dataset.action;
+        if (action === 'undo') {
+            if (historyStack.length > 1) {
+                redoStack.push(historyStack.pop());
+                restoreSnapshot(historyStack[historyStack.length - 1]);
+            }
+            return;
+        }
+        if (action === 'redo') {
+            if (redoStack.length) {
+                var next = redoStack.pop();
+                historyStack.push(next);
+                restoreSnapshot(next);
+            }
+            return;
+        }
+        var cells = targetCells();
+        if (action === 'border-menu') {
+            var menu = document.getElementById('border-menu');
+            if (menu) menu.classList.toggle('open');
+            return;
+        }
+        if (!cells.length && !['paper','reset-print','batch-print'].includes(action)) return;
+        if (action === 'indent') {
+            var current = parseInt((activeStyle().paddingLeft || '0').replace('px',''), 10) || 0;
+            setActiveStyle('paddingLeft', Math.min(current + 12, 72) + 'px');
+        } else if (action === 'border') {
+            applyBorderPreset(activeStyle().border ? 'none' : 'all');
+        } else if (action === 'merge') {
+            if (activeStyle().merged) {
+                pushHistory();
+                clearMergeAt(activeTemplateCell.dataset.cell);
+                serializeTemplateCells();
+                refreshToolbarState();
+            } else {
+                mergeSelectedCells();
+            }
+        } else if (action === 'row-col-size') {
+            var width = window.prompt('列宽像素', activeTemplateCell.style.width.replace('px','') || '120');
+            if (width) setActiveStyle('width', width + 'px');
+        } else if (action === 'insert-image') {
+            var url = window.prompt('图片地址');
+            if (url && activeTemplateCell) activeTemplateCell.innerHTML += '<img src="' + url + '" style="max-width:100%;max-height:24px">';
+        } else if (action === 'background') {
+            var bg = window.prompt('背景图地址');
+            if (bg) {
+                setActiveStyle('backgroundImage', 'url(' + bg + ')');
+                setActiveStyle('backgroundSize', 'cover');
+            }
+        } else if (action === 'watermark') {
+            var text = window.prompt('水印文字', '内部资料');
+            if (text && activeTemplateCell) activeTemplateCell.innerHTML += text;
+        } else if (action === 'paper') {
+            document.querySelector('[name="paper"]').focus();
+        } else if (action === 'fit-height') {
+            setActiveStyle('height', 'auto');
+        } else if (action === 'header-footer') {
+            if (activeTemplateCell) activeTemplateCell.innerHTML += '{' + '{ 页眉页脚 }' + '}';
+        } else if (action === 'reset-print') {
+            document.querySelector('[name="paper"]').value = 'A4';
+            document.querySelector('[name="orientation"]').value = 'portrait';
+        } else if (action === 'batch-print') {
+            if (activeTemplateCell) activeTemplateCell.innerHTML += '{' + '{ 批量打印标记 }' + '}';
+        }
+        serializeTemplateCells();
+    });
+});
+applyGridColumns();
+setTemplateHtmlVisible(false);
+serializeTemplateCells();
+pushHistory();
+</script>
+{% endblock %}

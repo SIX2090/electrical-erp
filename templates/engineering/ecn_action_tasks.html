@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}ECN变更执行任务{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <h1>ECN变更执行任务</h1>
+    <p>工程变更批准后，根据影响分析结果自动生成变更执行任务：采购变更、工单变更、领料调整、图纸替换、售后通知。</p>
+</div>
+
+{% set document_menu_actions = [
+    {'label': 'ECN影响任务', 'type': 'link', 'href': url_for('ecn_impact_tasks')},
+    {'label': 'BOM版本管理', 'type': 'link', 'href': url_for('bom_version_list')},
+    {'label': '全部任务', 'type': 'link', 'href': url_for('ecn_action_tasks')},
+    {'label': '刷新', 'type': 'link', 'href': request.full_path.rstrip('?')},
+    {'label': '返回首页', 'type': 'link', 'href': '/', 'icon': 'bi-house'}
+] %}
+{{ document_menu_bar(document_menu_actions) }}
+
+<div class="alert alert-info py-2">
+    边界：本页展示和跟进ECN变更执行任务的状态；任务的执行（如修改采购单、调整工单）在对应业务单据页面完成，本页只做任务跟踪。
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div><h2>筛选</h2><span>按任务状态筛选。</span></div>
+    </div>
+    <form method="get" class="row g-2 align-items-end">
+        <div class="col-md-3">
+            <label class="form-label">任务状态</label>
+            <select class="form-select form-select-sm" name="status">
+                <option value="">全部</option>
+                {% for key, label in status_labels.items() %}
+                <option value="{{ key }}" {% if current_status == key %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2 d-grid">
+            <button class="btn btn-primary btn-sm" type="submit"><i class="bi bi-search"></i> 查询</button>
+        </div>
+    </form>
+</div>
+
+<div class="page-card">
+    <div class="section-title">
+        <div>
+            <h2>执行任务列表</h2>
+            <span>当前 {{ tasks|length }} 条任务{% if ecn_id %}（ECN ID: {{ ecn_id }}）{% endif %}。</span>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+            <tr>
+                <th>ECN编号</th>
+                <th>任务类型</th>
+                <th>受影响单据</th>
+                <th>执行说明</th>
+                <th>状态</th>
+                <th>指派给</th>
+                <th>处理人</th>
+                <th>处理时间</th>
+                <th>操作</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for t in tasks %}
+            <tr>
+                <td>
+                    {{ t.ecn_no or '-' }}
+                    {% if t.ecn_title %}<br><small class="text-muted">{{ t.ecn_title }}</small>{% endif %}
+                </td>
+                <td>
+                    <span class="badge bg-primary">{{ t.task_type_label or t.task_type }}</span>
+                </td>
+                <td>
+                    {{ t.affected_doc_no or '-' }}
+                    <br><small class="text-muted">{{ type_labels.get(t.affected_doc_type, t.affected_doc_type or '') }}</small>
+                </td>
+                <td><small>{{ t.action_description or '-' }}</small></td>
+                <td>
+                    {% if t.action_status == 'pending' %}
+                        <span class="badge bg-warning text-dark">{{ t.action_status_label }}</span>
+                    {% elif t.action_status == 'in_progress' %}
+                        <span class="badge bg-info text-dark">{{ t.action_status_label }}</span>
+                    {% elif t.action_status == 'done' %}
+                        <span class="badge bg-success">{{ t.action_status_label }}</span>
+                    {% elif t.action_status == 'cancelled' %}
+                        <span class="badge bg-secondary">{{ t.action_status_label }}</span>
+                    {% else %}
+                        <span class="badge bg-light text-dark">{{ t.action_status_label or t.action_status }}</span>
+                    {% endif %}
+                </td>
+                <td>{{ t.assigned_to_name or '-' }}</td>
+                <td>{{ t.resolved_by_name or '-' }}</td>
+                <td>{{ t.resolved_at[:19] if t.resolved_at else '-' }}</td>
+                <td>
+                    {% if t.action_status in ('pending', 'in_progress') %}
+                    <button class="btn btn-outline-primary btn-sm" type="button"
+                            data-bs-toggle="modal" data-bs-target="#statusModal{{ t.id }}">更新状态</button>
+                    {% endif %}
+                    {% if t.resolution_remark %}
+                    <br><small class="text-muted">{{ t.resolution_remark }}</small>
+                    {% endif %}
+                </td>
+            </tr>
+
+            {% if t.action_status in ('pending', 'in_progress') %}
+            <div class="modal fade" id="statusModal{{ t.id }}" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <form method="post" action="{{ url_for('ecn_action_task_status', task_id=t.id) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <div class="modal-header">
+                                <h5 class="modal-title">更新任务状态 - {{ t.task_type_label or '' }}</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="mb-2">
+                                    <label class="form-label">执行说明</label>
+                                    <div class="text-muted small">{{ t.action_description or '' }}</div>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label">新状态 <span class="text-danger">*</span></label>
+                                    <select class="form-select form-select-sm" name="status" required>
+                                        <option value="in_progress" {% if t.action_status == 'pending' %}selected{% endif %}>处理中</option>
+                                        <option value="done">已完成</option>
+                                        <option value="cancelled">已取消</option>
+                                    </select>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label">处理备注</label>
+                                    <textarea class="form-control form-control-sm" name="remark" rows="2" placeholder="说明处理结果"></textarea>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">取消</button>
+                                <button type="submit" class="btn btn-primary btn-sm">确认</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            {% else %}
+            <tr>
+                <td colspan="9" class="text-center text-muted py-3">暂无执行任务</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

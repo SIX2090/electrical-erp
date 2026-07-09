@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}产品选配单详情{% endblock %}
+{% block content %}
+{{ document_menu_bar(actions=[
+    {'type': 'nav', 'items': [
+        {'label': '首张', 'event': 'doc-nav-first', 'icon': 'bi-chevron-double-left'},
+        {'label': '上一张', 'event': 'doc-nav-prev', 'icon': 'bi-chevron-left'},
+        {'label': '下一张', 'event': 'doc-nav-next', 'icon': 'bi-chevron-right'},
+        {'label': '末张', 'event': 'doc-nav-last', 'icon': 'bi-chevron-double-right'}
+    ]}
+], aria_label='产品选配操作菜单') }}
+{% if config %}
+<div id="doc-nav-config" data-nav-table="product_configurations" data-nav-base="/product-configurations/" data-doc-id="{{ config.id }}" style="display:none"></div>
+{% endif %}
+<div class="page-heading d-flex justify-content-between align-items-start gap-3">
+    <div>
+        <h1>{{ config.config_no|clean_text }}</h1>
+        <p>来源需求、选配明细、工程确认、项目BOM链接和下游影响。</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-outline-secondary btn-sm" href="/product-configurations">返回列表</a>
+        {% if config.status == 'draft' %}
+        <form method="post" action="/product-configurations/{{ config.id }}/submit">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-primary btn-sm" type="submit">提交工程确认</button>
+        </form>
+        {% endif %}
+        {% if config.status in ['draft', 'submitted'] %}
+        <form method="post" action="/product-configurations/{{ config.id }}/engineering-confirm">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-success btn-sm" type="submit">工程确认</button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+<div class="alert alert-info py-2">
+    <strong>业务边界：</strong>产品选配只确认客户配置和工程影响；确认后可链接项目BOM，不直接生成采购、委外、库存、生产或财务单据。
+</div>
+
+<div class="row g-3">
+    <div class="col-md-3"><div class="metric"><div class="label">状态</div><div class="value">{{ config.status_label|clean_text }}</div></div></div>
+    <div class="col-md-3"><div class="metric"><div class="label">项目号</div><div class="value">{{ config.project_code|clean_text or '-' }}</div></div></div>
+    <div class="col-md-3"><div class="metric"><div class="label">机号</div><div class="value">{{ config.serial_no|clean_text or '-' }}</div></div></div>
+    <div class="col-md-3"><div class="metric"><div class="label">选配日期</div><div class="value">{{ config.config_date or '-' }}</div></div></div>
+</div>
+
+<div class="page-card mt-3">
+    <div class="section-title"><h2>单据头</h2></div>
+    <dl class="row mb-0">
+        <dt class="col-sm-2">选配单号</dt><dd class="col-sm-4">{{ config.config_no|clean_text or '-' }}</dd>
+        <dt class="col-sm-2">来源销售订单</dt><dd class="col-sm-4">{{ config.sales_order_no|clean_text or '-' }}</dd>
+        <dt class="col-sm-2">来源报价单</dt><dd class="col-sm-4">{{ config.quotation_no|clean_text or '-' }}</dd>
+        <dt class="col-sm-2">客户</dt><dd class="col-sm-4">{{ config.customer_name|clean_text or '-' }}</dd>
+        <dt class="col-sm-2">产品/机型</dt><dd class="col-sm-4">{{ config.product_code|clean_text or '-' }} {{ config.product_name|clean_text or '' }} / {{ config.machine_model|clean_text or '-' }}</dd>
+        <dt class="col-sm-2">基础BOM</dt><dd class="col-sm-4">{{ config.base_bom_display|clean_text or '-' }}</dd>
+        <dt class="col-sm-2">项目BOM</dt><dd class="col-sm-4">{{ config.project_bom_display|clean_text or '-' }}</dd>
+        <dt class="col-sm-2">销售负责人</dt><dd class="col-sm-4">{{ config.owner|clean_text or '-' }}</dd>
+        <dt class="col-sm-2">工程负责人</dt><dd class="col-sm-4">{{ config.engineering_owner|clean_text or '-' }}</dd>
+        <dt class="col-sm-2">工程确认人</dt><dd class="col-sm-4">{{ config.engineering_confirmed_by_name|clean_text or '-' }} {{ config.engineering_confirmed_at or '' }}</dd>
+        <dt class="col-sm-2">阻塞原因</dt><dd class="col-sm-10">{{ config.blocked_reason|clean_text or validation_blocked|clean_text or '-' }}</dd>
+        <dt class="col-sm-2">下一步</dt><dd class="col-sm-10">{{ config.next_action|clean_text }}</dd>
+        <dt class="col-sm-2">下游影响</dt><dd class="col-sm-10">{{ config.downstream_impact|clean_text }}</dd>
+        <dt class="col-sm-2">备注</dt><dd class="col-sm-10">{{ config.remark|clean_text or '-' }}</dd>
+    </dl>
+</div>
+
+<div class="page-card mt-3">
+    <div class="section-title">
+        <div>
+            <h2>选配明细</h2>
+            <span>{{ items|length }} 行</span>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+            <tr>
+                <th>行号</th>
+                <th>选项组</th>
+                <th>选项</th>
+                <th>类型</th>
+                <th>选中</th>
+                <th>必选</th>
+                <th>互斥组</th>
+                <th>关联物料</th>
+                <th>BOM影响</th>
+                <th class="text-end">数量</th>
+                <th class="text-end">预估成本</th>
+                <th>周期</th>
+                <th>责任/阻塞</th>
+                <th>下一步/影响</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for item in items %}
+            <tr>
+                <td>{{ item.line_no }}</td>
+                <td>{{ item.option_group|clean_text or '-' }}</td>
+                <td>
+                    <div>{{ item.option_code|clean_text or '-' }}</div>
+                    <div class="fw-semibold">{{ item.option_name|clean_text or '-' }}</div>
+                </td>
+                <td>{{ option_types.get(item.option_type, item.option_type)|clean_text }}</td>
+                <td>{{ '是' if item.selected else '否' }}</td>
+                <td>{{ '是' if item.required_flag else '否' }}</td>
+                <td>{{ item.conflict_group|clean_text or '-' }}</td>
+                <td>{{ item.material_code|clean_text or '-' }} {{ item.material_name|clean_text or '' }}</td>
+                <td>{{ bom_item_actions.get(item.bom_item_action, item.bom_item_action)|clean_text }}</td>
+                <td class="text-end">{{ item.quantity|qty }} {{ item.unit|clean_text or '' }}</td>
+                <td class="text-end">{{ item.estimated_cost|money }}</td>
+                <td>{{ item.lead_time_days or 0 }} 天</td>
+                <td>
+                    <div>{{ item.owner|clean_text or '-' }}</div>
+                    {% if item.blocked_reason %}<div class="text-danger small">{{ item.blocked_reason|clean_text }}</div>{% endif %}
+                </td>
+                <td>
+                    <div>{{ item.next_action|clean_text or '-' }}</div>
+                    <div class="text-muted small">{{ item.downstream_impact|clean_text or '-' }}</div>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="14" class="text-muted">暂无选配明细。</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if config.status == 'engineering_confirmed' %}
+<div class="page-card mt-3" id="linkBom">
+    <div class="section-title"><h2>链接项目BOM</h2></div>
+    <form class="row g-2 align-items-end" method="post" action="/product-configurations/{{ config.id }}/link-bom">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="col-md-8">
+            <label class="form-label">项目BOM</label>
+            <select class="form-select" name="project_bom_id" required>
+                <option value="">请选择项目BOM</option>
+                {% for bom in boms %}
+                <option value="{{ bom.id }}" {% if config.project_bom_id == bom.id %}selected{% endif %}>{{ bom.bom_no }} / {{ bom.version }} - {{ bom.product_code or '' }} {{ bom.product_name or '' }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-4">
+            <button class="btn btn-primary" type="submit">链接BOM</button>
+        </div>
+    </form>
+</div>
+{% endif %}
+
+{% if config.status not in ['voided', 'bom_linked'] %}
+<div class="page-card mt-3">
+    <div class="section-title"><h2>作废</h2></div>
+    <form class="row g-2 align-items-end" method="post" action="/product-configurations/{{ config.id }}/void">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="col-md-8">
+            <label class="form-label">作废原因</label>
+            <input class="form-control" name="void_reason" placeholder="如客户取消、配置作废、重新开单">
+        </div>
+        <div class="col-md-4">
+            <button class="btn btn-outline-danger" type="submit">作废选配单</button>
+        </div>
+    </form>
+</div>
+{% endif %}
+{% endblock %}

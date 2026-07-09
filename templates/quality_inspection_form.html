@@ -1,0 +1,319 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% set is_edit = mode == 'edit' %}
+{% set state = form_state or inspection or {} %}
+{% block title %}{{ '修改质量检验单' if is_edit else '新增质量检验单' }}{% endblock %}
+{% block content %}
+{% set document_menu_actions = [
+    {'label': '保存', 'type': 'button', 'button_type': 'submit', 'form': 'qualityInspectionForm', 'name': 'after_save', 'value': 'detail', 'icon': 'bi-save'},
+    {'label': '保存并新增', 'type': 'button', 'button_type': 'submit', 'form': 'qualityInspectionForm', 'name': 'after_save', 'value': 'new', 'icon': 'bi-save2'},
+    {'label': '刷新', 'type': 'link', 'href': request.path, 'icon': 'bi-arrow-clockwise'},
+    {'label': '返回列表', 'type': 'link', 'href': back_url or '/production-enhance/quality-inspections', 'icon': 'bi-arrow-left'},
+    {'label': '打印', 'type': 'button', 'event': 'global-print-page', 'icon': 'bi-printer'},
+    {'label': '退出', 'type': 'link', 'href': '/', 'icon': 'bi-box-arrow-left'}
+] %}
+{{ document_menu_bar(document_menu_actions) }}
+
+{% if errors %}
+<div class="alert alert-warning">
+    <div class="fw-semibold mb-1">质量检验单保存校验未通过</div>
+    <ul class="mb-0 ps-3">{% for error in errors %}<li>{{ error }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+
+<form id="qualityInspectionForm" method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="page-card mb-3">
+        <div class="section-title">
+            <div>
+                <h2>检验表头</h2>
+            </div>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">检验单号</label>
+                <input class="form-control" name="inspection_no" value="{{ state.inspection_no or '' }}" placeholder="保存时自动生成">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">检验日期 <span class="text-danger">*</span></label>
+                <input class="form-control" type="date" name="inspection_date" required value="{{ state.inspection_date or today or '' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">检验类型 <span class="text-danger">*</span></label>
+                {% set inspection_type = state.inspection_type or 'fqc' %}
+                <select class="form-select" name="inspection_type" required>
+                    <option value="iqc" {% if inspection_type == 'iqc' %}selected{% endif %}>IQC来料检验</option>
+                    <option value="ipqc" {% if inspection_type == 'ipqc' or inspection_type == 'in_process' %}selected{% endif %}>IPQC过程检验</option>
+                    <option value="fqc" {% if inspection_type == 'fqc' or inspection_type == 'final' %}selected{% endif %}>FQC终检</option>
+                    <option value="outsourced_return" {% if inspection_type == 'outsourced_return' %}selected{% endif %}>委外回厂检验</option>
+                    <option value="reinspection" {% if inspection_type == 'reinspection' %}selected{% endif %}>复检</option>
+                    <option value="debug" {% if inspection_type == 'debug' %}selected{% endif %}>调试检验</option>
+                    <option value="key_control" {% if inspection_type == 'key_control' %}selected{% endif %}>关键控制点</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">单据状态</label>
+                <input class="form-control bg-light" value="{{ state.status_display or state.status or '草稿' }}" readonly>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">来源类型</label>
+                {% set source_type = state.source_document_type or state.source_type or '' %}
+                <select class="form-select" name="source_document_type">
+                    <option value="manual" {% if source_type == 'manual' or not source_type %}selected{% endif %}>手工登记</option>
+                    <option value="work_order" {% if source_type == 'work_order' %}selected{% endif %}>生产工单</option>
+                    <option value="purchase_receipt" {% if source_type == 'purchase_receipt' %}selected{% endif %}>采购入库</option>
+                    <option value="subcontract_receive" {% if source_type == 'subcontract_receive' %}selected{% endif %}>委外收货</option>
+                    <option value="service_rma" {% if source_type == 'service_rma' %}selected{% endif %}>售后返厂(RMA)</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">来源单据</label>
+                <input class="form-control" name="source_document_no" value="{{ state.source_document_no or state.source_display or '' }}" placeholder="工单号、收货单号、委外收货单号或RMA号">
+                <input type="hidden" name="source_document_id" value="{{ state.source_document_id or state.source_id or '' }}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">物料名称</label>
+                <input class="form-control" name="product_name" list="qualityProductOptions" id="qualityProductName" value="{{ state.product_name or '' }}" placeholder="从物料名称搜索选择" required>
+                <input type="hidden" name="product_id" value="{{ state.product_id or '' }}">
+                <datalist id="qualityProductOptions">
+                    {% for p in products %}
+                    <option data-id="{{ p.id }}" data-specification="{{ p.specification or '' }}" data-unit="{{ p.unit or '' }}" value="{{ p.name }}">{{ p.code }} {{ p.specification or '' }} {{ p.unit or '' }}</option>
+                    {% endfor %}
+                </datalist>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">规格</label>
+                <input class="form-control" id="qualityProductSpec" value="{{ state.material_spec or state.specification or '' }}" readonly tabindex="-1">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">单位</label>
+                <input class="form-control" id="qualityProductUnit" value="{{ state.material_unit or state.unit or '' }}" readonly tabindex="-1">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">项目号（推荐）</label>
+                <input class="form-control" name="project_code" value="{{ state.project_code or '' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">机号（推荐）</label>
+                <input class="form-control" name="serial_no" value="{{ state.serial_no or '' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">批号</label>
+                <input class="form-control" name="batch_no" value="{{ state.batch_no or '' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">检验员</label>
+                <input class="form-control" name="inspector" value="{{ state.inspector or '' }}">
+            </div>
+        </div>
+    </div>
+
+    <div class="page-card mb-3">
+        <div class="section-title">
+            <div>
+                <h2>检验结果</h2>
+            </div>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">抽样数量</label>
+                <input class="form-control" type="number" step="0.0001" min="0" name="sample_size" value="{{ state.sample_size or '' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">合格数量</label>
+                <input class="form-control" type="number" step="0.0001" min="0" name="passed_quantity" value="{{ state.passed_quantity or '' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">不合格数量</label>
+                <input class="form-control" type="number" step="0.0001" min="0" name="failed_quantity" value="{{ state.failed_quantity or '' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">判定结果</label>
+                {% set result = state.inspection_result or '' %}
+                <select class="form-select" name="inspection_result">
+                    <option value="">待判定</option>
+                    <option value="pass" {% if result == 'pass' %}selected{% endif %}>合格</option>
+                    <option value="conditional_pass" {% if result == 'conditional_pass' %}selected{% endif %}>让步放行</option>
+                    <option value="fail" {% if result == 'fail' %}selected{% endif %}>不合格</option>
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">缺陷描述</label>
+                <textarea class="form-control" name="defect_description" rows="3">{{ state.defect_description or '' }}</textarea>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">纠正措施</label>
+                <textarea class="form-control" name="corrective_action" rows="3">{{ state.corrective_action or '' }}</textarea>
+            </div>
+            <div class="col-12">
+                <label class="form-label">判定结论</label>
+                <textarea class="form-control" name="conclusion" rows="2">{{ state.conclusion or '' }}</textarea>
+            </div>
+        </div>
+    </div>
+
+    <div class="page-card mb-3">
+        <div class="section-title">
+            <div>
+                <h2>不合格处理</h2>
+            </div>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">缺陷分类</label>
+                <select class="form-select" name="defect_category">
+                    <option value="">请选择</option>
+                    {% for value in ['尺寸', '外观', '性能', '装配', '电气', '资料', '供应商', '其他'] %}
+                    <option value="{{ value }}" {% if state.defect_category == value %}selected{% endif %}>{{ value }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">严重度</label>
+                <select class="form-select" name="severity_level">
+                    <option value="">请选择</option>
+                    {% for value in ['一般', '重要', '严重', '致命'] %}
+                    <option value="{{ value }}" {% if state.severity_level == value %}selected{% endif %}>{{ value }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">处置方式</label>
+                {% set disposition = state.disposition or '' %}
+                <select class="form-select" name="disposition">
+                    <option value="">未定</option>
+                    {% for value,label in [('rework','返工'),('scrap','报废'),('concession','让步接收'),('return_supplier','退供应商'),('sort','挑选'),('reinspect','复检'),('use_as_is','照用')] %}
+                    <option value="{{ value }}" {% if disposition == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">不合格状态</label>
+                {% set ncr_status = state.nonconformance_status or '' %}
+                <select class="form-select" name="nonconformance_status">
+                    <option value="">系统判断</option>
+                    {% for value in ['待处理', '处理中', '待复检', '已关闭'] %}
+                    <option value="{{ value }}" {% if ncr_status == value %}selected{% endif %}>{{ value }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">责任方</label>
+                <select class="form-select" name="responsible_party">
+                    <option value="">请选择</option>
+                    {% for value in ['内部生产', '供应商', '委外加工商', '设计/工艺', '客户/使用', '待判定'] %}
+                    <option value="{{ value }}" {% if state.responsible_party == value %}selected{% endif %}>{{ value }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">责任供应商/加工商</label>
+                <select class="form-select" name="responsible_supplier_id">
+                    <option value="">请选择</option>
+                    {% for supplier in suppliers %}
+                    <option value="{{ supplier.id }}" {% if state.responsible_supplier_id|string == supplier.id|string %}selected{% endif %}>{{ supplier.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">责任岗位</label>
+                <input class="form-control" name="owner_role" value="{{ state.owner_role or '' }}" placeholder="质量/生产/采购/委外">
+            </div>
+            <div class="col-md-3 form-check mt-4 ps-5">
+                <input class="form-check-input" type="checkbox" name="reinspection_required" value="1" id="reinspectionRequired" {% if state.reinspection_required %}checked{% endif %}>
+                <label class="form-check-label" for="reinspectionRequired">需要复检</label>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">阻断原因</label>
+                <textarea class="form-control" name="blocked_reason" rows="2">{{ state.blocked_reason or '' }}</textarea>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">下一步</label>
+                <textarea class="form-control" name="next_action" rows="2">{{ state.next_action or '' }}</textarea>
+            </div>
+            <div class="col-12">
+                <label class="form-label">下游影响</label>
+                <textarea class="form-control" name="downstream_impact" rows="2">{{ state.downstream_impact or '' }}</textarea>
+            </div>
+        </div>
+    </div>
+
+    <div class="page-card mb-3">
+        <div class="section-title">
+            <div>
+                <h2>CAPA 与质量成本</h2>
+            </div>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-3 form-check mt-4 ps-5">
+                <input class="form-check-input" type="checkbox" name="capa_required" value="1" id="capaRequired" {% if state.capa_required %}checked{% endif %}>
+                <label class="form-check-label" for="capaRequired">需要 CAPA</label>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">CAPA 状态</label>
+                {% set capa_status = state.capa_status or '不需要' %}
+                <select class="form-select" name="capa_status">
+                    {% for value in ['不需要', '待制定', '执行中', '待验证', '已验证', '已关闭'] %}
+                    <option value="{{ value }}" {% if capa_status == value %}selected{% endif %}>{{ value }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">CAPA 责任人</label>
+                <input class="form-control" name="capa_owner" value="{{ state.capa_owner or '' }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">计划完成日期</label>
+                <input class="form-control" type="date" name="capa_due_date" value="{{ state.capa_due_date or '' }}">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">根因分析</label>
+                <textarea class="form-control" name="root_cause" rows="2">{{ state.root_cause or '' }}</textarea>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">预防措施</label>
+                <textarea class="form-control" name="preventive_action" rows="2">{{ state.preventive_action or '' }}</textarea>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">效果验证</label>
+                <textarea class="form-control" name="effectiveness_result" rows="2">{{ state.effectiveness_result or '' }}</textarea>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">质量成本分类</label>
+                {% set cost_category = state.cost_category or '' %}
+                <select class="form-select" name="cost_category">
+                    <option value="">请选择</option>
+                    {% for value in ['返工', '报废', '挑选', '退换货', '索赔', '检验', '其他'] %}
+                    <option value="{{ value }}" {% if cost_category == value %}selected{% endif %}>{{ value }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">质量成本估算</label>
+                <input class="form-control text-end" type="number" step="0.01" min="0" name="quality_cost_amount" value="{{ state.quality_cost_amount or 0 }}">
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-end gap-2">
+        <a class="btn btn-outline-secondary" href="{{ back_url or '/production-enhance/quality-inspections' }}">取消</a>
+        <button class="btn btn-primary" type="submit"><i class="bi bi-save"></i> 保存</button>
+    </div>
+</form>
+<script>
+document.addEventListener('input', function (event) {
+    if (event.target.id !== 'qualityProductName') return;
+    const selected = Array.from(document.querySelectorAll('#qualityProductOptions option')).find(function (option) {
+        return option.value === event.target.value;
+    });
+    const productId = document.querySelector('input[name="product_id"]');
+    if (productId) {
+        productId.value = selected ? selected.dataset.id : '';
+    }
+    const productSpec = document.getElementById('qualityProductSpec');
+    const productUnit = document.getElementById('qualityProductUnit');
+    if (productSpec) productSpec.value = selected ? selected.dataset.specification || '' : '';
+    if (productUnit) productUnit.value = selected ? selected.dataset.unit || '' : '';
+});
+</script>
+{% endblock %}

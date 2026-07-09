@@ -1,0 +1,378 @@
+{% extends "base.html" %}
+
+{% block title %}项目毛利分析{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>{{ title }}</h2>
+        <div class="d-none">
+            <a class="btn btn-sm btn-outline-secondary" href="javascript:history.back()" title="返回上一页"><i class="bi bi-arrow-left"></i> 返回</a>
+            <button class="btn btn-sm btn-primary" onclick="exportReportTable()"><i class="bi bi-download"></i> 导出Excel</button>
+            <button class="btn btn-sm btn-secondary" onclick="window.print()"><i class="bi bi-printer"></i> 打印</button>
+        </div>
+    </div>
+    <div class="page-header">
+        <h1>项目毛利分析报表</h1>
+        <p class="text-muted">分析项目收入、成本和毛利率</p>
+    </div>
+
+    <!-- 筛选条件 -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-filter"></i> 筛选条件
+            </h5>
+        </div>
+        <div class="card-body">
+            <form method="get" action="/finance/project-cost/gross-profit">
+                <div class="row">
+                    <div class="col-md-2">
+                        <div class="form-group">
+                            <label>开始日期</label>
+                            <input type="date" name="start_date" class="form-control" value="{{ filters.start_date or '' }}">
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-group">
+                            <label>结束日期</label>
+                            <input type="date" name="end_date" class="form-control" value="{{ filters.end_date or '' }}">
+                        </div>
+                    </div>
+                    <div class="col-md-7">
+                        <div class="form-group">
+                            <label>项目号（可多选）</label>
+                            <select name="project_codes[]" class="form-control" multiple size="1">
+                                <option value="">全部项目</option>
+                                {% for p in all_projects %}
+                                <option value="{{ p.project_code }}">
+                                    {{ p.project_code }}{% if p.project_name %} - {{ p.project_name }}{% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted">按住Ctrl可多选，不选则查询全部</small>
+                        </div>
+                    </div>
+                    <div class="col-md-1">
+                        <div class="form-group">
+                            <label>&nbsp;</label>
+                            <button type="submit" class="btn btn-primary btn-block">
+                                <i class="fas fa-search"></i> 查询
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 汇总统计 -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-success">
+                <div class="card-body text-center">
+                    <h6 class="text-success">总收入</h6>
+                    <h3 class="mb-0"><strong>{{ "%.2f"|format(totals.revenue) }}</strong></h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-danger">
+                <div class="card-body text-center">
+                    <h6 class="text-danger">总成本</h6>
+                    <h3 class="mb-0"><strong>{{ "%.2f"|format(totals.cost) }}</strong></h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-primary">
+                <div class="card-body text-center">
+                    <h6 class="text-primary">总毛利</h6>
+                    <h3 class="mb-0">
+                        <strong class="{% if totals.gross_profit >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ "%.2f"|format(totals.gross_profit) }}
+                        </strong>
+                    </h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-info">
+                <div class="card-body text-center">
+                    <h6 class="text-info">平均毛利率</h6>
+                    <h3 class="mb-0">
+                        <strong class="{% if totals.gross_margin >= 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ "%.2f"|format(totals.gross_margin) }}%
+                        </strong>
+                    </h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 项目毛利明细 -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-chart-line"></i> 项目毛利明细
+            </h5>
+        </div>
+        <div class="card-body">
+            {% if rows %}
+            <div class="table-responsive">
+                <table class="table table-hover table-sm">
+                    <thead class="thead-light">
+                        <tr>
+                            <th>序号</th>
+                            <th>项目号</th>
+                            <th>项目名称</th>
+                            <th class="text-right">收入</th>
+                            <th class="text-right">成本</th>
+                            <th class="text-right">毛利</th>
+                            <th class="text-right">毛利率</th>
+                            <th>盈利状况</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in rows %}
+                        <tr>
+                            <td>{{ loop.index }}</td>
+                            <td>
+                                <span class="badge badge-info">{{ row.project_code }}</span>
+                            </td>
+                            <td>{{ row.project_name or '-' }}</td>
+                            <td class="text-right">
+                                <strong class="text-success">{{ "%.2f"|format(row.revenue) }}</strong>
+                            </td>
+                            <td class="text-right">
+                                <strong class="text-danger">{{ "%.2f"|format(row.cost) }}</strong>
+                            </td>
+                            <td class="text-right">
+                                <strong class="{% if row.gross_profit >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                    {{ "%.2f"|format(row.gross_profit) }}
+                                </strong>
+                            </td>
+                            <td class="text-right">
+                                <span class="badge {% if row.gross_margin >= 30 %}badge-success{% elif row.gross_margin >= 15 %}badge-warning{% else %}badge-danger{% endif %}"
+                                      style="font-size: 1rem;">
+                                    {{ "%.2f"|format(row.gross_margin) }}%
+                                </span>
+                            </td>
+                            <td>
+                                {% if row.gross_profit > 0 %}
+                                    <span class="badge badge-success">
+                                        <i class="fas fa-arrow-up"></i> 盈利
+                                    </span>
+                                {% elif row.gross_profit < 0 %}
+                                    <span class="badge badge-danger">
+                                        <i class="fas fa-arrow-down"></i> 亏损
+                                    </span>
+                                {% else %}
+                                    <span class="badge badge-secondary">
+                                        <i class="fas fa-minus"></i> 持平
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="/finance/project-cost/detail?project_code={{ row.project_code }}"
+                                   class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-list"></i> 明细
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="thead-light">
+                        <tr>
+                            <th colspan="3" class="text-right">合计：</th>
+                            <th class="text-right">
+                                <strong class="text-success">{{ "%.2f"|format(totals.revenue) }}</strong>
+                            </th>
+                            <th class="text-right">
+                                <strong class="text-danger">{{ "%.2f"|format(totals.cost) }}</strong>
+                            </th>
+                            <th class="text-right">
+                                <strong class="{% if totals.gross_profit >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                    {{ "%.2f"|format(totals.gross_profit) }}
+                                </strong>
+                            </th>
+                            <th class="text-right">
+                                <strong>{{ "%.2f"|format(totals.gross_margin) }}%</strong>
+                            </th>
+                            <th colspan="2"></th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <div class="mt-3">
+                <small class="text-muted">
+                    共 {{ rows|length }} 个项目
+                </small>
+            </div>
+            {% else %}
+            <div class="alert alert-info mb-0">
+                <i class="fas fa-info-circle"></i> 没有符合条件的项目毛利数据
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 毛利率分析 -->
+    {% if rows %}
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-chart-pie"></i> 毛利率分析
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>毛利率分布</h6>
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>毛利率区间</th>
+                                <th class="text-right">项目数</th>
+                                <th class="text-right">占比</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% set high_margin = rows|selectattr('gross_margin', 'ge', 30)|list|length %}
+                            {% set medium_margin = rows|selectattr('gross_margin', 'ge', 15)|selectattr('gross_margin', 'lt', 30)|list|length %}
+                            {% set low_margin = rows|selectattr('gross_margin', 'ge', 0)|selectattr('gross_margin', 'lt', 15)|list|length %}
+                            {% set negative_margin = rows|selectattr('gross_margin', 'lt', 0)|list|length %}
+                            {% set total_projects = rows|length %}
+
+                            <tr>
+                                <td>
+                                    <span class="badge badge-success">≥ 30%（优秀）</span>
+                                </td>
+                                <td class="text-right">{{ high_margin }}</td>
+                                <td class="text-right">
+                                    {{ "%.1f"|format((high_margin / total_projects * 100) if total_projects > 0 else 0) }}%
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <span class="badge badge-warning">15% ~ 30%（一般）</span>
+                                </td>
+                                <td class="text-right">{{ medium_margin }}</td>
+                                <td class="text-right">
+                                    {{ "%.1f"|format((medium_margin / total_projects * 100) if total_projects > 0 else 0) }}%
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <span class="badge badge-danger">0% ~ 15%（偏低）</span>
+                                </td>
+                                <td class="text-right">{{ low_margin }}</td>
+                                <td class="text-right">
+                                    {{ "%.1f"|format((low_margin / total_projects * 100) if total_projects > 0 else 0) }}%
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <span class="badge badge-dark">< 0%（亏损）</span>
+                                </td>
+                                <td class="text-right">{{ negative_margin }}</td>
+                                <td class="text-right">
+                                    {{ "%.1f"|format((negative_margin / total_projects * 100) if total_projects > 0 else 0) }}%
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="col-md-6">
+                    <h6>Top 5 高毛利项目</h6>
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>排名</th>
+                                <th>项目号</th>
+                                <th class="text-right">毛利</th>
+                                <th class="text-right">毛利率</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in (rows|sort(attribute='gross_profit', reverse=true)|list)[:5] %}
+                            <tr>
+                                <td>{{ loop.index }}</td>
+                                <td>
+                                    <span class="badge badge-info">{{ row.project_code }}</span>
+                                </td>
+                                <td class="text-right">
+                                    <strong class="text-success">{{ "%.2f"|format(row.gross_profit) }}</strong>
+                                </td>
+                                <td class="text-right">
+                                    <span class="badge badge-success">{{ "%.2f"|format(row.gross_margin) }}%</span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+
+                    <h6 class="mt-4">Top 5 亏损项目</h6>
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>排名</th>
+                                <th>项目号</th>
+                                <th class="text-right">毛利</th>
+                                <th class="text-right">毛利率</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in (rows|sort(attribute='gross_profit')|list)[:5] %}
+                            <tr>
+                                <td>{{ loop.index }}</td>
+                                <td>
+                                    <span class="badge badge-info">{{ row.project_code }}</span>
+                                </td>
+                                <td class="text-right">
+                                    <strong class="text-danger">{{ "%.2f"|format(row.gross_profit) }}</strong>
+                                </td>
+                                <td class="text-right">
+                                    <span class="badge badge-danger">{{ "%.2f"|format(row.gross_margin) }}%</span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+<style>
+.card {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.badge {
+    font-size: 0.85rem;
+}
+
+.table td, .table th {
+    vertical-align: middle;
+}
+</style>
+
+<script>
+function exportReportTable() {
+    var table = document.querySelector('.table');
+    if (!table) return;
+    var html = table.outerHTML;
+    var url = 'data:application/vnd.ms-excel,' + encodeURIComponent(html);
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = '{{ title }}_' + new Date().toISOString().substr(0,10) + '.xls';
+    link.click();
+}
+</script>
+{% endblock %}

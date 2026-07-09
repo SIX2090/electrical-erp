@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% from "partials/document_menu_bar.html" import document_menu_bar %}
+{% block title %}{{ title }} - {{ doc_no }}{% endblock %}
+{% block content %}
+{% set trace_keyword = row.get('project_code') or row.get('serial_no') or doc_no %}
+{% set production_action_prefix = '' %}
+{% if row.get('doc_type') == 'production_issue' %}
+    {% set production_action_prefix = '/production-issues' %}
+{% elif row.get('doc_type') == 'production_return' %}
+    {% set production_action_prefix = '/production-returns' %}
+{% endif %}
+{% set raw_status = row.get('status') or '' %}
+{% set display_status = {'draft':'草稿','submitted':'已提交','posted':'已过账','voided':'已作废'}.get(raw_status, status_label or raw_status or '草稿') %}
+{% set controlled_menu_actions = menu_actions %}
+{% if production_action_prefix %}
+    {% set controlled_menu_actions = controlled_menu_actions + [
+        {'label': '提交', 'type': 'button', 'button_type': 'submit', 'form': 'controlledSubmitForm', 'disabled': raw_status not in ['', 'draft', '草稿'], 'icon': 'bi-send'},
+        {'label': '提交并过账', 'type': 'button', 'button_type': 'submit', 'form': 'controlledSubmitPostForm', 'disabled': raw_status not in ['', 'draft', '草稿'], 'icon': 'bi-check2-square'},
+        {'label': '过账', 'type': 'button', 'button_type': 'submit', 'form': 'controlledPostForm', 'disabled': raw_status not in ['submitted', '已提交'], 'icon': 'bi-check2-circle'},
+        {'label': '作废', 'type': 'button', 'button_type': 'submit', 'form': 'controlledVoidForm', 'disabled': raw_status not in ['', 'draft', '草稿', 'submitted', '已提交'], 'icon': 'bi-x-circle'}
+    ] %}
+{% endif %}
+
+{{ document_menu_bar(actions=controlled_menu_actions, aria_label='单据操作菜单') }}
+
+<div id="doc-nav-config" data-nav-table="{{ nav_table or '' }}" data-nav-base="{{ (production_action_prefix or back_url or '') }}/" data-doc-id="{{ row.get('id') or '' }}" style="display:none"></div>
+
+<div class="page-heading">
+    <h1>{{ title|clean_text }}</h1>
+    <p>{{ boundary_note|clean_text }}</p>
+</div>
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>{{ doc_no|clean_text }}</h2>
+            <span>{{ subtitle|clean_text }}</span>
+        </div>
+        <span class="badge text-bg-primary">{{ display_status }}</span>
+    </div>
+    <div class="row g-3">
+        {% for metric in metrics %}
+        <div class="col-md-3">
+            <div class="metric">
+                <div class="label">{{ metric.label|clean_text }}</div>
+                <div class="value h5">{{ metric.value|clean_text or '-' }}</div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+{% if production_action_prefix %}
+<div class="page-card mb-3 d-none">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div>
+            <h2 class="h6 mb-1">单据操作</h2>
+            <div class="text-muted small">提交后才能过账；过账会写入库存流水并回写工单已领/已退数量。</div>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-outline-secondary btn-sm" href="{{ production_action_prefix }}">返回列表</a>
+            {% if raw_status in ['', 'draft', '草稿'] %}
+            <form id="controlledSubmitForm" method="post" action="{{ production_action_prefix }}/{{ row.get('id') }}/submit">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="btn btn-outline-primary btn-sm" type="submit">提交</button>
+            </form>
+            <form id="controlledSubmitPostForm" method="post" action="{{ production_action_prefix }}/{{ row.get('id') }}/submit_post">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="btn btn-primary btn-sm" type="submit">提交并过账</button>
+            </form>
+            <form id="controlledVoidForm" method="post" action="{{ production_action_prefix }}/{{ row.get('id') }}/void">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="btn btn-outline-danger btn-sm" type="submit">作废</button>
+            </form>
+            {% elif raw_status in ['submitted', '已提交'] %}
+            <form id="controlledPostForm" method="post" action="{{ production_action_prefix }}/{{ row.get('id') }}/post">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="btn btn-primary btn-sm" type="submit">过账</button>
+            </form>
+            <form id="controlledVoidForm" method="post" action="{{ production_action_prefix }}/{{ row.get('id') }}/void">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="btn btn-outline-danger btn-sm" type="submit">作废</button>
+            </form>
+            {% elif raw_status in ['posted', '已过账'] %}
+            <span class="text-muted small">已过账单据不能直接删除，发现差异请走退料或冲销流程。</span>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>单据信息</h2>
+            <span>来源、状态、项目号和机号追溯</span>
+        </div>
+    </div>
+    <dl class="row mb-0">
+        {% for item in fields %}
+        <dt class="col-sm-3">{{ item.label|clean_text }}</dt>
+        <dd class="col-sm-9">{{ item.value|clean_text or '-' }}</dd>
+        {% endfor %}
+    </dl>
+</div>
+
+{% if lines %}
+<div class="page-card mb-3">
+    <div class="section-title">
+        <div>
+            <h2>{{ line_title|clean_text }}</h2>
+            <span>{{ lines|length }} 行</span>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+            <tr>
+                {% for column in line_columns %}<th>{{ column.label|clean_text }}</th>{% endfor %}
+            </tr>
+            </thead>
+            <tbody>
+            {% for line in lines %}
+            <tr>
+                {% for column in line_columns %}
+                <td>{{ line.get(column.key)|clean_text }}</td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% if extra_panel_template %}
+{% include extra_panel_template %}
+{% endif %}
+
+<div class="page-card">
+    <div class="section-title">
+        <div>
+            <h2>关联追溯</h2>
+            <span>只提供可验证的来源和下游查看入口</span>
+        </div>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        {% for link in trace_links %}
+        <a class="btn btn-outline-primary btn-sm" href="{{ link.href }}">{{ link.label|clean_text }}</a>
+        {% endfor %}
+        {% if trace_keyword %}
+        <a class="btn btn-outline-secondary btn-sm" href="/transactions?keyword={{ trace_keyword|urlencode }}">库存流水</a>
+        <a class="btn btn-outline-secondary btn-sm" href="/finance/reports/project-cost?keyword={{ trace_keyword|urlencode }}">成本追溯</a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

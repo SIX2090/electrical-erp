@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+
+{% block title %}系统监控{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-speedometer2"></i> 系统监控面板
+                    </h5>
+                    <div>
+                        <span class="text-muted me-3">自动刷新: <strong id="autoRefreshStatus">开启</strong></span>
+                        <button id="btnRefresh" class="btn btn-sm btn-primary">
+                            <i class="bi bi-arrow-clockwise"></i> 刷新
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- 健康状态 -->
+                    <div id="healthStatus" class="mb-4">
+                        <div class="text-center text-muted">加载中...</div>
+                    </div>
+
+                    <!-- 系统资源 -->
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-title">CPU 使用率</h6>
+                                    <div id="cpuInfo" class="text-muted">加载中...</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-title">内存使用率</h6>
+                                    <div id="memoryInfo" class="text-muted">加载中...</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-title">磁盘使用率</h6>
+                                    <div id="diskInfo" class="text-muted">加载中...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 数据库信息 -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-title">数据库连接</h6>
+                                    <div id="dbConnectionInfo" class="text-muted">加载中...</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-title">数据库大小</h6>
+                                    <div id="dbSizeInfo" class="text-muted">加载中...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 应用信息 -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-title">应用状态</h6>
+                                    <div id="appInfo" class="text-muted">加载中...</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-title">系统运行时间</h6>
+                                    <div id="uptimeInfo" class="text-muted">加载中...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 慢查询和错误日志 -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-title">慢查询 (>3秒)</h6>
+                                    <div id="slowQueriesInfo" class="text-muted">加载中...</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6 class="card-title">最近错误 (1小时内)</h6>
+                                    <div id="recentErrorsInfo" class="text-muted">加载中...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let autoRefreshInterval;
+
+$(document).ready(function() {
+    loadMetrics();
+    startAutoRefresh();
+});
+
+function startAutoRefresh() {
+    autoRefreshInterval = setInterval(loadMetrics, 10000); // 每10秒刷新
+    $('#autoRefreshStatus').text('开启');
+}
+
+function loadMetrics() {
+    $.ajax({
+        url: '/monitoring/api/metrics',
+        method: 'GET',
+        success: function(response) {
+            if (response.status === 'success') {
+                renderMetrics(response.metrics);
+            }
+        }
+    });
+}
+
+function renderMetrics(metrics) {
+    // 健康状态
+    renderHealthStatus(metrics);
+
+    // CPU
+    renderCPU(metrics.cpu);
+
+    // 内存
+    renderMemory(metrics.memory);
+
+    // 磁盘
+    renderDisk(metrics.disk);
+
+    // 数据库
+    renderDatabase(metrics.database);
+
+    // 应用
+    renderApplication(metrics.application);
+
+    // 系统运行时间
+    renderUptime(metrics.system.uptime);
+}
+
+function renderHealthStatus(metrics) {
+    let html = '<div class="alert alert-';
+
+    // 简单的健康检查
+    const cpuWarning = metrics.cpu.percent > 80;
+    const memWarning = metrics.memory.percent > 80;
+    const diskWarning = metrics.disk.percent > 80;
+
+    if (cpuWarning || memWarning || diskWarning) {
+        html += 'warning"><i class="bi bi-exclamation-triangle"></i> <strong>警告</strong> - 系统资源紧张';
+    } else {
+        html += 'success"><i class="bi bi-check-circle"></i> <strong>正常</strong> - 系统运行正常';
+    }
+
+    html += ' <span class="text-muted">(更新时间: ' + metrics.timestamp + ')</span></div>';
+
+    $('#healthStatus').html(html);
+}
+
+function renderCPU(cpu) {
+    const alertClass = cpu.status === 'critical' ? 'danger' : cpu.status === 'warning' ? 'warning' : 'success';
+
+    let html = '<div class="progress mb-2" style="height: 30px;">';
+    html += '<div class="progress-bar bg-' + alertClass + '" style="width: ' + cpu.percent + '%">';
+    html += cpu.percent.toFixed(1) + '%';
+    html += '</div></div>';
+    html += '<small class="text-muted">CPU 核心数: ' + cpu.count + '</small>';
+
+    $('#cpuInfo').html(html);
+}
+
+function renderMemory(memory) {
+    const alertClass = memory.status === 'critical' ? 'danger' : memory.status === 'warning' ? 'warning' : 'success';
+
+    let html = '<div class="progress mb-2" style="height: 30px;">';
+    html += '<div class="progress-bar bg-' + alertClass + '" style="width: ' + memory.percent + '%">';
+    html += memory.percent.toFixed(1) + '%';
+    html += '</div></div>';
+    html += '<small class="text-muted">';
+    html += '已用: ' + memory.used_gb + ' GB / 总计: ' + memory.total_gb + ' GB';
+    html += '</small>';
+
+    $('#memoryInfo').html(html);
+}
+
+function renderDisk(disk) {
+    const alertClass = disk.status === 'critical' ? 'danger' : disk.status === 'warning' ? 'warning' : 'success';
+
+    let html = '<div class="progress mb-2" style="height: 30px;">';
+    html += '<div class="progress-bar bg-' + alertClass + '" style="width: ' + disk.percent + '%">';
+    html += disk.percent.toFixed(1) + '%';
+    html += '</div></div>';
+    html += '<small class="text-muted">';
+    html += '已用: ' + disk.used_gb + ' GB / 总计: ' + disk.total_gb + ' GB<br>';
+    html += '剩余: ' + disk.free_gb + ' GB';
+    html += '</small>';
+
+    $('#diskInfo').html(html);
+}
+
+function renderDatabase(database) {
+    let html = '<p class="mb-1">';
+    html += '总连接数: <strong>' + database.connections.total + '</strong><br>';
+    html += '活跃连接: <strong class="text-success">' + database.connections.active + '</strong><br>';
+    html += '空闲连接: <strong class="text-muted">' + database.connections.idle + '</strong>';
+    html += '</p>';
+
+    $('#dbConnectionInfo').html(html);
+
+    let sizeHtml = '<p class="mb-1">';
+    sizeHtml += '数据库大小: <strong>' + database.size.size_gb + ' GB</strong><br>';
+    sizeHtml += '<small class="text-muted">(' + database.size.size_mb + ' MB)</small>';
+    sizeHtml += '</p>';
+
+    $('#dbSizeInfo').html(sizeHtml);
+}
+
+function renderApplication(application) {
+    let html = '<p class="mb-1">';
+    html += '活跃用户: <strong class="text-success">' + application.active_users + '</strong><br>';
+    html += '进程 PID: <strong>' + application.process.pid + '</strong><br>';
+    html += '内存占用: <strong>' + application.process.memory_mb + ' MB</strong><br>';
+    html += '线程数: <strong>' + application.process.num_threads + '</strong>';
+    html += '</p>';
+
+    $('#appInfo').html(html);
+}
+
+function renderUptime(uptime) {
+    let html = '<p class="mb-1">';
+    html += '系统启动时间: <strong>' + uptime.boot_time + '</strong><br>';
+    html += '运行时间: <strong class="text-primary">' + uptime.uptime_text + '</strong>';
+    html += '</p>';
+
+    $('#uptimeInfo').html(html);
+}
+
+$('#btnRefresh').click(function() {
+    loadMetrics();
+});
+</script>
+{% endblock %}
