@@ -1,5 +1,1312 @@
 MIGRATIONS = [
     (
+        "20260520_000_core_business_tables",
+        """
+        -- Core business tables: CREATE TABLE IF NOT EXISTS
+        -- Idempotent: no-op on databases where tables already exist.
+        -- On fresh databases, creates all core business tables so that
+        -- subsequent ALTER TABLE ADD COLUMN migrations succeed.
+
+        CREATE TABLE IF NOT EXISTS product_categories (
+            id SERIAL PRIMARY KEY,
+            code VARCHAR(200),
+            name VARCHAR(200),
+            parent_id INTEGER,
+            remark TEXT
+        );
+        CREATE TABLE IF NOT EXISTS customer_categories (
+            id SERIAL PRIMARY KEY,
+            code VARCHAR(200),
+            name VARCHAR(200),
+            parent_id INTEGER,
+            remark TEXT
+        );
+        CREATE TABLE IF NOT EXISTS supplier_categories (
+            id SERIAL PRIMARY KEY,
+            code VARCHAR(200),
+            name VARCHAR(200),
+            parent_id INTEGER,
+            remark TEXT
+        );
+        CREATE TABLE IF NOT EXISTS warehouse_categories (
+            id SERIAL PRIMARY KEY,
+            code VARCHAR(200),
+            name VARCHAR(200),
+            parent_id INTEGER,
+            remark TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS units (
+            id SERIAL PRIMARY KEY,
+            code VARCHAR(80) UNIQUE,
+            name VARCHAR(120),
+            category VARCHAR(120),
+            base_unit_id INTEGER,
+            conversion_rate NUMERIC(16,6) DEFAULT 1,
+            status VARCHAR(50) DEFAULT '启用',
+            remark TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS departments (
+            id SERIAL PRIMARY KEY,
+            code VARCHAR(80) UNIQUE,
+            name VARCHAR(160),
+            parent_id INTEGER,
+            manager VARCHAR(120),
+            phone VARCHAR(80),
+            status VARCHAR(50) DEFAULT '启用',
+            remark TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS employees (
+            id SERIAL PRIMARY KEY,
+            code VARCHAR(80) UNIQUE,
+            name VARCHAR(120),
+            dept_id INTEGER,
+            position VARCHAR(120),
+            phone VARCHAR(80),
+            email VARCHAR(200),
+            is_sales BOOLEAN DEFAULT FALSE,
+            employment_type VARCHAR(80),
+            hire_date DATE,
+            standard_labor_rate_per_hour NUMERIC(14,4) DEFAULT 0,
+            status VARCHAR(50) DEFAULT '在职',
+            remark TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS products (
+            id SERIAL PRIMARY KEY,
+            code VARCHAR(200),
+            name VARCHAR(200),
+            specification TEXT,
+            category VARCHAR(120),
+            category_id INTEGER,
+            item_type VARCHAR(80),
+            brand VARCHAR(200),
+            origin_place VARCHAR(200),
+            material_grade VARCHAR(200),
+            unit VARCHAR(80),
+            aux_unit VARCHAR(80),
+            conversion_rate NUMERIC(16,6) DEFAULT 1,
+            barcode VARCHAR(200),
+            abc_class VARCHAR(20),
+            drawing_no VARCHAR(200),
+            standard_price NUMERIC(16,4) DEFAULT 0,
+            standard_cost NUMERIC(16,4) DEFAULT 0,
+            current_cost NUMERIC(16,4) DEFAULT 0,
+            last_purchase_cost NUMERIC(16,4) DEFAULT 0,
+            cost_method VARCHAR(40),
+            default_tax_rate NUMERIC(8,4) DEFAULT 13,
+            default_supplier_id INTEGER,
+            default_supplier_name VARCHAR(200),
+            default_warehouse_id INTEGER,
+            default_warehouse VARCHAR(120),
+            default_location_id INTEGER,
+            default_location VARCHAR(200),
+            purchase_lead_days NUMERIC(10,2) DEFAULT 0,
+            safety_stock NUMERIC(16,4) DEFAULT 0,
+            min_stock NUMERIC(16,4) DEFAULT 0,
+            max_stock NUMERIC(16,4) DEFAULT 0,
+            min_order_qty NUMERIC(16,4) DEFAULT 0,
+            batch_control BOOLEAN DEFAULT FALSE,
+            serial_control BOOLEAN DEFAULT FALSE,
+            inspection_required BOOLEAN DEFAULT FALSE,
+            shelf_life_days INTEGER,
+            gross_weight NUMERIC(14,4),
+            net_weight NUMERIC(14,4),
+            length_mm NUMERIC(14,2),
+            width_mm NUMERIC(14,2),
+            height_mm NUMERIC(14,2),
+            bom_no VARCHAR(200),
+            status VARCHAR(50) DEFAULT '启用',
+            remark TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS customers (
+            id SERIAL PRIMARY KEY,
+            code VARCHAR(80),
+            name VARCHAR(200),
+            contact_person VARCHAR(120),
+            phone VARCHAR(80),
+            address TEXT,
+            customer_level VARCHAR(80),
+            credit_limit NUMERIC(16,4) DEFAULT 0,
+            credit_used NUMERIC(16,4) DEFAULT 0,
+            category_id INTEGER,
+            tax_no VARCHAR(120),
+            invoice_title VARCHAR(200),
+            default_tax_rate NUMERIC(8,4) DEFAULT 13,
+            settlement_term_id INTEGER,
+            payment_term_id INTEGER,
+            status VARCHAR(50) DEFAULT '启用',
+            remark TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS suppliers (
+            id SERIAL PRIMARY KEY,
+            code VARCHAR(80),
+            name VARCHAR(200),
+            contact_person VARCHAR(120),
+            phone VARCHAR(80),
+            address TEXT,
+            category_id INTEGER,
+            tax_no VARCHAR(120),
+            invoice_title VARCHAR(200),
+            default_tax_rate NUMERIC(8,4) DEFAULT 13,
+            settlement_term_id INTEGER,
+            payment_term_id INTEGER,
+            is_outsourced_processor BOOLEAN DEFAULT FALSE,
+            lead_time_days NUMERIC(10,2) DEFAULT 0,
+            status VARCHAR(50) DEFAULT '启用',
+            remark TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS supplier_prices (
+            id SERIAL PRIMARY KEY,
+            supplier_id INTEGER,
+            product_id INTEGER,
+            unit_price NUMERIC(14,4) DEFAULT 0,
+            currency VARCHAR(10) DEFAULT 'CNY',
+            effective_date DATE,
+            is_active BOOLEAN DEFAULT TRUE,
+            is_primary BOOLEAN DEFAULT FALSE,
+            tax_rate NUMERIC(5,2) DEFAULT 0,
+            lead_time_days INTEGER,
+            supplier_item_code VARCHAR(120),
+            remark TEXT,
+            status VARCHAR(40) DEFAULT '启用',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS warehouses (
+            id SERIAL PRIMARY KEY,
+            code VARCHAR(80) UNIQUE,
+            name VARCHAR(160),
+            category_id INTEGER,
+            warehouse_type VARCHAR(80),
+            default_location_id INTEGER,
+            status VARCHAR(50) DEFAULT '启用',
+            remark TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS locations (
+            id SERIAL PRIMARY KEY,
+            code VARCHAR(80),
+            name VARCHAR(160),
+            warehouse_id INTEGER,
+            location_type VARCHAR(80),
+            is_active BOOLEAN DEFAULT TRUE,
+            status VARCHAR(50) DEFAULT '启用',
+            remark TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS boms (
+            id SERIAL PRIMARY KEY,
+            bom_no VARCHAR(200),
+            product_id INTEGER,
+            version VARCHAR(40),
+            bom_type VARCHAR(40),
+            effective_date DATE,
+            expiry_date DATE,
+            status VARCHAR(50) DEFAULT '启用',
+            remark TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS bom_items (
+            id SERIAL PRIMARY KEY,
+            bom_id INTEGER,
+            product_id INTEGER,
+            quantity NUMERIC(16,6) DEFAULT 0,
+            unit VARCHAR(80),
+            loss_rate NUMERIC(8,4) DEFAULT 0,
+            is_optional VARCHAR(20),
+            remark TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS sales_orders (
+            id SERIAL PRIMARY KEY,
+            order_no VARCHAR(200),
+            customer_id INTEGER,
+            order_date DATE,
+            delivery_date DATE,
+            warehouse_id INTEGER,
+            project_code VARCHAR(120),
+            cabinet_no VARCHAR(120),
+            cost_object_id INTEGER,
+            total_amount NUMERIC(16,4) DEFAULT 0,
+            tax_amount NUMERIC(16,4) DEFAULT 0,
+            amount_with_tax NUMERIC(16,4) DEFAULT 0,
+            shipped_amount NUMERIC(16,4) DEFAULT 0,
+            status VARCHAR(50),
+            row_version INTEGER DEFAULT 1,
+            created_by INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            remark TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS sales_order_items (
+            id SERIAL PRIMARY KEY,
+            order_id INTEGER,
+            product_id INTEGER,
+            quantity NUMERIC(16,4) DEFAULT 0,
+            shipped_qty NUMERIC(16,4) DEFAULT 0,
+            unit_price NUMERIC(16,4) DEFAULT 0,
+            amount NUMERIC(16,4) DEFAULT 0,
+            tax_rate NUMERIC(8,4) DEFAULT 0,
+            tax_amount NUMERIC(16,4) DEFAULT 0,
+            amount_with_tax NUMERIC(16,4) DEFAULT 0,
+            lot_no VARCHAR(120),
+            material_code VARCHAR(120),
+            material_name VARCHAR(255),
+            material_spec VARCHAR(255),
+            material_unit VARCHAR(80),
+            source_line_no VARCHAR(80),
+            line_project_code VARCHAR(120),
+            line_cabinet_no VARCHAR(120)
+        );
+
+        CREATE TABLE IF NOT EXISTS purchase_orders (
+            id SERIAL PRIMARY KEY,
+            order_no VARCHAR(200),
+            supplier_id INTEGER,
+            order_date DATE,
+            expected_date DATE,
+            warehouse_id INTEGER,
+            project_code VARCHAR(120),
+            cabinet_no VARCHAR(120),
+            cost_object_id INTEGER,
+            total_amount NUMERIC(16,4) DEFAULT 0,
+            tax_amount NUMERIC(16,4) DEFAULT 0,
+            amount_with_tax NUMERIC(16,4) DEFAULT 0,
+            received_amount NUMERIC(16,4) DEFAULT 0,
+            status VARCHAR(50),
+            row_version INTEGER DEFAULT 1,
+            created_by INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            remark TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS purchase_order_items (
+            id SERIAL PRIMARY KEY,
+            order_id INTEGER,
+            product_id INTEGER,
+            quantity NUMERIC(16,4) DEFAULT 0,
+            received_qty NUMERIC(16,4) DEFAULT 0,
+            unit_price NUMERIC(16,4) DEFAULT 0,
+            amount NUMERIC(16,4) DEFAULT 0,
+            tax_rate NUMERIC(8,4) DEFAULT 0,
+            tax_amount NUMERIC(16,4) DEFAULT 0,
+            amount_with_tax NUMERIC(16,4) DEFAULT 0,
+            expected_date DATE,
+            lot_no VARCHAR(120),
+            material_code VARCHAR(120),
+            material_name VARCHAR(255),
+            material_spec VARCHAR(255),
+            material_unit VARCHAR(80),
+            source_line_no VARCHAR(80),
+            source_supplier_id INTEGER,
+            line_project_code VARCHAR(120),
+            line_cabinet_no VARCHAR(120),
+            remark TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS purchase_requisitions (
+            id SERIAL PRIMARY KEY,
+            req_no VARCHAR(200),
+            requester_id INTEGER,
+            applicant VARCHAR(120),
+            department VARCHAR(120),
+            req_date DATE,
+            project_code VARCHAR(120),
+            cabinet_no VARCHAR(120),
+            purpose VARCHAR(500),
+            urgency VARCHAR(30) DEFAULT 'normal',
+            approval_status VARCHAR(30) DEFAULT 'approved',
+            status VARCHAR(50),
+            remark TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS purchase_requisition_items (
+            id SERIAL PRIMARY KEY,
+            req_id INTEGER,
+            product_id INTEGER,
+            quantity NUMERIC(16,4) DEFAULT 0,
+            unit_price NUMERIC(16,4) DEFAULT 0,
+            amount NUMERIC(16,4) DEFAULT 0,
+            need_date DATE,
+            warehouse_id INTEGER,
+            location_id INTEGER,
+            lot_no VARCHAR(120),
+            project_code VARCHAR(120),
+            cabinet_no VARCHAR(120),
+            material_code VARCHAR(120),
+            material_name VARCHAR(255),
+            material_spec VARCHAR(255),
+            material_unit VARCHAR(80),
+            suggested_supplier_id INTEGER,
+            source_line_no VARCHAR(80),
+            remark TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS purchase_receipts (
+            id SERIAL PRIMARY KEY,
+            receipt_no VARCHAR(200),
+            order_id INTEGER,
+            supplier_id INTEGER,
+            warehouse_id INTEGER,
+            operator_id INTEGER,
+            receipt_date DATE,
+            project_code VARCHAR(120),
+            cabinet_no VARCHAR(120),
+            cost_object_id INTEGER,
+            status VARCHAR(50),
+            remark TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS purchase_receipt_items (
+            id SERIAL PRIMARY KEY,
+            receipt_id INTEGER,
+            order_item_id INTEGER,
+            product_id INTEGER,
+            quantity NUMERIC(16,4) DEFAULT 0,
+            unit_cost NUMERIC(16,4) DEFAULT 0,
+            tax_rate NUMERIC(8,4) DEFAULT 0,
+            tax_amount NUMERIC(16,4) DEFAULT 0,
+            amount_with_tax NUMERIC(16,4) DEFAULT 0,
+            lot_no VARCHAR(120),
+            warehouse_id INTEGER,
+            location_id INTEGER,
+            source_supplier_id INTEGER,
+            supplier_item_code_snapshot VARCHAR(200),
+            lead_time_days_snapshot NUMERIC(10,2),
+            price_source VARCHAR(80),
+            price_source_label VARCHAR(200)
+        );
+
+        CREATE TABLE IF NOT EXISTS stock_transactions (
+            id SERIAL PRIMARY KEY,
+            transaction_type VARCHAR(80),
+            transaction_date DATE,
+            product_id INTEGER,
+            warehouse_id INTEGER,
+            location_id INTEGER,
+            location VARCHAR(200),
+            quantity NUMERIC(16,4) DEFAULT 0,
+            available_qty NUMERIC(14,3) DEFAULT 0,
+            unit_cost NUMERIC(16,4) DEFAULT 0,
+            amount NUMERIC(14,2) DEFAULT 0,
+            lot_no VARCHAR(120),
+            project_code VARCHAR(120),
+            cabinet_no VARCHAR(120),
+            reference_no VARCHAR(200),
+            source_type VARCHAR(80),
+            source_doc_type VARCHAR(80),
+            source_doc_id INTEGER,
+            source_doc_no VARCHAR(120),
+            source_line_no VARCHAR(80),
+            material_code VARCHAR(120),
+            material_name VARCHAR(255),
+            material_spec VARCHAR(255),
+            material_unit VARCHAR(80),
+            spec VARCHAR(255),
+            unit VARCHAR(80),
+            usage_reason TEXT,
+            remark TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS inventory_balances (
+            id SERIAL PRIMARY KEY,
+            product_id INTEGER,
+            warehouse_id INTEGER,
+            location_id INTEGER,
+            lot_no VARCHAR(120),
+            quantity NUMERIC(16,4) DEFAULT 0,
+            locked_qty NUMERIC(16,4) DEFAULT 0,
+            unit_cost NUMERIC(16,4) DEFAULT 0,
+            project_code VARCHAR(120),
+            cabinet_no VARCHAR(120),
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS inventory_adjustments (
+            id SERIAL PRIMARY KEY,
+            adj_no VARCHAR(200),
+            adj_type VARCHAR(80),
+            adj_date DATE,
+            warehouse_id INTEGER,
+            location_id INTEGER,
+            product_id INTEGER,
+            order_id INTEGER,
+            quantity NUMERIC(16,4) DEFAULT 0,
+            diff_quantity NUMERIC(16,4) DEFAULT 0,
+            unit_cost NUMERIC(16,4) DEFAULT 0,
+            amount NUMERIC(16,4) DEFAULT 0,
+            lot_no VARCHAR(120),
+            project_code VARCHAR(120),
+            cabinet_no VARCHAR(120),
+            line_project_code VARCHAR(120),
+            reference_no VARCHAR(200),
+            material_code VARCHAR(120),
+            material_name VARCHAR(255),
+            material_spec VARCHAR(255),
+            material_unit VARCHAR(80),
+            source_line_no VARCHAR(80),
+            status VARCHAR(50),
+            remark TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS transfer_orders (
+            id SERIAL PRIMARY KEY,
+            transfer_no VARCHAR(200),
+            transfer_date DATE,
+            from_warehouse_id INTEGER,
+            to_warehouse_id INTEGER,
+            from_location_id INTEGER,
+            to_location_id INTEGER,
+            project_code VARCHAR(120),
+            status VARCHAR(50),
+            approval_status VARCHAR(20) DEFAULT 'not_required',
+            created_by VARCHAR(200),
+            completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            remark TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS inventory_check_orders (
+            id SERIAL PRIMARY KEY,
+            check_no VARCHAR(200),
+            check_date DATE,
+            warehouse_id INTEGER,
+            warehouse_name VARCHAR(200),
+            location_id INTEGER,
+            project_code VARCHAR(120),
+            status VARCHAR(50),
+            posted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            posted_by VARCHAR(200),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            created_by VARCHAR(200),
+            remark TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS work_orders (
+            id SERIAL PRIMARY KEY,
+            wo_no VARCHAR(200),
+            wo_date DATE,
+            product_id INTEGER,
+            bom_id INTEGER,
+            quantity NUMERIC(16,4) DEFAULT 0,
+            unit_cost NUMERIC(14,4) DEFAULT 0,
+            amount NUMERIC(14,2) DEFAULT 0,
+            warehouse_id INTEGER,
+            location_id INTEGER,
+            planned_start_date DATE,
+            planned_end_date DATE,
+            project_code VARCHAR(120),
+            cabinet_no VARCHAR(120),
+            cost_object_id INTEGER,
+            line_project_code VARCHAR(120),
+            line_cabinet_no VARCHAR(120),
+            lot_no VARCHAR(120),
+            production_stage VARCHAR(50) DEFAULT '创建',
+            production_type VARCHAR(80),
+            priority VARCHAR(50) DEFAULT '普通',
+            responsible_person VARCHAR(120),
+            owner_role VARCHAR(80),
+            status VARCHAR(50),
+            status_changed_at TIMESTAMP,
+            status_changed_by INTEGER,
+            row_version INTEGER DEFAULT 1,
+            operation_wip_qty NUMERIC(14,4) DEFAULT 0,
+            operation_completed_qty NUMERIC(14,4) DEFAULT 0,
+            operation_rework_qty NUMERIC(14,4) DEFAULT 0,
+            operation_scrap_qty NUMERIC(14,4) DEFAULT 0,
+            blocked_reason TEXT,
+            downstream_impact TEXT,
+            material_code VARCHAR(120),
+            material_name VARCHAR(255),
+            material_spec VARCHAR(255),
+            material_unit VARCHAR(80),
+            source_line_no VARCHAR(80),
+            remark TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS sales_shipments (
+            id SERIAL PRIMARY KEY,
+            shipment_no VARCHAR(200),
+            shipment_date DATE,
+            order_id INTEGER,
+            customer_id INTEGER,
+            warehouse_id INTEGER,
+            operator_id INTEGER,
+            project_code VARCHAR(200),
+            cabinet_no VARCHAR(200),
+            cost_object_id INTEGER,
+            source_type VARCHAR(80) DEFAULT 'sales_order',
+            source_no VARCHAR(120),
+            shipped_amount NUMERIC(14,2) DEFAULT 0,
+            amount_with_tax NUMERIC(14,2) DEFAULT 0,
+            tax_amount NUMERIC(14,2) DEFAULT 0,
+            logistics_provider VARCHAR(160),
+            logistics_no VARCHAR(160),
+            receiver_name VARCHAR(160),
+            receiver_phone VARCHAR(80),
+            delivery_address TEXT,
+            signoff_status VARCHAR(80) DEFAULT '未签收',
+            inventory_posted BOOLEAN DEFAULT FALSE,
+            status VARCHAR(50),
+            remark TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS sales_shipment_items (
+            id SERIAL PRIMARY KEY,
+            shipment_id INTEGER,
+            order_item_id INTEGER,
+            product_id INTEGER,
+            quantity NUMERIC(16,4) DEFAULT 0,
+            unit_price NUMERIC(16,4) DEFAULT 0,
+            unit_cost NUMERIC(16,4) DEFAULT 0,
+            amount NUMERIC(14,2) DEFAULT 0,
+            cost_amount NUMERIC(14,2) DEFAULT 0,
+            tax_rate NUMERIC(8,4) DEFAULT 0,
+            tax_amount NUMERIC(14,2) DEFAULT 0,
+            amount_with_tax NUMERIC(14,2) DEFAULT 0,
+            lot_no VARCHAR(120),
+            warehouse_id INTEGER,
+            location_id INTEGER
+        );
+
+        CREATE TABLE IF NOT EXISTS customer_receivables (
+            id SERIAL PRIMARY KEY,
+            receivable_no VARCHAR(80),
+            customer_id INTEGER,
+            receivable_date DATE,
+            due_date DATE,
+            invoice_no VARCHAR(120),
+            invoice_date DATE,
+            invoice_id INTEGER,
+            source_type VARCHAR(80),
+            source_id INTEGER,
+            source_no VARCHAR(200),
+            project_code VARCHAR(120),
+            cabinet_no VARCHAR(120),
+            cost_object_id INTEGER,
+            amount NUMERIC(15,2) DEFAULT 0,
+            total_amount NUMERIC(16,4) DEFAULT 0,
+            expected_amount NUMERIC(14,2) DEFAULT 0,
+            confirmed_amount NUMERIC(14,2) DEFAULT 0,
+            received_amount NUMERIC(16,4) DEFAULT 0,
+            balance NUMERIC(16,4) DEFAULT 0,
+            status VARCHAR(50),
+            created_by INTEGER,
+            updated_by INTEGER,
+            remark TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS supplier_payables (
+            id SERIAL PRIMARY KEY,
+            payable_no VARCHAR(80),
+            supplier_id INTEGER,
+            doc_type VARCHAR(80),
+            doc_id INTEGER,
+            doc_no VARCHAR(120),
+            doc_date DATE,
+            due_date DATE,
+            next_follow_up_date DATE,
+            invoice_no VARCHAR(120),
+            invoice_date DATE,
+            invoice_id INTEGER,
+            source_type VARCHAR(80),
+            source_id INTEGER,
+            source_no VARCHAR(120),
+            project_code VARCHAR(120),
+            cabinet_no VARCHAR(120),
+            cost_object_id INTEGER,
+            amount NUMERIC(14,2) DEFAULT 0,
+            expected_amount NUMERIC(14,2) DEFAULT 0,
+            confirmed_amount NUMERIC(14,2) DEFAULT 0,
+            variance_amount NUMERIC(14,2) DEFAULT 0,
+            paid_amount NUMERIC(14,2) DEFAULT 0,
+            balance NUMERIC(14,2) DEFAULT 0,
+            status VARCHAR(50),
+            finance_remark TEXT,
+            created_by INTEGER,
+            updated_by INTEGER,
+            remark TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS subcontract_orders (
+            id SERIAL PRIMARY KEY,
+            order_no VARCHAR(80) UNIQUE,
+            product_id INTEGER,
+            quantity NUMERIC(14,3) DEFAULT 0,
+            unit_price NUMERIC(14,4) DEFAULT 0,
+            supplier_id INTEGER,
+            wo_id INTEGER,
+            sales_order_id INTEGER,
+            status VARCHAR(50) DEFAULT 'pending',
+            total_quantity NUMERIC(14,3) DEFAULT 0,
+            total_scrap NUMERIC(14,3) DEFAULT 0,
+            cost_object_id INTEGER,
+            operator_id INTEGER,
+            remark TEXT,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS subcontract_items (
+            id SERIAL PRIMARY KEY,
+            order_id INTEGER,
+            product_id INTEGER,
+            required_quantity NUMERIC(14,4) DEFAULT 0,
+            unit_price NUMERIC(14,4) DEFAULT 0,
+            amount NUMERIC(15,2) DEFAULT 0,
+            sequence INTEGER,
+            process_name VARCHAR(255),
+            warehouse VARCHAR(120),
+            location VARCHAR(120),
+            lot_no VARCHAR(120),
+            source_line_no VARCHAR(80),
+            line_project_code VARCHAR(120),
+            line_cabinet_no VARCHAR(120),
+            material_code VARCHAR(120),
+            material_name VARCHAR(255),
+            material_spec VARCHAR(255),
+            material_unit VARCHAR(80),
+            remark TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS subcontract_issue_orders (
+            id SERIAL PRIMARY KEY,
+            issue_no VARCHAR(80) UNIQUE,
+            order_id INTEGER,
+            warehouse_id INTEGER,
+            issue_date DATE,
+            status VARCHAR(50) DEFAULT 'pending',
+            operator_id INTEGER,
+            remark TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS subcontract_receive_orders (
+            id SERIAL PRIMARY KEY,
+            receive_no VARCHAR(80) UNIQUE,
+            order_id INTEGER,
+            warehouse_id INTEGER,
+            receive_date DATE,
+            status VARCHAR(50) DEFAULT 'pending',
+            operator_id INTEGER,
+            remark TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS inventory_assembly_orders (
+            id SERIAL PRIMARY KEY,
+            assembly_no VARCHAR(200),
+            assembly_date DATE,
+            warehouse_id INTEGER,
+            product_id INTEGER,
+            quantity NUMERIC(16,4) DEFAULT 0,
+            project_code VARCHAR(120),
+            cabinet_no VARCHAR(120),
+            wo_id INTEGER,
+            status VARCHAR(50),
+            operator_id INTEGER,
+            remark TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS service_cards (
+            id SERIAL PRIMARY KEY,
+            card_no VARCHAR(200),
+            customer_id INTEGER,
+            sales_order_id INTEGER,
+            cabinet_no VARCHAR(120),
+            project_code VARCHAR(120),
+            service_type VARCHAR(80),
+            service_date DATE,
+            status VARCHAR(50),
+            remark TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        -- Tables that are ALTERed by later migrations before their own CREATE TABLE
+        CREATE TABLE IF NOT EXISTS inventory_check_order_items (
+            id SERIAL PRIMARY KEY,
+            check_id INTEGER,
+            product_id INTEGER,
+            book_qty NUMERIC(14,3) DEFAULT 0,
+            actual_qty NUMERIC(14,3) DEFAULT 0,
+            diff_qty NUMERIC(14,3) DEFAULT 0,
+            lot_no VARCHAR(100),
+            cabinet_no VARCHAR(100),
+            unit_cost NUMERIC(14,2) DEFAULT 0,
+            amount NUMERIC(14,2) DEFAULT 0
+        );
+
+        CREATE TABLE IF NOT EXISTS customer_receipts (
+            id SERIAL PRIMARY KEY,
+            receipt_no VARCHAR(200),
+            receipt_date DATE,
+            customer_id INTEGER,
+            amount NUMERIC(16,4) DEFAULT 0,
+            unapplied_amount NUMERIC(16,4) DEFAULT 0,
+            payment_method VARCHAR(80),
+            bank_account VARCHAR(200),
+            source_type VARCHAR(80),
+            source_id INTEGER,
+            source_no VARCHAR(200),
+            receivable_id INTEGER,
+            cost_object_id INTEGER,
+            project_code VARCHAR(120),
+            cabinet_no VARCHAR(120),
+            receipt_kind VARCHAR(80),
+            fund_direction VARCHAR(20),
+            status VARCHAR(50),
+            created_by INTEGER,
+            remark TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS sales_invoices (
+            id SERIAL PRIMARY KEY,
+            invoice_no VARCHAR(200),
+            invoice_date DATE,
+            customer_id INTEGER,
+            invoice_type VARCHAR(80),
+            total_amount NUMERIC(16,4) DEFAULT 0,
+            amount NUMERIC(16,4) DEFAULT 0,
+            tax_amount NUMERIC(16,4) DEFAULT 0,
+            status VARCHAR(50),
+            project_code VARCHAR(120),
+            cabinet_no VARCHAR(120),
+            source_type VARCHAR(80),
+            source_id INTEGER,
+            source_no VARCHAR(120),
+            receivable_id INTEGER,
+            created_by INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS sales_returns (
+            id SERIAL PRIMARY KEY,
+            return_no VARCHAR(200),
+            return_date DATE,
+            customer_id INTEGER,
+            order_id INTEGER,
+            shipment_id INTEGER,
+            warehouse_id INTEGER,
+            project_code VARCHAR(120),
+            cabinet_no VARCHAR(120),
+            source_no VARCHAR(120),
+            quantity NUMERIC(16,4) DEFAULT 0,
+            unit_price NUMERIC(16,4) DEFAULT 0,
+            tax_rate NUMERIC(8,4) DEFAULT 0,
+            total_amount NUMERIC(16,4) DEFAULT 0,
+            amount_with_tax NUMERIC(14,2) DEFAULT 0,
+            status VARCHAR(50),
+            remark TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS quotation_headers (
+            id SERIAL PRIMARY KEY,
+            quote_no VARCHAR(200),
+            quote_date DATE,
+            customer_id INTEGER,
+            valid_until DATE,
+            status VARCHAR(50),
+            project_code VARCHAR(120),
+            cabinet_no VARCHAR(120),
+            source_no VARCHAR(120),
+            machine_type VARCHAR(160),
+            total_amount NUMERIC(16,4) DEFAULT 0,
+            tax_amount NUMERIC(16,4) DEFAULT 0,
+            amount_with_tax NUMERIC(16,4) DEFAULT 0,
+            created_by INTEGER,
+            remark TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS batch_tracking (
+            id SERIAL PRIMARY KEY,
+            lot_no VARCHAR(200),
+            product_id INTEGER,
+            warehouse_id INTEGER,
+            location_id INTEGER,
+            cabinet_no VARCHAR(120),
+            project_code VARCHAR(120),
+            quantity_in NUMERIC(16,4) DEFAULT 0,
+            quantity_out NUMERIC(16,4) DEFAULT 0,
+            quantity_available NUMERIC(16,4) DEFAULT 0,
+            unit_cost NUMERIC(16,4) DEFAULT 0,
+            source_order_no VARCHAR(200),
+            status VARCHAR(50),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS wo_material_items (
+            id SERIAL PRIMARY KEY,
+            wo_id INTEGER,
+            product_id INTEGER,
+            required_qty NUMERIC(16,4) DEFAULT 0,
+            issued_qty NUMERIC(16,4) DEFAULT 0,
+            returned_qty NUMERIC(16,4) DEFAULT 0,
+            unit_cost NUMERIC(16,4) DEFAULT 0,
+            amount NUMERIC(14,2) DEFAULT 0,
+            warehouse_id INTEGER,
+            location_id INTEGER,
+            lot_no VARCHAR(120),
+            source_line_no VARCHAR(80),
+            line_project_code VARCHAR(120),
+            line_cabinet_no VARCHAR(120),
+            material_code VARCHAR(120),
+            material_name VARCHAR(255),
+            material_spec VARCHAR(255),
+            material_unit VARCHAR(80),
+            remark TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS machine_service_cards (
+            id SERIAL PRIMARY KEY,
+            card_no VARCHAR(200),
+            sales_order_id INTEGER,
+            cost_object_id INTEGER,
+            customer_id INTEGER,
+            product_id INTEGER,
+            cabinet_no VARCHAR(120),
+            project_code VARCHAR(120),
+            machine_model VARCHAR(160),
+            install_date DATE,
+            installation_date DATE,
+            install_address TEXT,
+            warranty_policy VARCHAR(160),
+            status VARCHAR(50) DEFAULT '待安装',
+            remark TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS machine_service_orders (
+            id SERIAL PRIMARY KEY,
+            order_no VARCHAR(200),
+            service_card_id INTEGER,
+            customer_id INTEGER,
+            sales_order_id INTEGER,
+            cost_object_id INTEGER,
+            project_code VARCHAR(120),
+            cabinet_no VARCHAR(120),
+            order_date DATE,
+            status VARCHAR(50),
+            fault_summary TEXT,
+            diagnosis TEXT,
+            remark TEXT,
+            created_by INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS machine_service_order_items (
+            id SERIAL PRIMARY KEY,
+            order_id INTEGER,
+            product_id INTEGER,
+            quantity NUMERIC(16,4) DEFAULT 0,
+            unit_cost NUMERIC(16,4) DEFAULT 0,
+            amount NUMERIC(14,2) DEFAULT 0,
+            warehouse_id INTEGER,
+            location_id INTEGER,
+            lot_no VARCHAR(120),
+            cabinet_no VARCHAR(120),
+            project_code VARCHAR(120),
+            source_line_no VARCHAR(80),
+            material_code VARCHAR(120),
+            material_name VARCHAR(255),
+            material_spec VARCHAR(255),
+            material_unit VARCHAR(80),
+            spec VARCHAR(255),
+            unit VARCHAR(80),
+            remark TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS machine_service_rmas (
+            id SERIAL PRIMARY KEY,
+            rma_no VARCHAR(200),
+            order_id INTEGER,
+            service_card_id INTEGER,
+            wo_id INTEGER,
+            rma_date DATE,
+            warranty_scope VARCHAR(120),
+            responsibility_type VARCHAR(80),
+            return_factory_required VARCHAR(20),
+            status VARCHAR(50),
+            internal_claim_amount NUMERIC(16,4) DEFAULT 0,
+            supplier_claim_amount NUMERIC(16,4) DEFAULT 0,
+            supplier_recovered_amount NUMERIC(16,4) DEFAULT 0,
+            claim_status VARCHAR(50),
+            claim_note TEXT,
+            fault_summary TEXT,
+            diagnosis TEXT,
+            sales_order_id INTEGER,
+            cost_object_id INTEGER,
+            project_code VARCHAR(120),
+            cabinet_no VARCHAR(120),
+            product_id INTEGER,
+            quantity NUMERIC(14,3) DEFAULT 0,
+            unit_cost NUMERIC(14,2) DEFAULT 0,
+            amount NUMERIC(14,2) DEFAULT 0,
+            warehouse_id INTEGER,
+            location_id INTEGER,
+            lot_no VARCHAR(120),
+            material_code VARCHAR(120),
+            material_name VARCHAR(255),
+            material_spec VARCHAR(255),
+            material_unit VARCHAR(80),
+            source_line_no VARCHAR(80),
+            line_project_code VARCHAR(120),
+            line_cabinet_no VARCHAR(120),
+            created_by INTEGER,
+            remark TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS machine_service_return_visits (
+            id SERIAL PRIMARY KEY,
+            visit_no VARCHAR(200),
+            order_id INTEGER,
+            wo_id INTEGER,
+            service_card_id INTEGER,
+            visit_date DATE,
+            satisfaction VARCHAR(80),
+            satisfaction_score NUMERIC(3,1),
+            result TEXT,
+            next_action TEXT,
+            sales_order_id INTEGER,
+            cost_object_id INTEGER,
+            project_code VARCHAR(120),
+            cabinet_no VARCHAR(120),
+            created_by INTEGER,
+            remark TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS operation_logs (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER,
+            username VARCHAR(80),
+            action VARCHAR(200),
+            target VARCHAR(500),
+            remark TEXT,
+            request_path VARCHAR(500),
+            request_method VARCHAR(20),
+            remote_addr VARCHAR(80),
+            user_agent TEXT,
+            trace_id VARCHAR(80),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            username VARCHAR(80) UNIQUE NOT NULL,
+            password_hash VARCHAR(255) NOT NULL,
+            full_name VARCHAR(120),
+            role VARCHAR(50) DEFAULT 'admin',
+            status VARCHAR(50) DEFAULT 'normal',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS supplier_payments (
+            id SERIAL PRIMARY KEY,
+            payment_no VARCHAR(120),
+            payment_date DATE DEFAULT CURRENT_DATE,
+            supplier_id INTEGER,
+            amount NUMERIC(14,2) DEFAULT 0,
+            unapplied_amount NUMERIC(14,2) DEFAULT 0,
+            payment_method VARCHAR(120),
+            bank_account VARCHAR(255),
+            source_type VARCHAR(80),
+            source_id INTEGER,
+            source_no VARCHAR(120),
+            payable_id INTEGER,
+            cost_object_id INTEGER,
+            project_code VARCHAR(120),
+            cabinet_no VARCHAR(120),
+            payment_kind VARCHAR(80) DEFAULT 'supplier_payment',
+            fund_direction VARCHAR(20) DEFAULT 'out',
+            settled_amount NUMERIC(15,2) DEFAULT 0,
+            status VARCHAR(80) DEFAULT '已确认',
+            operator_id INTEGER,
+            created_by INTEGER,
+            remark TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS supplier_payment_settlements (
+            id SERIAL PRIMARY KEY,
+            payment_id INTEGER NOT NULL,
+            payable_id INTEGER NOT NULL,
+            applied_amount NUMERIC(14,2) NOT NULL DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS customer_receipt_settlements (
+            id SERIAL PRIMARY KEY,
+            receipt_id INTEGER NOT NULL,
+            receivable_id INTEGER NOT NULL,
+            applied_amount NUMERIC(14,2) NOT NULL DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS machine_service_order_checklists (
+            id SERIAL PRIMARY KEY,
+            order_id INTEGER,
+            wo_id INTEGER,
+            service_card_id INTEGER,
+            check_item VARCHAR(200),
+            result VARCHAR(80),
+            remark TEXT,
+            created_by INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS machine_service_acceptance_checks (
+            id SERIAL PRIMARY KEY,
+            acceptance_no VARCHAR(200),
+            service_card_id INTEGER,
+            wo_id INTEGER,
+            check_date DATE,
+            checklist_type VARCHAR(80),
+            item_name VARCHAR(200),
+            result VARCHAR(80),
+            sales_order_id INTEGER,
+            cost_object_id INTEGER,
+            project_code VARCHAR(120),
+            cabinet_no VARCHAR(120),
+            customer_acceptance_by VARCHAR(120),
+            customer_acceptance_date DATE,
+            corrective_action TEXT,
+            owner VARCHAR(120),
+            blocked_reason TEXT,
+            next_action VARCHAR(240),
+            downstream_impact TEXT,
+            created_by INTEGER,
+            remark TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS work_order_processes (
+            id SERIAL PRIMARY KEY,
+            work_order_id INTEGER,
+            process_operation_id INTEGER,
+            routing_operation_id INTEGER,
+            sequence_no INTEGER,
+            operation_no VARCHAR(80),
+            operation_name VARCHAR(160),
+            work_center_id INTEGER,
+            planned_quantity NUMERIC(14,4) DEFAULT 0,
+            actual_quantity NUMERIC(14,4) DEFAULT 0,
+            good_quantity NUMERIC(14,4) DEFAULT 0,
+            rework_quantity NUMERIC(14,4) DEFAULT 0,
+            scrap_quantity NUMERIC(14,4) DEFAULT 0,
+            wip_quantity NUMERIC(14,4) DEFAULT 0,
+            labor_hours NUMERIC(14,2) DEFAULT 0,
+            equipment_hours NUMERIC(14,2) DEFAULT 0,
+            status VARCHAR(80),
+            qc_status VARCHAR(80),
+            owner_role VARCHAR(120),
+            blocked_reason TEXT,
+            next_action TEXT,
+            downstream_impact TEXT,
+            started_at TIMESTAMP,
+            completed_at TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS routing_operations (
+            id SERIAL PRIMARY KEY,
+            routing_id INTEGER,
+            sequence INTEGER,
+            operation_no VARCHAR(80),
+            operation_name VARCHAR(160),
+            work_center_id INTEGER,
+            is_active BOOLEAN DEFAULT TRUE,
+            process_note TEXT,
+            quality_note TEXT,
+            setup_time NUMERIC(14,2) DEFAULT 0,
+            run_time NUMERIC(14,2) DEFAULT 0,
+            standard_labor_hours NUMERIC(14,2) DEFAULT 0,
+            standard_equipment_hours NUMERIC(14,2) DEFAULT 0,
+            status VARCHAR(50) DEFAULT '启用',
+            remark TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS routings (
+            id SERIAL PRIMARY KEY,
+            routing_no VARCHAR(200),
+            product_id INTEGER,
+            version VARCHAR(40),
+            effective_date DATE,
+            expiry_date DATE,
+            status VARCHAR(50) DEFAULT '启用',
+            remark TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS production_routings (
+            id SERIAL PRIMARY KEY,
+            routing_no VARCHAR(120) UNIQUE,
+            name VARCHAR(200),
+            product_id INTEGER,
+            revision VARCHAR(40),
+            status VARCHAR(40),
+            is_active BOOLEAN DEFAULT TRUE,
+            remark TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS operation_reports (
+            id SERIAL PRIMARY KEY,
+            report_no VARCHAR(200),
+            work_order_id INTEGER,
+            work_order_process_id INTEGER,
+            routing_operation_id INTEGER,
+            report_type VARCHAR(80),
+            report_date DATE,
+            status VARCHAR(80),
+            operator_id INTEGER,
+            work_center_id INTEGER,
+            start_time TIMESTAMP,
+            end_time TIMESTAMP,
+            labor_hours NUMERIC(14,2) DEFAULT 0,
+            equipment_hours NUMERIC(14,2) DEFAULT 0,
+            good_qty NUMERIC(14,4) DEFAULT 0,
+            rework_qty NUMERIC(14,4) DEFAULT 0,
+            scrap_qty NUMERIC(14,4) DEFAULT 0,
+            blocked_reason TEXT,
+            next_action TEXT,
+            downstream_impact TEXT,
+            project_code VARCHAR(120),
+            cabinet_no VARCHAR(120),
+            remark TEXT,
+            submitted_by INTEGER,
+            submitted_at TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS production_schedules (
+            id SERIAL PRIMARY KEY,
+            schedule_no VARCHAR(200),
+            work_order_id INTEGER,
+            work_order_process_id INTEGER,
+            product_id INTEGER,
+            planned_quantity NUMERIC(14,4) DEFAULT 0,
+            scheduled_start TIMESTAMP,
+            scheduled_end TIMESTAMP,
+            status VARCHAR(80),
+            operator_id INTEGER,
+            remark TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS work_centers (
+            id SERIAL PRIMARY KEY,
+            code VARCHAR(80) UNIQUE,
+            name VARCHAR(160),
+            description TEXT,
+            location VARCHAR(200),
+            responsible_person VARCHAR(120),
+            is_active BOOLEAN DEFAULT TRUE,
+            workshop VARCHAR(160),
+            capacity NUMERIC(14,3) DEFAULT 0,
+            status VARCHAR(50) DEFAULT '启用',
+            remark TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS cabinet_masters (
+            id SERIAL PRIMARY KEY,
+            cabinet_no VARCHAR(120),
+            project_id INTEGER,
+            project_code VARCHAR(120),
+            customer_id INTEGER,
+            product_id INTEGER,
+            product_family VARCHAR(160),
+            machine_model VARCHAR(160),
+            production_stage VARCHAR(80) DEFAULT '准备',
+            service_status VARCHAR(80) DEFAULT '未安装',
+            warranty_start_date DATE,
+            warranty_end_date DATE,
+            status VARCHAR(80) DEFAULT '启用',
+            remark TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS project_masters (
+            id SERIAL PRIMARY KEY,
+            project_code VARCHAR(120),
+            project_name VARCHAR(200),
+            customer_id INTEGER,
+            project_type VARCHAR(80),
+            start_date DATE,
+            end_date DATE,
+            status VARCHAR(50) DEFAULT '启用',
+            remark TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS machine_service_dispatches (
+            id SERIAL PRIMARY KEY,
+            dispatch_no VARCHAR(200),
+            project_id INTEGER,
+            order_id INTEGER,
+            wo_id INTEGER,
+            service_card_id INTEGER,
+            dispatch_date DATE,
+            planned_service_date DATE,
+            assigned_employee_id INTEGER,
+            support_employee_id INTEGER,
+            status VARCHAR(80),
+            work_hours NUMERIC(14,2) DEFAULT 0,
+            travel_hours NUMERIC(14,2) DEFAULT 0,
+            labor_amount NUMERIC(14,2) DEFAULT 0,
+            travel_amount NUMERIC(14,2) DEFAULT 0,
+            task_summary TEXT,
+            owner VARCHAR(120),
+            blocked_reason TEXT,
+            next_action VARCHAR(240),
+            downstream_impact TEXT,
+            remark TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS system_options (
+            id SERIAL PRIMARY KEY,
+            option_key VARCHAR(120),
+            option_value TEXT,
+            key VARCHAR(120),
+            value TEXT,
+            remark TEXT,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS wo_complete_items (
+            id SERIAL PRIMARY KEY,
+            wo_id INTEGER,
+            complete_date DATE,
+            qty NUMERIC(14,4) DEFAULT 0,
+            lot_no VARCHAR(120),
+            unit_cost NUMERIC(14,4) DEFAULT 0,
+            product_id INTEGER,
+            cabinet_no VARCHAR(120),
+            warehouse_id INTEGER,
+            location_id INTEGER,
+            source_doc_type VARCHAR(80),
+            source_doc_no VARCHAR(120),
+            reverse_posted BOOLEAN DEFAULT FALSE,
+            reverse_posted_at TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """,
+    ),
+    (
         "20260520_001_login_attempts",
         """
         CREATE TABLE IF NOT EXISTS login_attempts (
@@ -3323,6 +4630,8 @@ MIGRATIONS = [
         """
         ALTER TABLE sales_invoice_items ADD COLUMN IF NOT EXISTS total_amount NUMERIC(15, 2) DEFAULT 0;
         ALTER TABLE purchase_invoice_items ADD COLUMN IF NOT EXISTS total_amount NUMERIC(15, 2) DEFAULT 0;
+        ALTER TABLE sales_invoice_items ADD COLUMN IF NOT EXISTS amount_with_tax NUMERIC(15, 2) DEFAULT 0;
+        ALTER TABLE purchase_invoice_items ADD COLUMN IF NOT EXISTS amount_with_tax NUMERIC(15, 2) DEFAULT 0;
 
         UPDATE sales_invoice_items
         SET total_amount = COALESCE(amount_with_tax, amount, quantity * unit_price, 0)
