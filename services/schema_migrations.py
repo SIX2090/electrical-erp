@@ -6903,6 +6903,23 @@ MIGRATIONS = [
         END $$;
         """,
     ),
+    (
+        "20260710_006_seed_cash_bank_accounts",
+        """
+        -- Seed a default active cash/bank account so finance receipt/payment
+        -- workflows can register cash_bank_journal_entries on fresh databases.
+        -- Idempotent: only inserts when no active account exists.
+        INSERT INTO cash_bank_accounts
+            (account_code, account_name, account_type, bank_name, bank_branch,
+             bank_account_no, currency, opening_balance, current_balance, status, remark)
+        SELECT 'BANK-DEFAULT', '默认银行账户', 'bank', '默认银行', '总行',
+               'BANK-DEFAULT', 'CNY', 0, 0, 'active',
+               'default cash/bank account seeded for finance phase1 closure'
+        WHERE NOT EXISTS (
+            SELECT 1 FROM cash_bank_accounts WHERE status='active'
+        );
+        """,
+    ),
 ]
 
 

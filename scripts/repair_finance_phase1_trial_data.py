@@ -202,7 +202,7 @@ def main():
 
             cur.execute(
                 """
-                SELECT id, invoice_no, invoice_date, COALESCE(amount_with_tax, amount, total_amount, 0) AS amount
+                SELECT id, invoice_no, invoice_date, COALESCE(amount_with_tax, amount, 0) AS amount
                 FROM purchase_invoices
                 WHERE invoice_date >= date_trunc('month', CURRENT_DATE)
                   AND invoice_date < (date_trunc('month', CURRENT_DATE) + interval '1 month')
