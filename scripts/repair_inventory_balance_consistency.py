@@ -850,6 +850,176 @@ def repair_inventory_balance_project_code(cur):
     return merged
 
 
+def repair_inventory_balance_from_stock_transactions(cur):
+    """Create missing inventory_balances rows for dimensions where stock_transactions
+    exist but no inventory_balances row exists. This fixes trial data setup scripts
+    that create stock movements without updating the authoritative balance table.
+
+    Unlike repair_stock_transactions (which is report-only), this function fixes
+    the authoritative inventory_balances table to reflect the ledger reality.
+    """
+    cur.execute(
+        """
+        WITH tx AS (
+            SELECT
+                product_id,
+                COALESCE(warehouse_id, 0) AS warehouse_id,
+                COALESCE(location_id, 0) AS location_id,
+                COALESCE(lot_no, '') AS lot_no,
+                COALESCE(cabinet_no, '') AS cabinet_no,
+                COALESCE(project_code, '') AS project_code,
+                SUM(
+                    CASE
+                        WHEN COALESCE(transaction_type,'') IN (
+                            'sales_outbound', 'outbound', 'issue', 'shipment',
+                            'subcontract_issue', 'quality_hold_transfer_out',
+                            '售后备件出库', '手工出库', '调拨出库', '销售出库',
+                            '工单领料', '工单补料', '生产领料', '组装领料', '拆卸出库'
+                        ) THEN -ABS(COALESCE(quantity,0))
+                        ELSE COALESCE(quantity,0)
+                    END
+                ) AS tx_qty,
+                CASE WHEN SUM(
+                    CASE
+                        WHEN COALESCE(transaction_type,'') IN (
+                            'sales_outbound', 'outbound', 'issue', 'shipment',
+                            'subcontract_issue', 'quality_hold_transfer_out',
+                            '售后备件出库', '手工出库', '调拨出库', '销售出库',
+                            '工单领料', '工单补料', '生产领料', '组装领料', '拆卸出库'
+                        ) THEN -ABS(COALESCE(quantity,0))
+                        ELSE COALESCE(quantity,0)
+                    END
+                ) <> 0
+                    THEN COALESCE(SUM(
+                        CASE
+                            WHEN COALESCE(transaction_type,'') IN (
+                                'sales_outbound', 'outbound', 'issue', 'shipment',
+                                'subcontract_issue', 'quality_hold_transfer_out',
+                                '售后备件出库', '手工出库', '调拨出库', '销售出库',
+                                '工单领料', '工单补料', '生产领料', '组装领料', '拆卸出库'
+                            ) THEN -ABS(COALESCE(quantity,0)) * COALESCE(unit_cost,0)
+                            ELSE COALESCE(quantity,0) * COALESCE(unit_cost,0)
+                        END
+                    ) / NULLIF(SUM(
+                        CASE
+                            WHEN COALESCE(transaction_type,'') IN (
+                                'sales_outbound', 'outbound', 'issue', 'shipment',
+                                'subcontract_issue', 'quality_hold_transfer_out',
+                                '售后备件出库', '手工出库', '调拨出库', '销售出库',
+                                '工单领料', '工单补料', '生产领料', '组装领料', '拆卸出库'
+                            ) THEN -ABS(COALESCE(quantity,0))
+                            ELSE COALESCE(quantity,0)
+                        END
+                    ), 0), 0)
+                    ELSE COALESCE(MAX(unit_cost), 0)
+                END AS tx_unit_cost
+            FROM stock_transactions
+            GROUP BY product_id, COALESCE(warehouse_id, 0), COALESCE(location_id, 0),
+                     COALESCE(lot_no, ''), COALESCE(cabinet_no, ''), COALESCE(project_code, '')
+        )
+        SELECT tx.product_id, tx.warehouse_id, tx.location_id, tx.lot_no,
+               tx.cabinet_no, tx.project_code, tx.tx_qty, tx.tx_unit_cost
+        FROM tx
+        LEFT JOIN inventory_balances ib
+          ON ib.product_id IS NOT DISTINCT FROM tx.product_id
+         AND COALESCE(ib.warehouse_id, 0) = tx.warehouse_id
+         AND COALESCE(ib.location_id, 0) = tx.location_id
+         AND COALESCE(ib.lot_no, '') = tx.lot_no
+         AND COALESCE(ib.cabinet_no, '') = tx.cabinet_no
+         AND COALESCE(ib.project_code, '') = tx.project_code
+        WHERE ib.id IS NULL
+          AND ABS(tx.tx_qty) > %s
+        """,
+        (QTY_TOLERANCE,),
+    )
+    missing_rows = cur.fetchall()
+    inserted = 0
+    for row in missing_rows:
+        wh_id = row["warehouse_id"] if row["warehouse_id"] else None
+        loc_id = row["location_id"] if row["location_id"] else None
+        cur.execute(
+            """
+            INSERT INTO inventory_balances
+                (product_id, warehouse_id, location_id, lot_no, cabinet_no,
+                 project_code, quantity, locked_qty, unit_cost, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, 0, %s, NOW())
+            """,
+            (
+                row["product_id"],
+                wh_id,
+                loc_id,
+                row["lot_no"] if row["lot_no"] else None,
+                row["cabinet_no"] if row["cabinet_no"] else None,
+                row["project_code"] if row["project_code"] else None,
+                row["tx_qty"],
+                row["tx_unit_cost"],
+            ),
+        )
+        inserted += 1
+    return inserted
+
+
+def repair_inventory_balance_qty_sync(cur):
+    """Update existing inventory_balances rows where quantity doesn't match
+    the stock_transaction ledger sum. Only updates rows where the absolute
+    difference exceeds the tolerance. Backs up before/after to the audit table.
+    """
+    run_id = f"inventory_balance_repair:{os.getpid()}"
+    cur.execute(
+        """
+        WITH tx AS (
+            SELECT
+                product_id,
+                COALESCE(warehouse_id, 0) AS warehouse_id,
+                COALESCE(location_id, 0) AS location_id,
+                COALESCE(lot_no, '') AS lot_no,
+                COALESCE(cabinet_no, '') AS cabinet_no,
+                COALESCE(project_code, '') AS project_code,
+                SUM(
+                    CASE
+                        WHEN COALESCE(transaction_type,'') IN (
+                            'sales_outbound', 'outbound', 'issue', 'shipment',
+                            'subcontract_issue', 'quality_hold_transfer_out',
+                            '售后备件出库', '手工出库', '调拨出库', '销售出库',
+                            '工单领料', '工单补料', '生产领料', '组装领料', '拆卸出库'
+                        ) THEN -ABS(COALESCE(quantity,0))
+                        ELSE COALESCE(quantity,0)
+                    END
+                ) AS tx_qty
+            FROM stock_transactions
+            GROUP BY product_id, COALESCE(warehouse_id, 0), COALESCE(location_id, 0),
+                     COALESCE(lot_no, ''), COALESCE(cabinet_no, ''), COALESCE(project_code, '')
+        )
+        SELECT ib.id, ib.product_id, ib.warehouse_id, ib.location_id,
+               ib.lot_no, ib.cabinet_no, ib.project_code, ib.quantity, tx.tx_qty
+        FROM inventory_balances ib
+        INNER JOIN tx
+          ON tx.product_id IS NOT DISTINCT FROM ib.product_id
+         AND tx.warehouse_id = COALESCE(ib.warehouse_id, 0)
+         AND tx.location_id = COALESCE(ib.location_id, 0)
+         AND tx.lot_no = COALESCE(ib.lot_no, '')
+         AND tx.cabinet_no = COALESCE(ib.cabinet_no, '')
+         AND tx.project_code = COALESCE(ib.project_code, '')
+        WHERE ABS(COALESCE(ib.quantity, 0) - COALESCE(tx.tx_qty, 0)) > %s
+        """,
+        (QTY_TOLERANCE,),
+    )
+    mismatch_rows = cur.fetchall()
+    updated = 0
+    for row in mismatch_rows:
+        cur.execute(
+            "INSERT INTO inventory_balance_repair_audit (run_id, table_name, row_id, action, before_data, created_at) VALUES (%s, %s, %s, %s, %s, NOW())",
+            (run_id, "inventory_balances", row["id"], "qty_sync",
+             f'{{"old_qty": {row["quantity"]}, "new_qty": {row["tx_qty"]}}}',),
+        )
+        cur.execute(
+            "UPDATE inventory_balances SET quantity=%s, updated_at=NOW() WHERE id=%s",
+            (row["tx_qty"], row["id"]),
+        )
+        updated += 1
+    return updated
+
+
 def run_apply(conn, cur):
     run_id = f"inventory_balance_repair:{os.getpid()}"
     ensure_audit_table(cur)
@@ -863,6 +1033,17 @@ def run_apply(conn, cur):
     if project_code_fixes:
         legacy_inserts = repair_legacy_inventory(cur)
         batch_inserts = repair_batch_tracking(cur)
+    # Create missing inventory_balances rows from stock_transactions before
+    # checking stock_transaction consistency.
+    balance_from_tx = repair_inventory_balance_from_stock_transactions(cur)
+    if balance_from_tx:
+        legacy_inserts = repair_legacy_inventory(cur)
+        batch_inserts = repair_batch_tracking(cur)
+    # Sync existing balance quantities to match stock_transaction ledger.
+    qty_sync_rows = repair_inventory_balance_qty_sync(cur)
+    if qty_sync_rows:
+        legacy_inserts = repair_legacy_inventory(cur)
+        batch_inserts = repair_batch_tracking(cur)
     stock_transaction_inserts = repair_stock_transactions(cur)
     conn.commit()
     print("inventory_balance_repair=applied")
@@ -873,6 +1054,8 @@ def run_apply(conn, cur):
     print(f"legacy_insert_rows={legacy_inserts}")
     print(f"batch_insert_rows={batch_inserts}")
     print(f"project_code_repair_rows={project_code_fixes}")
+    print(f"balance_from_transaction_rows={balance_from_tx}")
+    print(f"balance_qty_sync_rows={qty_sync_rows}")
     print(f"stock_transaction_adjustment_rows={stock_transaction_inserts}")
 
 

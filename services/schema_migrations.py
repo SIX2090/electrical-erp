@@ -515,6 +515,11 @@ MIGRATIONS = [
             remark TEXT
         );
 
+        ALTER TABLE transfer_orders ADD COLUMN IF NOT EXISTS posted_at TIMESTAMP;
+        ALTER TABLE inventory_adjustments ADD COLUMN IF NOT EXISTS posted_at TIMESTAMP;
+        CREATE UNIQUE INDEX IF NOT EXISTS transfer_orders_transfer_no_key ON transfer_orders (transfer_no);
+        CREATE UNIQUE INDEX IF NOT EXISTS inventory_check_orders_check_no_key ON inventory_check_orders (check_no);
+
         CREATE TABLE IF NOT EXISTS work_orders (
             id SERIAL PRIMARY KEY,
             wo_no VARCHAR(200),
