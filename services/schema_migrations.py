@@ -219,7 +219,7 @@ MIGRATIONS = [
             quantity NUMERIC(16,6) DEFAULT 0,
             unit VARCHAR(80),
             loss_rate NUMERIC(8,4) DEFAULT 0,
-            is_optional VARCHAR(20),
+            is_optional BOOLEAN DEFAULT FALSE,
             remark TEXT
         );
 
@@ -298,6 +298,8 @@ MIGRATIONS = [
             tax_amount NUMERIC(16,4) DEFAULT 0,
             amount_with_tax NUMERIC(16,4) DEFAULT 0,
             expected_date DATE,
+            warehouse_id INTEGER,
+            location_id INTEGER,
             lot_no VARCHAR(120),
             material_code VARCHAR(120),
             material_name VARCHAR(255),
@@ -426,7 +428,17 @@ MIGRATIONS = [
             unit_cost NUMERIC(16,4) DEFAULT 0,
             project_code VARCHAR(120),
             cabinet_no VARCHAR(120),
+            expire_date DATE,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS inventory (
+            id SERIAL PRIMARY KEY,
+            product_id INTEGER,
+            quantity NUMERIC(16,4) DEFAULT 0,
+            unit_cost NUMERIC(16,4) DEFAULT 0,
+            location VARCHAR(200),
+            reorder_level NUMERIC(16,4) DEFAULT 0
         );
 
         CREATE TABLE IF NOT EXISTS inventory_adjustments (
@@ -501,6 +513,8 @@ MIGRATIONS = [
             location_id INTEGER,
             planned_start_date DATE,
             planned_end_date DATE,
+            actual_start_date DATE,
+            actual_end_date DATE,
             project_code VARCHAR(120),
             cabinet_no VARCHAR(120),
             cost_object_id INTEGER,
@@ -637,12 +651,20 @@ MIGRATIONS = [
         CREATE TABLE IF NOT EXISTS subcontract_orders (
             id SERIAL PRIMARY KEY,
             order_no VARCHAR(80) UNIQUE,
+            order_date DATE,
+            required_date DATE,
             product_id INTEGER,
             quantity NUMERIC(14,3) DEFAULT 0,
             unit_price NUMERIC(14,4) DEFAULT 0,
+            total_amount NUMERIC(15,2) DEFAULT 0,
             supplier_id INTEGER,
             wo_id INTEGER,
             sales_order_id INTEGER,
+            project_code VARCHAR(120),
+            cabinet_no VARCHAR(120),
+            lot_no VARCHAR(120),
+            process_name VARCHAR(255),
+            source_type VARCHAR(80) DEFAULT 'subcontract_order',
             status VARCHAR(50) DEFAULT 'pending',
             total_quantity NUMERIC(14,3) DEFAULT 0,
             total_scrap NUMERIC(14,3) DEFAULT 0,
@@ -679,25 +701,35 @@ MIGRATIONS = [
         CREATE TABLE IF NOT EXISTS subcontract_issue_orders (
             id SERIAL PRIMARY KEY,
             issue_no VARCHAR(80) UNIQUE,
-            order_id INTEGER,
-            warehouse_id INTEGER,
-            issue_date DATE,
+            date DATE DEFAULT CURRENT_DATE,
+            subcontract_order_id INTEGER,
+            supplier_id INTEGER,
+            source_type VARCHAR(80) DEFAULT 'subcontract_order',
             status VARCHAR(50) DEFAULT 'pending',
-            operator_id INTEGER,
+            total_quantity NUMERIC(14, 3) DEFAULT 0,
+            warehouse_id INTEGER,
+            location_id INTEGER,
             remark TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            operator_id INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
 
         CREATE TABLE IF NOT EXISTS subcontract_receive_orders (
             id SERIAL PRIMARY KEY,
             receive_no VARCHAR(80) UNIQUE,
-            order_id INTEGER,
-            warehouse_id INTEGER,
-            receive_date DATE,
+            date DATE DEFAULT CURRENT_DATE,
+            subcontract_order_id INTEGER,
+            supplier_id INTEGER,
             status VARCHAR(50) DEFAULT 'pending',
-            operator_id INTEGER,
+            total_quantity NUMERIC(14, 3) DEFAULT 0,
+            total_scrap NUMERIC(14, 3) DEFAULT 0,
+            warehouse_id INTEGER,
+            location_id INTEGER,
             remark TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            operator_id INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
 
         CREATE TABLE IF NOT EXISTS inventory_assembly_orders (
@@ -828,18 +860,35 @@ MIGRATIONS = [
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
 
+        CREATE TABLE IF NOT EXISTS customer_quotes (
+            id SERIAL PRIMARY KEY,
+            customer_id INTEGER,
+            product_id INTEGER,
+            unit_price NUMERIC(16,4) DEFAULT 0,
+            currency VARCHAR(20) DEFAULT 'CNY',
+            is_active BOOLEAN DEFAULT TRUE,
+            valid_from DATE,
+            valid_to DATE,
+            remark TEXT,
+            created_by INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
         CREATE TABLE IF NOT EXISTS batch_tracking (
             id SERIAL PRIMARY KEY,
             lot_no VARCHAR(200),
             product_id INTEGER,
             warehouse_id INTEGER,
             location_id INTEGER,
+            location VARCHAR(200),
             cabinet_no VARCHAR(120),
             project_code VARCHAR(120),
             quantity_in NUMERIC(16,4) DEFAULT 0,
             quantity_out NUMERIC(16,4) DEFAULT 0,
             quantity_available NUMERIC(16,4) DEFAULT 0,
             unit_cost NUMERIC(16,4) DEFAULT 0,
+            expiry_date DATE,
+            supplier_id INTEGER,
             source_order_no VARCHAR(200),
             status VARCHAR(50),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -872,6 +921,7 @@ MIGRATIONS = [
             id SERIAL PRIMARY KEY,
             card_no VARCHAR(200),
             sales_order_id INTEGER,
+            wo_id INTEGER,
             cost_object_id INTEGER,
             customer_id INTEGER,
             product_id INTEGER,
@@ -892,13 +942,23 @@ MIGRATIONS = [
             order_no VARCHAR(200),
             service_card_id INTEGER,
             customer_id INTEGER,
+            wo_id INTEGER,
             sales_order_id INTEGER,
             cost_object_id INTEGER,
             project_code VARCHAR(120),
             cabinet_no VARCHAR(120),
             order_date DATE,
+            service_date DATE,
+            service_type VARCHAR(80),
             status VARCHAR(50),
+            settlement_status VARCHAR(50),
+            parts_cost NUMERIC(14,2) DEFAULT 0,
+            labor_cost NUMERIC(14,2) DEFAULT 0,
+            travel_cost NUMERIC(14,2) DEFAULT 0,
+            total_cost NUMERIC(14,2) DEFAULT 0,
+            billable_amount NUMERIC(14,2) DEFAULT 0,
             fault_summary TEXT,
+            issue_summary TEXT,
             diagnosis TEXT,
             remark TEXT,
             created_by INTEGER,
@@ -1303,6 +1363,321 @@ MIGRATIONS = [
             reverse_posted BOOLEAN DEFAULT FALSE,
             reverse_posted_at TIMESTAMP,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS mrp_requirements (
+            id SERIAL PRIMARY KEY,
+            plan_id INTEGER,
+            work_order_id INTEGER,
+            product_id INTEGER,
+            requirement_type VARCHAR(80),
+            requirement_date DATE,
+            quantity NUMERIC(14,4) DEFAULT 0,
+            source_document_type VARCHAR(80),
+            source_document_id INTEGER,
+            planned_quantity NUMERIC(14,4) DEFAULT 0,
+            released_quantity NUMERIC(14,4) DEFAULT 0,
+            fulfilled_quantity NUMERIC(14,4) DEFAULT 0,
+            status VARCHAR(40) DEFAULT 'open',
+            available_quantity NUMERIC(14,4) DEFAULT 0,
+            shortage_quantity NUMERIC(14,4) DEFAULT 0,
+            bom_level INTEGER,
+            parent_product_id INTEGER,
+            unit VARCHAR(40),
+            supply_mode VARCHAR(40),
+            manufacturing_role VARCHAR(40),
+            cost_object_id INTEGER,
+            project_code VARCHAR(120),
+            cabinet_no VARCHAR(120)
+        );
+
+        CREATE TABLE IF NOT EXISTS document_attachments (
+            id SERIAL PRIMARY KEY,
+            subject_type VARCHAR(80),
+            subject_id INTEGER,
+            file_name VARCHAR(255),
+            stored_path VARCHAR(500),
+            content_type VARCHAR(120),
+            file_size INTEGER,
+            attachment_type VARCHAR(80),
+            remark TEXT,
+            uploaded_by INTEGER,
+            uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS document_custom_field_values (
+            id SERIAL PRIMARY KEY,
+            document_type VARCHAR(80),
+            document_id INTEGER,
+            payload JSONB,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS machine_service_logs (
+            id SERIAL PRIMARY KEY,
+            service_card_id INTEGER,
+            service_date DATE,
+            service_type VARCHAR(80),
+            performed_by VARCHAR(120),
+            status VARCHAR(40),
+            issue_summary TEXT,
+            solution TEXT,
+            remark TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS pilot_role_permissions (
+            id SERIAL PRIMARY KEY,
+            role VARCHAR(80) UNIQUE,
+            permission_groups TEXT,
+            action_permissions TEXT,
+            updated_by INTEGER,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS approval_records (
+            id SERIAL PRIMARY KEY,
+            flow_type VARCHAR(80),
+            reference_no VARCHAR(120),
+            step_id VARCHAR(80),
+            approver_id INTEGER,
+            action VARCHAR(40) DEFAULT 'pending',
+            status VARCHAR(40) DEFAULT 'pending',
+            comment TEXT,
+            approved_at TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS project_revenue_ledger (
+            id SERIAL PRIMARY KEY,
+            project_code VARCHAR(120),
+            revenue_date DATE,
+            revenue_type VARCHAR(80),
+            source_type VARCHAR(80),
+            source_no VARCHAR(120),
+            customer_id INTEGER,
+            revenue_amount NUMERIC(15,2) DEFAULT 0,
+            cost_amount NUMERIC(15,2) DEFAULT 0,
+            gross_profit NUMERIC(15,2) DEFAULT 0,
+            gross_margin NUMERIC(8,4) DEFAULT 0,
+            recorded_by INTEGER,
+            remark TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS quality_inspection_records (
+            id SERIAL PRIMARY KEY,
+            inspection_no VARCHAR(120),
+            product_id INTEGER,
+            inspection_type VARCHAR(80),
+            inspection_date DATE,
+            batch_no VARCHAR(120),
+            sample_size NUMERIC(14,4) DEFAULT 0,
+            passed_quantity NUMERIC(14,4) DEFAULT 0,
+            failed_quantity NUMERIC(14,4) DEFAULT 0,
+            inspection_result VARCHAR(40),
+            status VARCHAR(40) DEFAULT 'draft',
+            source_document_type VARCHAR(80),
+            source_document_id INTEGER,
+            source_no TEXT,
+            project_code VARCHAR(120),
+            cabinet_no VARCHAR(120),
+            conclusion TEXT,
+            defect_description TEXT,
+            corrective_action TEXT,
+            defect_category TEXT,
+            severity_level TEXT,
+            disposition TEXT,
+            nonconformance_status TEXT,
+            responsible_party TEXT,
+            responsible_supplier_id INTEGER,
+            owner_role TEXT,
+            blocked_reason TEXT,
+            next_action TEXT,
+            downstream_impact TEXT,
+            capa_required BOOLEAN DEFAULT FALSE,
+            capa_status TEXT,
+            capa_owner TEXT,
+            capa_due_date DATE,
+            root_cause TEXT,
+            preventive_action TEXT,
+            effectiveness_result TEXT,
+            quality_cost_amount NUMERIC(14,2) DEFAULT 0,
+            cost_category TEXT,
+            cost_object_id INTEGER,
+            reinspection_required BOOLEAN DEFAULT FALSE,
+            remark TEXT,
+            inspector TEXT,
+            submitted_by INTEGER,
+            submitted_at TIMESTAMP,
+            judged_by INTEGER,
+            judged_at TIMESTAMP,
+            audited_by INTEGER,
+            audited_at TIMESTAMP,
+            closed_by INTEGER,
+            closed_at TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS quotation_items (
+            id SERIAL PRIMARY KEY,
+            quotation_id INTEGER,
+            line_no INTEGER,
+            item_type VARCHAR(40),
+            product_id INTEGER,
+            item_name VARCHAR(200),
+            specification VARCHAR(200),
+            quantity NUMERIC(14,4) DEFAULT 0,
+            unit VARCHAR(40),
+            unit_price NUMERIC(14,4) DEFAULT 0,
+            tax_rate NUMERIC(5,2) DEFAULT 0,
+            amount NUMERIC(15,2) DEFAULT 0,
+            tax_amount NUMERIC(15,2) DEFAULT 0,
+            amount_with_tax NUMERIC(15,2) DEFAULT 0,
+            remark TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS supplier_quotes (
+            id SERIAL PRIMARY KEY,
+            quote_no VARCHAR(120),
+            quote_date DATE,
+            supplier_id INTEGER,
+            source_no VARCHAR(120),
+            project_code VARCHAR(120),
+            cabinet_no VARCHAR(120),
+            product_id INTEGER,
+            unit_price NUMERIC(14,4) DEFAULT 0,
+            tax_rate NUMERIC(8,2) DEFAULT 0,
+            valid_from DATE,
+            valid_to DATE,
+            valid_until DATE,
+            status VARCHAR(80) DEFAULT 'draft',
+            total_amount NUMERIC(14,2) DEFAULT 0,
+            tax_amount NUMERIC(14,2) DEFAULT 0,
+            amount_with_tax NUMERIC(14,2) DEFAULT 0,
+            remark TEXT,
+            created_by INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            submitted_by INTEGER,
+            submitted_at TIMESTAMP,
+            audited_by INTEGER,
+            audited_at TIMESTAMP,
+            closed_by INTEGER,
+            closed_at TIMESTAMP,
+            voided_by INTEGER,
+            voided_at TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS supplier_quote_items (
+            id SERIAL PRIMARY KEY,
+            quote_id INTEGER,
+            line_no INTEGER,
+            product_id INTEGER,
+            item_name VARCHAR(255),
+            specification VARCHAR(255),
+            unit VARCHAR(80),
+            quantity NUMERIC(14,4) DEFAULT 0,
+            unit_price NUMERIC(14,4) DEFAULT 0,
+            tax_rate NUMERIC(8,2) DEFAULT 0,
+            amount NUMERIC(14,2) DEFAULT 0,
+            tax_amount NUMERIC(14,2) DEFAULT 0,
+            amount_with_tax NUMERIC(14,2) DEFAULT 0,
+            remark TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS user_sessions (
+            id SERIAL PRIMARY KEY,
+            session_id VARCHAR(200),
+            user_id INTEGER,
+            username VARCHAR(120),
+            ip_address VARCHAR(80),
+            user_agent TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            last_activity TIMESTAMP,
+            is_active BOOLEAN DEFAULT TRUE,
+            expires_at TIMESTAMP,
+            logout_reason VARCHAR(200)
+        );
+
+        CREATE TABLE IF NOT EXISTS cost_objects (
+            id SERIAL PRIMARY KEY,
+            cost_object_code VARCHAR(120),
+            project_name VARCHAR(200),
+            object_code VARCHAR(120),
+            object_name VARCHAR(200),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS delivery_orders (
+            id SERIAL PRIMARY KEY,
+            delivery_no VARCHAR(120),
+            delivery_date DATE,
+            source_type VARCHAR(80),
+            source_id INTEGER,
+            status VARCHAR(40) DEFAULT 'draft'
+        );
+
+        CREATE TABLE IF NOT EXISTS delivery_order_items (
+            id SERIAL PRIMARY KEY,
+            delivery_id INTEGER,
+            product_id INTEGER
+        );
+
+        CREATE TABLE IF NOT EXISTS inventory_alerts (
+            id SERIAL PRIMARY KEY,
+            alert_type VARCHAR(80),
+            alert_level VARCHAR(40),
+            current_qty NUMERIC(16,4) DEFAULT 0,
+            threshold_qty NUMERIC(16,4) DEFAULT 0,
+            is_resolved BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            product_id INTEGER,
+            warehouse_id INTEGER
+        );
+
+        CREATE TABLE IF NOT EXISTS process_operations (
+            id SERIAL PRIMARY KEY,
+            work_order_process_id INTEGER,
+            assigned_date DATE,
+            quantity_to_process NUMERIC(14,4) DEFAULT 0,
+            completed_quantity NUMERIC(14,4) DEFAULT 0,
+            status VARCHAR(40),
+            work_center_id INTEGER,
+            remark TEXT,
+            equipment_id INTEGER,
+            operation_no VARCHAR(80),
+            operation_name VARCHAR(160)
+        );
+
+        CREATE TABLE IF NOT EXISTS work_order_component_items (
+            id SERIAL PRIMARY KEY,
+            wo_id INTEGER,
+            product_id INTEGER,
+            required_qty NUMERIC(14,4) DEFAULT 0,
+            ready_qty NUMERIC(14,4) DEFAULT 0,
+            supply_mode VARCHAR(40),
+            manufacturing_role VARCHAR(40),
+            status VARCHAR(40),
+            ready_date DATE,
+            ready_remark TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS work_order_operations (
+            id SERIAL PRIMARY KEY,
+            work_order_id INTEGER,
+            routing_operation_id INTEGER,
+            work_center_id INTEGER,
+            sequence INTEGER,
+            operation_no VARCHAR(80),
+            operation_name VARCHAR(160),
+            planned_quantity NUMERIC(14,4) DEFAULT 0,
+            actual_quantity NUMERIC(14,4) DEFAULT 0,
+            status VARCHAR(40),
+            owner_role VARCHAR(120),
+            planned_start_date DATE,
+            planned_end_date DATE,
+            actual_start_date DATE,
+            actual_end_date DATE,
+            remark TEXT
         );
         """,
     ),
@@ -2411,6 +2786,8 @@ MIGRATIONS = [
         ALTER TABLE sales_invoices ADD COLUMN IF NOT EXISTS source_type VARCHAR(80);
         ALTER TABLE sales_invoices ADD COLUMN IF NOT EXISTS source_id INTEGER;
         ALTER TABLE sales_invoices ADD COLUMN IF NOT EXISTS source_no VARCHAR(120);
+        ALTER TABLE sales_invoices ADD COLUMN IF NOT EXISTS order_id INTEGER;
+        ALTER TABLE sales_invoices ADD COLUMN IF NOT EXISTS total_amount NUMERIC(16,4) DEFAULT 0;
         ALTER TABLE sales_invoices ADD COLUMN IF NOT EXISTS invoice_date DATE DEFAULT CURRENT_DATE;
         ALTER TABLE sales_invoices ADD COLUMN IF NOT EXISTS amount NUMERIC(14, 2) DEFAULT 0;
         ALTER TABLE sales_invoices ADD COLUMN IF NOT EXISTS tax_amount NUMERIC(14, 2) DEFAULT 0;
@@ -2633,6 +3010,8 @@ MIGRATIONS = [
         ALTER TABLE production_schedules ADD COLUMN IF NOT EXISTS work_center_id INTEGER;
         ALTER TABLE production_schedules ADD COLUMN IF NOT EXISTS planned_start_date DATE;
         ALTER TABLE production_schedules ADD COLUMN IF NOT EXISTS planned_end_date DATE;
+        ALTER TABLE production_schedules ADD COLUMN IF NOT EXISTS start_date DATE;
+        ALTER TABLE production_schedules ADD COLUMN IF NOT EXISTS end_date DATE;
         ALTER TABLE production_schedules ADD COLUMN IF NOT EXISTS actual_start_date DATE;
         ALTER TABLE production_schedules ADD COLUMN IF NOT EXISTS actual_end_date DATE;
         ALTER TABLE production_schedules ADD COLUMN IF NOT EXISTS owner_role VARCHAR(120) DEFAULT '生产计划';
@@ -2840,6 +3219,7 @@ MIGRATIONS = [
             id SERIAL PRIMARY KEY,
             voucher_no VARCHAR(120) NOT NULL UNIQUE,
             voucher_date DATE NOT NULL DEFAULT CURRENT_DATE,
+            date DATE,
             voucher_type VARCHAR(80) DEFAULT '记账凭证',
             period_year INTEGER,
             period_month INTEGER,
@@ -4358,6 +4738,7 @@ MIGRATIONS = [
             id SERIAL PRIMARY KEY,
             invoice_id INTEGER NOT NULL REFERENCES sales_invoices(id) ON DELETE CASCADE,
             line_no INTEGER,
+            product_id INTEGER,
             item_code VARCHAR(50),
             item_name VARCHAR(200),
             specification VARCHAR(200),
@@ -4396,6 +4777,7 @@ MIGRATIONS = [
             id SERIAL PRIMARY KEY,
             invoice_id INTEGER NOT NULL REFERENCES purchase_invoices(id) ON DELETE CASCADE,
             line_no INTEGER,
+            product_id INTEGER,
             item_code VARCHAR(50),
             item_name VARCHAR(200),
             specification VARCHAR(200),
@@ -4545,11 +4927,14 @@ MIGRATIONS = [
             source_no VARCHAR(120),
             description TEXT,
             cost_amount NUMERIC(16, 2) DEFAULT 0,
+            debit_amount NUMERIC(16, 2) DEFAULT 0,
+            credit_amount NUMERIC(16, 2) DEFAULT 0,
             quantity NUMERIC(14, 3),
             unit_cost NUMERIC(16, 4),
             department_id INTEGER,
             employee_id INTEGER,
             recorded_by INTEGER,
+            created_by INTEGER,
             remark TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
@@ -4566,9 +4951,13 @@ MIGRATIONS = [
             source_no VARCHAR(120),
             description TEXT,
             cost_amount NUMERIC(16, 2) DEFAULT 0,
+            debit_amount NUMERIC(16, 2) DEFAULT 0,
+            credit_amount NUMERIC(16, 2) DEFAULT 0,
             quantity NUMERIC(14, 3),
             unit_cost NUMERIC(16, 4),
+            product_id INTEGER,
             project_code VARCHAR(120),
+            created_by INTEGER,
             recorded_by INTEGER,
             remark TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
