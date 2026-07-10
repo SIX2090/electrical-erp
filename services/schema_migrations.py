@@ -1967,6 +1967,7 @@ MIGRATIONS = [
         ALTER TABLE machine_service_cards ADD COLUMN IF NOT EXISTS product_id INTEGER;
         ALTER TABLE machine_service_cards ADD COLUMN IF NOT EXISTS customer_id INTEGER;
         ALTER TABLE machine_service_cards ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT '待安装';
+        ALTER TABLE machine_service_cards ADD COLUMN IF NOT EXISTS acceptance_date DATE;
         CREATE UNIQUE INDEX IF NOT EXISTS machine_service_cards_sales_serial_uidx
             ON machine_service_cards(sales_order_id, cabinet_no)
             WHERE sales_order_id IS NOT NULL AND cabinet_no IS NOT NULL;
