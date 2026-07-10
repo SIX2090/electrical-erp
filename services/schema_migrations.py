@@ -286,6 +286,8 @@ MIGRATIONS = [
             remark TEXT
         );
 
+        CREATE UNIQUE INDEX IF NOT EXISTS purchase_orders_order_no_key ON purchase_orders (order_no);
+
         CREATE TABLE IF NOT EXISTS purchase_order_items (
             id SERIAL PRIMARY KEY,
             order_id INTEGER,
@@ -309,6 +311,8 @@ MIGRATIONS = [
             source_supplier_id INTEGER,
             line_project_code VARCHAR(120),
             line_cabinet_no VARCHAR(120),
+            price_source VARCHAR(80),
+            price_source_label VARCHAR(200),
             remark TEXT
         );
 
@@ -325,8 +329,11 @@ MIGRATIONS = [
             urgency VARCHAR(30) DEFAULT 'normal',
             approval_status VARCHAR(30) DEFAULT 'approved',
             status VARCHAR(50),
-            remark TEXT
+            remark TEXT,
+            cost_object_id INTEGER
         );
+
+        CREATE UNIQUE INDEX IF NOT EXISTS purchase_requisitions_req_no_key ON purchase_requisitions (req_no);
 
         CREATE TABLE IF NOT EXISTS purchase_requisition_items (
             id SERIAL PRIMARY KEY,
@@ -365,6 +372,8 @@ MIGRATIONS = [
             remark TEXT
         );
 
+        CREATE UNIQUE INDEX IF NOT EXISTS purchase_receipts_receipt_no_key ON purchase_receipts (receipt_no);
+
         CREATE TABLE IF NOT EXISTS purchase_receipt_items (
             id SERIAL PRIMARY KEY,
             receipt_id INTEGER,
@@ -384,6 +393,12 @@ MIGRATIONS = [
             price_source VARCHAR(80),
             price_source_label VARCHAR(200)
         );
+
+        ALTER TABLE purchase_requisition_items ADD COLUMN IF NOT EXISTS cost_object_id INTEGER;
+        ALTER TABLE purchase_order_items ADD COLUMN IF NOT EXISTS cost_object_id INTEGER;
+        ALTER TABLE purchase_receipt_items ADD COLUMN IF NOT EXISTS cost_object_id INTEGER;
+        ALTER TABLE purchase_order_items ADD COLUMN IF NOT EXISTS price_source VARCHAR(80);
+        ALTER TABLE purchase_order_items ADD COLUMN IF NOT EXISTS price_source_label VARCHAR(200);
 
         CREATE TABLE IF NOT EXISTS stock_transactions (
             id SERIAL PRIMARY KEY,
@@ -1362,6 +1377,24 @@ MIGRATIONS = [
             source_doc_no VARCHAR(120),
             reverse_posted BOOLEAN DEFAULT FALSE,
             reverse_posted_at TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS mrp_plans (
+            id SERIAL PRIMARY KEY,
+            plan_no VARCHAR(120),
+            name VARCHAR(255),
+            start_date DATE,
+            end_date DATE,
+            plan_type VARCHAR(80),
+            status VARCHAR(40) DEFAULT 'planned',
+            target_product_id INTEGER,
+            target_quantity NUMERIC(14,4) DEFAULT 0,
+            warehouse_id INTEGER,
+            cost_object_id INTEGER,
+            project_code VARCHAR(120),
+            cabinet_no VARCHAR(120),
+            remark TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
 

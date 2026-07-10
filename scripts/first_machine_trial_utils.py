@@ -12,7 +12,7 @@ DEFAULT_TEMPLATE = ROOT / "release" / "trial_run" / "first_machine_data_template
 
 FIELD_ALIASES = {
     "project_code": ("\u9879\u76ee\u53f7",),
-    "cabinet_no": ("\u673a\u53f7",),
+    "cabinet_no": ("\u67dc\u53f7", "\u673a\u53f7", "serial_no"),
     "product_code": ("\u4ea7\u54c1\u7f16\u7801",),
     "bom_no": ("BOM\u7f16\u53f7",),
     "sales_qty": ("\u9500\u552e\u6570\u91cf",),
@@ -43,6 +43,14 @@ DEFAULT_ALIASES = {
 
 def _set_aliases(values: dict[str, str], key: str, aliases: tuple[str, ...]) -> None:
     value = values.get(key, "")
+    if not value:
+        for alias in aliases:
+            alias_value = values.get(alias, "")
+            if alias_value:
+                value = alias_value
+                break
+        if value:
+            values[key] = value
     for alias in aliases:
         values.setdefault(alias, value)
 
@@ -767,6 +775,56 @@ def _ensure_purchase_order(cur, values: dict[str, str], supplier_id: int, materi
     return order_id
 
 
+def _ensure_purchase_requisition(cur, values: dict[str, str], supplier_id: int, material_rows: list[tuple[int, str, Decimal, Decimal]], warehouse_id: int, cost_object_id: int | None) -> int:
+    req_no = "PR-GT-TRIAL-20260526-001"
+    project_code = values["project_code"]
+    cabinet_no = values["cabinet_no"]
+    row = _fetch_one(cur, "SELECT id FROM purchase_requisitions WHERE req_no=%s ORDER BY id LIMIT 1", (req_no,))
+    payload = {
+        "req_date": date.today(),
+        "department": "production",
+        "purpose": "first machine MRP shortage",
+        "status": "已审核",
+        "approval_status": "approved",
+        "remark": "first machine lifecycle sample",
+        "cost_object_id": cost_object_id,
+        "project_code": project_code,
+        "cabinet_no": cabinet_no,
+    }
+    if row:
+        req_id = row["id"]
+        cols = _columns(cur, "purchase_requisitions")
+        assignments = [f"{key}=%s" for key in payload if key in cols]
+        cur.execute(f"UPDATE purchase_requisitions SET {', '.join(assignments)} WHERE id=%s", [payload[key] for key in payload if key in cols] + [req_id])
+    else:
+        req_id = _insert_dynamic(cur, "purchase_requisitions", {"req_no": req_no, **payload})
+    for index, (product_id, material_code, quantity, unit_cost) in enumerate(material_rows, start=1):
+        item_row = _fetch_one(cur, "SELECT id FROM purchase_requisition_items WHERE req_id=%s AND product_id=%s LIMIT 1", (req_id, product_id))
+        line_payload = {
+            "quantity": quantity,
+            "unit_price": unit_cost,
+            "amount": quantity * unit_cost,
+            "need_date": date.today(),
+            "suggested_supplier_id": supplier_id,
+            "remark": "first machine lifecycle sample",
+            "cost_object_id": cost_object_id,
+            "project_code": project_code,
+            "cabinet_no": cabinet_no,
+            "warehouse_id": warehouse_id,
+            "source_line_no": str(index),
+            "material_code": material_code,
+            "material_name": "First Machine Trial Material",
+            "material_unit": "pcs",
+        }
+        if item_row:
+            cols = _columns(cur, "purchase_requisition_items")
+            assignments = [f"{key}=%s" for key in line_payload if key in cols]
+            cur.execute(f"UPDATE purchase_requisition_items SET {', '.join(assignments)} WHERE id=%s", [line_payload[key] for key in line_payload if key in cols] + [item_row["id"]])
+        else:
+            _insert_dynamic(cur, "purchase_requisition_items", {"req_id": req_id, "product_id": product_id, **line_payload})
+    return req_id
+
+
 def _ensure_subcontract_order(cur, values: dict[str, str], supplier_id: int, finished_id: int, work_order_id: int, warehouse_id: int, location_id: int | None, cost_object_id: int | None) -> int:
     order_no = "OS-GT-TRIAL-20260526-001"
     amount = Decimal("2400")
@@ -1103,6 +1161,7 @@ def ensure_first_machine_lifecycle_sample(cur, values: dict[str, str]) -> dict[s
         ("WO-GT-TRIAL-20260526-001", bom_id, finished_id, _decimal(values.get("sales_qty"), "1"), "completed", None, project_code, cabinet_no, work_order_id),
     )
     purchase_order_id = _ensure_purchase_order(cur, values, supplier_id, material_rows, warehouse_id, None)
+    _ensure_purchase_requisition(cur, values, supplier_id, material_rows, warehouse_id, None)
     subcontract_order_id = _ensure_subcontract_order(cur, values, supplier_id, finished_id, work_order_id, warehouse_id, location_id, None)
     _ensure_work_order_cost(cur, work_order_id, None, subcontract_order_id)
     shipment_id = _ensure_shipment(cur, values, sales_order_id, finished_id, customer_id, warehouse_id, location_id, None)

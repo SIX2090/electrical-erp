@@ -782,6 +782,74 @@ def repair_stock_transactions(cur):
     return 0
 
 
+def repair_inventory_balance_project_code(cur):
+    """Fix inventory_balances rows with empty project_code by merging them into
+    rows with the correct project_code derived from stock_transactions.
+
+    This addresses data setup scripts that create inventory_balances without
+    project_code while the corresponding stock_transactions have one. The fix
+    updates/merges inventory_balances rows (the authoritative balance source)
+    rather than inserting fake stock_transaction reconciliation rows.
+    """
+    cur.execute(
+        """
+        SELECT ib.id, ib.product_id, ib.warehouse_id, ib.location_id,
+               ib.lot_no, ib.cabinet_no, ib.quantity, ib.unit_cost
+        FROM inventory_balances ib
+        WHERE COALESCE(ib.project_code, '') = ''
+          AND COALESCE(ib.cabinet_no, '') <> ''
+          AND COALESCE(ib.quantity, 0) <> 0
+        """
+    )
+    orphan_rows = cur.fetchall()
+    merged = 0
+    for row in orphan_rows:
+        cur.execute(
+            """
+            SELECT COALESCE(project_code, '') AS project_code
+            FROM stock_transactions
+            WHERE product_id=%s
+              AND COALESCE(cabinet_no, '')=%s
+              AND COALESCE(project_code, '') <> ''
+            GROUP BY project_code
+            ORDER BY COUNT(*) DESC
+            LIMIT 1
+            """,
+            (row["product_id"], row["cabinet_no"]),
+        )
+        result = cur.fetchone()
+        if not result:
+            continue
+        target_project_code = result["project_code"]
+        cur.execute(
+            """
+            SELECT id, quantity FROM inventory_balances
+            WHERE product_id=%s
+              AND COALESCE(warehouse_id, 0) = COALESCE(%s, 0)
+              AND COALESCE(location_id, 0) = COALESCE(%s, 0)
+              AND COALESCE(lot_no, '') = COALESCE(%s, '')
+              AND COALESCE(cabinet_no, '') = COALESCE(%s, '')
+              AND project_code=%s
+            """,
+            (row["product_id"], row["warehouse_id"], row["location_id"],
+             row["lot_no"], row["cabinet_no"], target_project_code),
+        )
+        existing = cur.fetchone()
+        if existing:
+            cur.execute(
+                "UPDATE inventory_balances SET quantity=quantity+%s, updated_at=NOW() WHERE id=%s",
+                (row["quantity"], existing["id"]),
+            )
+            cur.execute("DELETE FROM inventory_balances WHERE id=%s", (row["id"],))
+        else:
+            cur.execute(
+                "UPDATE inventory_balances SET project_code=%s, updated_at=NOW() WHERE id=%s",
+                (target_project_code, row["id"]),
+            )
+        merged += 1
+    return merged
+
+
 def run_apply(conn, cur):
     run_id = f"inventory_balance_repair:{os.getpid()}"
     ensure_audit_table(cur)
@@ -789,6 +857,12 @@ def run_apply(conn, cur):
     batch_backups = backup_batch_tracking(cur, run_id)
     legacy_inserts = repair_legacy_inventory(cur)
     batch_inserts = repair_batch_tracking(cur)
+    project_code_fixes = repair_inventory_balance_project_code(cur)
+    # Rebuild derived summaries after project_code repair so they reflect the
+    # corrected inventory_balances dimensions.
+    if project_code_fixes:
+        legacy_inserts = repair_legacy_inventory(cur)
+        batch_inserts = repair_batch_tracking(cur)
     stock_transaction_inserts = repair_stock_transactions(cur)
     conn.commit()
     print("inventory_balance_repair=applied")
@@ -798,6 +872,7 @@ def run_apply(conn, cur):
     print(f"batch_backup_rows={batch_backups}")
     print(f"legacy_insert_rows={legacy_inserts}")
     print(f"batch_insert_rows={batch_inserts}")
+    print(f"project_code_repair_rows={project_code_fixes}")
     print(f"stock_transaction_adjustment_rows={stock_transaction_inserts}")
 
 
