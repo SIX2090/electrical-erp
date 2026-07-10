@@ -66,6 +66,15 @@ A change is NOT done until ALL of the following are true:
 
 ## Open Boundaries
 
+### Engineering/BOM/Routing Readiness Boundary
+- Source document: sales order / project code / cabinet number
+- Target document: engineering technical confirmation, BOM, routing, work center, kitting readiness
+- Status transition: draft -> confirmed -> closed (technical confirmation); planned -> released -> closed (BOM ECN)
+- Blocked reason: missing BOM, missing routing, missing drawing, missing inspection standard, missing tooling requirement, open BOM ECN impact, missing process program
+- Downstream impact: purchase requisition, work order, kitting shortage, production execution
+- Acceptance checks: engineering readiness gate blocks confirmation when BOM/routing/drawing/inspection/tooling/ECN is incomplete; kitting shortage surfaces blocked engineering items; no PLM/PDM module is created
+- PLM scope guard: this boundary must not become a generic PLM/PDM module; engineering readiness stays inside the existing ERP engineering pages and must not expand into a new PLM module route
+
 ### B-017 Inventory movement toolbar state discipline
 - Date: 2026-06-29
 - Trigger: user reported inbound/outbound document toolbars are confusing; buttons may disappear on detail pages, entry pages show state actions without clear availability, and operators cannot reliably find audit, reverse-audit, or delete actions after save.
