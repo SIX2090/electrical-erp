@@ -533,6 +533,7 @@ MIGRATIONS = [
             location_id INTEGER,
             planned_start_date DATE,
             planned_end_date DATE,
+            planned_completion_date DATE,
             actual_start_date DATE,
             actual_end_date DATE,
             project_code VARCHAR(120),
@@ -2382,6 +2383,7 @@ MIGRATIONS = [
 
         ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS location_id INTEGER;
         ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS lot_no VARCHAR(120);
+        ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS planned_completion_date DATE;
         ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS unit_cost NUMERIC(14,4) DEFAULT 0;
         ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS amount NUMERIC(14,2) DEFAULT 0;
         ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS material_code VARCHAR(120);
