@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}{{ report.title|clean_text }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 report-toolbar">
+        <div>
+            <h1 class="h4 mb-0">{{ report.title|clean_text }}</h1>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-outline-secondary btn-sm" href="javascript:history.back()"><i class="bi bi-arrow-left"></i> 返回</a>
+            <button class="btn btn-outline-secondary btn-sm" type="button" onclick="window.print()"><i class="bi bi-printer"></i> 打印</button>
+            <button class="btn btn-outline-success btn-sm" type="button" onclick="exportReportTable()"><i class="bi bi-file-earmark-spreadsheet"></i> 导出Excel</button>
+        </div>
+    </div>
+
+    <div class="card mb-3 report-filter">
+        <div class="card-body py-3">
+            <form class="row g-2" method="get">
+                <div class="col-md-3">
+                    <label class="form-label small mb-1">开始日期</label>
+                    <input class="form-control form-control-sm" type="date" name="date_start" value="{{ report.filters.date_start or '' }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small mb-1">结束日期</label>
+                    <input class="form-control form-control-sm" type="date" name="date_end" value="{{ report.filters.date_end or '' }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small mb-1">客户名称</label>
+                    <input class="form-control form-control-sm" type="text" name="customer_name" value="{{ report.filters.customer_name or '' }}" placeholder="客户名称">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small mb-1">项目号</label>
+                    <input class="form-control form-control-sm" type="text" name="project_code" value="{{ report.filters.project_code or '' }}" placeholder="项目号">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small mb-1">柜号</label>
+                    <input class="form-control form-control-sm" type="text" name="cabinet_no" value="{{ report.filters.cabinet_no or '' }}" placeholder="柜号">
+                </div>
+                <div class="col-12 d-flex gap-2">
+                    <button class="btn btn-primary btn-sm" type="submit"><i class="bi bi-search"></i> 查询</button>
+                    <a class="btn btn-outline-secondary btn-sm" href="{{ request.path }}">重置</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if report.summary %}
+    <div class="row g-2 mb-3">
+        {% for item in report.summary %}
+        <div class="col-6 col-md-4 col-xl-2">
+            <div class="card h-100 report-metric">
+                <div class="card-body py-2 px-3">
+                    <div class="metric-label">{{ item.label|clean_text }}</div>
+                    <div class="metric-value">{{ item.value }}</div>
+                    {% if item.hint %}<div class="metric-hint">{{ item.hint|clean_text }}</div>{% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0" id="reportTable">
+                <thead class="table-light">
+                    <tr>
+                        {% for col in report.columns %}<th class="{{ 'text-end' if col.align == 'right' }}">{{ col.label|clean_text }}</th>{% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in report.rows %}
+                    <tr>
+                        {% for col in report.columns %}<td class="{{ 'text-end' if col.align == 'right' }}">{% if col.url_key and row[col.url_key] %}<a href="{{ row[col.url_key] }}">{% endif %}{% if col.format == 'money' %}{{ "{:,.2f}".format(row[col.key] or 0) }}{% elif col.format == 'qty' %}{{ "{:,.2f}".format(row[col.key] or 0) }}{% else %}{{ row[col.key]|clean_text }}{% endif %}{% if col.url_key and row[col.url_key] %}</a>{% endif %}</td>{% endfor %}
+                    </tr>
+                    {% else %}
+                    <tr><td class="text-center text-muted py-4" colspan="{{ report.columns|length }}">当前条件下没有数据</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.report-metric .metric-label{color:#6b7280;font-size:.8rem;}
+.report-metric .metric-value{font-size:1.1rem;font-weight:600;}
+.report-metric .metric-hint{color:#9ca3af;font-size:.72rem;}
+@media print{.report-toolbar,.report-filter{display:none!important;}}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function exportReportTable() {
+    var table = document.getElementById('reportTable');
+    if (!table) { window.alert('当前页面没有可导出的表格。'); return; }
+    var rows = Array.prototype.map.call(table.querySelectorAll('tr'), function (row) {
+        return Array.prototype.map.call(row.children, function (cell) {
+            return '"' + (cell.innerText || '').replace(/"/g, '""').trim() + '"';
+        }).join(',');
+    }).join('\n');
+    var blob = new Blob(['\ufeff' + rows], { type: 'text/csv;charset=utf-8;' });
+    var link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = (document.title || 'report') + '.csv';
+    document.body.appendChild(link);
+    link.click();
+    var href = link.href;
+    link.remove();
+    setTimeout(function () { URL.revokeObjectURL(href); }, 1000);
+}
+</script>
+{% endblock %}
