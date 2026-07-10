@@ -5080,10 +5080,24 @@ MIGRATIONS = [
             END LOOP;
         END $$;
 
-        -- 表重命名：machine_serial_masters -> cabinet_masters
-        ALTER TABLE IF EXISTS machine_serial_masters RENAME TO cabinet_masters;
-        -- 表重命名：serial_cost_ledger -> cabinet_cost_ledger
-        ALTER TABLE IF EXISTS serial_cost_ledger RENAME TO cabinet_cost_ledger;
+        -- 表重命名：machine_serial_masters -> cabinet_masters（仅当源表存在且目标表不存在）
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='machine_serial_masters')
+               AND NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='cabinet_masters')
+            THEN
+                ALTER TABLE machine_serial_masters RENAME TO cabinet_masters;
+            END IF;
+        END $$;
+        -- 表重命名：serial_cost_ledger -> cabinet_cost_ledger（仅当源表存在且目标表不存在）
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='serial_cost_ledger')
+               AND NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='cabinet_cost_ledger')
+            THEN
+                ALTER TABLE serial_cost_ledger RENAME TO cabinet_cost_ledger;
+            END IF;
+        END $$;
 
         -- 索引重命名：idx_*_serial -> idx_*_cabinet
         DO $$
@@ -5101,12 +5115,22 @@ MIGRATIONS = [
             END LOOP;
         END $$;
 
-        -- 系统选项键重命名
-        UPDATE system_options SET option_key = 'require_project_cabinet' WHERE option_key = 'require_project_serial';
-        UPDATE system_options SET option_key = 'batch_cabinet_control' WHERE option_key = 'batch_serial_control';
+        -- 系统选项键重命名（表存在时才执行）
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='system_options') THEN
+                UPDATE system_options SET option_key = 'require_project_cabinet' WHERE option_key = 'require_project_serial';
+                UPDATE system_options SET option_key = 'batch_cabinet_control' WHERE option_key = 'batch_serial_control';
+            END IF;
+        END $$;
 
-        -- 数据权限范围类型重命名
-        UPDATE data_scope_rules SET scope_type = 'cabinet' WHERE scope_type = 'serial';
+        -- 数据权限范围类型重命名（表存在时才执行）
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='data_scope_rules') THEN
+                UPDATE data_scope_rules SET scope_type = 'cabinet' WHERE scope_type = 'serial';
+            END IF;
+        END $$;
         """,
     ),
 ]
