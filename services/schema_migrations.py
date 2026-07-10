@@ -1717,6 +1717,37 @@ MIGRATIONS = [
         """,
     ),
     (
+        "20260520_004_seed_minimum_data",
+        """
+        -- Seed minimum data required for prelaunch audit on fresh databases.
+        -- Idempotent: uses INSERT ... ON CONFLICT DO NOTHING or WHERE NOT EXISTS guards.
+        -- Admin user password is 'admin' (pbkdf2:sha256 hash).
+        -- Sample master data rows ensure prelaunch MINIMUM_MASTER_COUNTS pass.
+
+        INSERT INTO users (username, password_hash, full_name, role, status)
+        SELECT 'admin',
+               'pbkdf2:sha256:1000000$8MnwlKhmboEGEmT0$643572b0a7dca473080a46a7e0b29fdf08287abb88536a4fb01628b298952823',
+               'Administrator', 'admin', 'normal'
+        WHERE NOT EXISTS (SELECT 1 FROM users WHERE username='admin');
+
+        INSERT INTO units (code, name, category, conversion_rate, status)
+        SELECT 'PCS', '个', '数量', '1', '启用'
+        WHERE NOT EXISTS (SELECT 1 FROM units WHERE code='PCS');
+
+        INSERT INTO warehouses (code, name, status)
+        SELECT 'WH-DEFAULT', '默认仓库', '启用'
+        WHERE NOT EXISTS (SELECT 1 FROM warehouses WHERE code='WH-DEFAULT');
+
+        INSERT INTO suppliers (code, name, status)
+        SELECT 'SUP-DEFAULT', '默认供应商', '启用'
+        WHERE NOT EXISTS (SELECT 1 FROM suppliers WHERE code='SUP-DEFAULT');
+
+        INSERT INTO products (code, name, specification, unit, status)
+        SELECT 'PROD-DEFAULT', '默认产品', '默认规格', 'PCS', '启用'
+        WHERE NOT EXISTS (SELECT 1 FROM products WHERE code='PROD-DEFAULT');
+        """,
+    ),
+    (
         "20260521_001_equipment_oee",
         """
         CREATE TABLE IF NOT EXISTS equipment (
