@@ -125,7 +125,7 @@ def _render_order_form(
             (order.get("order_no"),),
         )
     project_master_options = []
-    machine_serial_options = []
+    cabinet_options = []
     if document_type == "sales_order":
         project_master_options = _option_rows(
             query_rows,
@@ -140,16 +140,16 @@ def _render_order_form(
             LIMIT 500
             """,
         )
-        machine_serial_options = _option_rows(
+        cabinet_options = _option_rows(
             query_rows,
             """
-            SELECT id, serial_no, project_id, project_code, customer_id, product_id,
+            SELECT id, cabinet_no, project_id, project_code, customer_id, product_id,
                    product_family, machine_model, status,
-                   CONCAT_WS(' / ', NULLIF(serial_no,''), NULLIF(project_code,''), NULLIF(machine_model,'')) AS display_name
-            FROM machine_serial_masters
-            WHERE NULLIF(TRIM(COALESCE(serial_no, '')), '') IS NOT NULL
+                   CONCAT_WS(' / ', NULLIF(cabinet_no,''), NULLIF(project_code,''), NULLIF(machine_model,'')) AS display_name
+            FROM cabinet_masters
+            WHERE NULLIF(TRIM(COALESCE(cabinet_no, '')), '') IS NOT NULL
               AND COALESCE(status, '') NOT IN ('停用','disabled','inactive')
-            ORDER BY serial_no
+            ORDER BY cabinet_no
             LIMIT 1000
             """,
         )
@@ -157,7 +157,7 @@ def _render_order_form(
         source_requests = _option_rows(
             query_rows,
             """
-            SELECT pr.id, pr.req_no, pr.req_date, pr.department, pr.purpose, pr.project_code, pr.serial_no,
+            SELECT pr.id, pr.req_no, pr.req_date, pr.department, pr.purpose, pr.project_code, pr.cabinet_no,
                    COUNT(pri.id) AS item_count,
                    COALESCE(SUM(GREATEST(COALESCE(pri.quantity,0)-COALESCE(po_items.ordered_qty,0),0)), 0) AS remaining_qty
             FROM purchase_requisitions pr
@@ -179,7 +179,7 @@ def _render_order_form(
         if source_request_id.isdigit():
             source_request = query_one(
                 """
-                SELECT pr.id, pr.req_no, pr.req_date, pr.department, pr.purpose, pr.project_code, pr.serial_no,
+                SELECT pr.id, pr.req_no, pr.req_date, pr.department, pr.purpose, pr.project_code, pr.cabinet_no,
                        MIN(pri.need_date) AS expected_date
                 FROM purchase_requisitions pr
                 LEFT JOIN purchase_requisition_items pri ON pri.req_id=pr.id
@@ -196,7 +196,7 @@ def _render_order_form(
                     "expected_date": source_request.get("expected_date"),
                     "warehouse_id": None,
                     "project_code": source_request.get("project_code") or "",
-                    "serial_no": source_request.get("serial_no") or "",
+                    "cabinet_no": source_request.get("cabinet_no") or "",
                     "remark": f"来源采购申请 {source_request.get('req_no')}",
                 }
                 items = query_rows(
@@ -250,7 +250,7 @@ def _render_order_form(
         source_requests=source_requests,
         source_request=source_request,
         project_master_options=project_master_options,
-        machine_serial_options=machine_serial_options,
+        cabinet_options=cabinet_options,
         due_date_label=due_date_label,
         due_date_field=due_date_field,
         warehouse_label=warehouse_label,

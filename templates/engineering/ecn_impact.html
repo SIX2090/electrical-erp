@@ -37,7 +37,7 @@
     <div class="section-title">
         <div>
             <h2>执行影响分析</h2>
-            <span>按产品、BOM、项目号、机号筛选受影响单据；执行会覆盖当前待处理结果。</span>
+            <span>按产品、BOM、项目号、柜号筛选受影响单据；执行会覆盖当前待处理结果。</span>
         </div>
     </div>
     <form method="post" action="{{ url_for('ecn_impact_analyze', ecn_id=ecn.id) }}" class="row g-2 align-items-end">
@@ -55,8 +55,8 @@
             <input class="form-control form-control-sm" name="project_code" value="{{ request.args.get('project_code', '') }}">
         </div>
         <div class="col-md-2">
-            <label class="form-label">机号</label>
-            <input class="form-control form-control-sm" name="serial_no" value="{{ request.args.get('serial_no', '') }}">
+            <label class="form-label">柜号</label>
+            <input class="form-control form-control-sm" name="cabinet_no" value="{{ request.args.get('cabinet_no', '') }}">
         </div>
         <div class="col-md-2 d-grid">
             <button class="btn btn-primary btn-sm" type="submit"><i class="bi bi-play-circle"></i> 执行分析</button>

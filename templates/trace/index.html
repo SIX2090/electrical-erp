@@ -34,7 +34,7 @@
             <div class="card-body">
                 <div class="text-muted small">追溯入口</div>
                 <div class="mt-2">
-                    <span class="text-muted small">按项目号或机号查询全链路追溯关系。</span>
+                    <span class="text-muted small">按项目号或柜号查询全链路追溯关系。</span>
                 </div>
             </div>
         </div>
@@ -50,8 +50,8 @@
                 <input type="text" name="project_code" class="form-control" placeholder="输入项目号查询全链路">
             </div>
             <div class="col-md-4">
-                <label class="form-label small text-muted mb-1">机号</label>
-                <input type="text" name="serial_no" class="form-control" placeholder="输入机号查询全链路">
+                <label class="form-label small text-muted mb-1">柜号</label>
+                <input type="text" name="cabinet_no" class="form-control" placeholder="输入柜号查询全链路">
             </div>
             <div class="col-md-2">
                 <label class="form-label small text-muted mb-1">单据类型</label>
@@ -90,7 +90,7 @@
                         <th>单据类型</th>
                         <th>单据编号</th>
                         <th>项目号</th>
-                        <th>机号</th>
+                        <th>柜号</th>
                         <th>说明</th>
                         <th>级别</th>
                     </tr>
@@ -103,7 +103,7 @@
                         <td>{{ label(item.doc_type) if label is defined else item.doc_type }}</td>
                         <td>{{ item.doc_no or '-' }}</td>
                         <td>{{ item.project_code or '-' }}</td>
-                        <td>{{ item.serial_no or '-' }}</td>
+                        <td>{{ item.cabinet_no or '-' }}</td>
                         <td>{{ item.description or '-' }}</td>
                         <td>
                             {% if item.severity == 'error' %}

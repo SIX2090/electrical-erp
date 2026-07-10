@@ -74,7 +74,7 @@ def _red_item_fields(item, red_invoice_id, item_columns, kind):
         'tax_amount': -_amount(item, 'tax_amount'),
         'amount_with_tax': -_amount(item, 'amount_with_tax'),
         'project_code': item.get('project_code'),
-        'serial_no': item.get('serial_no'),
+        'cabinet_no': item.get('cabinet_no'),
         'remark': item.get('remark'),
     }
     if kind == 'sales':
@@ -121,7 +121,7 @@ def _red_related_fields(kind, red_invoice_id, red_invoice_no, original_invoice, 
             'status': '未收款',
             'remark': f'红冲发票 {original_invoice.get("invoice_no")}',
             'project_code': original_invoice.get('project_code'),
-            'serial_no': original_invoice.get('serial_no'),
+            'cabinet_no': original_invoice.get('cabinet_no'),
             'invoice_id': red_invoice_id,
             'created_by': current_user_id,
             'updated_by': current_user_id,
@@ -142,7 +142,7 @@ def _red_related_fields(kind, red_invoice_id, red_invoice_no, original_invoice, 
             'status': '未付款',
             'finance_remark': f'红冲发票 {original_invoice.get("invoice_no")}',
             'project_code': original_invoice.get('project_code'),
-            'serial_no': original_invoice.get('serial_no'),
+            'cabinet_no': original_invoice.get('cabinet_no'),
             'invoice_id': red_invoice_id,
             'invoice_no': red_invoice_no,
             'invoice_date': red_date,
@@ -263,7 +263,7 @@ def create_red_invoice(query_db, execute_db, kind, original_invoice_id, red_invo
 
     # 复制其他字段
     copy_fields = ['invoice_code', 'tax_rate', 'currency', 'exchange_rate',
-                   'project_code', 'serial_no']
+                   'project_code', 'cabinet_no']
     for field in copy_fields:
         if field in original_invoice:
             red_invoice_fields[field] = original_invoice[field]
@@ -550,7 +550,7 @@ def _rollback_inventory_for_red_flush(query_db, execute_db, kind, original_items
             continue
 
         unit_cost = Decimal(str(item.get('unit_price') or 0))
-        serial_no = item.get('serial_no', '') or ''
+        cabinet_no = item.get('cabinet_no', '') or ''
 
         try:
             if kind == 'sales':
@@ -564,7 +564,7 @@ def _rollback_inventory_for_red_flush(query_db, execute_db, kind, original_items
                     reference_no=red_invoice_no,
                     remark=f'红冲销售发票 {red_invoice_no} 库存回冲',
                     warehouse_id=default_warehouse_id,
-                    serial_no=serial_no,
+                    cabinet_no=cabinet_no,
                 )
             else:
                 post_inventory_issue(
@@ -577,7 +577,7 @@ def _rollback_inventory_for_red_flush(query_db, execute_db, kind, original_items
                     remark=f'红冲采购发票 {red_invoice_no} 库存回冲',
                     unit_cost=unit_cost,
                     warehouse_id=default_warehouse_id,
-                    serial_no=serial_no,
+                    cabinet_no=cabinet_no,
                 )
             rollback_count += 1
         except Exception as e:

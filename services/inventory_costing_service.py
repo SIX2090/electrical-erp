@@ -186,7 +186,7 @@ def record_inventory_costing(
             'balance_amount': 结存金额,
             'avg_cost': 平均成本,
             'project_code': 项目号（可选）,
-            'serial_no': 机号（可选）,
+            'cabinet_no': 柜号（可选）,
             'warehouse_id': 仓库ID（可选）,
             'costed_by': 核算人,
             'remark': 备注（可选）
@@ -210,7 +210,7 @@ def record_inventory_costing(
             balance_amount,
             avg_cost,
             project_code,
-            serial_no,
+            cabinet_no,
             warehouse_id,
             costed_by,
             remark
@@ -232,7 +232,7 @@ def record_inventory_costing(
             costing_data.get('balance_amount'),
             costing_data.get('avg_cost'),
             costing_data.get('project_code'),
-            costing_data.get('serial_no'),
+            costing_data.get('cabinet_no'),
             costing_data.get('warehouse_id'),
             costing_data.get('costed_by'),
             costing_data.get('remark')
@@ -279,7 +279,7 @@ def cost_inventory_receipt(
             'quantity': 入库数量,
             'unit_cost': 入库单价,
             'project_code': 项目号（可选）,
-            'serial_no': 机号（可选）,
+            'cabinet_no': 柜号（可选）,
             'warehouse_id': 仓库ID（可选）,
             'costed_by': 核算人,
             'remark': 备注（可选）
@@ -327,7 +327,7 @@ def cost_inventory_receipt(
                 'balance_amount': cost_calc['balance_amount'],
                 'avg_cost': cost_calc['new_avg_cost'],
                 'project_code': receipt_data.get('project_code'),
-                'serial_no': receipt_data.get('serial_no'),
+                'cabinet_no': receipt_data.get('cabinet_no'),
                 'warehouse_id': receipt_data.get('warehouse_id'),
                 'costed_by': receipt_data.get('costed_by'),
                 'remark': receipt_data.get('remark')
@@ -396,7 +396,7 @@ def cost_inventory_issue(
             'transaction_no': 交易单号,
             'quantity': 出库数量（正数）,
             'project_code': 项目号（可选）,
-            'serial_no': 机号（可选）,
+            'cabinet_no': 柜号（可选）,
             'warehouse_id': 仓库ID（可选）,
             'costed_by': 核算人,
             'remark': 备注（可选）
@@ -471,7 +471,7 @@ def cost_inventory_issue(
                 'balance_amount': balance_amount,
                 'avg_cost': current_cost,  # 出库不改变平均成本
                 'project_code': issue_data.get('project_code'),
-                'serial_no': issue_data.get('serial_no'),
+                'cabinet_no': issue_data.get('cabinet_no'),
                 'warehouse_id': issue_data.get('warehouse_id'),
                 'costed_by': issue_data.get('costed_by'),
                 'remark': issue_data.get('remark')
@@ -595,7 +595,7 @@ def generate_costing_voucher(
                 'debit_amount': total_cost,
                 'credit_amount': Decimal('0'),
                 'project_code': costing.get('project_code'),
-                'serial_no': costing.get('serial_no')
+                'cabinet_no': costing.get('cabinet_no')
             },
             {
                 'line_no': 2,
@@ -604,7 +604,7 @@ def generate_costing_voucher(
                 'debit_amount': Decimal('0'),
                 'credit_amount': total_cost,
                 'project_code': costing.get('project_code'),
-                'serial_no': costing.get('serial_no')
+                'cabinet_no': costing.get('cabinet_no')
             }
         ]
 
@@ -660,7 +660,7 @@ def query_inventory_cost_ledger(
             'start_date': 开始日期,
             'end_date': 结束日期,
             'project_code': 项目号,
-            'serial_no': 机号,
+            'cabinet_no': 柜号,
             'transaction_type': 交易类型
         }
 
@@ -688,9 +688,9 @@ def query_inventory_cost_ledger(
         where_clauses.append("ic.project_code = %s")
         params.append(filters['project_code'])
 
-    if filters.get('serial_no'):
-        where_clauses.append("ic.serial_no = %s")
-        params.append(filters['serial_no'])
+    if filters.get('cabinet_no'):
+        where_clauses.append("ic.cabinet_no = %s")
+        params.append(filters['cabinet_no'])
 
     if filters.get('transaction_type'):
         where_clauses.append("ic.transaction_type = %s")

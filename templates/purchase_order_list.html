@@ -20,7 +20,7 @@
         <a class="filter-scheme {% if filters.risk == 'payable' %}active{% endif %}" href="{{ back_url }}?risk=payable">待付款</a>
     </div>
     <form class="row g-2" method="get" action="{{ back_url }}" data-list-filter-form>
-        <div class="col-lg-4"><input class="form-control" name="keyword" value="{{ filters.keyword }}" placeholder="采购订单、供应商、项目号、机号"></div>
+        <div class="col-lg-4"><input class="form-control" name="keyword" value="{{ filters.keyword }}" placeholder="采购订单、供应商、项目号、柜号"></div>
         <div class="col-lg-2">
             <select class="form-select" name="supplier_id">
                 <option value="">全部供应商</option>
@@ -54,13 +54,13 @@
     {% if orders %}
     <div class="table-responsive">
         <table class="table table-sm align-middle client-paginate" data-column-settings="off">
-            <thead><tr><th>采购订单</th><th>供应商</th><th>项目/机号</th><th>产品分类/BOM</th><th>预计到货</th><th class="text-end">采购数量</th><th class="text-end">未收</th><th class="text-end">应付余额</th><th>状态</th><th>下一步</th><th>收货条件</th><th data-column-system="actions">操作</th></tr></thead>
+            <thead><tr><th>采购订单</th><th>供应商</th><th>项目/柜号</th><th>产品分类/BOM</th><th>预计到货</th><th class="text-end">采购数量</th><th class="text-end">未收</th><th class="text-end">应付余额</th><th>状态</th><th>下一步</th><th>收货条件</th><th data-column-system="actions">操作</th></tr></thead>
             <tbody>
             {% for row in orders %}
             <tr>
                 <td><a href="/purchase_order/{{ row.id }}">{{ row.order_no }}</a><div class="text-muted small">{{ row.order_date or '-' }}</div></td>
                 <td>{{ row.supplier_name|clean_text }}</td>
-                <td>{{ row.project_code|clean_text }} / {{ row.serial_no|clean_text }}</td>
+                <td>{{ row.project_code|clean_text }} / {{ row.cabinet_no|clean_text }}</td>
                 <td>
                     {{ row.product_families|clean_text }}
                     <div class="text-muted small">{{ row.bom_versions|clean_text }}</div>

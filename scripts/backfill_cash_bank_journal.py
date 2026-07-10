@@ -46,7 +46,7 @@ def insert_journal(cur, row, source_type, direction, line_count=1):
         """
         INSERT INTO cash_bank_journal_entries
             (account_id, entry_date, entry_no, source_type, source_no, direction, amount,
-             partner_type, partner_name, project_code, serial_no, summary, status, created_by)
+             partner_type, partner_name, project_code, cabinet_no, summary, status, created_by)
         VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'confirmed',%s)
         """,
         (
@@ -60,7 +60,7 @@ def insert_journal(cur, row, source_type, direction, line_count=1):
             row["partner_type"],
             row["partner_name"],
             row.get("project_code"),
-            row.get("serial_no"),
+            row.get("cabinet_no"),
             row["summary"],
             row.get("created_by"),
         ),
@@ -83,7 +83,7 @@ def main():
                            COALESCE(l.line_no, 1) AS line_no,
                            COALESCE(r.receipt_kind, 'customer_receipt') AS source_type,
                            COUNT(*) OVER (PARTITION BY r.receipt_no) AS line_count,
-                           r.project_code, r.serial_no,
+                           r.project_code, r.cabinet_no,
                            r.created_by, c.name AS partner_name, 'customer' AS partner_type,
                            'cash bank journal backfilled from historical receipt' AS summary
                     FROM customer_receipts r
@@ -113,7 +113,7 @@ def main():
                            COALESCE(l.line_no, 1) AS line_no,
                            COALESCE(p.payment_kind, 'supplier_payment') AS source_type,
                            COUNT(*) OVER (PARTITION BY p.payment_no) AS line_count,
-                           p.project_code, p.serial_no,
+                           p.project_code, p.cabinet_no,
                            p.created_by, s.name AS partner_name, 'supplier' AS partner_type,
                            'cash bank journal backfilled from historical payment' AS summary
                     FROM supplier_payments p

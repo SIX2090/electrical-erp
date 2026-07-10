@@ -126,7 +126,7 @@ def apply_migration():
         print("创建的表:")
         print("  - gl_account_balances (科目余额表)")
         print("  - project_cost_ledger (项目成本台账)")
-        print("  - serial_cost_ledger (机号成本台账)")
+        print("  - cabinet_cost_ledger (柜号成本台账)")
         print("  - inventory_costing (存货核算表)")
         print("  - inventory_transactions (库存交易明细表)")
         print()
@@ -150,7 +150,7 @@ def rollback_migration():
     print("[WARNING] 这将删除以下表及其所有数据:")
     print("  - gl_account_balances")
     print("  - project_cost_ledger")
-    print("  - serial_cost_ledger")
+    print("  - cabinet_cost_ledger")
     print("  - inventory_costing")
     print("  - inventory_transactions")
     print()
@@ -169,7 +169,7 @@ def rollback_migration():
         rollback_sql = [
             "DROP TABLE IF EXISTS inventory_transactions CASCADE",
             "DROP TABLE IF EXISTS inventory_costing CASCADE",
-            "DROP TABLE IF EXISTS serial_cost_ledger CASCADE",
+            "DROP TABLE IF EXISTS cabinet_cost_ledger CASCADE",
             "DROP TABLE IF EXISTS project_cost_ledger CASCADE",
             "DROP TABLE IF EXISTS gl_account_balances CASCADE",
         ]

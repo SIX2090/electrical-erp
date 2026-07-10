@@ -67,7 +67,7 @@ def main():
 
     cur.execute(
         """SELECT id, wo_no FROM work_orders
-           WHERE project_code=%s AND serial_no=%s
+           WHERE project_code=%s AND cabinet_no=%s
            ORDER BY id LIMIT 1""",
         (BASELINE_PROJECT, BASELINE_SERIAL),
     )
@@ -77,7 +77,7 @@ def main():
 
     cur.execute(
         """SELECT id, shipment_no FROM sales_shipments
-           WHERE project_code=%s AND serial_no=%s
+           WHERE project_code=%s AND cabinet_no=%s
            ORDER BY id DESC LIMIT 1""",
         (BASELINE_PROJECT, BASELINE_SERIAL),
     )
@@ -87,7 +87,7 @@ def main():
 
     cur.execute(
         """SELECT id, total_amount FROM customer_receivables
-           WHERE project_code=%s AND serial_no=%s
+           WHERE project_code=%s AND cabinet_no=%s
            ORDER BY id DESC LIMIT 1""",
         (BASELINE_PROJECT, BASELINE_SERIAL),
     )
@@ -142,7 +142,7 @@ def main():
             pick_no = f"PICK-GT-TRIAL-{datetime.now().strftime('%Y%m%d')}-001"
             cur.execute(
                 """INSERT INTO pick_lists
-                   (pick_no, work_order_id, warehouse_id, pick_date, status, project_code, serial_no, created_at)
+                   (pick_no, work_order_id, warehouse_id, pick_date, status, project_code, cabinet_no, created_at)
                    VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
                    RETURNING id""",
                 (pick_no, wo_id, 4, date.today(), "draft", BASELINE_PROJECT, BASELINE_SERIAL),
@@ -224,7 +224,7 @@ def main():
                        (report_no, work_order_id, report_type, report_date, status,
                         labor_hours, equipment_hours, good_qty,
                         operator_id, work_center_id,
-                        project_code, serial_no, submitted_at)
+                        project_code, cabinet_no, submitted_at)
                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())""",
                     (
                         f"OPR-GT-TRIAL-{op_name}-{datetime.now().strftime('%Y%m%d')}",
@@ -307,7 +307,7 @@ def main():
 
     # ---- Scenario 7: Create sales invoice for baseline shipment ----
     cur.execute(
-        "SELECT COUNT(*) AS cnt FROM sales_invoices WHERE project_code=%s AND serial_no=%s",
+        "SELECT COUNT(*) AS cnt FROM sales_invoices WHERE project_code=%s AND cabinet_no=%s",
         (BASELINE_PROJECT, BASELINE_SERIAL),
     )
     inv_count = cur.fetchone()["cnt"]
@@ -316,7 +316,7 @@ def main():
         cur.execute(
             """INSERT INTO sales_invoices
                (invoice_no, invoice_date, customer_id, invoice_type, total_amount,
-                amount, status, project_code, serial_no, source_no, source_type,
+                amount, status, project_code, cabinet_no, source_no, source_type,
                 source_id, receivable_id, created_at)
                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())""",
             (
@@ -343,7 +343,7 @@ def main():
     cur.execute(
         """SELECT COUNT(*) AS cnt FROM mrp_suggestions ms
            JOIN mrp_runs mr ON mr.id=ms.run_id
-           WHERE mr.project_code=%s OR mr.serial_no=%s""",
+           WHERE mr.project_code=%s OR mr.cabinet_no=%s""",
         (BASELINE_PROJECT, BASELINE_SERIAL),
     )
     existing_suggestions = cur.fetchone()["cnt"]
@@ -362,7 +362,7 @@ def main():
                 cur.execute(
                     """INSERT INTO mrp_suggestions
                        (run_id, suggestion_type, material_id, material_code, material_name,
-                        qty, required_date, project_code, serial_no, status, created_at)
+                        qty, required_date, project_code, cabinet_no, status, created_at)
                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())""",
                     (
                         run_id,
@@ -382,7 +382,7 @@ def main():
             cur.execute(
                 """INSERT INTO mrp_suggestions
                    (run_id, suggestion_type, material_id, material_code, material_name,
-                    qty, required_date, project_code, serial_no, status, created_at)
+                    qty, required_date, project_code, cabinet_no, status, created_at)
                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())""",
                 (
                     run_id,

@@ -87,8 +87,8 @@
 
         <dt class="col-sm-2">项目号</dt>
         <dd class="col-sm-4">{{ order.project_code|clean_text or '-' }}</dd>
-        <dt class="col-sm-2">机号</dt>
-        <dd class="col-sm-4">{{ order.serial_no|clean_text or '-' }}</dd>
+        <dt class="col-sm-2">柜号</dt>
+        <dd class="col-sm-4">{{ order.cabinet_no|clean_text or '-' }}</dd>
 
         <dt class="col-sm-2">发料日期</dt>
         <dd class="col-sm-4">{{ order.date or order.issue_date or '-' }}</dd>
@@ -128,7 +128,7 @@
                 <th>仓库</th>
                 <th>库位</th>
                 <th>项目号</th>
-                <th>机号</th>
+                <th>柜号</th>
                 <th style="width:90px;">操作</th>
             </tr>
             </thead>
@@ -145,7 +145,7 @@
                 <td>{{ item.warehouse_name|clean_text or '-' }}</td>
                 <td>{{ item.location_code|clean_text or item.location_name|clean_text or '-' }}</td>
                 <td>{{ item.project_code|clean_text or '-' }}</td>
-                <td>{{ item.serial_no|clean_text or '-' }}</td>
+                <td>{{ item.cabinet_no|clean_text or '-' }}</td>
                 <td><a class="btn btn-outline-primary btn-sm" href="/material?keyword={{ (item.product_code or item.material_code or '')|urlencode }}">物料</a></td>
             </tr>
             {% else %}

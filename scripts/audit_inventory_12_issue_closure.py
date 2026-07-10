@@ -34,7 +34,7 @@ def main():
     return_tpl = (ROOT / "templates" / "inventory_return_detail.html").read_text(encoding="utf-8")
 
     checks.append(("approval_flow_switch", "_inventory_approval_flow_enabled" in registry and "_inventory_initial_status" in registry, "status follows approval switch"))
-    checks.append(("lot_serial_trace_fields", all(token in registry for token in ("lot_no", "serial_no", "_sync_batch_tracking")), "lot/serial tracked"))
+    checks.append(("lot_cabinet_trace_fields", all(token in registry for token in ("lot_no", "cabinet_no", "_sync_batch_tracking")), "lot/cabinet tracked"))
     checks.append(("inout_summary_report", all(token in report_data for token in ("收发存汇总表", "opening_qty", "inbound_qty", "outbound_qty", "closing_qty")), "in/out/balance fields"))
     checks.append(("purchase_return_outbound", "采购退货出库" in registry and "purchase_return" in registry, "purchase return issues stock"))
     checks.append(("sales_return_inbound", "销售退货入库" in registry and "sales_return" in registry, "sales return receives stock"))

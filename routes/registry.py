@@ -188,7 +188,7 @@ from routes.master_data_form_adapters import (
     render_department_form_adapter,
     render_employee_form_adapter,
     render_location_form_adapter,
-    render_machine_serial_master_form_adapter,
+    render_cabinet_master_form_adapter,
     render_project_master_form_adapter,
     render_supplier_form_adapter,
     render_unit_form_adapter,
@@ -351,19 +351,19 @@ def _system_option_enabled(key, default="0"):
     return value in {"1", "true", "yes", "on", "enabled", "allow", "允许", "启用"}
 
 
-def _project_serial_required():
+def _project_cabinet_required():
     try:
         columns = {row.get("column_name") for row in _table_columns("system_options")}
         if {"option_key", "option_value"}.issubset(columns):
             row = _safe_one(
                 "SELECT option_value FROM system_options WHERE option_key=%s LIMIT 1",
-                ("require_project_serial",),
+                ("require_project_cabinet",),
             )
             value = (row or {}).get("option_value")
         elif {"key", "value"}.issubset(columns):
             row = _safe_one(
                 "SELECT value FROM system_options WHERE key=%s LIMIT 1",
-                ("require_project_serial",),
+                ("require_project_cabinet",),
             )
             value = (row or {}).get("value")
         else:
@@ -372,7 +372,7 @@ def _project_serial_required():
         try:
             deps.get("log_action", lambda *args, **kwargs: None)(
                 "系统参数读取异常",
-                "require_project_serial",
+                "require_project_cabinet",
                 str(exc)[:500],
             )
         except Exception:
@@ -382,48 +382,48 @@ def _project_serial_required():
     return value in {"1", "true", "yes", "on", "启用", "强制"}
 
 
-def _require_project_serial_or_redirect(back_url):
-    if not _project_serial_required():
+def _require_project_cabinet_or_redirect(back_url):
+    if not _project_cabinet_required():
         return None
     missing = []
     if not _form_text("project_code"):
         missing.append("项目号")
-    if not _form_text("serial_no"):
-        missing.append("机号")
+    if not _form_text("cabinet_no"):
+        missing.append("柜号")
     if missing:
-        flash(f"系统已启用强制项目号/机号，请填写：{', '.join(missing)}。", "warning")
+        flash(f"系统已启用强制项目号/柜号，请填写：{', '.join(missing)}。", "warning")
         return redirect(back_url)
     return None
 
 
-def _require_project_serial_json(project_code, serial_no):
-    if _project_serial_required():
+def _require_project_cabinet_json(project_code, cabinet_no):
+    if _project_cabinet_required():
         missing = []
         if not (project_code or "").strip():
             missing.append("项目号")
-        if not (serial_no or "").strip():
-            missing.append("机号")
+        if not (cabinet_no or "").strip():
+            missing.append("柜号")
         if missing:
-            return jsonify({"status": "error", "msg": f"系统已启用强制项目号/机号，请填写：{', '.join(missing)}。"}), 400
+            return jsonify({"status": "error", "msg": f"系统已启用强制项目号/柜号，请填写：{', '.join(missing)}。"}), 400
     return None
 
 
-def _require_project_serial_values_or_redirect(project_code, serial_no, back_url):
-    if _project_serial_required():
+def _require_project_cabinet_values_or_redirect(project_code, cabinet_no, back_url):
+    if _project_cabinet_required():
         missing = []
         if not (project_code or "").strip():
             missing.append("项目号")
-        if not (serial_no or "").strip():
-            missing.append("机号")
+        if not (cabinet_no or "").strip():
+            missing.append("柜号")
         if missing:
-            flash(f"系统已启用强制项目号/机号，请填写：{', '.join(missing)}。", "warning")
+            flash(f"系统已启用强制项目号/柜号，请填写：{', '.join(missing)}。", "warning")
             return redirect(back_url)
     return None
 
 
-def _validate_sales_order_master_project_serial(back_url):
+def _validate_sales_order_master_project_cabinet(back_url):
     project_code = _form_text("project_code")
-    serial_no = _form_text("serial_no")
+    cabinet_no = _form_text("cabinet_no")
     if project_code:
         project = _safe_one(
             """
@@ -440,28 +440,28 @@ def _validate_sales_order_master_project_serial(back_url):
             return None, None, redirect(back_url)
     else:
         project = None
-    if serial_no:
+    if cabinet_no:
         machine = _safe_one(
             """
-            SELECT id, serial_no, project_id, project_code
-            FROM machine_serial_masters
-            WHERE serial_no=%s
+            SELECT id, cabinet_no, project_id, project_code
+            FROM cabinet_masters
+            WHERE cabinet_no=%s
               AND COALESCE(status, '') NOT IN ('停用','disabled','inactive')
             LIMIT 1
             """,
-            (serial_no,),
+            (cabinet_no,),
         )
         if not machine:
-            flash("销售订单机号必须从基础资料的机号档案选取。", "warning")
+            flash("销售订单柜号必须从基础资料的柜号档案选取。", "warning")
             return None, None, redirect(back_url)
         machine_project_code = (machine.get("project_code") or "").strip()
         if project_code and machine_project_code and machine_project_code != project_code:
-            flash("销售订单机号所属项目与已选项目号不一致。", "warning")
+            flash("销售订单柜号所属项目与已选项目号不一致。", "warning")
             return None, None, redirect(back_url)
         if project_code and machine.get("project_id") and project and machine.get("project_id") != project.get("id"):
-            flash("销售订单机号所属项目与已选项目号不一致。", "warning")
+            flash("销售订单柜号所属项目与已选项目号不一致。", "warning")
             return None, None, redirect(back_url)
-    return project_code, serial_no, None
+    return project_code, cabinet_no, None
 
 
 def _submitted_row_version(record):
@@ -604,7 +604,7 @@ def _work_order_scope_allowed(order, *, action="view", log=True):
     scope = _current_data_scope("view")
     if not scope_has_rules(scope):
         return True
-    allowed = row_allowed(scope, order or {}, {"project": "project_code", "serial": "serial_no"})
+    allowed = row_allowed(scope, order or {}, {"project": "project_code", "cabinet": "cabinet_no"})
     if log:
         _record_data_access(
             "work_order",
@@ -618,7 +618,7 @@ def _work_order_scope_allowed(order, *, action="view", log=True):
 
 def _require_work_order_scope(work_order_id, *, action="view"):
     order = _safe_one(
-        "SELECT id, wo_no, project_code, serial_no FROM work_orders WHERE id=%s",
+        "SELECT id, wo_no, project_code, cabinet_no FROM work_orders WHERE id=%s",
         (work_order_id,),
     )
     if not order:
@@ -898,7 +898,7 @@ def _p0_on_work_order_stage_change(work_order_id, next_stage, order, query_one, 
         current_app.logger.exception("P0 drawing snapshot failed for work_order_id=%s", work_order_id)
     try:
         wo = query_one(
-            "SELECT id, wo_no, product_id, bom_id, quantity, project_code, serial_no FROM work_orders WHERE id=%s",
+            "SELECT id, wo_no, product_id, bom_id, quantity, project_code, cabinet_no FROM work_orders WHERE id=%s",
             (work_order_id,),
         )
         if wo and wo.get("bom_id"):
@@ -911,7 +911,7 @@ def _p0_on_work_order_stage_change(work_order_id, next_stage, order, query_one, 
                 source_id=work_order_id,
                 source_no=wo.get("wo_no"),
                 project_code=wo.get("project_code") or "",
-                serial_no=wo.get("serial_no") or "",
+                cabinet_no=wo.get("cabinet_no") or "",
                 bom_id=wo.get("bom_id"),
                 quantity=wo.get("quantity") or 1,
                 created_by=session.get("user_id"),
@@ -1110,9 +1110,9 @@ def _render_inventory_movement_list(direction):
     tx_type = "其他入库" if direction == "in" else "其他出库"
     title = "其他入库单列表" if direction == "in" else "其他出库单列表"
     subtitle = (
-        "单据信息：其他入库单据列表，按单据号、来源单据、物料明细、批号、项目号和机号汇总数量和成本金额；新增入库单从库存单据入口进入，保存后请在详情页审核完成过账。"
+        "单据信息：其他入库单据列表，按单据号、来源单据、物料明细、批号、项目号和柜号汇总数量和成本金额；新增入库单从库存单据入口进入，保存后请在详情页审核完成过账。"
         if direction == "in"
-        else "单据信息：其他出库单据列表，按单据号、来源单据、物料明细、批号、项目号和机号汇总数量和成本金额；新增出库单从库存单据入口进入，保存后请在详情页审核完成过账。"
+        else "单据信息：其他出库单据列表，按单据号、来源单据、物料明细、批号、项目号和柜号汇总数量和成本金额；新增出库单从库存单据入口进入，保存后请在详情页审核完成过账。"
     )
     doc_no_label = "入库单" if direction == "in" else "出库单"
     add_url = "/inventory/inbound/new" if direction == "in" else "/inventory/outbound/new"
@@ -1128,7 +1128,7 @@ def _render_inventory_movement_list(direction):
                COALESCE(line_agg.cost_amount, 0) AS cost_amount,
                line_agg.lot_no AS lot_no,
                line_agg.source_doc_no AS source_doc_no,
-               line_agg.serial_no AS serial_no
+               line_agg.cabinet_no AS cabinet_no
         FROM inventory_movement_documents d
         LEFT JOIN LATERAL (
             SELECT COUNT(*) AS line_count,
@@ -1137,7 +1137,7 @@ def _render_inventory_movement_list(direction):
                    SUM(COALESCE(amount, COALESCE(quantity, 0) * COALESCE(unit_cost, 0))) AS cost_amount,
                    MAX(lot_no) AS lot_no,
                    MAX(source_doc_no) AS source_doc_no,
-                   MAX(serial_no) AS serial_no
+                   MAX(cabinet_no) AS cabinet_no
             FROM inventory_movement_lines
             WHERE doc_id = d.id
         ) line_agg ON true
@@ -1170,7 +1170,7 @@ def _render_inventory_movement_list(direction):
             ("cost_amount", "成本金额"),
             ("lot_no", "批号"),
             ("project_code", "项目号"),
-            ("serial_no", "机号"),
+            ("cabinet_no", "柜号"),
             ("status", "状态"),
             ("next_step", "下一步"),
         ),
@@ -1229,7 +1229,7 @@ def _render_inventory_movement_detail(doc_no, direction):
                    MAX(transaction_date)::date AS tx_date,
                    MAX(warehouse_id) AS warehouse_id,
                    MAX(project_code) AS project_code,
-                   MAX(serial_no) AS serial_no,
+                   MAX(cabinet_no) AS cabinet_no,
                    MAX(remark) AS remark,
                    'posted' AS status,
                    COUNT(*) AS line_count,
@@ -1260,14 +1260,14 @@ def _render_inventory_movement_detail(doc_no, direction):
         header["line_count"] = (line_agg or {}).get("line_count") or 0
         header["total_qty"] = (line_agg or {}).get("total_qty") or 0
         header["total_amount"] = (line_agg or {}).get("total_amount") or 0
-        # serial_no was a line-level field in the legacy query; expose it at the
-        # header level for the template's existing "机号" cell.
-        header["serial_no"] = header.get("project_code") or ""
+        # cabinet_no was a line-level field in the legacy query; expose it at the
+        # header level for the template's existing "柜号" cell.
+        header["cabinet_no"] = header.get("project_code") or ""
     wh = _safe_one("SELECT code, name FROM warehouses WHERE id=%s", (header.get("warehouse_id"),))
     if use_legacy_lines:
         lines = _safe_rows(
             """
-            SELECT st.id, st.product_id, st.quantity, st.unit_cost, st.lot_no, st.serial_no,
+            SELECT st.id, st.product_id, st.quantity, st.unit_cost, st.lot_no, st.cabinet_no,
                    st.project_code, st.location, st.remark,
                    p.code AS product_code, p.name AS product_name,
                    p.specification, p.unit AS product_unit,
@@ -1283,7 +1283,7 @@ def _render_inventory_movement_detail(doc_no, direction):
         lines = _safe_rows(
             """
             SELECT ml.id, ml.product_id, ml.quantity, ml.unit_cost, ml.lot_no,
-                   ml.serial_no, ml.line_project_code AS project_code,
+                   ml.cabinet_no, ml.line_project_code AS project_code,
                    ml.line_warehouse_id, ml.line_location_id, ml.usage_reason AS remark,
                    p.code AS product_code, p.name AS product_name,
                    p.specification, p.unit AS product_unit,
@@ -1357,7 +1357,7 @@ def _render_inventory_adjustment_list():
     rows = _safe_rows(
         """
         SELECT MIN(id) AS id, adj_no, MAX(adj_date) AS adj_date, MAX(adj_type) AS adj_type,
-               MAX(project_code) AS project_code, MAX(serial_no) AS serial_no,
+               MAX(project_code) AS project_code, MAX(cabinet_no) AS cabinet_no,
                MAX(status) AS status, MAX(remark) AS remark,
                COUNT(*) AS line_count,
                SUM(COALESCE(diff_quantity,0)) AS quantity,
@@ -1386,7 +1386,7 @@ def _render_inventory_adjustment_list():
             ("quantity", "调整数量"),
             ("cost_amount", "成本金额"),
             ("project_code", "项目号"),
-            ("serial_no", "机号"),
+            ("cabinet_no", "柜号"),
             ("status", "状态"),
             ("next_step", "下一步"),
         ),
@@ -2418,7 +2418,7 @@ def _render_master_data_dashboard():
 
 def _render_sales_dashboard(back_url="/sales", document_list=False):
     scope_clause, scope_params = _data_scope_filter(
-        {"project": "so.project_code", "serial": "so.serial_no"}
+        {"project": "so.project_code", "cabinet": "so.cabinet_no"}
     )
     return render_sales_dashboard_adapter(
         query_one=_safe_one,
@@ -2437,7 +2437,7 @@ def _render_sales_dashboard(back_url="/sales", document_list=False):
 
 def _render_purchase_dashboard(back_url="/purchase_order", document_list=False):
     scope_clause, scope_params = _data_scope_filter(
-        {"project": "po.project_code", "serial": "po.serial_no"}
+        {"project": "po.project_code", "cabinet": "po.cabinet_no"}
     )
     return render_purchase_dashboard_adapter(
         _safe_one,
@@ -2908,7 +2908,7 @@ def _resolve_basic_import_references(kind, values, line_no):
                 errors.append(f"第 {line_no} 行客户不存在：{customer_name}")
             values["customer_id"] = customer_id
         values["status"] = values.get("status") or "准备"
-    elif kind == "machine_serial":
+    elif kind == "cabinet":
         project_code = values.get("project_code") or values.pop("project_no", "")
         project = _safe_one("SELECT * FROM project_masters WHERE project_code=%s LIMIT 1", (project_code,)) if project_code else None
         if project_code and not project:
@@ -3015,7 +3015,7 @@ def _basic_import_active_reference_errors(kind, values, line_no):
         "project": [
             ("customers", values.get("customer_id"), "客户"),
         ],
-        "machine_serial": [
+        "cabinet": [
             ("customers", values.get("customer_id"), "客户"),
             ("products", values.get("product_id"), "成品物料"),
         ],
@@ -3268,7 +3268,7 @@ def _render_production_dashboard():
 
 def _render_work_order_list():
     scope_clause, scope_params = _data_scope_filter(
-        {"project": "wo.project_code", "serial": "wo.serial_no"}
+        {"project": "wo.project_code", "cabinet": "wo.cabinet_no"}
     )
     return render_work_order_list_adapter(
         _safe_rows,
@@ -3313,14 +3313,14 @@ def _render_quality_inspection_dashboard():
         where_parts.append(
             """
             (qi.inspection_no ILIKE %s OR qi.batch_no ILIKE %s OR qi.project_code ILIKE %s
-             OR qi.serial_no ILIKE %s OR qi.status ILIKE %s OR qi.inspection_result ILIKE %s
+             OR qi.cabinet_no ILIKE %s OR qi.status ILIKE %s OR qi.inspection_result ILIKE %s
              OR p.code ILIKE %s OR p.name ILIKE %s OR p.specification ILIKE %s
              OR pc.name ILIKE %s OR wo.wo_no ILIKE %s)
             """
         )
         params.extend([f"%{keyword}%"] * 11)
     scope_clause, scope_params = _data_scope_filter(
-        {"project": "qi.project_code", "serial": "qi.serial_no"}
+        {"project": "qi.project_code", "cabinet": "qi.cabinet_no"}
     )
     if scope_clause:
         params.extend(scope_params)
@@ -3330,7 +3330,7 @@ def _render_quality_inspection_dashboard():
     rows = _safe_rows(
         f"""
         SELECT qi.id, qi.inspection_no, qi.source_document_type, qi.source_document_id, qi.source_no,
-               qi.project_code, qi.serial_no, qi.inspection_type, qi.inspection_date,
+               qi.project_code, qi.cabinet_no, qi.inspection_type, qi.inspection_date,
                qi.batch_no, qi.sample_size, qi.passed_quantity, qi.failed_quantity,
                qi.inspection_result, qi.status, qi.defect_category, qi.severity_level,
                qi.disposition, qi.nonconformance_status, qi.responsible_party,
@@ -3396,7 +3396,7 @@ def _render_quality_inspection_dashboard():
             ("bom_display", "BOM"),
             ("control_display", "管控要求"),
             ("project_code", "项目号"),
-            ("serial_no", "机号"),
+            ("cabinet_no", "柜号"),
             ("inspection_date", "检验日期"),
             ("inspection_type_display", "检验类型"),
             ("inspection_result_display", "检验结果"),
@@ -3574,7 +3574,7 @@ def _quality_release_view(row, completion_gate=None):
         badge = "success"
         basis = row.get("conclusion") or "检验判定合格且单据已判定/审核。"
         blocked_reason = ""
-        next_action = "核对完工入库、项目号、机号和质量记录。"
+        next_action = "核对完工入库、项目号、柜号和质量记录。"
     else:
         label = "待判定"
         badge = "secondary"
@@ -3726,7 +3726,7 @@ def _quality_downstream_impact(source_type, result, failed_qty, disposition):
             return "来料质量放行后支撑采购入库、齐套和供应商质量记录。"
         if source_type in {"subcontract_receive", "subcontract_receive_order"}:
             return "委外回厂质量放行后支撑工单进度、库存接收和项目成本追溯。"
-        return "生产质量放行后支撑完工入库、发货准备、服务追溯和项目/机号台账。"
+        return "生产质量放行后支撑完工入库、发货准备、服务追溯和项目/柜号台账。"
     if disposition == "return_supplier":
         return "阻断采购/委外放行，影响供应商质量评价、到料齐套和项目交期。"
     if disposition in {"rework", "reinspect"}:
@@ -3734,7 +3734,7 @@ def _quality_downstream_impact(source_type, result, failed_qty, disposition):
     if disposition == "scrap":
         return "阻断质量放行，需回到库存/生产单据处理报废数量和成本影响。"
     if disposition == "concession":
-        return "允许受控放行，但保留让步风险、后续复核和项目/机号质量追溯。"
+        return "允许受控放行，但保留让步风险、后续复核和项目/柜号质量追溯。"
     return "阻断后续入库、完工、发货或供应商处理，需明确责任人与下一步。"
 
 
@@ -3761,14 +3761,14 @@ def _quality_source_lookup(source_type, source_id=None, source_no=""):
         return {}
     if source_type == "work_order":
         if source_id:
-            return _safe_one("SELECT id, wo_no AS source_no, product_id, project_code, serial_no FROM work_orders WHERE id=%s", (source_id,)) or {}
+            return _safe_one("SELECT id, wo_no AS source_no, product_id, project_code, cabinet_no FROM work_orders WHERE id=%s", (source_id,)) or {}
         if source_no:
-            return _safe_one("SELECT id, wo_no AS source_no, product_id, project_code, serial_no FROM work_orders WHERE wo_no=%s", (source_no,)) or {}
+            return _safe_one("SELECT id, wo_no AS source_no, product_id, project_code, cabinet_no FROM work_orders WHERE wo_no=%s", (source_no,)) or {}
     if source_type == "purchase_receipt":
         if source_id:
             return _safe_one(
                 """
-                SELECT pr.id, pr.receipt_no AS source_no, pr.project_code, pr.serial_no,
+                SELECT pr.id, pr.receipt_no AS source_no, pr.project_code, pr.cabinet_no,
                        po.supplier_id, pri.product_id
                 FROM purchase_receipts pr
                 LEFT JOIN purchase_orders po ON po.id=pr.order_id
@@ -3782,7 +3782,7 @@ def _quality_source_lookup(source_type, source_id=None, source_no=""):
         if source_no:
             return _safe_one(
                 """
-                SELECT pr.id, pr.receipt_no AS source_no, pr.project_code, pr.serial_no,
+                SELECT pr.id, pr.receipt_no AS source_no, pr.project_code, pr.cabinet_no,
                        po.supplier_id, pri.product_id
                 FROM purchase_receipts pr
                 LEFT JOIN purchase_orders po ON po.id=pr.order_id
@@ -3798,7 +3798,7 @@ def _quality_source_lookup(source_type, source_id=None, source_no=""):
             return _safe_one(
                 """
                 SELECT sro.id, sro.receive_no AS source_no, sro.supplier_id, sro.project_code,
-                       sro.serial_no, sc.product_id
+                       sro.cabinet_no, sc.product_id
                 FROM subcontract_receive_orders sro
                 LEFT JOIN subcontract_orders sc ON sc.id=sro.subcontract_order_id
                 WHERE sro.id=%s
@@ -3809,7 +3809,7 @@ def _quality_source_lookup(source_type, source_id=None, source_no=""):
             return _safe_one(
                 """
                 SELECT sro.id, sro.receive_no AS source_no, sro.supplier_id, sro.project_code,
-                       sro.serial_no, sc.product_id
+                       sro.cabinet_no, sc.product_id
                 FROM subcontract_receive_orders sro
                 LEFT JOIN subcontract_orders sc ON sc.id=sro.subcontract_order_id
                 WHERE sro.receive_no=%s
@@ -3820,7 +3820,7 @@ def _quality_source_lookup(source_type, source_id=None, source_no=""):
         if source_id:
             return _safe_one(
                 """
-                SELECT id, rma_no AS source_no, product_id, serial_no, project_code
+                SELECT id, rma_no AS source_no, product_id, cabinet_no, project_code
                 FROM machine_service_rmas WHERE id=%s
                 """,
                 (source_id,),
@@ -3828,7 +3828,7 @@ def _quality_source_lookup(source_type, source_id=None, source_no=""):
         if source_no:
             return _safe_one(
                 """
-                SELECT id, rma_no AS source_no, product_id, serial_no, project_code
+                SELECT id, rma_no AS source_no, product_id, cabinet_no, project_code
                 FROM machine_service_rmas WHERE rma_no=%s
                 """,
                 (source_no,),
@@ -3866,7 +3866,7 @@ def _quality_form_state_from_request(existing=None):
         "corrective_action": _form_text("corrective_action") or existing.get("corrective_action"),
         "conclusion": _form_text("conclusion") or existing.get("conclusion"),
         "project_code": _form_text("project_code") or source.get("project_code") or existing.get("project_code"),
-        "serial_no": _form_text("serial_no") or source.get("serial_no") or existing.get("serial_no"),
+        "cabinet_no": _form_text("cabinet_no") or source.get("cabinet_no") or existing.get("cabinet_no"),
         "batch_no": _form_text("batch_no") or existing.get("batch_no"),
         "inspector": _form_text("inspector") or existing.get("inspector"),
         "source_document_type": source_type,
@@ -3997,7 +3997,7 @@ def _quality_work_order_completion_gate(row):
     )
     mrp_rows = _safe_rows("SELECT shortage_quantity FROM mrp_requirements WHERE work_order_id=%s LIMIT 100", (work_order_id,))
     completions = _safe_rows(
-        "SELECT complete_date, qty, lot_no, serial_no, warehouse_id, location_id FROM wo_complete_items WHERE wo_id=%s",
+        "SELECT complete_date, qty, lot_no, cabinet_no, warehouse_id, location_id FROM wo_complete_items WHERE wo_id=%s",
         (work_order_id,),
     )
     stock_rows = _safe_rows("SELECT transaction_type FROM stock_transactions WHERE reference_no=%s", (order.get("wo_no"),))
@@ -4259,7 +4259,7 @@ def _render_quality_inspection_print(inspection_id):
             ("产品系列", item.get("product_family")),
             ("BOM", _quality_inspection_bom_text(item)),
             ("项目号（推荐）", item.get("project_code")),
-            ("机号（推荐）", item.get("serial_no")),
+            ("柜号（推荐）", item.get("cabinet_no")),
             ("检验类型", item.get("inspection_type")),
             ("检验结果", _quality_result_label(item.get("inspection_result"))),
             ("管控要求", _quality_inspection_control_text(item)),
@@ -4316,7 +4316,7 @@ def _after_sale_keyword_filter(alias):
         clause = """
         WHERE (
             so.order_no ILIKE %s OR so.service_type ILIKE %s OR so.project_code ILIKE %s
-            OR so.serial_no ILIKE %s OR so.status ILIKE %s OR c.name ILIKE %s
+            OR so.cabinet_no ILIKE %s OR so.status ILIKE %s OR c.name ILIKE %s
             OR p.code ILIKE %s OR p.name ILIKE %s OR p.specification ILIKE %s
             OR COALESCE(pc.name, p.category, '') ILIKE %s OR wo.wo_no ILIKE %s
         )
@@ -4325,7 +4325,7 @@ def _after_sale_keyword_filter(alias):
         clause = """
         WHERE (
             r.rma_no ILIKE %s OR so.order_no ILIKE %s OR r.project_code ILIKE %s
-            OR r.serial_no ILIKE %s OR r.status ILIKE %s OR c.name ILIKE %s
+            OR r.cabinet_no ILIKE %s OR r.status ILIKE %s OR c.name ILIKE %s
             OR p.code ILIKE %s OR p.name ILIKE %s OR p.specification ILIKE %s
             OR COALESCE(pc.name, p.category, '') ILIKE %s OR wo.wo_no ILIKE %s
         )
@@ -4336,7 +4336,7 @@ def _after_sale_keyword_filter(alias):
 def _render_service_order_dashboard():
     where_sql, params = _after_sale_keyword_filter("so")
     scope_clause, scope_params = _data_scope_filter(
-        {"project": "so.project_code", "serial": "so.serial_no"}
+        {"project": "so.project_code", "cabinet": "so.cabinet_no"}
     )
     if scope_clause:
         if where_sql:
@@ -4347,7 +4347,7 @@ def _render_service_order_dashboard():
     rows = _safe_rows(
         f"""
         SELECT so.id, so.order_no, so.service_date, so.service_type, so.project_code,
-               so.serial_no, so.status, so.total_cost, so.settlement_status,
+               so.cabinet_no, so.status, so.total_cost, so.settlement_status,
                c.name AS customer_name, sc.machine_model,
                p.code AS product_code, p.name AS product_name, p.specification AS product_specification,
                COALESCE(pc.name, p.category, '') AS product_family,
@@ -4385,13 +4385,13 @@ def _render_service_order_dashboard():
         item["bom_display"] = _after_sale_bom_text(item)
         item["control_display"] = _after_sale_control_text(item)
         item["next_step"] = service_order_next_step(item.get("status"))
-        marker_text = " ".join(str(item.get(key) or "") for key in ("order_no", "issue_summary", "remark", "project_code", "serial_no"))
+        marker_text = " ".join(str(item.get(key) or "") for key in ("order_no", "issue_summary", "remark", "project_code", "cabinet_no"))
         item["data_source"] = "测试/审计数据" if any(marker in marker_text for marker in ("pytest", "PYTEST", "SVC-", "GT-TRIAL")) else "业务数据"
         enhanced_rows.append(item)
     return render_template(
         "simple_list.html",
         title="售后服务单",
-        subtitle="跟踪客户、项目号、机号和 BOM 等售后关键信息。",
+        subtitle="跟踪客户、项目号、柜号和 BOM 等售后关键信息。",
         rows=enhanced_rows,
         columns=_columns(
             ("order_no", "服务单号"),
@@ -4399,7 +4399,7 @@ def _render_service_order_dashboard():
             ("service_type", "服务类型"),
             ("customer_name", "客户"),
             ("project_code", "项目号"),
-            ("serial_no", "机号"),
+            ("cabinet_no", "柜号"),
             ("product_display", "物料"),
             ("product_family", "产品系列"),
             ("bom_display", "BOM"),
@@ -4422,7 +4422,7 @@ def _render_service_card_dashboard():
         where_parts.append(
             """
             (
-                sc.card_no ILIKE %s OR sc.serial_no ILIKE %s OR sc.project_code ILIKE %s OR sc.machine_model ILIKE %s
+                sc.card_no ILIKE %s OR sc.cabinet_no ILIKE %s OR sc.project_code ILIKE %s OR sc.machine_model ILIKE %s
                 OR sc.status ILIKE %s OR c.name ILIKE %s OR p.code ILIKE %s OR p.name ILIKE %s
                 OR so.order_no ILIKE %s OR wo.wo_no ILIKE %s
             )
@@ -4430,7 +4430,7 @@ def _render_service_card_dashboard():
         )
         params.extend([pattern] * 9)
     scope_clause, scope_params = _data_scope_filter(
-        {"project": "sc.project_code", "serial": "sc.serial_no"}
+        {"project": "sc.project_code", "cabinet": "sc.cabinet_no"}
     )
     if scope_clause:
         params.extend(scope_params)
@@ -4439,7 +4439,7 @@ def _render_service_card_dashboard():
         where_sql += " AND " + " AND ".join(where_parts)
     rows = _safe_rows(
         f"""
-        SELECT sc.id, sc.card_no, sc.serial_no, sc.project_code, sc.machine_model, sc.status,
+        SELECT sc.id, sc.card_no, sc.cabinet_no, sc.project_code, sc.machine_model, sc.status,
                c.name AS customer_name, p.code AS product_code, p.name AS product_name,
                p.specification, p.unit,
                so.order_no AS sales_order_no, wo.wo_no
@@ -4457,11 +4457,11 @@ def _render_service_card_dashboard():
     return render_template(
         "simple_list.html",
         title="设备服务档案",
-        subtitle="按机号、项目号、客户和机型管理设备售后档案。",
+        subtitle="按柜号、项目号、客户和机型管理设备售后档案。",
         rows=list(rows),
         columns=_columns(
             ("card_no", "服务档案号"),
-            ("serial_no", "机号"),
+            ("cabinet_no", "柜号"),
             ("project_code", "项目号"),
             ("machine_model", "机型"),
             ("customer_name", "客户"),
@@ -4488,14 +4488,14 @@ def _render_service_acceptance_dashboard():
             """
             (
                 a.acceptance_no ILIKE %s OR a.item_name ILIKE %s OR a.checklist_type ILIKE %s OR a.result ILIKE %s
-                OR a.project_code ILIKE %s OR a.serial_no ILIKE %s
-                OR sc.serial_no ILIKE %s OR c.name ILIKE %s OR wo.wo_no ILIKE %s
+                OR a.project_code ILIKE %s OR a.cabinet_no ILIKE %s
+                OR sc.cabinet_no ILIKE %s OR c.name ILIKE %s OR wo.wo_no ILIKE %s
             )
             """
         )
         params.extend([pattern] * 10)
     scope_clause, scope_params = _data_scope_filter(
-        {"project": "a.project_code", "serial": "a.serial_no"}
+        {"project": "a.project_code", "cabinet": "a.cabinet_no"}
     )
     if scope_clause:
         params.extend(scope_params)
@@ -4505,7 +4505,7 @@ def _render_service_acceptance_dashboard():
     rows = _safe_rows(
         f"""
         SELECT a.id, a.acceptance_no, a.check_date, a.checklist_type, a.item_name, a.result,
-               a.project_code, a.serial_no, a.remark,
+               a.project_code, a.cabinet_no, a.remark,
                sc.machine_model, c.name AS customer_name, wo.wo_no
         FROM machine_service_acceptance_checks a
         LEFT JOIN machine_service_cards sc ON sc.id=a.service_card_id
@@ -4520,7 +4520,7 @@ def _render_service_acceptance_dashboard():
     return render_template(
         "simple_list.html",
         title="安装验收列表",
-        subtitle="按项目号、机号、客户追踪安装验收检查结果。",
+        subtitle="按项目号、柜号、客户追踪安装验收检查结果。",
         rows=list(rows),
         columns=_columns(
             ("acceptance_no", "验收单号"),
@@ -4529,7 +4529,7 @@ def _render_service_acceptance_dashboard():
             ("item_name", "验收项目"),
             ("result", "结果"),
             ("project_code", "项目号"),
-            ("serial_no", "机号"),
+            ("cabinet_no", "柜号"),
             ("machine_model", "机型"),
             ("customer_name", "客户"),
             ("wo_no", "工单"),
@@ -4542,7 +4542,7 @@ def _render_service_acceptance_dashboard():
 def _service_card_source_options():
     return _safe_rows(
         """
-        SELECT sc.id, sc.card_no, sc.serial_no, sc.project_code, sc.machine_model, sc.status,
+        SELECT sc.id, sc.card_no, sc.cabinet_no, sc.project_code, sc.machine_model, sc.status,
                sc.sales_order_id, sc.cost_object_id, sc.wo_id, sc.product_id, sc.customer_id,
                c.name AS customer_name, p.code AS product_code, p.name AS product_name,
                so.order_no AS sales_order_no, wo.wo_no
@@ -4564,7 +4564,7 @@ def _service_order_source_options():
         """
         SELECT so.id, so.order_no, so.service_date, so.service_type, so.status,
                so.service_card_id, so.wo_id, so.sales_order_id, so.cost_object_id,
-               so.project_code, so.serial_no, so.issue_summary,
+               so.project_code, so.cabinet_no, so.issue_summary,
                c.name AS customer_name, sc.machine_model
         FROM machine_service_orders so
         LEFT JOIN machine_service_cards sc ON sc.id=so.service_card_id
@@ -4609,11 +4609,11 @@ def _create_service_order_from_form():
         flash("请填写服务事项。", "warning")
         return redirect("/service-orders/new")
     project_code = _form_text("project_code") or card.get("project_code")
-    serial_no = _form_text("serial_no") or card.get("serial_no")
-    project_serial_error = _require_project_serial_values_or_redirect(project_code, serial_no, "/service-orders/new")
-    if project_serial_error:
-        return project_serial_error
-    flow = service_order_flow_fields({"status": "待派工", "project_code": project_code, "serial_no": serial_no}, card)
+    cabinet_no = _form_text("cabinet_no") or card.get("cabinet_no")
+    project_cabinet_error = _require_project_cabinet_values_or_redirect(project_code, cabinet_no, "/service-orders/new")
+    if project_cabinet_error:
+        return project_cabinet_error
+    flow = service_order_flow_fields({"status": "待派工", "project_code": project_code, "cabinet_no": cabinet_no}, card)
     new_order = _execute_and_return(
         """
         INSERT INTO machine_service_orders (
@@ -4621,7 +4621,7 @@ def _create_service_order_from_form():
             warehouse_id, location_id, labor_cost, travel_cost, parts_cost, total_cost,
             billing_type, billable_amount, receivable_id, settlement_status,
             fault_category, fault_cause, prevention_action, status, issue_summary,
-            solution, remark, sales_order_id, cost_object_id, project_code, serial_no,
+            solution, remark, sales_order_id, cost_object_id, project_code, cabinet_no,
             warranty_policy, warranty_decision_basis, owner, blocked_reason,
             next_action, downstream_impact
         )
@@ -4647,7 +4647,7 @@ def _create_service_order_from_form():
             card.get("sales_order_id"),
             card.get("cost_object_id"),
             project_code,
-            serial_no,
+            cabinet_no,
         ),
     )
     order_id = _returned_id(new_order)
@@ -4674,12 +4674,12 @@ def _edit_service_order_from_form(order_id):
         flash("请填写服务事项。", "warning")
         return redirect(f"/service-orders/{order_id}/edit")
     project_code = _form_text("project_code") or card.get("project_code")
-    serial_no = _form_text("serial_no") or card.get("serial_no")
-    project_serial_error = _require_project_serial_values_or_redirect(project_code, serial_no, f"/service-orders/{order_id}/edit")
-    if project_serial_error:
-        return project_serial_error
+    cabinet_no = _form_text("cabinet_no") or card.get("cabinet_no")
+    project_cabinet_error = _require_project_cabinet_values_or_redirect(project_code, cabinet_no, f"/service-orders/{order_id}/edit")
+    if project_cabinet_error:
+        return project_cabinet_error
     flow = service_order_flow_fields(
-        {"status": order.get("status") or "待派工", "project_code": project_code, "serial_no": serial_no},
+        {"status": order.get("status") or "待派工", "project_code": project_code, "cabinet_no": cabinet_no},
         card,
     )
     _execute_db(
@@ -4688,7 +4688,7 @@ def _edit_service_order_from_form(order_id):
         SET service_card_id=%s, wo_id=%s, service_date=%s, service_type=%s,
             warehouse_id=%s, location_id=%s, billing_type=%s, fault_category=%s,
             issue_summary=%s, remark=%s, sales_order_id=%s, cost_object_id=%s,
-            project_code=%s, serial_no=%s, warranty_policy=%s,
+            project_code=%s, cabinet_no=%s, warranty_policy=%s,
             warranty_decision_basis=%s, owner=%s, blocked_reason=%s,
             next_action=%s, downstream_impact=%s
         WHERE id=%s
@@ -4707,7 +4707,7 @@ def _edit_service_order_from_form(order_id):
             card.get("sales_order_id"),
             card.get("cost_object_id"),
             project_code,
-            serial_no,
+            cabinet_no,
             flow["warranty_policy"],
             flow["warranty_decision_basis"],
             flow["owner"],
@@ -4752,15 +4752,15 @@ def _create_service_acceptance_from_form():
         flash("请填写验收项目。", "warning")
         return redirect("/service-acceptance/new")
     project_code = _form_text("project_code") or card.get("project_code")
-    serial_no = _form_text("serial_no") or card.get("serial_no")
-    project_serial_error = _require_project_serial_values_or_redirect(project_code, serial_no, "/service-acceptance/new")
-    if project_serial_error:
-        return project_serial_error
+    cabinet_no = _form_text("cabinet_no") or card.get("cabinet_no")
+    project_cabinet_error = _require_project_cabinet_values_or_redirect(project_code, cabinet_no, "/service-acceptance/new")
+    if project_cabinet_error:
+        return project_cabinet_error
     new_acceptance = _execute_and_return(
         """
         INSERT INTO machine_service_acceptance_checks (
             service_card_id, wo_id, check_date, checklist_type, item_name, result,
-            remark, created_by, sales_order_id, cost_object_id, project_code, serial_no
+            remark, created_by, sales_order_id, cost_object_id, project_code, cabinet_no
         )
         VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         RETURNING id
@@ -4777,7 +4777,7 @@ def _create_service_acceptance_from_form():
             card.get("sales_order_id"),
             card.get("cost_object_id"),
             project_code,
-            serial_no,
+            cabinet_no,
         ),
     )
     if _form_text("result", "通过") in {"通过", "合格", "已完成"}:
@@ -4815,16 +4815,16 @@ def _edit_service_acceptance_from_form(acceptance_id):
         flash("请填写验收项目。", "warning")
         return redirect(f"/service-acceptance/{acceptance_id}/edit")
     project_code = _form_text("project_code") or card.get("project_code")
-    serial_no = _form_text("serial_no") or card.get("serial_no")
-    project_serial_error = _require_project_serial_values_or_redirect(project_code, serial_no, f"/service-acceptance/{acceptance_id}/edit")
-    if project_serial_error:
-        return project_serial_error
+    cabinet_no = _form_text("cabinet_no") or card.get("cabinet_no")
+    project_cabinet_error = _require_project_cabinet_values_or_redirect(project_code, cabinet_no, f"/service-acceptance/{acceptance_id}/edit")
+    if project_cabinet_error:
+        return project_cabinet_error
     _execute_db(
         """
         UPDATE machine_service_acceptance_checks
         SET service_card_id=%s, wo_id=%s, check_date=%s, checklist_type=%s,
             item_name=%s, result=%s, remark=%s, sales_order_id=%s,
-            cost_object_id=%s, project_code=%s, serial_no=%s
+            cost_object_id=%s, project_code=%s, cabinet_no=%s
         WHERE id=%s
         """,
         (
@@ -4838,7 +4838,7 @@ def _edit_service_acceptance_from_form(acceptance_id):
             card.get("sales_order_id"),
             card.get("cost_object_id"),
             project_code,
-            serial_no,
+            cabinet_no,
             acceptance_id,
         ),
     )
@@ -4850,7 +4850,7 @@ def _edit_service_acceptance_from_form(acceptance_id):
 def _render_service_acceptance_detail(acceptance_id, back_url="/service-acceptance"):
     acceptance = _safe_one(
         """
-        SELECT a.*, sc.serial_no AS card_serial_no, sc.machine_model, c.name AS customer_name,
+        SELECT a.*, sc.cabinet_no AS card_cabinet_no, sc.machine_model, c.name AS customer_name,
                p.code AS product_code, p.name AS product_name,
                so.order_no AS sales_order_no, wo.wo_no
         FROM machine_service_acceptance_checks a
@@ -4905,10 +4905,10 @@ def _create_service_rma_from_form():
         return redirect("/service-rmas/new")
     rma_no = _next_daily_doc_no("RMA", "machine_service_rmas", "rma_no")
     project_code = _form_text("project_code") or service.get("project_code")
-    serial_no = _form_text("serial_no") or service.get("serial_no")
-    project_serial_error = _require_project_serial_values_or_redirect(project_code, serial_no, "/service-rmas/new")
-    if project_serial_error:
-        return project_serial_error
+    cabinet_no = _form_text("cabinet_no") or service.get("cabinet_no")
+    project_cabinet_error = _require_project_cabinet_values_or_redirect(project_code, cabinet_no, "/service-rmas/new")
+    if project_cabinet_error:
+        return project_cabinet_error
     product_id = _form_int("product_id")
     product_error = _inactive_master_error("products", product_id, "RMA物料")
     if product_error:
@@ -4926,10 +4926,10 @@ def _create_service_rma_from_form():
             status, internal_claim_amount, supplier_claim_amount,
             supplier_recovered_amount, claim_status, claim_note,
             fault_summary, diagnosis, remark, created_by,
-            sales_order_id, cost_object_id, project_code, serial_no,
+            sales_order_id, cost_object_id, project_code, cabinet_no,
             product_id, quantity, unit_cost, amount, warehouse_id, location_id,
             lot_no, material_code, material_name, material_spec, material_unit,
-            source_line_no, line_project_code, line_serial_no
+            source_line_no, line_project_code, line_cabinet_no
         )
         VALUES (%s,%s,%s,%s,%s,%s,%s,%s,
                 %s,0,%s,0,%s,%s,
@@ -4960,7 +4960,7 @@ def _create_service_rma_from_form():
             service.get("sales_order_id"),
             service.get("cost_object_id"),
             project_code,
-            serial_no,
+            cabinet_no,
             product_id,
             quantity,
             unit_cost,
@@ -4974,7 +4974,7 @@ def _create_service_rma_from_form():
             product_snapshot.get("material_unit"),
             _form_text("source_line_no"),
             _form_text("line_project_code") or project_code,
-            _form_text("line_serial_no") or serial_no,
+            _form_text("line_cabinet_no") or cabinet_no,
         ),
     )
     _execute_db(
@@ -4994,7 +4994,7 @@ def _create_service_rma_from_form():
 def _render_service_rma_dashboard():
     where_sql, params = _after_sale_keyword_filter("r")
     scope_clause, scope_params = _data_scope_filter(
-        {"project": "r.project_code", "serial": "r.serial_no"}
+        {"project": "r.project_code", "cabinet": "r.cabinet_no"}
     )
     if scope_clause:
         if where_sql:
@@ -5005,7 +5005,7 @@ def _render_service_rma_dashboard():
     rows = _safe_rows(
         f"""
         SELECT r.id, r.rma_no, r.rma_date, r.warranty_scope, r.responsibility_type,
-               r.claim_status, r.status, r.project_code, r.serial_no,
+               r.claim_status, r.status, r.project_code, r.cabinet_no,
                r.internal_claim_amount, r.supplier_claim_amount, r.supplier_recovered_amount,
                so.order_no AS service_order_no, c.name AS customer_name, sc.machine_model,
                p.code AS product_code, p.name AS product_name, p.specification AS product_specification,
@@ -5045,7 +5045,7 @@ def _render_service_rma_dashboard():
         item["bom_display"] = _after_sale_bom_text(item)
         item["control_display"] = _after_sale_control_text(item)
         item["next_step"] = service_rma_next_step(item.get("status"))
-        marker_text = " ".join(str(item.get(key) or "") for key in ("rma_no", "fault_summary", "remark", "project_code", "serial_no"))
+        marker_text = " ".join(str(item.get(key) or "") for key in ("rma_no", "fault_summary", "remark", "project_code", "cabinet_no"))
         item["data_source"] = "测试/审计数据" if any(marker in marker_text for marker in ("pytest", "PYTEST", "RMA-PRJ", "RMA-SO-PRJ")) else "业务数据"
         enhanced_rows.append(item)
     return render_template(
@@ -5059,7 +5059,7 @@ def _render_service_rma_dashboard():
             ("service_order_no", "服务单号"),
             ("customer_name", "客户"),
             ("project_code", "项目号"),
-            ("serial_no", "机号"),
+            ("cabinet_no", "柜号"),
             ("product_display", "物料"),
             ("product_family", "产品系列"),
             ("bom_display", "BOM"),
@@ -5084,13 +5084,13 @@ def _render_shipment_dashboard():
             """
             (
                 ss.shipment_no ILIKE %s OR so.order_no ILIKE %s OR ss.project_code ILIKE %s
-                OR ss.serial_no ILIKE %s OR ss.status ILIKE %s OR COALESCE(c.name, '') ILIKE %s
+                OR ss.cabinet_no ILIKE %s OR ss.status ILIKE %s OR COALESCE(c.name, '') ILIKE %s
             )
             """
         )
         params.extend([f"%{keyword}%"] * 6)
     scope_clause, scope_params = _data_scope_filter(
-        {"project": "ss.project_code", "serial": "ss.serial_no"}
+        {"project": "ss.project_code", "cabinet": "ss.cabinet_no"}
     )
     if scope_clause:
         params.extend(scope_params)
@@ -5099,7 +5099,7 @@ def _render_shipment_dashboard():
         where_sql += " AND " + " AND ".join(where_parts)
     rows = _safe_rows(
         f"""
-        SELECT ss.id, ss.shipment_no, ss.shipment_date, ss.project_code, ss.serial_no,
+        SELECT ss.id, ss.shipment_no, ss.shipment_date, ss.project_code, ss.cabinet_no,
                ss.status, so.order_no, c.name AS customer_name,
                sc.id AS service_card_id,
                COALESCE(sc.status, '未建档') AS service_card_status,
@@ -5108,7 +5108,7 @@ def _render_shipment_dashboard():
         LEFT JOIN sales_orders so ON so.id=ss.order_id
         LEFT JOIN customers c ON c.id=so.customer_id
         LEFT JOIN machine_service_cards sc
-          ON sc.sales_order_id=ss.order_id AND sc.serial_no=ss.serial_no
+          ON sc.sales_order_id=ss.order_id AND sc.cabinet_no=ss.cabinet_no
         {where_sql}
         ORDER BY
             CASE WHEN sc.id IS NULL THEN 0 ELSE 1 END,
@@ -5125,14 +5125,14 @@ def _render_shipment_dashboard():
     return render_template(
         "simple_list.html",
         title="销售发货列表",
-        subtitle="按发货单、销售订单、项目号、机号和服务档案追踪交付到售后。",
+        subtitle="按发货单、销售订单、项目号、柜号和服务档案追踪交付到售后。",
         rows=enhanced_rows,
         columns=_columns(
             ("shipment_no", "发货单"),
             ("order_no", "销售订单"),
             ("customer_name", "客户"),
             ("project_code", "项目号"),
-            ("serial_no", "机号"),
+            ("cabinet_no", "柜号"),
             ("shipment_date", "发货日期"),
             ("service_card_status", "服务档案"),
             ("machine_model", "机型"),
@@ -5150,8 +5150,8 @@ def _subcontract_execution_state(row):
     received_qty = _as_decimal(row.get("received_qty"))
     scrap_qty = _as_decimal(row.get("scrap_qty"))
     payable_balance = _as_decimal(row.get("payable_balance"))
-    if not (row.get("project_code") or "").strip() or not (row.get("serial_no") or "").strip():
-        return "追溯缺失", "补齐项目号/机号", "计划"
+    if not (row.get("project_code") or "").strip() or not (row.get("cabinet_no") or "").strip():
+        return "追溯缺失", "补齐项目号/柜号", "计划"
     if status in {"已作废", "void", "cancelled"}:
         return "已作废", "保留追溯", "采购"
     if scrap_qty > 0:
@@ -5179,14 +5179,14 @@ def _render_subcontract_dashboard(back_url="/subcontract"):
         where_parts.append(
             """
             (
-                sc.order_no ILIKE %s OR sc.project_code ILIKE %s OR sc.serial_no ILIKE %s
+                sc.order_no ILIKE %s OR sc.project_code ILIKE %s OR sc.cabinet_no ILIKE %s
                 OR sc.status ILIKE %s OR COALESCE(s.name, '') ILIKE %s
             )
             """
         )
         params.extend([f"%{keyword}%"] * 5)
     scope_clause, scope_params = _data_scope_filter(
-        {"project": "sc.project_code", "serial": "sc.serial_no"}
+        {"project": "sc.project_code", "cabinet": "sc.cabinet_no"}
     )
     if scope_clause:
         params.extend(scope_params)
@@ -5195,7 +5195,7 @@ def _render_subcontract_dashboard(back_url="/subcontract"):
         where_sql += " AND " + " AND ".join(where_parts)
     rows = _safe_rows(
         f"""
-        SELECT sc.id, sc.order_no, sc.order_date, sc.project_code, sc.serial_no,
+        SELECT sc.id, sc.order_no, sc.order_date, sc.project_code, sc.cabinet_no,
                {order_qty_expr} AS quantity, {unit_price_expr} AS unit_price,
                sc.total_amount, sc.status,
                COALESCE(s.name, sc.supplier_id::text, '-') AS supplier_name,
@@ -5230,7 +5230,7 @@ def _render_subcontract_dashboard(back_url="/subcontract"):
         {where_sql}
         ORDER BY
             CASE
-                WHEN COALESCE(sc.project_code, '')='' OR COALESCE(sc.serial_no, '')='' THEN 0
+                WHEN COALESCE(sc.project_code, '')='' OR COALESCE(sc.cabinet_no, '')='' THEN 0
                 WHEN COALESCE(issue_sum.issued_qty, 0)=0 THEN 1
                 WHEN COALESCE(receive_sum.received_qty, 0)+COALESCE(receive_sum.scrap_qty, 0) < {order_qty_expr} THEN 2
                 ELSE 3
@@ -5251,14 +5251,14 @@ def _render_subcontract_dashboard(back_url="/subcontract"):
     return render_template(
         "simple_list.html",
         title="委外订单列表",
-        subtitle="按委外单、加工商、项目号、机号、发料数量、收货数量和未收数量追踪外协闭环。",
+        subtitle="按委外单、加工商、项目号、柜号、发料数量、收货数量和未收数量追踪外协闭环。",
         rows=enhanced_rows,
         columns=_columns(
             ("order_no", "委外单"),
             ("order_date", "日期"),
             ("supplier_name", "加工商"),
             ("project_code", "项目号"),
-            ("serial_no", "机号"),
+            ("cabinet_no", "柜号"),
             ("quantity", "委外数量"),
             ("issued_qty", "发料数量"),
             ("received_qty", "收货数量"),
@@ -5301,7 +5301,7 @@ def _subcontract_status_label(status):
 def _subcontract_summary(order_id):
     order = _safe_one(
         """
-        SELECT sc.id, sc.order_no, sc.order_date, sc.required_date, sc.project_code, sc.serial_no,
+        SELECT sc.id, sc.order_no, sc.order_date, sc.required_date, sc.project_code, sc.cabinet_no,
                sc.product_id,
                COALESCE(sc.quantity, 0) AS quantity, COALESCE(sc.unit_price, 0) AS unit_price,
                COALESCE(sc.total_amount, 0) AS total_amount, sc.status, sc.remark,
@@ -5404,7 +5404,7 @@ def _subcontract_order_options():
         _safe_rows(
             """
             SELECT sc.id, sc.order_no, sc.supplier_id, COALESCE(s.name, '') AS supplier_name,
-                   sc.project_code, sc.serial_no, sc.product_id,
+                   sc.project_code, sc.cabinet_no, sc.product_id,
                    COALESCE(p.code, '') AS product_code, COALESCE(p.name, '') AS product_name,
                    COALESCE(p.specification, '') AS specification, COALESCE(p.unit, '') AS unit,
                    COALESCE(sc.quantity, 0) AS quantity,
@@ -5425,7 +5425,7 @@ def _subcontract_order_options():
         "order_no",
         "supplier_name",
         "project_code",
-        "serial_no",
+        "cabinet_no",
         "product_code",
         "product_name",
     )
@@ -5523,7 +5523,7 @@ def _save_subcontract_issue_order():
         """
         INSERT INTO subcontract_issue_lines
             (issue_id, subcontract_order_id, product_id, material_code, material_name, material_spec, unit,
-             quantity, warehouse_id, location_id, lot_no, project_code, serial_no, remark)
+             quantity, warehouse_id, location_id, lot_no, project_code, cabinet_no, remark)
         VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         """,
         (
@@ -5539,7 +5539,7 @@ def _save_subcontract_issue_order():
             issue_location_id,
             _form_text("lot_no"),
             order.get("project_code"),
-            order.get("serial_no"),
+            order.get("cabinet_no"),
             _form_text("remark"),
         ),
     )
@@ -5594,10 +5594,10 @@ def _edit_subcontract_issue_order(issue_id):
         """
         INSERT INTO subcontract_issue_lines
             (issue_id, subcontract_order_id, product_id, material_code, material_name, material_spec, unit,
-             quantity, warehouse_id, location_id, lot_no, project_code, serial_no, remark)
+             quantity, warehouse_id, location_id, lot_no, project_code, cabinet_no, remark)
         VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         """,
-        (issue_id, order_id, order.get("product_id"), order.get("product_code"), order.get("product_name"), order.get("specification"), order.get("unit"), quantity, issue_warehouse_id, issue_location_id, _form_text("lot_no"), order.get("project_code"), order.get("serial_no"), _form_text("remark")),
+        (issue_id, order_id, order.get("product_id"), order.get("product_code"), order.get("product_name"), order.get("specification"), order.get("unit"), quantity, issue_warehouse_id, issue_location_id, _form_text("lot_no"), order.get("project_code"), order.get("cabinet_no"), _form_text("remark")),
     )
     _log_action("编辑委外发料单", issue.get("issue_no") or str(issue_id))
     flash("委外发料单已保存，尚未审核过账。", "success")
@@ -5662,7 +5662,7 @@ def _save_subcontract_receive_order():
         """
         INSERT INTO subcontract_receive_lines
             (receive_id, subcontract_order_id, product_id, material_code, material_name, material_spec, unit,
-             quantity, scrap_quantity, warehouse_id, location_id, lot_no, project_code, serial_no, remark)
+             quantity, scrap_quantity, warehouse_id, location_id, lot_no, project_code, cabinet_no, remark)
         VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         """,
         (
@@ -5679,7 +5679,7 @@ def _save_subcontract_receive_order():
             recv_location_id,
             _form_text("lot_no"),
             order.get("project_code"),
-            order.get("serial_no"),
+            order.get("cabinet_no"),
             _form_text("remark"),
         ),
     )
@@ -5736,10 +5736,10 @@ def _edit_subcontract_receive_order(receive_id):
         """
         INSERT INTO subcontract_receive_lines
             (receive_id, subcontract_order_id, product_id, material_code, material_name, material_spec, unit,
-             quantity, scrap_quantity, warehouse_id, location_id, lot_no, project_code, serial_no, remark)
+             quantity, scrap_quantity, warehouse_id, location_id, lot_no, project_code, cabinet_no, remark)
         VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         """,
-        (receive_id, order_id, order.get("product_id"), order.get("product_code"), order.get("product_name"), order.get("specification"), order.get("unit"), good_qty, scrap_qty, _form_int("warehouse_id"), _form_int("location_id"), _form_text("lot_no"), order.get("project_code"), order.get("serial_no"), _form_text("remark")),
+        (receive_id, order_id, order.get("product_id"), order.get("product_code"), order.get("product_name"), order.get("specification"), order.get("unit"), good_qty, scrap_qty, _form_int("warehouse_id"), _form_int("location_id"), _form_text("lot_no"), order.get("project_code"), order.get("cabinet_no"), _form_text("remark")),
     )
     _log_action("编辑委外收货单", receive.get("receive_no") or str(receive_id))
     flash("委外收货单已保存，尚未审核过账。", "success")
@@ -5749,7 +5749,7 @@ def _edit_subcontract_receive_order(receive_id):
 def _render_subcontract_issue_detail(issue_id, back_url="/subcontract_issue"):
     row = _safe_one(
         """
-        SELECT sio.*, sc.order_no, sc.project_code, sc.serial_no,
+        SELECT sio.*, sc.order_no, sc.project_code, sc.cabinet_no,
                COALESCE(s.name, '') AS supplier_name,
                COALESCE(p.code, '') AS product_code, COALESCE(p.name, '') AS product_name,
                COALESCE(p.specification, '') AS specification, COALESCE(p.unit, '') AS unit_name
@@ -5768,7 +5768,7 @@ def _render_subcontract_issue_detail(issue_id, back_url="/subcontract_issue"):
 def _render_subcontract_receive_detail(receive_id, back_url="/subcontract_receive"):
     row = _safe_one(
         """
-        SELECT sro.*, sc.order_no, sc.project_code, sc.serial_no,
+        SELECT sro.*, sc.order_no, sc.project_code, sc.cabinet_no,
                COALESCE(s.name, '') AS supplier_name,
                COALESCE(p.code, '') AS product_code, COALESCE(p.name, '') AS product_name,
                COALESCE(p.specification, '') AS specification, COALESCE(p.unit, '') AS unit_name
@@ -5839,7 +5839,7 @@ def _subcontract_line_rows(kind, doc_id, query_one=None, query_rows=None):
                    COALESCE(l.code, '') AS location_code,
                    COALESCE(l.name, '') AS location_name,
                    COALESCE(NULLIF(sil.project_code, ''), sc.project_code) AS project_code,
-                   COALESCE(NULLIF(sil.serial_no, ''), sc.serial_no) AS serial_no,
+                   COALESCE(NULLIF(sil.cabinet_no, ''), sc.cabinet_no) AS cabinet_no,
                    COALESCE(sio.issue_no, '') AS doc_no, sio.date AS doc_date
             FROM subcontract_issue_lines sil
             JOIN subcontract_issue_orders sio ON sio.id=sil.issue_id
@@ -5860,7 +5860,7 @@ def _subcontract_line_rows(kind, doc_id, query_one=None, query_rows=None):
                    p.code AS material_code, p.name AS material_name, p.specification AS material_spec,
                    p.unit, sio.total_quantity AS quantity, sio.warehouse_id, sio.location_id,
                    w.name AS warehouse_name, l.code AS location_code, l.name AS location_name,
-                   sio.issue_no AS doc_no, sio.date AS doc_date, sc.project_code, sc.serial_no, sio.remark
+                   sio.issue_no AS doc_no, sio.date AS doc_date, sc.project_code, sc.cabinet_no, sio.remark
             FROM subcontract_issue_orders sio
             LEFT JOIN subcontract_orders sc ON sc.id=sio.subcontract_order_id
             LEFT JOIN products p ON p.id=sc.product_id
@@ -5882,7 +5882,7 @@ def _subcontract_line_rows(kind, doc_id, query_one=None, query_rows=None):
                COALESCE(l.code, '') AS location_code,
                COALESCE(l.name, '') AS location_name,
                COALESCE(NULLIF(srl.project_code, ''), sc.project_code) AS project_code,
-               COALESCE(NULLIF(srl.serial_no, ''), sc.serial_no) AS serial_no,
+               COALESCE(NULLIF(srl.cabinet_no, ''), sc.cabinet_no) AS cabinet_no,
                COALESCE(sro.receive_no, '') AS doc_no, sro.date AS doc_date
         FROM subcontract_receive_lines srl
         JOIN subcontract_receive_orders sro ON sro.id=srl.receive_id
@@ -5904,7 +5904,7 @@ def _subcontract_line_rows(kind, doc_id, query_one=None, query_rows=None):
                p.unit, sro.total_quantity AS quantity, sro.total_scrap AS scrap_quantity,
                sro.warehouse_id, sro.location_id, sro.receive_no AS doc_no, sro.date AS doc_date,
                w.name AS warehouse_name, l.code AS location_code, l.name AS location_name,
-               sc.project_code, sc.serial_no, sro.remark
+               sc.project_code, sc.cabinet_no, sro.remark
         FROM subcontract_receive_orders sro
         LEFT JOIN subcontract_orders sc ON sc.id=sro.subcontract_order_id
         LEFT JOIN products p ON p.id=sc.product_id
@@ -5936,12 +5936,12 @@ def _post_subcontract_inventory(kind, doc_id, reverse=False, query_one=None, que
             if reverse:
                 inventory_inbound_weighted_avg(query_one, execute_db_fn, product_id, qty, 0, "", doc_no, remark, tx_date, "subcontract_issue_reverse")
             else:
-                inventory_outbound(query_one, execute_db_fn, product_id, qty, "", doc_no, remark, tx_date, "subcontract_issue", lot_no=row.get("lot_no") or "", serial_no=row.get("serial_no") or "")
+                inventory_outbound(query_one, execute_db_fn, product_id, qty, "", doc_no, remark, tx_date, "subcontract_issue", lot_no=row.get("lot_no") or "", cabinet_no=row.get("cabinet_no") or "")
         else:
             if reverse:
-                inventory_outbound(query_one, execute_db_fn, product_id, qty, "", doc_no, remark, tx_date, "subcontract_receive_reverse", lot_no=row.get("lot_no") or "", serial_no=row.get("serial_no") or "")
+                inventory_outbound(query_one, execute_db_fn, product_id, qty, "", doc_no, remark, tx_date, "subcontract_receive_reverse", lot_no=row.get("lot_no") or "", cabinet_no=row.get("cabinet_no") or "")
             else:
-                inventory_inbound_weighted_avg(query_one, execute_db_fn, product_id, qty, 0, "", doc_no, remark, tx_date, "subcontract_receive", lot_no=row.get("lot_no") or "", serial_no=row.get("serial_no") or "")
+                inventory_inbound_weighted_avg(query_one, execute_db_fn, product_id, qty, 0, "", doc_no, remark, tx_date, "subcontract_receive", lot_no=row.get("lot_no") or "", cabinet_no=row.get("cabinet_no") or "")
         # Link the subcontract document to the inventory movement for traceability.
         st_row = query_one(
             "SELECT id FROM stock_transactions WHERE reference_no=%s AND product_id=%s ORDER BY id DESC LIMIT 1",
@@ -5962,7 +5962,7 @@ def _post_subcontract_inventory(kind, doc_id, reverse=False, query_one=None, que
                     link_type="reverses" if reverse else "posts_to",
                     link_strength="soft",
                     project_code=row.get("project_code"),
-                    serial_no=row.get("serial_no"),
+                    cabinet_no=row.get("cabinet_no"),
                     created_by=None,
                     created_event="subcontract_inventory",
                 )
@@ -6053,7 +6053,7 @@ def _update_subcontract_document_status(kind, doc_id, action):
                         SELECT COALESCE(sro.supplier_id, sc.supplier_id) AS supplier_id,
                                sro.total_quantity, sro.date,
                                sro.receive_no, sc.order_no AS subcontract_no,
-                               sc.unit_price, sc.project_code, sc.serial_no, sc.cost_object_id
+                               sc.unit_price, sc.project_code, sc.cabinet_no, sc.cost_object_id
                         FROM subcontract_receive_orders sro
                         LEFT JOIN subcontract_orders sc ON sc.id=sro.subcontract_order_id
                         WHERE sro.id=%s
@@ -6065,7 +6065,7 @@ def _update_subcontract_document_status(kind, doc_id, action):
                         execute_db(
                             """
                             INSERT INTO supplier_payables
-                                (supplier_id, payable_no, doc_type, doc_id, doc_no, doc_date, amount, paid_amount, balance, status, finance_remark, project_code, serial_no)
+                                (supplier_id, payable_no, doc_type, doc_id, doc_no, doc_date, amount, paid_amount, balance, status, finance_remark, project_code, cabinet_no)
                             VALUES (%s,%s,'subcontract_receive',%s,%s,%s,%s,0,%s,%s,%s,%s,%s)
                             ON CONFLICT (doc_type, doc_id) WHERE doc_type IS NOT NULL AND doc_id IS NOT NULL DO NOTHING
                             """,
@@ -6080,7 +6080,7 @@ def _update_subcontract_document_status(kind, doc_id, action):
                                 "\u672a\u4ed8\u6b3e",
                                 f"subcontract receive audit generated from {sc_row.get('subcontract_no') or ''}",
                                 sc_row.get("project_code"),
-                                sc_row.get("serial_no"),
+                                sc_row.get("cabinet_no"),
                             ),
                         )
                     _sync_subcontract_receive_work_order_cost(doc_id, query_one=query_one, query_rows=query_db, execute_db_fn=execute_db)
@@ -6257,7 +6257,7 @@ def _render_subcontract_document_print(kind, doc_id):
     if kind == "issue":
         order = _safe_one(
             """
-            SELECT sio.*, sc.order_no, sc.project_code, sc.serial_no, s.name AS partner_name
+            SELECT sio.*, sc.order_no, sc.project_code, sc.cabinet_no, s.name AS partner_name
             FROM subcontract_issue_orders sio
             LEFT JOIN subcontract_orders sc ON sc.id=sio.subcontract_order_id
             LEFT JOIN suppliers s ON s.id=sio.supplier_id
@@ -6274,7 +6274,7 @@ def _render_subcontract_document_print(kind, doc_id):
     else:
         order = _safe_one(
             """
-            SELECT sro.*, sc.order_no, sc.project_code, sc.serial_no, s.name AS partner_name
+            SELECT sro.*, sc.order_no, sc.project_code, sc.cabinet_no, s.name AS partner_name
             FROM subcontract_receive_orders sro
             LEFT JOIN subcontract_orders sc ON sc.id=sro.subcontract_order_id
             LEFT JOIN suppliers s ON s.id=sro.supplier_id
@@ -6316,7 +6316,7 @@ def _render_subcontract_document_print(kind, doc_id):
             ("委外订单", order.get("order_no")),
             ("加工商", order.get("partner_name")),
             ("项目号", order.get("project_code")),
-            ("机号", order.get("serial_no")),
+            ("柜号", order.get("cabinet_no")),
         ],
         "columns": columns,
         "rows": rows,
@@ -6329,7 +6329,7 @@ def _render_subcontract_document_print(kind, doc_id):
     }
     doc["partner_name"] = order.get("partner_name")
     doc["project_code"] = order.get("project_code")
-    doc["serial_no"] = order.get("serial_no")
+    doc["cabinet_no"] = order.get("cabinet_no")
     document_type = "subcontract_issue" if kind == "issue" else "subcontract_receive"
     template_grid = build_template_grid_for_document(document_type, doc, _safe_one)
     return render_template("document_print.html", doc=doc, template_grid=template_grid)
@@ -6441,7 +6441,7 @@ def _controlled_detail_menu(list_url, print_url=None, source_url=None, readonly=
 def _render_work_order_requisition_detail(pick_id, back_url="/requisition"):
     row = _safe_one(
         """
-        SELECT pl.*, wo.wo_no, wo.project_code, wo.serial_no, wo.status AS work_order_status,
+        SELECT pl.*, wo.wo_no, wo.project_code, wo.cabinet_no, wo.status AS work_order_status,
                p.code AS product_code, p.name AS product_name
         FROM pick_lists pl
         LEFT JOIN work_orders wo ON wo.id=pl.work_order_id
@@ -6480,7 +6480,7 @@ def _render_work_order_requisition_detail(pick_id, back_url="/requisition"):
         metrics=[
             {"label": "来源工单", "value": _detail_value(row, "wo_no", "work_order_id")},
             {"label": "项目号", "value": row.get("project_code")},
-            {"label": "机号", "value": row.get("serial_no")},
+            {"label": "柜号", "value": row.get("cabinet_no")},
             {"label": "明细行", "value": len(lines)},
         ],
         fields=[
@@ -6518,7 +6518,7 @@ def _pick_snapshot_expr(table_cols, column, fallback, alias):
 def _render_work_order_requisition_print(pick_id):
     row = _safe_one(
         """
-        SELECT pl.*, wo.wo_no, wo.project_code, wo.serial_no, wo.status AS work_order_status,
+        SELECT pl.*, wo.wo_no, wo.project_code, wo.cabinet_no, wo.status AS work_order_status,
                p.code AS product_code, p.name AS product_name
         FROM pick_lists pl
         LEFT JOIN work_orders wo ON wo.id=pl.work_order_id
@@ -6546,14 +6546,14 @@ def _render_work_order_requisition_print(pick_id):
         location_join = "LEFT JOIN locations l ON l.id=pli.location_id" if "location_id" in item_cols else ""
         warehouse_expr = "COALESCE(w.name, '') AS warehouse_name" if "warehouse_id" in item_cols else "'' AS warehouse_name"
         location_expr = "COALESCE(NULLIF(l.code, ''), l.name, '') AS location_name" if "location_id" in item_cols else "'' AS location_name"
-        if {"line_serial_no", "serial_no"}.issubset(item_cols):
-            line_serial_expr = "COALESCE(NULLIF(pli.line_serial_no, ''), NULLIF(pli.serial_no, ''), wo.serial_no) AS line_serial_no"
-        elif "line_serial_no" in item_cols:
-            line_serial_expr = "COALESCE(NULLIF(pli.line_serial_no, ''), wo.serial_no) AS line_serial_no"
-        elif "serial_no" in item_cols:
-            line_serial_expr = "COALESCE(NULLIF(pli.serial_no, ''), wo.serial_no) AS line_serial_no"
+        if {"line_cabinet_no", "cabinet_no"}.issubset(item_cols):
+            line_cabinet_expr = "COALESCE(NULLIF(pli.line_cabinet_no, ''), NULLIF(pli.cabinet_no, ''), wo.cabinet_no) AS line_cabinet_no"
+        elif "line_cabinet_no" in item_cols:
+            line_cabinet_expr = "COALESCE(NULLIF(pli.line_cabinet_no, ''), wo.cabinet_no) AS line_cabinet_no"
+        elif "cabinet_no" in item_cols:
+            line_cabinet_expr = "COALESCE(NULLIF(pli.cabinet_no, ''), wo.cabinet_no) AS line_cabinet_no"
         else:
-            line_serial_expr = "wo.serial_no AS line_serial_no"
+            line_cabinet_expr = "wo.cabinet_no AS line_cabinet_no"
         lines = _safe_rows(
             f"""
             SELECT pli.id,
@@ -6563,7 +6563,7 @@ def _render_work_order_requisition_print(pick_id):
                    {_pick_snapshot_expr(item_cols, "material_unit", "p.unit", "unit")},
                    {_pick_line_expr(item_cols, "quantity", "quantity", "0")},
                    {_pick_line_expr(item_cols, "lot_no", "lot_no", "''")},
-                   {line_serial_expr},
+                   {line_cabinet_expr},
                    {warehouse_expr},
                    {location_expr},
                    {_pick_line_expr(item_cols, "remark", "remark", "''")}
@@ -6592,11 +6592,11 @@ def _render_work_order_requisition_print(pick_id):
         "date_label": "领料日期",
         "status_label": row.get("status") or "未定",
         "project_code": row.get("project_code"),
-        "serial_no": row.get("serial_no"),
+        "cabinet_no": row.get("cabinet_no"),
         "info": [
             ("来源工单", row.get("wo_no") or row.get("work_order_id")),
             ("项目号", row.get("project_code")),
-            ("机号", row.get("serial_no")),
+            ("柜号", row.get("cabinet_no")),
             ("生产物料", " / ".join(str(v) for v in [row.get("product_code"), row.get("product_name")] if v)),
             ("用途", row.get("purpose")),
             ("备注", row.get("remark")),
@@ -6608,7 +6608,7 @@ def _render_work_order_requisition_print(pick_id):
             ("unit", "单位", "center"),
             ("quantity", "数量", "right"),
             ("lot_no", "批号", ""),
-            ("line_serial_no", "机号", ""),
+            ("line_cabinet_no", "柜号", ""),
             ("warehouse_name", "仓库", ""),
             ("location_name", "库位", ""),
             ("remark", "备注", ""),
@@ -6621,7 +6621,7 @@ def _render_work_order_requisition_print(pick_id):
                 "unit": line.get("unit"),
                 "quantity": line.get("quantity"),
                 "lot_no": line.get("lot_no"),
-                "line_serial_no": line.get("line_serial_no"),
+                "line_cabinet_no": line.get("line_cabinet_no"),
                 "warehouse_name": line.get("warehouse_name"),
                 "location_name": line.get("location_name"),
                 "remark": line.get("remark"),
@@ -6690,12 +6690,12 @@ def _render_production_schedule_list(back_url="/production-schedules"):
     if keyword:
         keyword_sql = """
           AND (ps.schedule_no ILIKE %s OR wo.wo_no ILIKE %s OR wo.project_code ILIKE %s
-               OR wo.serial_no ILIKE %s OR wc.name ILIKE %s)
+               OR wo.cabinet_no ILIKE %s OR wc.name ILIKE %s)
         """
         params.extend([f"%{keyword}%"] * 5)
     rows = _safe_rows(
         f"""
-        SELECT ps.*, wo.wo_no, wo.project_code, wo.serial_no,
+        SELECT ps.*, wo.wo_no, wo.project_code, wo.cabinet_no,
                wc.code AS work_center_code, wc.name AS work_center_name,
                COALESCE(ps.next_action, '派工或报工') AS next_step,
                '生产计划' AS owner_role,
@@ -6716,7 +6716,7 @@ def _render_production_schedule_list(back_url="/production-schedules"):
         {"key": "schedule_no", "label": "排程单号"},
         {"key": "wo_no", "label": "来源工单"},
         {"key": "project_code", "label": "项目号"},
-        {"key": "serial_no", "label": "机号"},
+        {"key": "cabinet_no", "label": "柜号"},
         {"key": "work_center_name", "label": "工作中心"},
         {"key": "planned_start_date", "label": "计划开始"},
         {"key": "planned_end_date", "label": "计划完成"},
@@ -6742,7 +6742,7 @@ def _render_production_schedule_detail(schedule_id, back_url="/production-schedu
     _ensure_production_schedule_schema()
     row = _safe_one(
         """
-        SELECT ps.*, wo.wo_no, wo.project_code, wo.serial_no,
+        SELECT ps.*, wo.wo_no, wo.project_code, wo.cabinet_no,
                wc.code AS work_center_code, wc.name AS work_center_name, wc.responsible_person AS work_center_owner
         FROM production_schedules ps
         LEFT JOIN work_orders wo ON wo.id=ps.work_order_id
@@ -6786,7 +6786,7 @@ def _render_production_schedule_detail(schedule_id, back_url="/production-schedu
             {"label": "\u6392\u7a0b\u5355\u53f7", "value": doc_no},
             {"label": "\u6765\u6e90\u5de5\u5355", "value": _detail_value(row, "wo_no", "work_order_id")},
             {"label": "\u9879\u76ee\u53f7", "value": row.get("project_code")},
-            {"label": "\u673a\u53f7", "value": row.get("serial_no")},
+            {"label": "\u673a\u53f7", "value": row.get("cabinet_no")},
             {"label": "\u5de5\u4f5c\u4e2d\u5fc3", "value": _detail_value(row, "work_center_name", "work_center_code", "work_center_id")},
             {"label": "\u6d3e\u5de5\u72b6\u6001", "value": row.get("dispatch_status")},
             {"label": "\u8d23\u4efb", "value": owner},
@@ -7022,11 +7022,11 @@ def _production_schedule_next_no():
 
 def _production_schedule_options():
     scope_clause, scope_params = _data_scope_filter(
-        {"project": "project_code", "serial": "serial_no"}
+        {"project": "project_code", "cabinet": "cabinet_no"}
     )
     work_orders = _safe_rows(
         f"""
-        SELECT id, wo_no, project_code, serial_no, status
+        SELECT id, wo_no, project_code, cabinet_no, status
         FROM work_orders
         WHERE COALESCE(status, '') NOT IN ('已关闭', '已作废', 'closed', 'voided')
           {scope_clause}
@@ -7163,7 +7163,7 @@ def _render_production_schedule_list(back_url="/production-schedules"):
     if keyword:
         keyword_sql = """
           AND (ps.schedule_no ILIKE %s OR wo.wo_no ILIKE %s OR COALESCE(wo.project_code, '') ILIKE %s
-               OR COALESCE(wo.serial_no, '') ILIKE %s OR COALESCE(wc.name, '') ILIKE %s)
+               OR COALESCE(wo.cabinet_no, '') ILIKE %s OR COALESCE(wc.name, '') ILIKE %s)
         """
         params.extend([f"%{keyword}%"] * 5)
     status_sql = ""
@@ -7174,7 +7174,7 @@ def _render_production_schedule_list(back_url="/production-schedules"):
         params.extend([status_filter, status_filter])
     rows = _safe_rows(
         f"""
-        SELECT ps.*, wo.wo_no, wo.project_code, wo.serial_no,
+        SELECT ps.*, wo.wo_no, wo.project_code, wo.cabinet_no,
                wc.code AS work_center_code, wc.name AS work_center_name,
                COALESCE(ps.planned_start_date, ps.start_date) AS planned_start,
                COALESCE(ps.planned_end_date, ps.end_date) AS planned_end
@@ -7433,7 +7433,7 @@ def _render_production_schedule_detail(schedule_id, back_url="/production-schedu
     _ensure_production_schedule_schema()
     row = _safe_one(
         """
-        SELECT ps.*, wo.wo_no, wo.project_code, wo.serial_no,
+        SELECT ps.*, wo.wo_no, wo.project_code, wo.cabinet_no,
                wc.code AS work_center_code, wc.name AS work_center_name, wc.responsible_person AS work_center_owner
         FROM production_schedules ps
         LEFT JOIN work_orders wo ON wo.id=ps.work_order_id
@@ -7503,7 +7503,7 @@ def _render_finance_voucher_detail(voucher_id, back_url="/finance/vouchers"):
             {"key": "debit_amount", "label": "借方"},
             {"key": "credit_amount", "label": "贷方"},
             {"key": "project_code", "label": "项目号"},
-            {"key": "serial_no", "label": "机号"},
+            {"key": "cabinet_no", "label": "柜号"},
         ],
         lines=lines,
         trace_links=[{"label": "按来源单查询", "href": f"/finance/vouchers?keyword={source_no}"}] if source_no != "-" else [],
@@ -7657,7 +7657,7 @@ def _normalize_inventory_location_id(warehouse_id, location_id):
     return location_id or None
 
 
-def _apply_inventory_movement(product_id, quantity, unit_cost, tx_type, reference_no, remark="", warehouse_id=None, location_id=None, lot_no="", serial_no="", tx_date=None, project_code="", query_one=None, execute_db_fn=None):
+def _apply_inventory_movement(product_id, quantity, unit_cost, tx_type, reference_no, remark="", warehouse_id=None, location_id=None, lot_no="", cabinet_no="", tx_date=None, project_code="", query_one=None, execute_db_fn=None):
     # Ensure atomicity: if no transaction context is provided, wrap in a transaction
     # so that inventory_balances, legacy inventory, stock_transactions, and batch_tracking
     # are all committed together or rolled back together.
@@ -7670,7 +7670,7 @@ def _apply_inventory_movement(product_id, quantity, unit_cost, tx_type, referenc
                 _q1, _edb = _safe_one, _execute_db
             _apply_inventory_movement(
                 product_id, quantity, unit_cost, tx_type, reference_no, remark,
-                warehouse_id, location_id, lot_no, serial_no, tx_date, project_code,
+                warehouse_id, location_id, lot_no, cabinet_no, tx_date, project_code,
                 query_one=_q1, execute_db_fn=_edb,
             )
         return _run_registry_transaction(_tx_op)
@@ -7707,13 +7707,13 @@ def _apply_inventory_movement(product_id, quantity, unit_cost, tx_type, referenc
         WHERE product_id=%s AND COALESCE(warehouse_id,0)=COALESCE(%s,0)
           AND COALESCE(location_id,0)=COALESCE(%s,0)
           AND COALESCE(lot_no,'')=COALESCE(%s,'')
-          AND COALESCE(serial_no,'')=COALESCE(%s,'')
+          AND COALESCE(cabinet_no,'')=COALESCE(%s,'')
           AND COALESCE(project_code,'')=COALESCE(%s,'')
         ORDER BY id
         LIMIT 1
         FOR UPDATE
         """,
-        (product_id, warehouse_id, location_id, lot_no, serial_no, project_code),
+        (product_id, warehouse_id, location_id, lot_no, cabinet_no, project_code),
     )
     if qty > 0:
         if balance:
@@ -7729,10 +7729,10 @@ def _apply_inventory_movement(product_id, quantity, unit_cost, tx_type, referenc
             execute_db_fn(
                 """
                 INSERT INTO inventory_balances
-                    (product_id, warehouse_id, location_id, lot_no, serial_no, project_code, quantity, locked_qty, unit_cost, updated_at)
+                    (product_id, warehouse_id, location_id, lot_no, cabinet_no, project_code, quantity, locked_qty, unit_cost, updated_at)
                 VALUES (%s,%s,%s,%s,%s,%s,%s,0,%s,NOW())
                 """,
-                (product_id, warehouse_id, location_id, lot_no, serial_no, project_code, qty, cost),
+                (product_id, warehouse_id, location_id, lot_no, cabinet_no, project_code, qty, cost),
             )
         inv = query_one("SELECT id, quantity, unit_cost FROM inventory WHERE product_id=%s LIMIT 1 FOR UPDATE", (product_id,))
         if inv:
@@ -7748,7 +7748,7 @@ def _apply_inventory_movement(product_id, quantity, unit_cost, tx_type, referenc
             )
     else:
         abs_qty = -qty
-        if serial_no or project_code:
+        if cabinet_no or project_code:
             current_qty = _as_decimal(balance.get("quantity")) if balance else Decimal("0")
             if current_qty < abs_qty:
                 common_balance = query_one(
@@ -7758,7 +7758,7 @@ def _apply_inventory_movement(product_id, quantity, unit_cost, tx_type, referenc
                     WHERE product_id=%s AND COALESCE(warehouse_id,0)=COALESCE(%s,0)
                       AND COALESCE(location_id,0)=COALESCE(%s,0)
                       AND COALESCE(lot_no,'')=COALESCE(%s,'')
-                      AND COALESCE(serial_no,'')=''
+                      AND COALESCE(cabinet_no,'')=''
                       AND COALESCE(project_code,'')=''
                     ORDER BY id
                     LIMIT 1
@@ -7767,7 +7767,7 @@ def _apply_inventory_movement(product_id, quantity, unit_cost, tx_type, referenc
                     (product_id, warehouse_id, location_id, lot_no),
                 )
                 if common_balance and _as_decimal(common_balance.get("quantity")) >= abs_qty:
-                    serial_no = ""
+                    cabinet_no = ""
                     project_code = ""
                     balance = common_balance
         if balance:
@@ -7803,10 +7803,10 @@ def _apply_inventory_movement(product_id, quantity, unit_cost, tx_type, referenc
         """
         INSERT INTO stock_transactions
             (transaction_date, transaction_type, product_id, quantity, unit_cost, reference_no,
-             lot_no, serial_no, project_code, location, remark, warehouse_id, location_id)
+             lot_no, cabinet_no, project_code, location, remark, warehouse_id, location_id)
         VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         """,
-        (tx_date, tx_type, product_id, qty, cost, reference_no, lot_no, serial_no, project_code, location_label, remark, warehouse_id, location_id),
+        (tx_date, tx_type, product_id, qty, cost, reference_no, lot_no, cabinet_no, project_code, location_label, remark, warehouse_id, location_id),
     )
 
     # Sync batch_tracking from inventory_balances to prevent consistency audit failures.
@@ -7825,9 +7825,9 @@ def _apply_inventory_movement(product_id, quantity, unit_cost, tx_type, referenc
           AND location_id IS NOT DISTINCT FROM %s
           AND COALESCE(project_code,'')=%s
           AND COALESCE(lot_no,'')=%s
-          AND COALESCE(serial_no,'')=%s
+          AND COALESCE(cabinet_no,'')=%s
         """,
-        (product_id, warehouse_id, location_id, project_code or "", lot_no or "", serial_no or ""),
+        (product_id, warehouse_id, location_id, project_code or "", lot_no or "", cabinet_no or ""),
     ) or {}
     _bt_qty = _as_decimal(_balance_row.get("quantity"))
     _bt_cost = _as_decimal(_balance_row.get("unit_cost"))
@@ -7839,11 +7839,11 @@ def _apply_inventory_movement(product_id, quantity, unit_cost, tx_type, referenc
           AND location_id IS NOT DISTINCT FROM %s
           AND COALESCE(project_code,'')=%s
           AND COALESCE(lot_no,'')=%s
-          AND COALESCE(serial_no,'')=%s
+          AND COALESCE(cabinet_no,'')=%s
         ORDER BY id LIMIT 1
         FOR UPDATE
         """,
-        (product_id, warehouse_id, location_id, project_code or "", lot_no or "", serial_no or ""),
+        (product_id, warehouse_id, location_id, project_code or "", lot_no or "", cabinet_no or ""),
     )
     if _existing_bt:
         execute_db_fn(
@@ -7862,14 +7862,14 @@ def _apply_inventory_movement(product_id, quantity, unit_cost, tx_type, referenc
         execute_db_fn(
             """
             INSERT INTO batch_tracking
-                (lot_no, product_id, warehouse_id, location_id, serial_no, project_code,
+                (lot_no, product_id, warehouse_id, location_id, cabinet_no, project_code,
                  quantity_in, quantity_out, quantity_available, unit_cost, source_order_no,
                  status, created_at, updated_at)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'derived',NOW(),NOW())
             """,
             (
                 lot_no or "", product_id, warehouse_id, location_id,
-                serial_no or None, project_code or None,
+                cabinet_no or None, project_code or None,
                 qty if qty > 0 else Decimal("0"),
                 -qty if qty < 0 else Decimal("0"),
                 _bt_qty, _bt_cost, reference_no or "inventory_movement_sync",
@@ -7988,7 +7988,7 @@ def _render_inventory_return_print(table, record_id, kind):
         "warehouse_name": order.get("warehouse_name"),
         "location_name": order.get("location_code") or order.get("location_name"),
         "lot_no": order.get("lot_no"),
-        "serial_no": order.get("serial_no"),
+        "cabinet_no": order.get("cabinet_no"),
         "project_code": order.get("project_code"),
     }
     doc = {
@@ -8005,7 +8005,7 @@ def _render_inventory_return_print(table, record_id, kind):
             ("仓库", order.get("warehouse_name")),
             ("库位", order.get("location_code") or order.get("location_name")),
             ("项目号", order.get("project_code")),
-            ("机号", order.get("serial_no")),
+            ("柜号", order.get("cabinet_no")),
         ],
         "columns": [
             ("product_code", "物料编码", ""),
@@ -8018,7 +8018,7 @@ def _render_inventory_return_print(table, record_id, kind):
             ("warehouse_name", "仓库", ""),
             ("location_name", "库位", ""),
             ("lot_no", "批号", ""),
-            ("serial_no", "机号", ""),
+            ("cabinet_no", "柜号", ""),
             ("project_code", "项目号", ""),
         ],
         "rows": [row],
@@ -8060,13 +8060,13 @@ def _render_inventory_assembly_print(order_id, doc_type="assembly"):
         "unit_cost": order.get("unit_cost"),
         "amount": _as_decimal(order.get("quantity")) * _as_decimal(order.get("unit_cost")),
         "lot_no": order.get("lot_no"),
-        "serial_no": order.get("serial_no"),
+        "cabinet_no": order.get("cabinet_no"),
     }]
     rows.extend(_safe_rows(
         """
         SELECT %s AS line_role, p.code AS product_code, p.name AS product_name, p.specification, p.unit,
                iai.quantity, iai.unit_cost, (COALESCE(iai.quantity,0) * COALESCE(iai.unit_cost,0)) AS amount,
-               iai.lot_no, iai.serial_no
+               iai.lot_no, iai.cabinet_no
         FROM inventory_assembly_items iai
         LEFT JOIN products p ON p.id=iai.product_id
         WHERE iai.order_id=%s
@@ -8086,7 +8086,7 @@ def _render_inventory_assembly_print(order_id, doc_type="assembly"):
             ("仓库", order.get("warehouse_name")),
             ("库位", order.get("location_code") or order.get("location_name")),
             ("项目号", order.get("project_code")),
-            ("机号", order.get("serial_no")),
+            ("柜号", order.get("cabinet_no")),
         ],
         "columns": [
             ("line_role", "行类型", ""),
@@ -8098,7 +8098,7 @@ def _render_inventory_assembly_print(order_id, doc_type="assembly"):
             ("unit_cost", "库存成本单价", "right money"),
             ("amount", "库存成本金额", "right money"),
             ("lot_no", "批号", ""),
-            ("serial_no", "机号", ""),
+            ("cabinet_no", "柜号", ""),
         ],
         "rows": rows,
         "total_quantity": sum((_as_decimal(row.get("quantity")) for row in rows), Decimal("0")),
@@ -8115,11 +8115,11 @@ def _render_inventory_assembly_print(order_id, doc_type="assembly"):
 def _build_kit_summary(rows, no_bom_items=None):
     return build_kit_summary_adapter(rows, no_bom_items, _as_decimal, _qty_metric)
 
-def _project_kit_rows(order_id, project_code=None, serial_no=None, cost_object_id=None):
+def _project_kit_rows(order_id, project_code=None, cabinet_no=None, cost_object_id=None):
     return project_kit_rows_adapter(
         order_id,
         project_code,
-        serial_no,
+        cabinet_no,
         cost_object_id,
         _safe_rows,
     )
@@ -8127,11 +8127,11 @@ def _project_kit_rows(order_id, project_code=None, serial_no=None, cost_object_i
 def _project_items_without_bom(order_id):
     return project_items_without_bom_adapter(order_id, _safe_rows)
 
-def _project_finance_summary(order, project_code=None, serial_no=None, cost_object_id=None):
+def _project_finance_summary(order, project_code=None, cabinet_no=None, cost_object_id=None):
     return project_finance_summary_adapter(
         order,
         project_code,
-        serial_no,
+        cabinet_no,
         cost_object_id,
         _safe_one,
         _as_decimal,
@@ -8165,7 +8165,7 @@ def _project_engineering_readiness(order):
         }
     order_id = order.get("id")
     project_code = order.get("project_code")
-    serial_no = order.get("serial_no")
+    cabinet_no = order.get("cabinet_no")
     confirmation = _safe_one(
         """
         SELECT etc.id, etc.confirm_no, etc.status, etc.confirmed_at,
@@ -8194,11 +8194,11 @@ def _project_engineering_readiness(order):
         ) released_drawing ON TRUE
         WHERE etc.sales_order_id=%s
            OR (%s IS NOT NULL AND etc.project_code=%s)
-           OR (%s IS NOT NULL AND etc.serial_no=%s)
+           OR (%s IS NOT NULL AND etc.cabinet_no=%s)
         ORDER BY etc.confirmed_at DESC NULLS LAST, etc.id DESC
         LIMIT 1
         """,
-        (order_id, project_code, project_code, serial_no, serial_no),
+        (order_id, project_code, project_code, cabinet_no, cabinet_no),
     )
     blockers = []
     if not confirmation:
@@ -8243,14 +8243,14 @@ def _create_purchase_requisition_from_suggestions():
         row
         for row in _purchase_suggestion_rows(300, keyword=keyword)
         if _as_decimal(row.get("suggestion_qty")) > 0
-        and f"{row.get('product_id')}|{row.get('project_code') or '-'}|{row.get('serial_no') or '-'}" in selected_keys
+        and f"{row.get('product_id')}|{row.get('project_code') or '-'}|{row.get('cabinet_no') or '-'}" in selected_keys
     ]
     blocked_engineering = [row for row in candidate_rows if not row.get("engineering_ready")]
     if blocked_engineering:
         first = blocked_engineering[0]
         flash(
             "工程准备未就绪，不能生成采购申请；请先补齐技术确认、BOM、图纸和工艺路线，再回到采购建议复核。"
-            f" 阻塞项目/机号：{first.get('project_code') or '-'} / {first.get('serial_no') or '-'}。",
+            f" 阻塞项目/柜号：{first.get('project_code') or '-'} / {first.get('cabinet_no') or '-'}。",
             "warning",
         )
         return redirect(suggestions_url)
@@ -8265,7 +8265,7 @@ def _create_purchase_requisition_from_suggestions():
     req = _execute_and_return(
         """
         INSERT INTO purchase_requisitions
-            (req_no, req_date, department, purpose, status, remark, project_code, serial_no)
+            (req_no, req_date, department, purpose, status, remark, project_code, cabinet_no)
         VALUES
             (%s, CURRENT_DATE, %s, %s, %s, %s, %s, %s)
         RETURNING id, req_no
@@ -8277,7 +8277,7 @@ def _create_purchase_requisition_from_suggestions():
             "待提交",
             "由采购建议自动生成，来源为当前 MRP 缺料扣减采购申请和采购未到后的缺口。",
             None if first.get("project_code") == "-" else first.get("project_code"),
-            None if first.get("serial_no") == "-" else first.get("serial_no"),
+            None if first.get("cabinet_no") == "-" else first.get("cabinet_no"),
         ),
     )
     req_id = req.get("id")
@@ -8289,7 +8289,7 @@ def _create_purchase_requisition_from_suggestions():
         _execute_db(
             """
             INSERT INTO purchase_requisition_items
-                (req_id, product_id, quantity, unit_price, amount, need_date, suggested_supplier_id, remark, project_code, serial_no)
+                (req_id, product_id, quantity, unit_price, amount, need_date, suggested_supplier_id, remark, project_code, cabinet_no)
             VALUES
                 (%s, %s, %s, %s, %s, %s, NULLIF(%s, 0), %s, %s, %s)
             """,
@@ -8301,9 +8301,9 @@ def _create_purchase_requisition_from_suggestions():
                 qty * unit_price,
                 row.get("need_date"),
                 row.get("suggested_supplier_id") or 0,
-                f"MRP缺料建议：项目 {row.get('project_code') or '-'} / 机号 {row.get('serial_no') or '-'}",
+                f"MRP缺料建议：项目 {row.get('project_code') or '-'} / 柜号 {row.get('cabinet_no') or '-'}",
                 None if row.get("project_code") == "-" else row.get("project_code"),
-                None if row.get("serial_no") == "-" else row.get("serial_no"),
+                None if row.get("cabinet_no") == "-" else row.get("cabinet_no"),
             ),
         )
         created += 1
@@ -8315,7 +8315,7 @@ def _create_purchase_requisition_from_suggestions():
 def _create_purchase_requisition_from_project_shortage(order_id):
     order = _safe_one(
         """
-        SELECT id, order_no, project_code, serial_no, cost_object_id
+        SELECT id, order_no, project_code, cabinet_no, cost_object_id
         FROM sales_orders
         WHERE id=%s
         """,
@@ -8337,7 +8337,7 @@ def _create_purchase_requisition_from_project_shortage(order_id):
     kit_rows = _project_kit_rows(
         order_id,
         order.get("project_code"),
-        order.get("serial_no"),
+        order.get("cabinet_no"),
         order.get("cost_object_id"),
     )
     shortage_rows = [row for row in kit_rows if _as_decimal(row.get("shortage_qty")) > 0]
@@ -8349,7 +8349,7 @@ def _create_purchase_requisition_from_project_shortage(order_id):
     req = _execute_and_return(
         """
         INSERT INTO purchase_requisitions
-            (req_no, req_date, department, purpose, status, remark, project_code, serial_no)
+            (req_no, req_date, department, purpose, status, remark, project_code, cabinet_no)
         VALUES
             (%s, CURRENT_DATE, %s, %s, %s, %s, %s, %s)
         RETURNING id, req_no
@@ -8361,7 +8361,7 @@ def _create_purchase_requisition_from_project_shortage(order_id):
             "待提交",
             f"项目齐套缺口自动生成，来源销售订单 {order.get('order_no') or order_id}",
             order.get("project_code"),
-            order.get("serial_no"),
+            order.get("cabinet_no"),
         ),
     )
     req_id = req.get("id")
@@ -8389,7 +8389,7 @@ def _create_purchase_requisition_from_project_shortage(order_id):
         _execute_db(
             """
             INSERT INTO purchase_requisition_items
-                (req_id, product_id, quantity, unit_price, amount, need_date, suggested_supplier_id, remark, project_code, serial_no)
+                (req_id, product_id, quantity, unit_price, amount, need_date, suggested_supplier_id, remark, project_code, cabinet_no)
             VALUES
                 (%s, %s, %s, %s, %s, CURRENT_DATE, NULLIF(%s, 0), %s, %s, %s)
             """,
@@ -8402,7 +8402,7 @@ def _create_purchase_requisition_from_project_shortage(order_id):
                 price_row.get("supplier_id") or 0,
                 f"项目缺料建议：父项 {row.get('parent_name') or '-'} / BOM {row.get('bom_no') or '-'}",
                 order.get("project_code"),
-                order.get("serial_no"),
+                order.get("cabinet_no"),
             ),
         )
         created += 1
@@ -8435,10 +8435,10 @@ def _create_purchase_requisition_from_form():
     payload = request.get_json(silent=True) or {}
     items = payload.get("items") or []
     project_code = _short_text(payload.get("project_code"), 120)
-    serial_no = _short_text(payload.get("serial_no"), 120)
-    project_serial_error = _require_project_serial_json(project_code, serial_no)
-    if project_serial_error:
-        return project_serial_error
+    cabinet_no = _short_text(payload.get("cabinet_no"), 120)
+    project_cabinet_error = _require_project_cabinet_json(project_code, cabinet_no)
+    if project_cabinet_error:
+        return project_cabinet_error
     valid_items = []
     for item in items:
         product_id = _as_int(item.get("material_id"))
@@ -8454,9 +8454,9 @@ def _create_purchase_requisition_from_form():
         if quantity <= 0:
             continue
         unit_price = _as_decimal(item.get("estimated_price"), product.get("standard_price") or "0")
-        # 明细行级 project_code/serial_no 优先，回退到表头值
+        # 明细行级 project_code/cabinet_no 优先，回退到表头值
         line_project_code = _short_text(item.get("project_code"), 120) or project_code
-        line_serial_no = _short_text(item.get("serial_no"), 120) or serial_no
+        line_cabinet_no = _short_text(item.get("cabinet_no"), 120) or cabinet_no
         valid_items.append(
             {
                 "product_id": product.get("id"),
@@ -8472,7 +8472,7 @@ def _create_purchase_requisition_from_form():
                 "material_spec": (item.get("spec") or product.get("specification") or "").strip(),
                 "material_unit": (item.get("unit") or product.get("unit") or "").strip(),
                 "project_code": line_project_code,
-                "serial_no": line_serial_no,
+                "cabinet_no": line_cabinet_no,
                 "expected_delivery_date": (item.get("expected_delivery_date") or payload.get("expected_date") or "").strip() or None,
             }
         )
@@ -8490,13 +8490,13 @@ def _create_purchase_requisition_from_form():
         """
         INSERT INTO purchase_requisitions
             (req_no, req_date, department, requester_id, purpose, status, remark,
-             project_code, serial_no, applicant, urgency)
+             project_code, cabinet_no, applicant, urgency)
         VALUES
             (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id, req_no
         """,
         (req_no, req_date, department, session.get("user_id"), purpose, "待提交", remark,
-         project_code, serial_no, applicant, urgency),
+         project_code, cabinet_no, applicant, urgency),
     )
     req_id = _returned_id(req)
     _execute_db("UPDATE purchase_requisitions SET approval_status='draft' WHERE id=%s", (req_id,))
@@ -8506,7 +8506,7 @@ def _create_purchase_requisition_from_form():
             """
             INSERT INTO purchase_requisition_items
                 (req_id, product_id, quantity, unit_price, amount, need_date, suggested_supplier_id,
-                 project_code, serial_no,
+                 project_code, cabinet_no,
                  warehouse_id, location_id, lot_no, source_line_no,
                  material_code, material_name, material_spec, material_unit)
             VALUES
@@ -8521,7 +8521,7 @@ def _create_purchase_requisition_from_form():
                 item["expected_delivery_date"],
                 item["supplier_id"],
                 item["project_code"],
-                item["serial_no"],
+                item["cabinet_no"],
                 item["warehouse_id"],
                 item["location_id"],
                 item["lot_no"],
@@ -8656,11 +8656,11 @@ def _create_purchase_order_from_requisition(req_id):
             supplier_id,
             item.get("cost_object_id"),
             item.get("project_code"),
-            item.get("serial_no"),
+            item.get("cabinet_no"),
         )
         groups.setdefault(group_key, []).append(item)
     created_orders = []
-    for (supplier_id, cost_object_id, project_code, serial_no), group_items in groups.items():
+    for (supplier_id, cost_object_id, project_code, cabinet_no), group_items in groups.items():
         order_no = _next_daily_doc_no("PO", "purchase_orders", "order_no")
         total_amount = sum((_as_decimal(item.get("push_qty")) * _as_decimal(item.get("price")) for item in group_items), Decimal("0"))
         tax_amount = sum((
@@ -8671,7 +8671,7 @@ def _create_purchase_order_from_requisition(req_id):
             """
             INSERT INTO purchase_orders
                 (order_no, order_date, supplier_id, status, remark, total_amount, received_amount,
-                 expected_date, tax_amount, amount_with_tax, cost_object_id, project_code, serial_no, created_by)
+                 expected_date, tax_amount, amount_with_tax, cost_object_id, project_code, cabinet_no, created_by)
             VALUES
                 (%s, CURRENT_DATE, %s, %s, %s, %s, 0, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id, order_no
@@ -8687,7 +8687,7 @@ def _create_purchase_order_from_requisition(req_id):
                 total_amount + tax_amount,
                 cost_object_id or req.get("cost_object_id"),
                 project_code or req.get("project_code"),
-                serial_no or req.get("serial_no"),
+                cabinet_no or req.get("cabinet_no"),
                 session.get("user_id"),
             ),
         )
@@ -8901,15 +8901,15 @@ def _post_sales_shipment(shipment_id):
         warehouse_id = line.get("warehouse_id") or shipment.get("warehouse_id")
         location_id = line.get("location_id")
         lot_no = line.get("lot_no") or ""
-        serial_no = shipment.get("serial_no") or ""
+        cabinet_no = shipment.get("cabinet_no") or ""
         project_code = shipment.get("project_code") or ""
-        exact_qty = _inventory_available_qty(line.get("product_id"), warehouse_id, location_id, lot_no, serial_no, project_code)
-        if exact_qty >= qty or (not serial_no and not project_code):
-            return serial_no, project_code
+        exact_qty = _inventory_available_qty(line.get("product_id"), warehouse_id, location_id, lot_no, cabinet_no, project_code)
+        if exact_qty >= qty or (not cabinet_no and not project_code):
+            return cabinet_no, project_code
         common_qty = _inventory_available_qty(line.get("product_id"), warehouse_id, location_id, lot_no, "", "")
         if common_qty >= qty:
             return "", ""
-        return serial_no, project_code
+        return cabinet_no, project_code
 
     def operation(_cursor):
         for line in lines:
@@ -8917,7 +8917,7 @@ def _post_sales_shipment(shipment_id):
             if qty <= 0:
                 continue
             unit_cost = _as_decimal(line.get("unit_price") or line.get("unit_cost"))
-            stock_serial_no, stock_project_code = _shipment_stock_dimensions(line, qty)
+            stock_cabinet_no, stock_project_code = _shipment_stock_dimensions(line, qty)
             _execute_db(
                 "UPDATE sales_order_items SET shipped_qty=COALESCE(shipped_qty,0)+%s WHERE id=%s",
                 (qty, line.get("order_item_id")),
@@ -8932,7 +8932,7 @@ def _post_sales_shipment(shipment_id):
                 warehouse_id=line.get("warehouse_id") or shipment.get("warehouse_id"),
                 location_id=line.get("location_id"),
                 lot_no=line.get("lot_no") or "",
-                serial_no=stock_serial_no,
+                cabinet_no=stock_cabinet_no,
                 project_code=stock_project_code,
                 tx_date=shipment.get("shipment_date"),
                 query_one=_safe_one,
@@ -8957,7 +8957,7 @@ def _post_sales_shipment(shipment_id):
                         link_type="posts_to",
                         link_strength="soft",
                         project_code=shipment.get("project_code"),
-                        serial_no=shipment.get("serial_no"),
+                        cabinet_no=shipment.get("cabinet_no"),
                         created_by=session.get("user_id"),
                         created_event="sales_shipment_inventory",
                     )
@@ -9019,7 +9019,7 @@ def _unaudit_sales_shipment(shipment_id):
             unit_cost = _as_decimal(line.get("unit_price") or line.get("unit_cost"))
             posted_tx = _safe_one(
                 """
-                SELECT serial_no, project_code
+                SELECT cabinet_no, project_code
                 FROM stock_transactions
                 WHERE reference_no=%s AND product_id=%s AND quantity<0
                 ORDER BY id DESC
@@ -9037,7 +9037,7 @@ def _unaudit_sales_shipment(shipment_id):
                 warehouse_id=line.get("warehouse_id") or shipment.get("warehouse_id"),
                 location_id=line.get("location_id"),
                 lot_no=line.get("lot_no") or "",
-                serial_no=posted_tx.get("serial_no") or "",
+                cabinet_no=posted_tx.get("cabinet_no") or "",
                 project_code=posted_tx.get("project_code") or "",
                 tx_date=shipment.get("shipment_date"),
                 query_one=_safe_one,
@@ -9249,7 +9249,7 @@ def _create_purchase_receipt_from_order(order_id):
             cur.execute(
                 """
                 INSERT INTO purchase_receipts
-                    (receipt_no, order_id, receipt_date, warehouse_id, operator_id, status, remark, cost_object_id, project_code, serial_no)
+                    (receipt_no, order_id, receipt_date, warehouse_id, operator_id, status, remark, cost_object_id, project_code, cabinet_no)
                 VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 RETURNING id
                 """,
@@ -9263,7 +9263,7 @@ def _create_purchase_receipt_from_order(order_id):
                     remark,
                     order.get("cost_object_id"),
                     order.get("project_code"),
-                    order.get("serial_no"),
+                    order.get("cabinet_no"),
                 ),
             )
             receipt_row = cur.fetchone()
@@ -9284,7 +9284,7 @@ def _create_purchase_receipt_from_order(order_id):
                 link_type="source_of",
                 link_strength="hard",
                 project_code=order.get("project_code"),
-                serial_no=order.get("serial_no"),
+                cabinet_no=order.get("cabinet_no"),
                 created_by=session.get("user_id"),
                 created_event="create_purchase_receipt",
             )
@@ -9348,7 +9348,7 @@ def _create_purchase_receipt_from_order(order_id):
                 loc = cur.fetchone() if location_id else None
                 location_label = (loc.get("code") or loc.get("name") or "") if loc else ""
                 project_code = order.get("project_code") or ""
-                serial_no = order.get("serial_no") or ""
+                cabinet_no = order.get("cabinet_no") or ""
                 cur.execute(
                     """
                     SELECT id, quantity, unit_cost
@@ -9356,13 +9356,13 @@ def _create_purchase_receipt_from_order(order_id):
                     WHERE product_id=%s AND COALESCE(warehouse_id,0)=COALESCE(%s,0)
                       AND COALESCE(location_id,0)=COALESCE(%s,0)
                       AND COALESCE(lot_no,'')=COALESCE(%s,'')
-                      AND COALESCE(serial_no,'')=COALESCE(%s,'')
+                      AND COALESCE(cabinet_no,'')=COALESCE(%s,'')
                       AND COALESCE(project_code,'')=COALESCE(%s,'')
                     ORDER BY id
                     LIMIT 1
                     FOR UPDATE
                     """,
-                    (product_id, line_warehouse_id, location_id, lot_no, serial_no, project_code),
+                    (product_id, line_warehouse_id, location_id, lot_no, cabinet_no, project_code),
                 )
                 balance = cur.fetchone()
                 if balance:
@@ -9378,10 +9378,10 @@ def _create_purchase_receipt_from_order(order_id):
                     cur.execute(
                         """
                         INSERT INTO inventory_balances
-                            (product_id, warehouse_id, location_id, lot_no, serial_no, project_code, quantity, locked_qty, unit_cost, updated_at)
+                            (product_id, warehouse_id, location_id, lot_no, cabinet_no, project_code, quantity, locked_qty, unit_cost, updated_at)
                         VALUES (%s,%s,%s,%s,%s,%s,%s,0,%s,NOW())
                         """,
-                        (product_id, line_warehouse_id, location_id, lot_no, serial_no, project_code, qty, unit_cost),
+                        (product_id, line_warehouse_id, location_id, lot_no, cabinet_no, project_code, qty, unit_cost),
                     )
                 cur.execute("SELECT id, quantity, unit_cost FROM inventory WHERE product_id=%s LIMIT 1 FOR UPDATE", (product_id,))
                 inv = cur.fetchone()
@@ -9400,10 +9400,10 @@ def _create_purchase_receipt_from_order(order_id):
                     """
                     INSERT INTO stock_transactions
                         (transaction_date, transaction_type, product_id, quantity, unit_cost, reference_no,
-                         lot_no, serial_no, project_code, location, remark, warehouse_id, location_id)
+                         lot_no, cabinet_no, project_code, location, remark, warehouse_id, location_id)
                     VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                     """,
-                    (receipt_date, "采购入库", product_id, qty, unit_cost, receipt_no, lot_no, serial_no, project_code, location_label, remark, line_warehouse_id, location_id),
+                    (receipt_date, "采购入库", product_id, qty, unit_cost, receipt_no, lot_no, cabinet_no, project_code, location_label, remark, line_warehouse_id, location_id),
                 )
                 # Sync batch_tracking from inventory_balances to prevent consistency audit failures.
                 # This path directly modifies inventory_balances (bypassing _apply_inventory_movement),
@@ -9423,9 +9423,9 @@ def _create_purchase_receipt_from_order(order_id):
                       AND location_id IS NOT DISTINCT FROM %s
                       AND COALESCE(project_code,'')=%s
                       AND COALESCE(lot_no,'')=%s
-                      AND COALESCE(serial_no,'')=%s
+                      AND COALESCE(cabinet_no,'')=%s
                     """,
-                    (product_id, line_warehouse_id, location_id, project_code or "", lot_no or "", serial_no or ""),
+                    (product_id, line_warehouse_id, location_id, project_code or "", lot_no or "", cabinet_no or ""),
                 )
                 _bt_balance = cur.fetchone() or {}
                 _bt_qty = _as_decimal(_bt_balance.get("quantity"))
@@ -9438,11 +9438,11 @@ def _create_purchase_receipt_from_order(order_id):
                       AND location_id IS NOT DISTINCT FROM %s
                       AND COALESCE(project_code,'')=%s
                       AND COALESCE(lot_no,'')=%s
-                      AND COALESCE(serial_no,'')=%s
+                      AND COALESCE(cabinet_no,'')=%s
                     ORDER BY id LIMIT 1
                     FOR UPDATE
                     """,
-                    (product_id, line_warehouse_id, location_id, project_code or "", lot_no or "", serial_no or ""),
+                    (product_id, line_warehouse_id, location_id, project_code or "", lot_no or "", cabinet_no or ""),
                 )
                 _existing_bt = cur.fetchone()
                 if _existing_bt:
@@ -9462,14 +9462,14 @@ def _create_purchase_receipt_from_order(order_id):
                     cur.execute(
                         """
                         INSERT INTO batch_tracking
-                            (lot_no, product_id, warehouse_id, location_id, serial_no, project_code,
+                            (lot_no, product_id, warehouse_id, location_id, cabinet_no, project_code,
                              quantity_in, quantity_out, quantity_available, unit_cost, source_order_no,
                              status, created_at, updated_at)
                         VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'derived',NOW(),NOW())
                         """,
                         (
                             lot_no or "", product_id, line_warehouse_id, location_id,
-                            serial_no or None, project_code or None,
+                            cabinet_no or None, project_code or None,
                             qty if qty > 0 else Decimal("0"),
                             -qty if qty < 0 else Decimal("0"),
                             _bt_qty, _bt_cost, receipt_no or "purchase_receipt_sync",
@@ -9498,7 +9498,7 @@ def _create_purchase_receipt_from_order(order_id):
                             link_type="posts_to",
                             link_strength="soft",
                             project_code=project_code,
-                            serial_no=serial_no,
+                            cabinet_no=cabinet_no,
                             created_by=session.get("user_id"),
                             created_event="purchase_receipt_inventory",
                         )
@@ -9694,13 +9694,13 @@ def _create_sales_shipment_from_order(order_id):
     if order.get("status") != "已审核":
         flash("销售订单必须已审核才能生成销售出库。", "warning")
         return redirect(f"/sales/{order_id}")
-    project_serial_error = _require_project_serial_values_or_redirect(
+    project_cabinet_error = _require_project_cabinet_values_or_redirect(
         order.get("project_code"),
-        order.get("serial_no"),
+        order.get("cabinet_no"),
         f"/sales/{order_id}",
     )
-    if project_serial_error:
-        return project_serial_error
+    if project_cabinet_error:
+        return project_cabinet_error
 
     order_items = _safe_rows(
         """
@@ -9757,7 +9757,7 @@ def _create_sales_shipment_from_order(order_id):
         """
         INSERT INTO sales_shipments
             (shipment_no, order_id, shipment_date, warehouse_id, operator_id, status,
-             remark, cost_object_id, project_code, serial_no, customer_id, source_type,
+             remark, cost_object_id, project_code, cabinet_no, customer_id, source_type,
              source_no, shipped_amount, tax_amount, amount_with_tax)
         VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         RETURNING id
@@ -9772,7 +9772,7 @@ def _create_sales_shipment_from_order(order_id):
             remark,
             order.get("cost_object_id"),
             order.get("project_code"),
-            order.get("serial_no"),
+            order.get("cabinet_no"),
             order.get("customer_id"),
             "sales_order",
             order.get("order_no"),
@@ -9795,7 +9795,7 @@ def _create_sales_shipment_from_order(order_id):
         link_type="source_of",
         link_strength="hard",
         project_code=order.get("project_code"),
-        serial_no=order.get("serial_no"),
+        cabinet_no=order.get("cabinet_no"),
         created_by=session.get("user_id"),
         created_event="create_sales_shipment",
     )
@@ -9862,8 +9862,8 @@ def _create_sales_shipment_from_order(order_id):
 
 
 def _ensure_service_card_for_shipment(order, shipped_lines, shipment_date, shipment_no):
-    serial_no = (order.get("serial_no") or "").strip()
-    if not serial_no:
+    cabinet_no = (order.get("cabinet_no") or "").strip()
+    if not cabinet_no:
         return None
     product_id = None
     if shipped_lines:
@@ -9879,11 +9879,11 @@ def _ensure_service_card_for_shipment(order, shipped_lines, shipment_date, shipm
         """
         SELECT id
         FROM machine_service_cards
-        WHERE sales_order_id=%s AND serial_no=%s
+        WHERE sales_order_id=%s AND cabinet_no=%s
         ORDER BY id DESC
         LIMIT 1
         """,
-        (order.get("id"), serial_no),
+        (order.get("id"), cabinet_no),
     )
     if existing:
         _execute_db(
@@ -9912,16 +9912,16 @@ def _ensure_service_card_for_shipment(order, shipped_lines, shipment_date, shipm
                 existing.get("id"),
             ),
         )
-        _log_action("更新服务档案", serial_no, f"由销售发货 {shipment_no} 更新")
+        _log_action("更新服务档案", cabinet_no, f"由销售发货 {shipment_no} 更新")
         return existing
     card_no = _next_doc_no("SC", "machine_service_cards", "card_no")
     card = _execute_and_return(
         """
         INSERT INTO machine_service_cards
-            (card_no, sales_order_id, cost_object_id, customer_id, product_id, serial_no,
+            (card_no, sales_order_id, cost_object_id, customer_id, product_id, cabinet_no,
              project_code, machine_model, install_date, installation_date, status, install_address, remark)
         VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-        ON CONFLICT (sales_order_id, serial_no) WHERE sales_order_id IS NOT NULL AND serial_no IS NOT NULL
+        ON CONFLICT (sales_order_id, cabinet_no) WHERE sales_order_id IS NOT NULL AND cabinet_no IS NOT NULL
         DO UPDATE SET customer_id=EXCLUDED.customer_id,
             product_id=EXCLUDED.product_id,
             project_code=EXCLUDED.project_code,
@@ -9939,7 +9939,7 @@ def _ensure_service_card_for_shipment(order, shipped_lines, shipment_date, shipm
             order.get("cost_object_id"),
             order.get("customer_id"),
             product_id,
-            serial_no,
+            cabinet_no,
             order.get("project_code"),
             machine_model,
             shipment_date,
@@ -9949,7 +9949,7 @@ def _ensure_service_card_for_shipment(order, shipped_lines, shipment_date, shipm
             f"由销售发货 {shipment_no} 自动生成服务档案",
         ),
     )
-    _log_action("生成服务档案", serial_no, f"由销售发货 {shipment_no} 生成")
+    _log_action("生成服务档案", cabinet_no, f"由销售发货 {shipment_no} 生成")
     return card
 
 
@@ -9997,14 +9997,14 @@ def _create_customer_receipt_for_order(order_id):
     first_source = None
     receivables = _safe_rows(
         """
-        SELECT id, source_no, source_type, source_id, balance, cost_object_id, project_code, serial_no
+        SELECT id, source_no, source_type, source_id, balance, cost_object_id, project_code, cabinet_no
         FROM customer_receivables
         WHERE customer_id=%s
           AND (
             source_id=%s OR source_no=%s
             OR (%s IS NOT NULL AND cost_object_id=%s)
             OR (%s <> '' AND project_code=%s)
-            OR (%s <> '' AND serial_no=%s)
+            OR (%s <> '' AND cabinet_no=%s)
           )
           AND COALESCE(balance,0) > 0
         ORDER BY due_date NULLS LAST, id
@@ -10017,8 +10017,8 @@ def _create_customer_receipt_for_order(order_id):
             order.get("cost_object_id"),
             order.get("project_code") or "",
             order.get("project_code") or "",
-            order.get("serial_no") or "",
-            order.get("serial_no") or "",
+            order.get("cabinet_no") or "",
+            order.get("cabinet_no") or "",
         ),
     )
     for row in receivables:
@@ -10061,7 +10061,7 @@ def _create_customer_receipt_for_order(order_id):
                 link_type="settles",
                 link_strength="hard",
                 project_code=row.get("project_code") or order.get("project_code"),
-                serial_no=row.get("serial_no") or order.get("serial_no"),
+                cabinet_no=row.get("cabinet_no") or order.get("cabinet_no"),
                 created_by=session.get("user_id"),
                 created_event="create_customer_receipt",
             )
@@ -10075,14 +10075,14 @@ def _create_customer_receipt_for_order(order_id):
             UPDATE customer_receipts
             SET cost_object_id=%s,
                 project_code=%s,
-                serial_no=%s,
+                cabinet_no=%s,
                 unapplied_amount=%s
             WHERE id=%s
             """,
             (
                 first_source.get("cost_object_id") if first_source else order.get("cost_object_id"),
                 (first_source.get("project_code") if first_source else None) or order.get("project_code"),
-                (first_source.get("serial_no") if first_source else None) or order.get("serial_no"),
+                (first_source.get("cabinet_no") if first_source else None) or order.get("cabinet_no"),
                 max(amount - total_applied, Decimal("0")),
                 receipt_id,
             ),
@@ -10137,7 +10137,7 @@ def _create_supplier_payment_for_order(order_id):
     first_source = None
     payables = _safe_rows(
         """
-        SELECT id, doc_no, doc_type, doc_id, balance, cost_object_id, project_code, serial_no
+        SELECT id, doc_no, doc_type, doc_id, balance, cost_object_id, project_code, cabinet_no
         FROM supplier_payables
         WHERE supplier_id=%s
           AND (
@@ -10185,7 +10185,7 @@ def _create_supplier_payment_for_order(order_id):
                 link_type="settles",
                 link_strength="hard",
                 project_code=row.get("project_code") or order.get("project_code"),
-                serial_no=row.get("serial_no") or order.get("serial_no"),
+                cabinet_no=row.get("cabinet_no") or order.get("cabinet_no"),
                 created_by=session.get("user_id"),
                 created_event="create_supplier_payment",
             )
@@ -10200,7 +10200,7 @@ def _create_supplier_payment_for_order(order_id):
             SET payable_id=%s,
                 cost_object_id=%s,
                 project_code=%s,
-                serial_no=%s,
+                cabinet_no=%s,
                 unapplied_amount=%s
             WHERE id=%s
             """,
@@ -10208,7 +10208,7 @@ def _create_supplier_payment_for_order(order_id):
                 first_source.get("id") if first_source else None,
                 first_source.get("cost_object_id") if first_source else None,
                 (first_source.get("project_code") if first_source else None) or order.get("project_code"),
-                (first_source.get("serial_no") if first_source else None) or order.get("serial_no"),
+                (first_source.get("cabinet_no") if first_source else None) or order.get("cabinet_no"),
                 max(amount - total_applied, Decimal("0")),
                 payment_id,
             ),
@@ -11070,7 +11070,7 @@ def _render_project_master_list():
         LEFT JOIN customers c ON c.id=pm.customer_id
         LEFT JOIN LATERAL (
             SELECT COUNT(*) AS machine_count
-            FROM machine_serial_masters m
+            FROM cabinet_masters m
             WHERE m.project_id=pm.id OR m.project_code=pm.project_code
         ) ms ON TRUE
         {where_sql}
@@ -11094,7 +11094,7 @@ def _render_project_master_list():
             ("owner_name", "负责人"),
             ("planned_delivery_date", "计划交期"),
             ("status", "状态"),
-            ("machine_count", "机号数"),
+            ("machine_count", "柜号数"),
         ),
         detail_base="/project-master",
         add_url="/project-master/new",
@@ -11139,7 +11139,7 @@ def _save_project_master(project_id=None):
             )
             _execute_db(
                 """
-                UPDATE machine_serial_masters
+                UPDATE cabinet_masters
                 SET project_code=%s, customer_id=COALESCE(customer_id, %s), updated_at=NOW()
                 WHERE project_id=%s
                 """,
@@ -11197,13 +11197,13 @@ def _render_project_master_detail(project_id):
     )
 
 
-def _render_machine_serial_master_list():
+def _render_cabinet_master_list():
     keyword = (_form_text("keyword") or _form_text("q")).strip()
     params = []
     where_sql = ""
     if keyword:
         where_sql = """
-        WHERE m.serial_no ILIKE %s
+        WHERE m.cabinet_no ILIKE %s
            OR m.project_code ILIKE %s
            OR m.product_family ILIKE %s
            OR m.machine_model ILIKE %s
@@ -11214,12 +11214,12 @@ def _render_machine_serial_master_list():
         params = [f"%{keyword}%"] * 7
     rows = _safe_rows(
         f"""
-        SELECT m.id, m.serial_no, COALESCE(pm.project_code, m.project_code) AS project_code,
+        SELECT m.id, m.cabinet_no, COALESCE(pm.project_code, m.project_code) AS project_code,
                c.name AS customer_name, p.code AS product_code, p.name AS product_name,
                p.specification, p.unit,
                m.product_family, m.machine_model, m.production_stage,
                m.service_status, m.status
-        FROM machine_serial_masters m
+        FROM cabinet_masters m
         LEFT JOIN project_masters pm ON pm.id=m.project_id
         LEFT JOIN customers c ON c.id=m.customer_id
         LEFT JOIN products p ON p.id=m.product_id
@@ -11231,11 +11231,11 @@ def _render_machine_serial_master_list():
     )
     return render_template(
         "simple_list.html",
-        title="机号档案",
-        subtitle="基础资料维护页。机号用于单机生产、发货、安装、售后、成本和库存追溯；可在项目明确后再补建。",
+        title="柜号档案",
+        subtitle="基础资料维护页。柜号用于单机生产、发货、安装、售后、成本和库存追溯；可在项目明确后再补建。",
         rows=rows,
         columns=_columns(
-            ("serial_no", "机号"),
+            ("cabinet_no", "柜号"),
             ("project_code", "项目号"),
             ("customer_name", "客户"),
             ("product_code", "成品编码"),
@@ -11248,16 +11248,16 @@ def _render_machine_serial_master_list():
             ("service_status", "售后状态"),
             ("status", "状态"),
         ),
-        detail_base="/machine-serial-master",
-        add_url="/machine-serial-master/new",
-        import_url="/machine-serial-master/import",
-        template_url="/machine-serial-master/download_template",
-        export_url="/export/machine-serial-masters",
+        detail_base="/cabinet-master",
+        add_url="/cabinet-master/new",
+        import_url="/cabinet-master/import",
+        template_url="/cabinet-master/download_template",
+        export_url="/export/cabinet-masters",
     )
 
 
-def _render_machine_serial_master_form(machine_id=None):
-    return render_machine_serial_master_form_adapter(_safe_one, _safe_rows, machine_id)
+def _render_cabinet_master_form(machine_id=None):
+    return render_cabinet_master_form_adapter(_safe_one, _safe_rows, machine_id)
 
 
 def _project_snapshot(project_id):
@@ -11266,15 +11266,15 @@ def _project_snapshot(project_id):
     return _safe_one("SELECT * FROM project_masters WHERE id=%s", (project_id,)) or {}
 
 
-def _save_machine_serial_master(machine_id=None):
-    serial_no = _form_text("serial_no")
-    if not serial_no:
-        flash("机号必填。", "warning")
+def _save_cabinet_master(machine_id=None):
+    cabinet_no = _form_text("cabinet_no")
+    if not cabinet_no:
+        flash("柜号必填。", "warning")
         return redirect(request.path)
     project_id = _form_int("project_id")
     project = _project_snapshot(project_id)
     values = (
-        serial_no,
+        cabinet_no,
         project_id,
         project.get("project_code") or "",
         _form_int("customer_id") or project.get("customer_id"),
@@ -11292,8 +11292,8 @@ def _save_machine_serial_master(machine_id=None):
         if machine_id:
             _execute_db(
                 """
-                UPDATE machine_serial_masters
-                SET serial_no=%s, project_id=%s, project_code=%s, customer_id=%s, product_id=%s,
+                UPDATE cabinet_masters
+                SET cabinet_no=%s, project_id=%s, project_code=%s, customer_id=%s, product_id=%s,
                     product_family=%s, machine_model=%s, production_stage=%s, service_status=%s,
                     warranty_start_date=%s, warranty_end_date=%s, status=%s, remark=%s,
                     updated_at=NOW()
@@ -11301,13 +11301,13 @@ def _save_machine_serial_master(machine_id=None):
                 """,
                 values + (machine_id,),
             )
-            _log_action("更新机号档案", serial_no)
-            flash("机号档案已更新。", "success")
-            return redirect(f"/machine-serial-master/{machine_id}")
+            _log_action("更新柜号档案", cabinet_no)
+            flash("柜号档案已更新。", "success")
+            return redirect(f"/cabinet-master/{machine_id}")
         row = _execute_and_return(
             """
-            INSERT INTO machine_serial_masters
-                (serial_no, project_id, project_code, customer_id, product_id, product_family,
+            INSERT INTO cabinet_masters
+                (cabinet_no, project_id, project_code, customer_id, product_id, product_family,
                  machine_model, production_stage, service_status, warranty_start_date,
                  warranty_end_date, status, remark)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
@@ -11316,20 +11316,20 @@ def _save_machine_serial_master(machine_id=None):
             values,
         )
     except Exception as exc:
-        flash(f"机号已存在或保存失败：{exc}", "warning")
+        flash(f"柜号已存在或保存失败：{exc}", "warning")
         return redirect(request.path)
-    _log_action("新增机号档案", serial_no)
-    flash("机号档案已新增。", "success")
+    _log_action("新增柜号档案", cabinet_no)
+    flash("柜号档案已新增。", "success")
     new_id = row.get("id") if isinstance(row, dict) else (row[0] if row else None)
-    return redirect(f"/machine-serial-master/{new_id}")
+    return redirect(f"/cabinet-master/{new_id}")
 
 
-def _render_machine_serial_master_detail(machine_id):
+def _render_cabinet_master_detail(machine_id):
     row = _safe_one(
         """
         SELECT m.*, COALESCE(pm.project_code, m.project_code) AS project_code, c.name AS customer_name,
                p.code AS product_code, p.name AS product_name
-        FROM machine_serial_masters m
+        FROM cabinet_masters m
         LEFT JOIN project_masters pm ON pm.id=m.project_id
         LEFT JOIN customers c ON c.id=m.customer_id
         LEFT JOIN products p ON p.id=m.product_id
@@ -11339,11 +11339,11 @@ def _render_machine_serial_master_detail(machine_id):
     )
     return render_template(
         "simple_detail.html",
-        title="机号档案详情",
+        title="柜号档案详情",
         row=row,
-        back_url="/machine-serial-master",
+        back_url="/cabinet-master",
         labels={
-            "serial_no": "机号",
+            "cabinet_no": "柜号",
             "project_code": "项目号",
             "customer_name": "客户",
             "product_code": "成品编码",
@@ -11587,7 +11587,7 @@ def _prepare_order_edit_lines(*, kind, order, items):
         for field in (
             "source_line_no",
             "line_project_code",
-            "line_serial_no",
+            "line_cabinet_no",
             "material_code",
             "material_name",
             "material_spec",
@@ -11714,12 +11714,12 @@ def _save_sales_order(order_id=None):
     )
     if reference_error:
         return reference_error
-    project_serial_error = _require_project_serial_or_redirect(f"/sales/{order_id}/edit" if order_id else "/sales/new")
-    if project_serial_error:
-        return project_serial_error
-    master_project_serial_error = _validate_sales_order_master_project_serial(f"/sales/{order_id}/edit" if order_id else "/sales/new")
-    if master_project_serial_error[2]:
-        return master_project_serial_error[2]
+    project_cabinet_error = _require_project_cabinet_or_redirect(f"/sales/{order_id}/edit" if order_id else "/sales/new")
+    if project_cabinet_error:
+        return project_cabinet_error
+    master_project_cabinet_error = _validate_sales_order_master_project_cabinet(f"/sales/{order_id}/edit" if order_id else "/sales/new")
+    if master_project_cabinet_error[2]:
+        return master_project_cabinet_error[2]
     amount = sum((item["amount"] for item in items), Decimal("0"))
     tax_amount = sum((item["tax_amount"] for item in items), Decimal("0"))
     amount_with_tax = sum((item["amount_with_tax"] for item in items), Decimal("0"))
@@ -11743,7 +11743,7 @@ def _save_sales_order(order_id=None):
                 UPDATE sales_orders
                 SET order_date=%s, customer_id=%s, remark=%s, total_amount=%s,
                     warehouse_id=%s, delivery_date=%s, tax_amount=%s, amount_with_tax=%s,
-                    project_code=%s, serial_no=%s,
+                    project_code=%s, cabinet_no=%s,
                     row_version=COALESCE(row_version,1)+1
                 WHERE id=%s
                   AND COALESCE(row_version,1)=%s
@@ -11759,7 +11759,7 @@ def _save_sales_order(order_id=None):
                     tax_amount,
                     amount_with_tax,
                     _form_text("project_code"),
-                    _form_text("serial_no"),
+                    _form_text("cabinet_no"),
                     order_id,
                     _submitted_row_version(order),
                 ),
@@ -11772,7 +11772,7 @@ def _save_sales_order(order_id=None):
                     """
                     INSERT INTO sales_order_items
                         (order_id, product_id, quantity, shipped_qty, unit_price, amount, lot_no,
-                         tax_rate, tax_amount, amount_with_tax, source_line_no, line_project_code, line_serial_no)
+                         tax_rate, tax_amount, amount_with_tax, source_line_no, line_project_code, line_cabinet_no)
                     VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                     """,
                     (
@@ -11788,7 +11788,7 @@ def _save_sales_order(order_id=None):
                         item["amount_with_tax"],
                         item.get("source_line_no") or "",
                         item.get("line_project_code") or "",
-                        item.get("line_serial_no") or "",
+                        item.get("line_cabinet_no") or "",
                     ),
                 )
             _save_document_custom_payload("sales_order", order_id, execute_db_fn=execute_db)
@@ -11798,7 +11798,7 @@ def _save_sales_order(order_id=None):
                 SET customer_id=%s, receivable_date=%s, total_amount=%s,
                     balance=GREATEST(%s-COALESCE(received_amount,0),0),
                     status=CASE WHEN GREATEST(%s-COALESCE(received_amount,0),0)=0 THEN %s ELSE status END,
-                    due_date=%s, project_code=%s, serial_no=%s
+                    due_date=%s, project_code=%s, cabinet_no=%s
                 WHERE source_type='sales_order' AND source_id=%s
                 """,
                 (
@@ -11810,7 +11810,7 @@ def _save_sales_order(order_id=None):
                     "\u5df2\u6536\u6b3e",
                     _form_text("delivery_date") or None,
                     _form_text("project_code"),
-                    _form_text("serial_no"),
+                    _form_text("cabinet_no"),
                     order_id,
                 ),
             )
@@ -11833,7 +11833,7 @@ def _save_sales_order(order_id=None):
             """
             INSERT INTO sales_orders
                 (order_no, order_date, customer_id, status, remark, total_amount, shipped_amount,
-                 warehouse_id, delivery_date, tax_amount, amount_with_tax, project_code, serial_no, created_by)
+                 warehouse_id, delivery_date, tax_amount, amount_with_tax, project_code, cabinet_no, created_by)
             VALUES (%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,%s,%s,%s)
             RETURNING id
             """,
@@ -11849,7 +11849,7 @@ def _save_sales_order(order_id=None):
                 tax_amount,
                 amount_with_tax,
                 _form_text("project_code"),
-                _form_text("serial_no"),
+                _form_text("cabinet_no"),
                 session.get("user_id"),
             ),
         )
@@ -11879,7 +11879,7 @@ def _save_sales_order(order_id=None):
             """
             INSERT INTO customer_receivables
                 (receivable_no, customer_id, source_type, source_id, source_no, receivable_date, total_amount,
-                 received_amount, balance, status, due_date, remark, project_code, serial_no)
+                 received_amount, balance, status, due_date, remark, project_code, cabinet_no)
             VALUES (%s,%s,'sales_order',%s,%s,%s,%s,0,%s,%s,%s,%s,%s,%s)
             """,
             (
@@ -11894,7 +11894,7 @@ def _save_sales_order(order_id=None):
                 _form_text("delivery_date") or None,
                 "\u7531\u9500\u552e\u8ba2\u5355\u81ea\u52a8\u751f\u6210\u5e94\u6536\u3002",
                 _form_text("project_code"),
-                _form_text("serial_no"),
+                _form_text("cabinet_no"),
             ),
         )
         return new_order_id, order_no
@@ -11918,7 +11918,7 @@ def _save_sales_order(order_id=None):
                 target_doc_id=receivable.get("id"),
                 link_type="source_of",
                 project_code=_form_text("project_code") or None,
-                serial_no=_form_text("serial_no") or None,
+                cabinet_no=_form_text("cabinet_no") or None,
                 created_by=session.get("user_id"),
                 created_event="sales_order_create",
             )
@@ -11965,9 +11965,9 @@ def _save_purchase_order(order_id=None):
     )
     if reference_error:
         return reference_error
-    project_serial_error = _require_project_serial_or_redirect(f"/purchase_order/{order_id}/edit" if order_id else "/purchase_order/new")
-    if project_serial_error:
-        return project_serial_error
+    project_cabinet_error = _require_project_cabinet_or_redirect(f"/purchase_order/{order_id}/edit" if order_id else "/purchase_order/new")
+    if project_cabinet_error:
+        return project_cabinet_error
     amount = sum((item["amount"] for item in items), Decimal("0"))
     tax_amount = sum((item["tax_amount"] for item in items), Decimal("0"))
     amount_with_tax = sum((item["amount_with_tax"] for item in items), Decimal("0"))
@@ -11991,7 +11991,7 @@ def _save_purchase_order(order_id=None):
                 UPDATE purchase_orders
                 SET order_date=%s, supplier_id=%s, remark=%s, total_amount=%s,
                     warehouse_id=%s, expected_date=%s, tax_amount=%s, amount_with_tax=%s,
-                    project_code=%s, serial_no=%s,
+                    project_code=%s, cabinet_no=%s,
                     row_version=COALESCE(row_version,1)+1
                 WHERE id=%s
                   AND COALESCE(row_version,1)=%s
@@ -12007,7 +12007,7 @@ def _save_purchase_order(order_id=None):
                     tax_amount,
                     amount_with_tax,
                     _form_text("project_code"),
-                    _form_text("serial_no"),
+                    _form_text("cabinet_no"),
                     order_id,
                     _submitted_row_version(order),
                 ),
@@ -12021,7 +12021,7 @@ def _save_purchase_order(order_id=None):
                     INSERT INTO purchase_order_items
                         (order_id, product_id, quantity, received_qty, unit_price, amount, lot_no,
                          tax_rate, tax_amount, amount_with_tax, source_line_no, line_project_code,
-                         line_serial_no, source_supplier_id, expected_date)
+                         line_cabinet_no, source_supplier_id, expected_date)
                     VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                     """,
                     (
@@ -12037,7 +12037,7 @@ def _save_purchase_order(order_id=None):
                         item["amount_with_tax"],
                         item.get("source_line_no") or "",
                         item.get("line_project_code") or "",
-                        item.get("line_serial_no") or "",
+                        item.get("line_cabinet_no") or "",
                         supplier_id,
                         item.get("expected_date") or None,
                     ),
@@ -12073,7 +12073,7 @@ def _save_purchase_order(order_id=None):
             """
             INSERT INTO purchase_orders
                 (order_no, order_date, supplier_id, status, remark, total_amount, received_amount,
-                 warehouse_id, expected_date, tax_amount, amount_with_tax, project_code, serial_no, created_by)
+                 warehouse_id, expected_date, tax_amount, amount_with_tax, project_code, cabinet_no, created_by)
             VALUES (%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,%s,%s,%s)
             RETURNING id
             """,
@@ -12089,7 +12089,7 @@ def _save_purchase_order(order_id=None):
                 tax_amount,
                 amount_with_tax,
                 _form_text("project_code"),
-                _form_text("serial_no"),
+                _form_text("cabinet_no"),
                 session.get("user_id"),
             ),
         )
@@ -12155,7 +12155,7 @@ def _save_purchase_order(order_id=None):
                 target_doc_id=payable.get("id"),
                 link_type="source_of",
                 project_code=_form_text("project_code") or None,
-                serial_no=_form_text("serial_no") or None,
+                cabinet_no=_form_text("cabinet_no") or None,
                 created_by=session.get("user_id"),
                 created_event="purchase_order_create",
             )
@@ -12202,7 +12202,7 @@ def _render_inventory_adjustment_form(order=None, items=None, action_url="/adjus
 
 def _create_inventory_adjustment():
     project_code = _form_text("project_code")
-    project_header_error = _require_project_serial_values_or_redirect(project_code, "pending-line-check", "/adjustments/new")
+    project_header_error = _require_project_cabinet_values_or_redirect(project_code, "pending-line-check", "/adjustments/new")
     if project_header_error:
         return project_header_error
     product_ids = request.form.getlist("product_id[]")
@@ -12210,7 +12210,7 @@ def _create_inventory_adjustment():
         quantities = request.form.getlist("diff_quantity[]")
         unit_costs = request.form.getlist("unit_cost[]")
         lot_nos = request.form.getlist("lot_no[]")
-        serial_nos = request.form.getlist("serial_no[]")
+        cabinet_nos = request.form.getlist("cabinet_no[]")
         adj_date = _form_text("adj_date", datetime.now().date().isoformat())
         adj_type = _form_text("adj_type", "库存调整")
         remark = _form_text("remark")
@@ -12225,10 +12225,10 @@ def _create_inventory_adjustment():
                 continue
             unit_cost = _as_decimal(unit_costs[idx] if idx < len(unit_costs) else "0")
             lot_no = lot_nos[idx] if idx < len(lot_nos) else ""
-            serial_no = serial_nos[idx] if idx < len(serial_nos) else ""
-            project_serial_error = _require_project_serial_values_or_redirect(project_code, serial_no, "/adjustments/new")
-            if project_serial_error:
-                return project_serial_error
+            cabinet_no = cabinet_nos[idx] if idx < len(cabinet_nos) else ""
+            project_cabinet_error = _require_project_cabinet_values_or_redirect(project_code, cabinet_no, "/adjustments/new")
+            if project_cabinet_error:
+                return project_cabinet_error
             adj_no = _next_doc_no("IA", "inventory_adjustments", "adj_no")
             adjustment = _execute_and_return(
                 """
@@ -12238,7 +12238,7 @@ def _create_inventory_adjustment():
                 VALUES (%s,%s,%s,%s,%s,%s,'已审核',%s,%s,%s,%s)
                 RETURNING id
                 """,
-                (adj_no, adj_date, product_id, diff_qty, unit_cost, adj_type, serial_no, lot_no, project_code, remark),
+                (adj_no, adj_date, product_id, diff_qty, unit_cost, adj_type, cabinet_no, lot_no, project_code, remark),
             )
             adjustment_id = adjustment.get("id")
             first_adjustment_id = first_adjustment_id or adjustment_id
@@ -12252,7 +12252,7 @@ def _create_inventory_adjustment():
                 warehouse_id=warehouse_id,
                 location_id=location_id,
                 lot_no=lot_no,
-                serial_no=serial_no,
+                cabinet_no=cabinet_no,
                 project_code=project_code,
                 tx_date=adj_date,
             )
@@ -12276,9 +12276,9 @@ def _create_inventory_adjustment():
     adj_date = _form_text("adj_date", datetime.now().date().isoformat())
     adj_type = _form_text("adj_type", "库存调整")
     unit_cost = _form_decimal("unit_cost")
-    project_serial_error = _require_project_serial_values_or_redirect(project_code, _form_text("serial_no"), "/adjustments/new")
-    if project_serial_error:
-        return project_serial_error
+    project_cabinet_error = _require_project_cabinet_values_or_redirect(project_code, _form_text("cabinet_no"), "/adjustments/new")
+    if project_cabinet_error:
+        return project_cabinet_error
     _execute_and_return(
         """
         INSERT INTO inventory_adjustments
@@ -12294,7 +12294,7 @@ def _create_inventory_adjustment():
             diff_qty,
             unit_cost,
             adj_type,
-            _form_text("serial_no"),
+            _form_text("cabinet_no"),
             _form_text("lot_no"),
             project_code,
             _form_text("remark"),
@@ -12310,7 +12310,7 @@ def _create_inventory_adjustment():
         warehouse_id=_form_int("warehouse_id"),
         location_id=_form_int("location_id"),
         lot_no=_form_text("lot_no"),
-        serial_no=_form_text("serial_no"),
+        cabinet_no=_form_text("cabinet_no"),
         project_code=project_code,
         tx_date=adj_date,
     )
@@ -12328,7 +12328,7 @@ def _ensure_transfer_item_table():
             product_id INTEGER NOT NULL,
             quantity NUMERIC NOT NULL,
             lot_no VARCHAR(100),
-            serial_no VARCHAR(100),
+            cabinet_no VARCHAR(100),
             unit_cost NUMERIC DEFAULT 0,
             remark TEXT
         )
@@ -12466,9 +12466,9 @@ def _render_subcontract_order_form(order=None, items=None, action_url="/subcontr
 
 
 def _save_subcontract_order():
-    project_serial_error = _require_project_serial_or_redirect("/subcontract/new")
-    if project_serial_error:
-        return project_serial_error
+    project_cabinet_error = _require_project_cabinet_or_redirect("/subcontract/new")
+    if project_cabinet_error:
+        return project_cabinet_error
     supplier_id = _form_int("supplier_id")
     if not supplier_id:
         flash("请选择委外商。", "warning")
@@ -12486,7 +12486,7 @@ def _save_subcontract_order():
     lot_nos = request.form.getlist("lot_no[]")
     source_line_nos = request.form.getlist("source_line_no[]")
     line_project_codes = request.form.getlist("line_project_code[]")
-    line_serial_nos = request.form.getlist("line_serial_no[]")
+    line_cabinet_nos = request.form.getlist("line_cabinet_no[]")
     first_line = None
     all_lines = []
     for index, product_id in enumerate(product_ids):
@@ -12516,7 +12516,7 @@ def _save_subcontract_order():
             "lot_no": lot_nos[index] if index < len(lot_nos) else "",
             "source_line_no": source_line_nos[index] if index < len(source_line_nos) else "",
             "line_project_code": line_project_codes[index] if index < len(line_project_codes) else "",
-            "line_serial_no": line_serial_nos[index] if index < len(line_serial_nos) else "",
+            "line_cabinet_no": line_cabinet_nos[index] if index < len(line_cabinet_nos) else "",
         }
         all_lines.append(line)
         if first_line is None:
@@ -12530,9 +12530,9 @@ def _save_subcontract_order():
     product_snapshot = _inventory_product_snapshot(first_line["product_id"])
     order_no = _next_doc_no("OS", "subcontract_orders", "order_no")
     project_code = _form_text("project_code")
-    serial_no = _form_text("serial_no")
+    cabinet_no = _form_text("cabinet_no")
     work_order_scope_clause, work_order_scope_params = _data_scope_filter(
-        {"project": "project_code", "serial": "serial_no"}
+        {"project": "project_code", "cabinet": "cabinet_no"}
     )
     parent_work_order = _safe_one(
         f"""
@@ -12540,22 +12540,22 @@ def _save_subcontract_order():
         FROM work_orders
         WHERE (
               (%s <> '' AND project_code=%s)
-           OR (%s <> '' AND serial_no=%s)
+           OR (%s <> '' AND cabinet_no=%s)
         )
           {work_order_scope_clause}
         ORDER BY id DESC
         LIMIT 1
         """,
-        (project_code, project_code, serial_no, serial_no, *work_order_scope_params),
+        (project_code, project_code, cabinet_no, cabinet_no, *work_order_scope_params),
     )
     new_order = _execute_and_return(
         """
         INSERT INTO subcontract_orders
             (order_no, order_date, supplier_id, product_id, quantity, unit_price,
-              total_amount, project_code, serial_no, status, remark, updated_at,
+              total_amount, project_code, cabinet_no, status, remark, updated_at,
               parent_work_order_id, required_date, arrival_status, shortage_qty, received_qty,
               process_name, warehouse, location, lot_no, source_line_no, line_project_code,
-              line_serial_no, material_code, material_name, material_spec, material_unit)
+              line_cabinet_no, material_code, material_name, material_spec, material_unit)
         VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,CURRENT_TIMESTAMP,%s,%s,%s,%s,0,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         RETURNING id
         """,
@@ -12568,7 +12568,7 @@ def _save_subcontract_order():
             unit_price,
             total_amount,
             project_code,
-            serial_no,
+            cabinet_no,
             "draft",
             _form_text("remark") or first_line["process_name"],
             parent_work_order.get("id") if parent_work_order else None,
@@ -12581,7 +12581,7 @@ def _save_subcontract_order():
             first_line["lot_no"],
             first_line["source_line_no"],
             first_line["line_project_code"] or project_code,
-            first_line["line_serial_no"] or serial_no,
+            first_line["line_cabinet_no"] or cabinet_no,
             product_snapshot["material_code"],
             product_snapshot["material_name"],
             product_snapshot["material_spec"],
@@ -12596,7 +12596,7 @@ def _save_subcontract_order():
             INSERT INTO subcontract_items
                 (order_id, product_id, required_quantity, unit_price, amount, sequence,
                  process_name, warehouse, location, lot_no, source_line_no,
-                 line_project_code, line_serial_no,
+                 line_project_code, line_cabinet_no,
                  material_code, material_name, material_spec, material_unit, remark)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             """,
@@ -12604,7 +12604,7 @@ def _save_subcontract_order():
              line["quantity"] * line["unit_price"], seq,
              line["process_name"], line["warehouse"], line["location"], line["lot_no"],
              line["source_line_no"], line["line_project_code"] or project_code,
-             line["line_serial_no"] or serial_no,
+             line["line_cabinet_no"] or cabinet_no,
              line_snapshot["material_code"], line_snapshot["material_name"],
              line_snapshot["material_spec"], line_snapshot["material_unit"],
              line["process_name"]),
@@ -12699,7 +12699,7 @@ def _create_subcontract_opening():
     unit_price = _form_decimal("unit_price", "0")
     opening_date = _form_text("opening_date", datetime.now().date().isoformat())
     project_code = _form_text("project_code")
-    serial_no = _form_text("serial_no")
+    cabinet_no = _form_text("cabinet_no")
     process_name = _form_text("process_name")
     lot_no = _form_text("lot_no")
     remark = _form_text("remark") or "委外期初"
@@ -12711,8 +12711,8 @@ def _create_subcontract_opening():
         """
         INSERT INTO subcontract_orders
             (order_no, order_date, supplier_id, product_id, quantity, unit_price, total_amount,
-             project_code, serial_no, status, remark, updated_at, arrival_status, shortage_qty,
-             received_qty, process_name, lot_no, line_project_code, line_serial_no,
+             project_code, cabinet_no, status, remark, updated_at, arrival_status, shortage_qty,
+             received_qty, process_name, lot_no, line_project_code, line_cabinet_no,
              material_code, material_name, material_spec, material_unit, source_type, source_doc_no)
         VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,CURRENT_TIMESTAMP,%s,%s,0,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         RETURNING id
@@ -12726,7 +12726,7 @@ def _create_subcontract_opening():
             unit_price,
             total_amount,
             project_code,
-            serial_no,
+            cabinet_no,
             "released",
             remark,
             "委外期初",
@@ -12734,7 +12734,7 @@ def _create_subcontract_opening():
             process_name,
             lot_no,
             project_code,
-            serial_no,
+            cabinet_no,
             product_snapshot["material_code"],
             product_snapshot["material_name"],
             product_snapshot["material_spec"],
@@ -12774,7 +12774,7 @@ def _create_subcontract_opening():
         """
         INSERT INTO subcontract_issue_lines
             (issue_id, subcontract_order_id, product_id, material_code, material_name, material_spec, unit,
-             quantity, lot_no, project_code, serial_no, remark)
+             quantity, lot_no, project_code, cabinet_no, remark)
         VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         """,
         (
@@ -12788,7 +12788,7 @@ def _create_subcontract_opening():
             quantity,
             lot_no,
             project_code,
-            serial_no,
+            cabinet_no,
             remark,
         ),
     )
@@ -12808,7 +12808,7 @@ def _render_subcontract_opening_list():
               sio.issue_no ILIKE %s OR so.order_no ILIKE %s OR COALESCE(s.name,'') ILIKE %s
               OR COALESCE(p.code,'') ILIKE %s OR COALESCE(p.name,'') ILIKE %s
               OR COALESCE(sil.project_code, so.project_code, '') ILIKE %s
-              OR COALESCE(sil.serial_no, so.serial_no, '') ILIKE %s
+              OR COALESCE(sil.cabinet_no, so.cabinet_no, '') ILIKE %s
           )
         """
         like = f"%{keyword}%"
@@ -12828,7 +12828,7 @@ def _render_subcontract_opening_list():
                COALESCE(so.unit_price, 0) AS unit_price,
                COALESCE(so.total_amount, 0) AS amount,
                COALESCE(sil.project_code, so.project_code, '') AS project_code,
-               COALESCE(sil.serial_no, so.serial_no, '') AS serial_no,
+               COALESCE(sil.cabinet_no, so.cabinet_no, '') AS cabinet_no,
                COALESCE(sil.lot_no, so.lot_no, '') AS lot_no,
                COALESCE(so.process_name, '') AS process_name,
                COALESCE(sio.remark, '') AS remark
@@ -12861,7 +12861,7 @@ def _render_subcontract_opening_list():
             {"key": "unit_price", "label": "加工单价"},
             {"key": "amount", "label": "加工金额"},
             {"key": "project_code", "label": "项目号"},
-            {"key": "serial_no", "label": "机号"},
+            {"key": "cabinet_no", "label": "柜号"},
             {"key": "lot_no", "label": "批号"},
             {"key": "process_name", "label": "工序"},
             {"key": "remark", "label": "备注"},
@@ -12875,7 +12875,7 @@ def _ensure_finance_opening_columns():
     if _has_table("customer_receivables"):
         for ddl in (
             "ALTER TABLE customer_receivables ADD COLUMN IF NOT EXISTS project_code VARCHAR(120)",
-            "ALTER TABLE customer_receivables ADD COLUMN IF NOT EXISTS serial_no VARCHAR(120)",
+            "ALTER TABLE customer_receivables ADD COLUMN IF NOT EXISTS cabinet_no VARCHAR(120)",
             "ALTER TABLE customer_receivables ADD COLUMN IF NOT EXISTS cost_object_id INTEGER",
             "ALTER TABLE customer_receivables ADD COLUMN IF NOT EXISTS expected_amount NUMERIC(14,2) DEFAULT 0",
             "ALTER TABLE customer_receivables ADD COLUMN IF NOT EXISTS confirmed_amount NUMERIC(14,2) DEFAULT 0",
@@ -12895,7 +12895,7 @@ def _ensure_finance_opening_columns():
             "ALTER TABLE supplier_payables ADD COLUMN IF NOT EXISTS next_follow_up_date DATE",
             "ALTER TABLE supplier_payables ADD COLUMN IF NOT EXISTS due_date DATE",
             "ALTER TABLE supplier_payables ADD COLUMN IF NOT EXISTS project_code VARCHAR(120)",
-            "ALTER TABLE supplier_payables ADD COLUMN IF NOT EXISTS serial_no VARCHAR(120)",
+            "ALTER TABLE supplier_payables ADD COLUMN IF NOT EXISTS cabinet_no VARCHAR(120)",
             "ALTER TABLE supplier_payables ADD COLUMN IF NOT EXISTS cost_object_id INTEGER",
         ):
             _execute_db(ddl)
@@ -12955,7 +12955,7 @@ def _create_receivable_opening():
         """
         INSERT INTO customer_receivables
             (receivable_no, customer_id, source_type, source_id, source_no, receivable_date, due_date,
-             total_amount, received_amount, balance, status, remark, project_code, serial_no,
+             total_amount, received_amount, balance, status, remark, project_code, cabinet_no,
              expected_amount, confirmed_amount)
         VALUES (%s,%s,%s,NULL,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         RETURNING id
@@ -12973,7 +12973,7 @@ def _create_receivable_opening():
             status,
             remark,
             _form_text("project_code"),
-            _form_text("serial_no"),
+            _form_text("cabinet_no"),
             amount,
             amount,
         ),
@@ -12992,7 +12992,7 @@ def _render_receivable_opening_list():
         where += """
           AND (
               COALESCE(cr.source_no,'') ILIKE %s OR COALESCE(c.name,'') ILIKE %s
-              OR COALESCE(cr.project_code,'') ILIKE %s OR COALESCE(cr.serial_no,'') ILIKE %s
+              OR COALESCE(cr.project_code,'') ILIKE %s OR COALESCE(cr.cabinet_no,'') ILIKE %s
               OR COALESCE(cr.remark,'') ILIKE %s
           )
         """
@@ -13001,7 +13001,7 @@ def _render_receivable_opening_list():
     rows = _safe_rows(
         f"""
         SELECT cr.id, cr.source_no, cr.receivable_date, cr.due_date,
-               COALESCE(c.name,'') AS customer_name, cr.project_code, cr.serial_no,
+               COALESCE(c.name,'') AS customer_name, cr.project_code, cr.cabinet_no,
                cr.total_amount, cr.received_amount, cr.balance, cr.status, cr.remark
         FROM customer_receivables cr
         LEFT JOIN customers c ON c.id=cr.customer_id
@@ -13022,7 +13022,7 @@ def _render_receivable_opening_list():
             {"key": "due_date", "label": "到期日"},
             {"key": "customer_name", "label": "客户"},
             {"key": "project_code", "label": "项目号"},
-            {"key": "serial_no", "label": "机号"},
+            {"key": "cabinet_no", "label": "柜号"},
             {"key": "total_amount", "label": "应收金额"},
             {"key": "received_amount", "label": "已收金额"},
             {"key": "balance", "label": "未收余额"},
@@ -13084,7 +13084,7 @@ def _create_payable_opening():
         INSERT INTO supplier_payables
             (supplier_id, payable_no, doc_type, doc_id, doc_no, doc_date, due_date, amount,
              paid_amount, balance, status, finance_remark, next_follow_up_date,
-             project_code, serial_no)
+             project_code, cabinet_no)
         VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         RETURNING id
         """,
@@ -13103,7 +13103,7 @@ def _create_payable_opening():
             remark,
             due_date,
             _form_text("project_code"),
-            _form_text("serial_no"),
+            _form_text("cabinet_no"),
         ),
     )
     _log_action("新增应付期初", payable_no, doc_no)
@@ -13120,7 +13120,7 @@ def _render_payable_opening_list():
         where += """
           AND (
               COALESCE(sp.doc_no,'') ILIKE %s OR COALESCE(s.name,'') ILIKE %s
-              OR COALESCE(sp.project_code,'') ILIKE %s OR COALESCE(sp.serial_no,'') ILIKE %s
+              OR COALESCE(sp.project_code,'') ILIKE %s OR COALESCE(sp.cabinet_no,'') ILIKE %s
               OR COALESCE(sp.finance_remark,'') ILIKE %s
           )
         """
@@ -13129,7 +13129,7 @@ def _render_payable_opening_list():
     rows = _safe_rows(
         f"""
         SELECT sp.id, sp.doc_no, sp.doc_date, sp.due_date,
-               COALESCE(s.name,'') AS supplier_name, sp.project_code, sp.serial_no,
+               COALESCE(s.name,'') AS supplier_name, sp.project_code, sp.cabinet_no,
                sp.amount, sp.paid_amount, sp.balance, sp.status, sp.finance_remark AS remark
         FROM supplier_payables sp
         LEFT JOIN suppliers s ON s.id=sp.supplier_id
@@ -13150,7 +13150,7 @@ def _render_payable_opening_list():
             {"key": "due_date", "label": "到期日"},
             {"key": "supplier_name", "label": "供应商/委外商"},
             {"key": "project_code", "label": "项目号"},
-            {"key": "serial_no", "label": "机号"},
+            {"key": "cabinet_no", "label": "柜号"},
             {"key": "amount", "label": "应付金额"},
             {"key": "paid_amount", "label": "已付金额"},
             {"key": "balance", "label": "未付余额"},
@@ -13192,10 +13192,10 @@ def _edit_subcontract_order(order_id):
         flash(product_error, "warning")
         return redirect(f"/subcontract/{order_id}/edit")
     project_code = _form_text("project_code")
-    serial_no = _form_text("serial_no")
-    project_serial_error = _require_project_serial_values_or_redirect(project_code, serial_no, f"/subcontract/{order_id}/edit")
-    if project_serial_error:
-        return project_serial_error
+    cabinet_no = _form_text("cabinet_no")
+    project_cabinet_error = _require_project_cabinet_values_or_redirect(project_code, cabinet_no, f"/subcontract/{order_id}/edit")
+    if project_cabinet_error:
+        return project_cabinet_error
     unit_price = line["unit_cost"]
     total_amount = line["quantity"] * unit_price
     product_snapshot = _inventory_product_snapshot(line["product_id"])
@@ -13203,10 +13203,10 @@ def _edit_subcontract_order(order_id):
         """
         UPDATE subcontract_orders
         SET order_date=%s, supplier_id=%s, product_id=%s, quantity=%s, unit_price=%s,
-            total_amount=%s, project_code=%s, serial_no=%s, remark=%s,
+            total_amount=%s, project_code=%s, cabinet_no=%s, remark=%s,
             required_date=%s, shortage_qty=%s, process_name=%s, warehouse=%s,
             location=%s, lot_no=%s, source_line_no=%s, line_project_code=%s,
-            line_serial_no=%s, material_code=%s, material_name=%s,
+            line_cabinet_no=%s, material_code=%s, material_name=%s,
             material_spec=%s, material_unit=%s, updated_at=CURRENT_TIMESTAMP
         WHERE id=%s
         """,
@@ -13218,7 +13218,7 @@ def _edit_subcontract_order(order_id):
             unit_price,
             total_amount,
             project_code,
-            serial_no,
+            cabinet_no,
             _form_text("remark"),
             _form_text("required_date") or None,
             line["quantity"],
@@ -13228,7 +13228,7 @@ def _edit_subcontract_order(order_id):
             line.get("lot_no") or "",
             line.get("source_line_no") or "",
             line.get("project_code") or project_code,
-            line.get("serial_no") or serial_no,
+            line.get("cabinet_no") or cabinet_no,
             product_snapshot["material_code"],
             product_snapshot["material_name"],
             product_snapshot["material_spec"],
@@ -13265,9 +13265,9 @@ def _render_work_order_form(order=None, mode="new", post_url="/work-orders/new")
 
 
 def _save_work_order():
-    project_serial_error = _require_project_serial_or_redirect("/work-orders/new")
-    if project_serial_error:
-        return project_serial_error
+    project_cabinet_error = _require_project_cabinet_or_redirect("/work-orders/new")
+    if project_cabinet_error:
+        return project_cabinet_error
     product_id = _form_int("product_id")
     if not product_id:
         flash("请选择生产物料。", "warning")
@@ -13284,9 +13284,9 @@ def _save_work_order():
             INSERT INTO work_orders
                 (wo_no, wo_date, product_id, bom_id, warehouse_id, location_id, quantity, status,
                  lot_no, unit_cost, amount, material_code, material_name, material_spec, material_unit,
-                 source_line_no, line_project_code, line_serial_no,
+                 source_line_no, line_project_code, line_cabinet_no,
                  production_stage, status_changed_at, status_changed_by, responsible_person,
-                 priority, production_type, planned_start_date, planned_end_date, project_code, serial_no, remark)
+                 priority, production_type, planned_start_date, planned_end_date, project_code, cabinet_no, remark)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,CURRENT_TIMESTAMP,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             RETURNING id
             """,
@@ -13308,7 +13308,7 @@ def _save_work_order():
                 _form_text("unit_display"),
                 _form_text("source_line_no"),
                 _form_text("line_project_code") or _form_text("project_code"),
-                _form_text("line_serial_no") or _form_text("serial_no"),
+                _form_text("line_cabinet_no") or _form_text("cabinet_no"),
                 "创建",
                 session.get("user_id"),
                 _form_text("responsible_person"),
@@ -13317,7 +13317,7 @@ def _save_work_order():
                 _form_text("planned_start_date") or None,
                 _form_text("planned_end_date") or None,
                 _form_text("project_code"),
-                _form_text("serial_no"),
+                _form_text("cabinet_no"),
                 _form_text("remark"),
             ),
         )
@@ -13439,9 +13439,9 @@ def _save_work_order_edit(work_order_id):
         SET wo_date=%s, product_id=%s, bom_id=%s, warehouse_id=%s, location_id=%s,
             quantity=%s, lot_no=%s, unit_cost=%s, amount=%s,
             material_code=%s, material_name=%s, material_spec=%s, material_unit=%s,
-            source_line_no=%s, line_project_code=%s, line_serial_no=%s,
+            source_line_no=%s, line_project_code=%s, line_cabinet_no=%s,
             responsible_person=%s, priority=%s, production_type=%s,
-            planned_start_date=%s, planned_end_date=%s, project_code=%s, serial_no=%s, remark=%s,
+            planned_start_date=%s, planned_end_date=%s, project_code=%s, cabinet_no=%s, remark=%s,
             row_version=COALESCE(row_version,1)+1
         WHERE id=%s
           AND COALESCE(row_version,1)=%s
@@ -13463,14 +13463,14 @@ def _save_work_order_edit(work_order_id):
             _form_text("unit_display"),
             _form_text("source_line_no"),
             _form_text("line_project_code") or _form_text("project_code"),
-            _form_text("line_serial_no") or _form_text("serial_no"),
+            _form_text("line_cabinet_no") or _form_text("cabinet_no"),
             _form_text("responsible_person"),
             _form_text("priority", "普通"),
             _form_text("production_type") or "整机生产",
             _form_text("planned_start_date") or None,
             _form_text("planned_end_date") or None,
             _form_text("project_code"),
-            _form_text("serial_no"),
+            _form_text("cabinet_no"),
             _form_text("remark"),
             work_order_id,
             _submitted_row_version(order),
@@ -13490,7 +13490,7 @@ def _transfer_form_items():
         quantities = request.form.getlist("quantity[]")
         unit_costs = request.form.getlist("unit_cost[]")
         lot_nos = request.form.getlist("lot_no[]")
-        serial_nos = request.form.getlist("serial_no[]")
+        cabinet_nos = request.form.getlist("cabinet_no[]")
         from_location_ids = request.form.getlist("from_location_id[]")
         to_location_ids = request.form.getlist("to_location_id[]")
         from_warehouse_ids = request.form.getlist("from_warehouse_id[]")
@@ -13510,7 +13510,7 @@ def _transfer_form_items():
                     "unit_cost": _as_decimal(unit_costs[idx] if idx < len(unit_costs) else "0"),
                     "amount": qty * _as_decimal(unit_costs[idx] if idx < len(unit_costs) else "0"),
                     "lot_no": lot_nos[idx] if idx < len(lot_nos) else "",
-                    "serial_no": serial_nos[idx] if idx < len(serial_nos) else "",
+                    "cabinet_no": cabinet_nos[idx] if idx < len(cabinet_nos) else "",
                     "from_location_id": _as_int(from_location_ids[idx]) if idx < len(from_location_ids) else 0,
                     "to_location_id": _as_int(to_location_ids[idx]) if idx < len(to_location_ids) else 0,
                     "from_warehouse_id": _as_int(from_warehouse_ids[idx]) if idx < len(from_warehouse_ids) else 0,
@@ -13531,7 +13531,7 @@ def _transfer_form_items():
                     "unit_cost": _form_decimal("unit_cost"),
                     "amount": qty * _form_decimal("unit_cost"),
                     "lot_no": _form_text("lot_no"),
-                    "serial_no": _form_text("serial_no"),
+                    "cabinet_no": _form_text("cabinet_no"),
                     "from_location_id": _form_int("from_location_id"),
                     "to_location_id": _form_int("to_location_id"),
                     "line_project_code": _short_text(_form_text("line_project_code"), 120),
@@ -13546,7 +13546,7 @@ def _create_inventory_transfer():
     from_warehouse_id = _form_int("from_warehouse_id")
     to_warehouse_id = _form_int("to_warehouse_id")
     project_code = _form_text("project_code")
-    project_header_error = _require_project_serial_values_or_redirect(project_code, "pending-line-check", "/transfers/new")
+    project_header_error = _require_project_cabinet_values_or_redirect(project_code, "pending-line-check", "/transfers/new")
     if project_header_error:
         return project_header_error
     items = _transfer_form_items()
@@ -13573,16 +13573,16 @@ def _create_inventory_transfer():
     from_location_id = _form_int("from_location_id")
     to_location_id = _form_int("to_location_id")
     for item in items:
-        project_serial_error = _require_project_serial_values_or_redirect(project_code, item["serial_no"], "/transfers/new")
-        if project_serial_error:
-            return project_serial_error
+        project_cabinet_error = _require_project_cabinet_values_or_redirect(project_code, item["cabinet_no"], "/transfers/new")
+        if project_cabinet_error:
+            return project_cabinet_error
         _execute_db(
             """
             INSERT INTO transfer_order_items
-                (transfer_id, product_id, quantity, lot_no, serial_no, unit_cost, remark)
+                (transfer_id, product_id, quantity, lot_no, cabinet_no, unit_cost, remark)
             VALUES (%s,%s,%s,%s,%s,%s,%s)
             """,
-            (transfer_id, item["product_id"], item["quantity"], item["lot_no"], item["serial_no"], item["unit_cost"], remark),
+            (transfer_id, item["product_id"], item["quantity"], item["lot_no"], item["cabinet_no"], item["unit_cost"], remark),
         )
         _apply_inventory_movement(
             product_id=item["product_id"],
@@ -13594,7 +13594,7 @@ def _create_inventory_transfer():
             warehouse_id=from_warehouse_id,
             location_id=from_location_id,
             lot_no=item["lot_no"],
-            serial_no=item["serial_no"],
+            cabinet_no=item["cabinet_no"],
             project_code=project_code,
             tx_date=transfer_date,
         )
@@ -13608,7 +13608,7 @@ def _create_inventory_transfer():
             warehouse_id=to_warehouse_id,
             location_id=to_location_id,
             lot_no=item["lot_no"],
-            serial_no=item["serial_no"],
+            cabinet_no=item["cabinet_no"],
             project_code=project_code,
             tx_date=transfer_date,
         )
@@ -13629,7 +13629,7 @@ def _ensure_inventory_check_item_table():
             actual_qty NUMERIC(14,3) NOT NULL DEFAULT 0,
             diff_qty NUMERIC(14,3) NOT NULL DEFAULT 0,
             lot_no VARCHAR(100),
-            serial_no VARCHAR(100),
+            cabinet_no VARCHAR(100),
             unit_cost NUMERIC(14,2) DEFAULT 0
         )
         """
@@ -13680,7 +13680,7 @@ def _inventory_check_form_items():
         actual_qtys = request.form.getlist("actual_qty[]")
         unit_costs = request.form.getlist("unit_cost[]")
         lot_nos = request.form.getlist("lot_no[]")
-        serial_nos = request.form.getlist("serial_no[]")
+        cabinet_nos = request.form.getlist("cabinet_no[]")
         line_project_codes = request.form.getlist("line_project_code[]")
         source_line_nos = request.form.getlist("source_line_no[]")
         line_warehouse_ids = request.form.getlist("line_warehouse_id[]")
@@ -13695,7 +13695,7 @@ def _inventory_check_form_items():
                     "actual_qty": _as_decimal(actual_qtys[idx] if idx < len(actual_qtys) else "0"),
                     "unit_cost": _as_decimal(unit_costs[idx] if idx < len(unit_costs) else "0"),
                     "lot_no": lot_nos[idx] if idx < len(lot_nos) else "",
-                    "serial_no": serial_nos[idx] if idx < len(serial_nos) else "",
+                    "cabinet_no": cabinet_nos[idx] if idx < len(cabinet_nos) else "",
                     "line_project_code": line_project_codes[idx] if idx < len(line_project_codes) else "",
                     "source_line_no": source_line_nos[idx] if idx < len(source_line_nos) else "",
                     "line_warehouse_id": _as_int(line_warehouse_ids[idx]) if idx < len(line_warehouse_ids) else 0,
@@ -13711,7 +13711,7 @@ def _inventory_check_form_items():
                     "actual_qty": _form_decimal("actual_qty"),
                     "unit_cost": _form_decimal("unit_cost"),
                     "lot_no": _form_text("lot_no"),
-                    "serial_no": _form_text("serial_no"),
+                    "cabinet_no": _form_text("cabinet_no"),
                     "line_project_code": _form_text("line_project_code"),
                     "source_line_no": _form_text("source_line_no"),
                 }
@@ -13722,7 +13722,7 @@ def _inventory_check_form_items():
 
 def _create_inventory_check():
     project_code = _form_text("project_code")
-    project_header_error = _require_project_serial_values_or_redirect(project_code, "pending-line-check", "/inventory_checks/new")
+    project_header_error = _require_project_cabinet_values_or_redirect(project_code, "pending-line-check", "/inventory_checks/new")
     if project_header_error:
         return project_header_error
     items = _inventory_check_form_items()
@@ -13730,9 +13730,9 @@ def _create_inventory_check():
         flash("请录入至少一条盘点明细。", "warning")
         return redirect("/inventory_checks/new")
     for item in items:
-        project_serial_error = _require_project_serial_values_or_redirect(project_code, item["serial_no"], "/inventory_checks/new")
-        if project_serial_error:
-            return project_serial_error
+        project_cabinet_error = _require_project_cabinet_values_or_redirect(project_code, item["cabinet_no"], "/inventory_checks/new")
+        if project_cabinet_error:
+            return project_cabinet_error
     warehouse_id = _form_int("warehouse_id")
     location_id = _form_int("location_id")
     check_no = _next_doc_no("IC", "inventory_check_orders", "check_no")
@@ -13765,9 +13765,9 @@ def _create_inventory_check():
               AND COALESCE(warehouse_id,0)=COALESCE(%s,0)
               AND COALESCE(location_id,0)=COALESCE(%s,0)
               AND COALESCE(lot_no,'')=COALESCE(%s,'')
-              AND COALESCE(serial_no,'')=COALESCE(%s,'')
+              AND COALESCE(cabinet_no,'')=COALESCE(%s,'')
             """,
-            (item["product_id"], line_warehouse_id, line_location_id, item["lot_no"], item["serial_no"]),
+            (item["product_id"], line_warehouse_id, line_location_id, item["lot_no"], item["cabinet_no"]),
         ) or {}
         book_qty = _as_decimal(book.get("quantity"))
         actual_qty = item["actual_qty"]
@@ -13778,10 +13778,10 @@ def _create_inventory_check():
         _execute_db(
             """
             INSERT INTO inventory_check_order_items
-                (check_id, product_id, book_qty, actual_qty, diff_qty, lot_no, serial_no, unit_cost, warehouse_id, location_id)
+                (check_id, product_id, book_qty, actual_qty, diff_qty, lot_no, cabinet_no, unit_cost, warehouse_id, location_id)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             """,
-            (check_id, item["product_id"], book_qty, actual_qty, diff_qty, item["lot_no"], item["serial_no"], unit_cost, line_warehouse_id or None, line_location_id or None),
+            (check_id, item["product_id"], book_qty, actual_qty, diff_qty, item["lot_no"], item["cabinet_no"], unit_cost, line_warehouse_id or None, line_location_id or None),
         )
         if diff_qty != 0:
             _apply_inventory_movement(
@@ -13794,7 +13794,7 @@ def _create_inventory_check():
                 warehouse_id=line_warehouse_id,
                 location_id=line_location_id,
                 lot_no=item["lot_no"],
-                serial_no=item["serial_no"],
+                cabinet_no=item["cabinet_no"],
                 project_code=project_code,
                 tx_date=check_date,
             )
@@ -13809,7 +13809,7 @@ def _create_inventory_movement(direction):
     document_type = "other_inbound" if direction == "in" else "other_outbound"
     back_url = "/inventory/inbound" if direction == "in" else "/inventory/outbound"
     project_code = _form_text("project_code")
-    project_header_error = _require_project_serial_values_or_redirect(project_code, "pending-line-check", back_url)
+    project_header_error = _require_project_cabinet_values_or_redirect(project_code, "pending-line-check", back_url)
     if project_header_error:
         return project_header_error
     product_ids = request.form.getlist("product_id[]")
@@ -13817,7 +13817,7 @@ def _create_inventory_movement(direction):
         quantities = request.form.getlist("quantity[]")
         unit_costs = request.form.getlist("unit_cost[]")
         lot_nos = request.form.getlist("lot_no[]")
-        serial_nos = request.form.getlist("serial_no[]")
+        cabinet_nos = request.form.getlist("cabinet_no[]")
         line_warehouse_ids = request.form.getlist("line_warehouse_id[]")
         line_location_ids = request.form.getlist("line_location_id[]")
         reference_no = _form_text("reference_no") or _next_doc_no("OI" if direction == "in" else "OO", "inventory_movement_documents", "doc_no")
@@ -13834,10 +13834,10 @@ def _create_inventory_movement(direction):
                     qty = -qty
                 if not product_id or qty == 0:
                     continue
-                serial_no = serial_nos[idx] if idx < len(serial_nos) else ""
-                project_serial_error = _require_project_serial_values_or_redirect(project_code, serial_no, back_url)
-                if project_serial_error:
-                    return project_serial_error
+                cabinet_no = cabinet_nos[idx] if idx < len(cabinet_nos) else ""
+                project_cabinet_error = _require_project_cabinet_values_or_redirect(project_code, cabinet_no, back_url)
+                if project_cabinet_error:
+                    return project_cabinet_error
                 # 行级仓库/库位优先；为空时回退表头；仓库未启用库位时清空库位避免脏值
                 line_warehouse_id = _as_int(line_warehouse_ids[idx]) if idx < len(line_warehouse_ids) else 0
                 line_location_id = _as_int(line_location_ids[idx]) if idx < len(line_location_ids) else 0
@@ -13855,7 +13855,7 @@ def _create_inventory_movement(direction):
                     warehouse_id=move_warehouse_id,
                     location_id=move_location_id,
                     lot_no=lot_nos[idx] if idx < len(lot_nos) else "",
-                    serial_no=serial_no,
+                    cabinet_no=cabinet_no,
                     project_code=project_code,
                     tx_date=tx_date,
                 )
@@ -13886,9 +13886,9 @@ def _create_inventory_movement(direction):
     if direction == "out":
         qty = -qty
     reference_no = _form_text("reference_no") or _next_doc_no("OI" if direction == "in" else "OO", "inventory_movement_documents", "doc_no")
-    project_serial_error = _require_project_serial_values_or_redirect(project_code, _form_text("serial_no"), back_url)
-    if project_serial_error:
-        return project_serial_error
+    project_cabinet_error = _require_project_cabinet_values_or_redirect(project_code, _form_text("cabinet_no"), back_url)
+    if project_cabinet_error:
+        return project_cabinet_error
     try:
         _apply_inventory_movement(
             product_id=product_id,
@@ -13900,7 +13900,7 @@ def _create_inventory_movement(direction):
             warehouse_id=_form_int("warehouse_id"),
             location_id=_form_int("location_id"),
             lot_no=_form_text("lot_no"),
-            serial_no=_form_text("serial_no"),
+            cabinet_no=_form_text("cabinet_no"),
             project_code=project_code,
             tx_date=_form_text("tx_date") or datetime.now().date().isoformat(),
         )
@@ -14048,7 +14048,7 @@ def _ensure_inventory_return_columns(table):
         f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS warehouse_id INTEGER",
         f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS location_id INTEGER",
         f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS lot_no VARCHAR(120)",
-        f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS serial_no VARCHAR(120)",
+        f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS cabinet_no VARCHAR(120)",
         f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS project_code VARCHAR(120)",
         f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS posted_at TIMESTAMP",
         f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS posted_by INTEGER",
@@ -14082,7 +14082,7 @@ def _post_inventory_return(table, record_id, kind):
         qty = _as_decimal(order.get("quantity"))
         move_qty = qty if kind == "sales" else -qty
         tx_type = "销售退货入库" if kind == "sales" else "采购退货出库"
-        _apply_inventory_movement(order.get("product_id"), move_qty, order.get("unit_cost"), tx_type, return_no, order.get("remark") or "", order.get("warehouse_id"), order.get("location_id"), order.get("lot_no") or "", order.get("serial_no") or "", order.get("return_date") or datetime.now().date().isoformat(), order.get("project_code") or "")
+        _apply_inventory_movement(order.get("product_id"), move_qty, order.get("unit_cost"), tx_type, return_no, order.get("remark") or "", order.get("warehouse_id"), order.get("location_id"), order.get("lot_no") or "", order.get("cabinet_no") or "", order.get("return_date") or datetime.now().date().isoformat(), order.get("project_code") or "")
         _execute_db(f"UPDATE {table} SET status='已过账', posted_at=NOW(), posted_by=%s WHERE id=%s", (session.get("user_id"), record_id))
     except ValueError as exc:
         flash(str(exc), "warning")
@@ -14110,7 +14110,7 @@ def _unaudit_inventory_return(table, record_id, kind):
         tx_rows = query_rows(
             """
             SELECT id, product_id, quantity, unit_cost, warehouse_id, location_id,
-                   lot_no, serial_no, project_code
+                   lot_no, cabinet_no, project_code
             FROM stock_transactions
             WHERE reference_no=%s AND transaction_type=%s
             ORDER BY id
@@ -14127,7 +14127,7 @@ def _unaudit_inventory_return(table, record_id, kind):
                 warehouse_id=tx.get("warehouse_id"),
                 location_id=tx.get("location_id"),
                 lot_no=tx.get("lot_no") or "",
-                serial_no=tx.get("serial_no") or "",
+                cabinet_no=tx.get("cabinet_no") or "",
                 project_code=tx.get("project_code") or "",
                 query_one=query_one,
                 execute_db_fn=execute_db,
@@ -14210,7 +14210,7 @@ def _generic_entry_options():
                COALESCE(ss.source_no, so.order_no, '') AS source_order_no,
                COALESCE(ss.customer_id, so.customer_id) AS customer_id,
                COALESCE(ss.project_code, so.project_code, '') AS project_code,
-               COALESCE(ss.serial_no, so.serial_no, '') AS serial_no,
+               COALESCE(ss.cabinet_no, so.cabinet_no, '') AS cabinet_no,
                COALESCE(c.name, '') AS customer_name
         FROM sales_shipments ss
         LEFT JOIN sales_orders so ON so.id=ss.order_id
@@ -14225,7 +14225,7 @@ def _generic_entry_options():
         SELECT so.order_no AS source_order_no,
                so.customer_id,
                COALESCE(so.project_code, '') AS project_code,
-               COALESCE(so.serial_no, '') AS serial_no,
+               COALESCE(so.cabinet_no, '') AS cabinet_no,
                COALESCE(c.name, '') AS customer_name
         FROM sales_orders so
         LEFT JOIN customers c ON c.id=so.customer_id
@@ -14240,7 +14240,7 @@ def _generic_entry_options():
                COALESCE(po.order_no, '') AS source_order_no,
                po.supplier_id,
                COALESCE(pr.project_code, po.project_code, '') AS project_code,
-               COALESCE(pr.serial_no, po.serial_no, '') AS serial_no,
+               COALESCE(pr.cabinet_no, po.cabinet_no, '') AS cabinet_no,
                COALESCE(s.name, '') AS supplier_name,
                pri.product_id,
                COALESCE(p.name, poi.material_name, '') AS product_name,
@@ -14275,7 +14275,7 @@ def _generic_entry_options():
                latest_receipt.receipt_no AS source_no,
                po.supplier_id,
                COALESCE(po.project_code, '') AS project_code,
-               COALESCE(po.serial_no, '') AS serial_no,
+               COALESCE(po.cabinet_no, '') AS cabinet_no,
                COALESCE(s.name, '') AS supplier_name,
                poi.product_id,
                COALESCE(p.name, poi.material_name, '') AS product_name,
@@ -14328,7 +14328,7 @@ def _render_purchase_receipt_entry():
     g.toolbar_extras = []
     orders = _safe_rows(
         """
-        SELECT po.id, po.order_no, po.order_date, po.warehouse_id, s.name AS partner_name, po.project_code, po.serial_no,
+        SELECT po.id, po.order_no, po.order_date, po.warehouse_id, s.name AS partner_name, po.project_code, po.cabinet_no,
                COALESCE(SUM(GREATEST(COALESCE(poi.quantity,0)-COALESCE(poi.received_qty,0),0)),0) AS pending_qty
         FROM purchase_orders po
         LEFT JOIN suppliers s ON s.id=po.supplier_id
@@ -14393,7 +14393,7 @@ def _sales_shipment_source_lines(order_id):
                COALESCE(soi.lot_no, '') AS lot_no,
                COALESCE(soi.source_line_no, '') AS source_line_no,
                COALESCE(soi.line_project_code, so.project_code, '') AS line_project_code,
-               COALESCE(soi.line_serial_no, so.serial_no, '') AS line_serial_no
+               COALESCE(soi.line_cabinet_no, so.cabinet_no, '') AS line_cabinet_no
         FROM sales_order_items soi
         JOIN sales_orders so ON so.id=soi.order_id
         LEFT JOIN products p ON p.id=soi.product_id
@@ -14410,7 +14410,7 @@ def _render_source_order_entry(kind):
         g.toolbar_extras = []
         orders = _safe_rows(
             """
-            SELECT so.id, so.order_no, so.order_date, so.warehouse_id, c.name AS partner_name, so.project_code, so.serial_no,
+            SELECT so.id, so.order_no, so.order_date, so.warehouse_id, c.name AS partner_name, so.project_code, so.cabinet_no,
                    COALESCE(SUM(GREATEST(COALESCE(soi.quantity,0)-COALESCE(soi.shipped_qty,0),0)),0) AS pending_qty
             FROM sales_orders so
             LEFT JOIN customers c ON c.id=so.customer_id
@@ -14443,7 +14443,7 @@ def _render_source_order_entry(kind):
         )
     orders = _safe_rows(
         """
-        SELECT po.id, po.order_no, po.order_date, s.name AS partner_name, po.project_code, po.serial_no,
+        SELECT po.id, po.order_no, po.order_date, s.name AS partner_name, po.project_code, po.cabinet_no,
                COALESCE(SUM(GREATEST(COALESCE(poi.quantity,0)-COALESCE(poi.received_qty,0),0)),0) AS pending_qty
         FROM purchase_orders po
         LEFT JOIN suppliers s ON s.id=po.supplier_id
@@ -14571,7 +14571,7 @@ def _render_supplier_quote_edit(quote_id):
         "supplier_id": quote.get("supplier_id"),
         "source_no": quote.get("source_no"),
         "project_code": quote.get("project_code"),
-        "serial_no": quote.get("serial_no"),
+        "cabinet_no": quote.get("cabinet_no"),
         "valid_until": _date_text(quote.get("valid_until")),
         "product_id": line.get("product_id"),
         "product_name": line.get("product_name") or line.get("item_name"),
@@ -14607,7 +14607,7 @@ def _save_supplier_quote_edit(quote_id):
         _execute_db(
             """
             UPDATE supplier_quotes
-            SET quote_date=%s, supplier_id=%s, source_no=%s, project_code=%s, serial_no=%s,
+            SET quote_date=%s, supplier_id=%s, source_no=%s, project_code=%s, cabinet_no=%s,
                 valid_from=%s, valid_to=%s, valid_until=%s, total_amount=%s, tax_amount=%s,
                 amount_with_tax=%s, remark=%s, updated_at=NOW()
             WHERE id=%s
@@ -14617,7 +14617,7 @@ def _save_supplier_quote_edit(quote_id):
                 supplier_id,
                 _form_text("source_no"),
                 _form_text("project_code"),
-                _form_text("serial_no"),
+                _form_text("cabinet_no"),
                 _form_text("doc_date", datetime.now().date().isoformat()),
                 _form_text("valid_until") or None,
                 _form_text("valid_until") or None,
@@ -14687,7 +14687,7 @@ def _render_return_edit(kind, return_id):
         "source_no": row.get("source_no"),
         "source_order_no": row.get("source_order_no"),
         "project_code": row.get("project_code"),
-        "serial_no": row.get("serial_no"),
+        "cabinet_no": row.get("cabinet_no"),
         "product_id": row.get("product_id"),
         "product_name": row.get("product_name"),
         "quantity": row.get("quantity"),
@@ -14728,7 +14728,7 @@ def _save_return_edit(kind, return_id):
         SET return_date=%s, {partner_field}=%s, source_no=%s, source_order_no=%s,
             product_id=%s, quantity=%s, unit_cost=%s, unit_price=%s, tax_rate=%s,
             amount_with_tax=%s, total_amount=%s, warehouse_id=%s, location_id=%s,
-            lot_no=%s, serial_no=%s, project_code=%s, remark=%s
+            lot_no=%s, cabinet_no=%s, project_code=%s, remark=%s
         WHERE id=%s
         """,
         (
@@ -14746,7 +14746,7 @@ def _save_return_edit(kind, return_id):
             _form_int("warehouse_id"),
             _form_int("location_id"),
             _form_text("lot_no"),
-            _form_text("serial_no"),
+            _form_text("cabinet_no"),
             _form_text("project_code"),
             _form_text("remark"),
             return_id,
@@ -14775,7 +14775,7 @@ def _render_invoice_edit(kind, invoice_id):
         "source_type": invoice.get("source_type"),
         "source_no": invoice.get("source_no"),
         "project_code": invoice.get("project_code"),
-        "serial_no": invoice.get("serial_no"),
+        "cabinet_no": invoice.get("cabinet_no"),
         "amount": invoice.get("amount"),
         "tax_amount": invoice.get("tax_amount"),
         "amount_with_tax": invoice.get("amount_with_tax"),
@@ -14805,7 +14805,7 @@ def _save_invoice_edit(kind, invoice_id):
         UPDATE {meta['table']}
         SET invoice_no=%s, {meta['partner_col']}=%s, source_type=%s, source_no=%s,
             invoice_date=%s, amount=%s, tax_amount=%s, amount_with_tax=%s,
-            project_code=%s, serial_no=%s, status=%s, remark=%s
+            project_code=%s, cabinet_no=%s, status=%s, remark=%s
         WHERE id=%s
         """,
         (
@@ -14818,7 +14818,7 @@ def _save_invoice_edit(kind, invoice_id):
             tax_amount,
             _form_decimal("amount_with_tax", str(amount + tax_amount)),
             _form_text("project_code"),
-            _form_text("serial_no"),
+            _form_text("cabinet_no"),
             _form_text("status", "已登记"),
             _form_text("remark"),
             invoice_id,
@@ -14852,7 +14852,7 @@ def _render_source_document_edit(kind, record_id):
         g.toolbar_extras = []
         orders = _safe_rows(
             """
-            SELECT so.id, so.order_no, so.order_date, c.name AS partner_name, so.project_code, so.serial_no, 0 AS pending_qty
+            SELECT so.id, so.order_no, so.order_date, c.name AS partner_name, so.project_code, so.cabinet_no, 0 AS pending_qty
             FROM sales_orders so LEFT JOIN customers c ON c.id=so.customer_id
             WHERE so.id=%s
             """,
@@ -14861,7 +14861,7 @@ def _render_source_document_edit(kind, record_id):
         return render_template("source_order_entry.html", title="编辑销售发货单", list_url=list_url, post_url=f"{list_url}/{record_id}/edit", source_label="来源销售订单", source_field=source_field, orders=orders, selected_source_id=order_id, date_field="shipment_date", date_label="发货日期", date_value=_date_text(row.get("shipment_date")), remark=row.get("remark"), doc_no=row.get("shipment_no"), mode="edit", hide_footer_actions=True)
     orders = _safe_rows(
         """
-        SELECT po.id, po.order_no, po.order_date, s.name AS partner_name, po.project_code, po.serial_no, 0 AS pending_qty
+        SELECT po.id, po.order_no, po.order_date, s.name AS partner_name, po.project_code, po.cabinet_no, 0 AS pending_qty
         FROM purchase_orders po LEFT JOIN suppliers s ON s.id=po.supplier_id
         WHERE po.id=%s
         """,
@@ -14914,12 +14914,12 @@ def _save_quotation_entry():
     quote = _execute_and_return(
         """
         INSERT INTO quotation_headers
-            (quote_no, quote_date, customer_id, valid_until, status, project_code, serial_no,
+            (quote_no, quote_date, customer_id, valid_until, status, project_code, cabinet_no,
              source_no, machine_type, remark, total_amount, tax_amount, amount_with_tax, created_by)
         VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         RETURNING id
         """,
-        (quote_no, _form_text("doc_date", datetime.now().date().isoformat()), customer_id, _form_text("valid_until") or None, "草稿", _form_text("project_code"), _form_text("serial_no"), _form_text("source_no"), _form_text("machine_type"), _form_text("remark"), amount, tax_amount, amount_with_tax, session.get("user_id")),
+        (quote_no, _form_text("doc_date", datetime.now().date().isoformat()), customer_id, _form_text("valid_until") or None, "草稿", _form_text("project_code"), _form_text("cabinet_no"), _form_text("source_no"), _form_text("machine_type"), _form_text("remark"), amount, tax_amount, amount_with_tax, session.get("user_id")),
     )
     quote_id = quote.get("id")
     _execute_db(
@@ -14944,7 +14944,7 @@ def _ensure_supplier_quote_tables():
         "ALTER TABLE supplier_quotes ADD COLUMN IF NOT EXISTS supplier_id INTEGER",
         "ALTER TABLE supplier_quotes ADD COLUMN IF NOT EXISTS source_no VARCHAR(120)",
         "ALTER TABLE supplier_quotes ADD COLUMN IF NOT EXISTS project_code VARCHAR(120)",
-        "ALTER TABLE supplier_quotes ADD COLUMN IF NOT EXISTS serial_no VARCHAR(120)",
+        "ALTER TABLE supplier_quotes ADD COLUMN IF NOT EXISTS cabinet_no VARCHAR(120)",
         "ALTER TABLE supplier_quotes ADD COLUMN IF NOT EXISTS product_id INTEGER",
         "ALTER TABLE supplier_quotes ADD COLUMN IF NOT EXISTS unit_price NUMERIC(14,4) DEFAULT 0",
         "ALTER TABLE supplier_quotes ADD COLUMN IF NOT EXISTS tax_rate NUMERIC(8,2) DEFAULT 0",
@@ -15008,7 +15008,7 @@ def _save_supplier_quote_entry():
         """
         INSERT INTO supplier_quotes
             (quote_no, quote_date, supplier_id, product_id, unit_price, tax_rate, source_no,
-             project_code, serial_no, valid_from, valid_to, valid_until, status, total_amount,
+             project_code, cabinet_no, valid_from, valid_to, valid_until, status, total_amount,
              tax_amount, amount_with_tax, remark, created_by, updated_at)
         VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'草稿',%s,%s,%s,%s,%s,NOW())
         RETURNING id
@@ -15022,7 +15022,7 @@ def _save_supplier_quote_entry():
             tax_rate,
             _form_text("source_no"),
             _form_text("project_code"),
-            _form_text("serial_no"),
+            _form_text("cabinet_no"),
             _form_text("doc_date", datetime.now().date().isoformat()),
             _form_text("valid_until") or None,
             _form_text("valid_until") or None,
@@ -15180,7 +15180,7 @@ def _save_quotation_edit(quote_id):
         _execute_db(
             """
             UPDATE quotation_headers
-            SET quote_date=%s, customer_id=%s, valid_until=%s, project_code=%s, serial_no=%s,
+            SET quote_date=%s, customer_id=%s, valid_until=%s, project_code=%s, cabinet_no=%s,
                 source_no=%s, machine_type=%s, remark=%s, total_amount=%s, tax_amount=%s,
                 amount_with_tax=%s
             WHERE id=%s
@@ -15190,7 +15190,7 @@ def _save_quotation_edit(quote_id):
                 customer_id,
                 _form_text("valid_until") or None,
                 _form_text("project_code"),
-                _form_text("serial_no"),
+                _form_text("cabinet_no"),
                 _form_text("source_no"),
                 _form_text("machine_type"),
                 _form_text("remark"),
@@ -15249,12 +15249,12 @@ def _copy_quotation(quote_id):
     row = _execute_and_return(
         """
         INSERT INTO quotation_headers
-            (quote_no, quote_date, customer_id, valid_until, status, project_code, serial_no,
+            (quote_no, quote_date, customer_id, valid_until, status, project_code, cabinet_no,
              source_no, machine_type, remark, total_amount, tax_amount, amount_with_tax, created_by)
         VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         RETURNING id
         """,
-        (new_no, datetime.now().date().isoformat(), quote.get("customer_id"), quote.get("valid_until"), "草稿", quote.get("project_code"), quote.get("serial_no"), quote.get("quote_no"), quote.get("machine_type"), f"复制自{quote.get('quote_no')} {quote.get('remark') or ''}".strip(), quote.get("total_amount"), quote.get("tax_amount"), quote.get("amount_with_tax"), session.get("user_id")),
+        (new_no, datetime.now().date().isoformat(), quote.get("customer_id"), quote.get("valid_until"), "草稿", quote.get("project_code"), quote.get("cabinet_no"), quote.get("quote_no"), quote.get("machine_type"), f"复制自{quote.get('quote_no')} {quote.get('remark') or ''}".strip(), quote.get("total_amount"), quote.get("tax_amount"), quote.get("amount_with_tax"), session.get("user_id")),
     )
     if not row:
         raise RuntimeError("报价单插入失败")
@@ -15298,11 +15298,11 @@ def _convert_quotation_to_sales_order(quote_id):
         """
         INSERT INTO sales_orders
             (order_no, order_date, customer_id, status, remark, total_amount, shipped_amount,
-             delivery_date, tax_amount, amount_with_tax, project_code, serial_no, created_by)
+             delivery_date, tax_amount, amount_with_tax, project_code, cabinet_no, created_by)
         VALUES (%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,%s,%s)
         RETURNING id
         """,
-        (order_no, datetime.now().date().isoformat(), quote.get("customer_id"), "待提交", f"由报价单 {quote.get('quote_no')} 转入", quote.get("total_amount"), quote.get("valid_until"), quote.get("tax_amount"), quote.get("amount_with_tax"), quote.get("project_code"), quote.get("serial_no"), session.get("user_id")),
+        (order_no, datetime.now().date().isoformat(), quote.get("customer_id"), "待提交", f"由报价单 {quote.get('quote_no')} 转入", quote.get("total_amount"), quote.get("valid_until"), quote.get("tax_amount"), quote.get("amount_with_tax"), quote.get("project_code"), quote.get("cabinet_no"), session.get("user_id")),
     )
     order_id = order["id"]
     for item in items:
@@ -15339,7 +15339,7 @@ def _render_quotation_print(quote_id):
             ("联系人", quote.get("contact_person")),
             ("电话", quote.get("customer_phone")),
             ("项目号", quote.get("project_code")),
-            ("机号", quote.get("serial_no")),
+            ("柜号", quote.get("cabinet_no")),
             ("机型", quote.get("machine_type")),
             ("有效期", quote.get("valid_until")),
         ],
@@ -15404,7 +15404,7 @@ def _save_return_entry(kind):
     unit_costs = request.form.getlist("unit_cost[]") or [request.form.get("unit_cost", "0")]
     tax_rates = request.form.getlist("tax_rate[]") or [request.form.get("tax_rate", "13")]
     lot_nos = request.form.getlist("lot_no[]") or [request.form.get("lot_no", "")]
-    serial_nos = request.form.getlist("serial_no[]") or [request.form.get("serial_no", "")]
+    cabinet_nos = request.form.getlist("cabinet_no[]") or [request.form.get("cabinet_no", "")]
     location_ids = request.form.getlist("location_id[]") or [request.form.get("location_id", "0")]
     source_line_nos = request.form.getlist("source_line_no[]") or [""]
     line_project_codes = request.form.getlist("line_project_code[]") or [""]
@@ -15421,7 +15421,7 @@ def _save_return_entry(kind):
             "unit_cost": _as_decimal(unit_costs[idx] if idx < len(unit_costs) else "0"),
             "tax_rate": _as_decimal(tax_rates[idx] if idx < len(tax_rates) else "13"),
             "lot_no": lot_nos[idx] if idx < len(lot_nos) else "",
-            "serial_no": serial_nos[idx] if idx < len(serial_nos) else "",
+            "cabinet_no": cabinet_nos[idx] if idx < len(cabinet_nos) else "",
             "location_id": _as_int(location_ids[idx]) if idx < len(location_ids) else 0,
             "source_line_no": source_line_nos[idx] if idx < len(source_line_nos) else "",
             "line_project_code": line_project_codes[idx] if idx < len(line_project_codes) else "",
@@ -15431,13 +15431,13 @@ def _save_return_entry(kind):
         flash("请填写至少一行有效的物料名称和退货数量。", "warning")
         return redirect(back_url)
     header_project_code = _form_text("project_code")
-    header_serial_no = _form_text("serial_no")
+    header_cabinet_no = _form_text("cabinet_no")
     header_remark = _form_text("remark")
     total_amount = Decimal("0")
     first_row = None
     for seq, item in enumerate(items, start=1):
         item_project_code = item["line_project_code"] or header_project_code
-        item_serial_no = item["serial_no"] or header_serial_no
+        item_cabinet_no = item["cabinet_no"] or header_cabinet_no
         amount = item["quantity"] * item["unit_cost"] * (Decimal("1") + item["tax_rate"] / Decimal("100"))
         total_amount += amount
         return_no = _next_doc_no("SR" if is_sales else "PR", table, "return_no") if seq == 1 else f"{first_row['return_no']}-{seq}"
@@ -15446,12 +15446,12 @@ def _save_return_entry(kind):
             INSERT INTO {table}
                 (return_no, return_date, {partner_field}, source_no, source_order_no, product_id,
                  quantity, unit_price, tax_rate, amount_with_tax, total_amount, unit_cost,
-                 warehouse_id, location_id, lot_no, serial_no, project_code, status, remark,
+                 warehouse_id, location_id, lot_no, cabinet_no, project_code, status, remark,
                  line_no, parent_id)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             RETURNING id, return_no
             """,
-            (return_no, _form_text("doc_date", datetime.now().date().isoformat()), partner_id, _form_text("source_no"), _form_text("source_order_no"), item["product_id"], item["quantity"], item["unit_cost"], item["tax_rate"], amount, amount, item["unit_cost"], warehouse_id, item["location_id"], item["lot_no"], item_serial_no, item_project_code, INVENTORY_STATUS_PENDING, item["remark"] or header_remark, seq, first_row["id"] if first_row else None),
+            (return_no, _form_text("doc_date", datetime.now().date().isoformat()), partner_id, _form_text("source_no"), _form_text("source_order_no"), item["product_id"], item["quantity"], item["unit_cost"], item["tax_rate"], amount, amount, item["unit_cost"], warehouse_id, item["location_id"], item["lot_no"], item_cabinet_no, item_project_code, INVENTORY_STATUS_PENDING, item["remark"] or header_remark, seq, first_row["id"] if first_row else None),
         )
         if first_row is None:
             first_row = row
@@ -15475,7 +15475,7 @@ def _ensure_invoice_table(kind):
         f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS tax_amount NUMERIC(14,2) DEFAULT 0",
         f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS amount_with_tax NUMERIC(14,2) DEFAULT 0",
         f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS project_code VARCHAR(120)",
-        f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS serial_no VARCHAR(120)",
+        f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS cabinet_no VARCHAR(120)",
         f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS status VARCHAR(80) DEFAULT 'draft'",
         f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS remark TEXT",
         f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS created_by INTEGER",
@@ -15498,11 +15498,11 @@ def _save_invoice_entry(kind):
         f"""
         INSERT INTO {table}
             (invoice_no, {partner_col}, source_type, source_no, invoice_date, amount,
-             tax_amount, amount_with_tax, project_code, serial_no, status, remark, created_by)
+             tax_amount, amount_with_tax, project_code, cabinet_no, status, remark, created_by)
         VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         RETURNING id
         """,
-        (invoice_no, partner_id, _form_text("source_type"), _form_text("source_no"), _form_text("doc_date", datetime.now().date().isoformat()), amount, tax_amount, _form_decimal("amount_with_tax", str(amount + tax_amount)), _form_text("project_code"), _form_text("serial_no"), _form_text("status", "已登记"), _form_text("remark"), session.get("user_id")),
+        (invoice_no, partner_id, _form_text("source_type"), _form_text("source_no"), _form_text("doc_date", datetime.now().date().isoformat()), amount, tax_amount, _form_decimal("amount_with_tax", str(amount + tax_amount)), _form_text("project_code"), _form_text("cabinet_no"), _form_text("status", "已登记"), _form_text("remark"), session.get("user_id")),
     )
     _log_action("新增销售发票登记" if kind == "sales" else "新增采购发票登记", invoice_no)
     flash(f"已登记发票 {invoice_no}。", "success")
@@ -15623,7 +15623,7 @@ def _render_sales_invoice_print(invoice_id):
             ("客户", invoice.get("partner_name") or invoice.get("partner_id")),
             ("来源单", invoice.get("source_no") or invoice.get("source_type")),
             ("项目号", invoice.get("project_code")),
-            ("机号", invoice.get("serial_no")),
+            ("柜号", invoice.get("cabinet_no")),
             ("含税金额", invoice.get("amount_with_tax")),
             ("税额", invoice.get("tax_amount")),
             ("应收联动摘要", linked_status),
@@ -15633,7 +15633,7 @@ def _render_sales_invoice_print(invoice_id):
             ("customer_name", "客户", ""),
             ("source_no", "来源单", ""),
             ("project_code", "项目号", ""),
-            ("serial_no", "机号", ""),
+            ("cabinet_no", "柜号", ""),
             ("invoice_date", "开票日期", "center"),
             ("amount_with_tax", "含税金额", "right money"),
             ("tax_amount", "税额", "right money"),
@@ -15646,7 +15646,7 @@ def _render_sales_invoice_print(invoice_id):
                 "customer_name": invoice.get("partner_name") or invoice.get("partner_id"),
                 "source_no": invoice.get("source_no") or invoice.get("source_type"),
                 "project_code": invoice.get("project_code"),
-                "serial_no": invoice.get("serial_no"),
+                "cabinet_no": invoice.get("cabinet_no"),
                 "invoice_date": invoice.get("invoice_date"),
                 "amount_with_tax": invoice.get("amount_with_tax"),
                 "tax_amount": invoice.get("tax_amount"),
@@ -15689,12 +15689,12 @@ def _render_purchase_invoice_print(invoice_id):
         "status_label": invoice.get("status") or "草稿",
         "partner_name": invoice.get("partner_name") or invoice.get("supplier_name") or invoice.get("supplier_id"),
         "project_code": invoice.get("project_code"),
-        "serial_no": invoice.get("serial_no"),
+        "cabinet_no": invoice.get("cabinet_no"),
         "info": [
             ("供应商", invoice.get("partner_name") or invoice.get("supplier_name") or invoice.get("supplier_id")),
             ("来源单号", invoice.get("source_no") or invoice.get("source_type")),
             ("项目号", invoice.get("project_code")),
-            ("机号", invoice.get("serial_no")),
+            ("柜号", invoice.get("cabinet_no")),
             ("应付联动", payable_summary),
             ("备注", invoice.get("remark")),
         ],
@@ -15703,7 +15703,7 @@ def _render_purchase_invoice_print(invoice_id):
             ("supplier_name", "供应商", ""),
             ("source_no", "来源单号", ""),
             ("project_code", "项目号", ""),
-            ("serial_no", "机号", ""),
+            ("cabinet_no", "柜号", ""),
             ("invoice_date", "发票日期", "center"),
             ("amount_with_tax", "含税金额", "right money"),
             ("tax_amount", "税额", "right money"),
@@ -15716,7 +15716,7 @@ def _render_purchase_invoice_print(invoice_id):
                 "supplier_name": invoice.get("partner_name") or invoice.get("supplier_name") or invoice.get("supplier_id"),
                 "source_no": invoice.get("source_no") or invoice.get("source_type"),
                 "project_code": invoice.get("project_code"),
-                "serial_no": invoice.get("serial_no"),
+                "cabinet_no": invoice.get("cabinet_no"),
                 "invoice_date": invoice.get("invoice_date"),
                 "amount_with_tax": invoice.get("amount_with_tax"),
                 "tax_amount": invoice.get("tax_amount"),
@@ -15764,12 +15764,12 @@ def _confirm_invoice(kind, invoice_id):
                 SET customer_id=%s, source_no=%s, receivable_date=%s, total_amount=%s,
                     balance=GREATEST(%s-COALESCE(received_amount,0),0),
                     status=CASE WHEN GREATEST(%s-COALESCE(received_amount,0),0)=0 THEN '已收款' ELSE '未收款' END,
-                    remark=%s, project_code=%s, serial_no=%s, invoice_id=%s
+                    remark=%s, project_code=%s, cabinet_no=%s, invoice_id=%s
                 WHERE id=%s
                 """,
                 (invoice.get("customer_id"), invoice.get("invoice_no"), invoice.get("invoice_date"),
                  amount_with_tax, amount_with_tax, amount_with_tax, remark,
-                 invoice.get("project_code"), invoice.get("serial_no"), invoice_id, existing.get("id")),
+                 invoice.get("project_code"), invoice.get("cabinet_no"), invoice_id, existing.get("id")),
             )
             receivable_id = existing.get("id")
         else:
@@ -15779,13 +15779,13 @@ def _confirm_invoice(kind, invoice_id):
                 """
                 INSERT INTO customer_receivables
                     (receivable_no, customer_id, source_type, source_id, source_no, receivable_date, total_amount,
-                     received_amount, balance, status, remark, project_code, serial_no, invoice_id)
+                     received_amount, balance, status, remark, project_code, cabinet_no, invoice_id)
                 VALUES (%s,%s,'sales_invoice',%s,%s,%s,%s,0,%s,%s,%s,%s,%s,%s)
                 RETURNING id
                 """,
                 (receivable_no, invoice.get("customer_id"), invoice_id, invoice.get("invoice_no"),
                  invoice.get("invoice_date"), amount_with_tax, amount_with_tax, "未收款",
-                 remark, invoice.get("project_code"), invoice.get("serial_no"), invoice_id),
+                 remark, invoice.get("project_code"), invoice.get("cabinet_no"), invoice_id),
             ).get("id")
 
         # 插入发票与应收单关联记录（如果不存在）
@@ -15812,7 +15812,7 @@ def _confirm_invoice(kind, invoice_id):
                 link_type="source_of",
                 link_strength="hard",
                 project_code=invoice.get("project_code"),
-                serial_no=invoice.get("serial_no"),
+                cabinet_no=invoice.get("cabinet_no"),
                 created_by=current_user_id,
                 created_event="confirm_sales_invoice",
             )
@@ -15843,7 +15843,7 @@ def _confirm_invoice(kind, invoice_id):
             unpaid_status="未付款",
             finance_remark=remark,
             project_code=invoice.get("project_code"),
-            serial_no=invoice.get("serial_no"),
+            cabinet_no=invoice.get("cabinet_no"),
         )
 
         # 获取应付单ID（假设 upsert 函数返回或可查询）
@@ -15890,7 +15890,7 @@ def _confirm_invoice(kind, invoice_id):
                 link_type="source_of",
                 link_strength="hard",
                 project_code=invoice.get("project_code"),
-                serial_no=invoice.get("serial_no"),
+                cabinet_no=invoice.get("cabinet_no"),
                 created_by=current_user_id,
                 created_event="confirm_purchase_invoice",
             )
@@ -15940,7 +15940,7 @@ def _save_quality_entry():
         INSERT INTO quality_inspection_records
             (inspection_no, product_id, inspection_type, inspection_date, sample_size,
              passed_quantity, failed_quantity, inspection_result, defect_description,
-             corrective_action, conclusion, status, project_code, serial_no, batch_no, inspector,
+             corrective_action, conclusion, status, project_code, cabinet_no, batch_no, inspector,
              source_document_type, source_document_id, source_no, defect_category, severity_level,
              disposition, nonconformance_status, responsible_party, responsible_supplier_id,
              owner_role, blocked_reason, next_action, downstream_impact, capa_required,
@@ -15963,7 +15963,7 @@ def _save_quality_entry():
             state.get("corrective_action"),
             state.get("conclusion"),
             state.get("project_code"),
-            state.get("serial_no"),
+            state.get("cabinet_no"),
             state.get("batch_no"),
             state.get("inspector"),
             state.get("source_document_type"),
@@ -16022,7 +16022,7 @@ def _render_quality_inspection_edit(inspection_id):
         "source_id": inspection.get("source_document_id"),
         "source_document_no": inspection.get("source_no") or _quality_inspection_source_text(inspection),
         "project_code": inspection.get("project_code"),
-        "serial_no": inspection.get("serial_no"),
+        "cabinet_no": inspection.get("cabinet_no"),
         "defect_description": inspection.get("defect_description"),
         "corrective_action": inspection.get("corrective_action"),
     }
@@ -16046,7 +16046,7 @@ def _save_quality_inspection_edit(inspection_id):
         UPDATE quality_inspection_records
         SET product_id=%s, inspection_type=%s, inspection_date=%s, sample_size=%s,
             passed_quantity=%s, failed_quantity=%s, inspection_result=%s,
-            defect_description=%s, corrective_action=%s, conclusion=%s, project_code=%s, serial_no=%s,
+            defect_description=%s, corrective_action=%s, conclusion=%s, project_code=%s, cabinet_no=%s,
             batch_no=%s, inspector=%s, source_document_type=%s, source_document_id=%s, source_no=%s,
             defect_category=%s, severity_level=%s, disposition=%s, nonconformance_status=%s,
             responsible_party=%s, responsible_supplier_id=%s, owner_role=%s, blocked_reason=%s,
@@ -16068,7 +16068,7 @@ def _save_quality_inspection_edit(inspection_id):
             state.get("corrective_action"),
             state.get("conclusion"),
             state.get("project_code"),
-            state.get("serial_no"),
+            state.get("cabinet_no"),
             state.get("batch_no"),
             state.get("inspector"),
             state.get("source_document_type"),
@@ -16291,7 +16291,7 @@ def _copy_document(kind, order_id):
             """
             INSERT INTO sales_orders
                 (order_no, order_date, customer_id, status, remark, total_amount, shipped_amount,
-                 warehouse_id, delivery_date, tax_amount, amount_with_tax, project_code, serial_no, created_by)
+                 warehouse_id, delivery_date, tax_amount, amount_with_tax, project_code, cabinet_no, created_by)
             VALUES (%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,%s,%s,%s)
             RETURNING id
             """,
@@ -16307,7 +16307,7 @@ def _copy_document(kind, order_id):
                 order.get("tax_amount"),
                 order.get("amount_with_tax"),
                 order.get("project_code"),
-                order.get("serial_no"),
+                order.get("cabinet_no"),
                 session.get("user_id"),
             ),
         )
@@ -16337,7 +16337,7 @@ def _copy_document(kind, order_id):
             """
             INSERT INTO customer_receivables
                 (receivable_no, customer_id, source_type, source_id, source_no, receivable_date, total_amount,
-                 received_amount, balance, status, due_date, remark, project_code, serial_no)
+                 received_amount, balance, status, due_date, remark, project_code, cabinet_no)
             VALUES (%s,%s,'sales_order',%s,%s,%s,%s,0,%s,%s,%s,%s,%s,%s)
             """,
             (
@@ -16352,7 +16352,7 @@ def _copy_document(kind, order_id):
                 order.get("delivery_date"),
                 f"复制销售订单 {order.get('order_no')}",
                 order.get("project_code"),
-                order.get("serial_no"),
+                order.get("cabinet_no"),
             ),
         )
         _log_action("复制销售订单", f"{order.get('order_no')} -> {new_no}")
@@ -16365,7 +16365,7 @@ def _copy_document(kind, order_id):
         """
         INSERT INTO purchase_orders
             (order_no, order_date, supplier_id, status, remark, total_amount, received_amount,
-             warehouse_id, expected_date, tax_amount, amount_with_tax, project_code, serial_no, created_by)
+             warehouse_id, expected_date, tax_amount, amount_with_tax, project_code, cabinet_no, created_by)
         VALUES (%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,%s,%s,%s)
         RETURNING id
         """,
@@ -16381,7 +16381,7 @@ def _copy_document(kind, order_id):
             order.get("tax_amount"),
             order.get("amount_with_tax"),
             order.get("project_code"),
-            order.get("serial_no"),
+            order.get("cabinet_no"),
             session.get("user_id"),
         ),
     )
@@ -16628,7 +16628,7 @@ def _render_supplier_quote_print(quote_id):
             ("电话", quote.get("supplier_phone")),
             ("来源单号", quote.get("source_no")),
             ("项目号", quote.get("project_code")),
-            ("机号", quote.get("serial_no")),
+            ("柜号", quote.get("cabinet_no")),
             ("有效期", quote.get("valid_until")),
         ],
         "columns": [
@@ -16746,7 +16746,7 @@ def _issue_work_order_materials(work_order_id, _tx=False):
             warehouse_id=warehouse_id,
             location_id=row.get("location_id") or order.get("location_id"),
             lot_no=_form_text("lot_no"),
-            serial_no=order.get("serial_no"),
+            cabinet_no=order.get("cabinet_no"),
             tx_date=issue_date,
             project_code=row.get("line_project_code") or order.get("project_code") or "",
         )
@@ -16828,7 +16828,7 @@ def _return_work_order_materials(work_order_id, _tx=False):
         remark=remark,
         warehouse_id=warehouse_id,
         lot_no=_form_text("lot_no"),
-        serial_no=order.get("serial_no"),
+        cabinet_no=order.get("cabinet_no"),
         tx_date=return_date,
     )
     _execute_db(
@@ -16914,7 +16914,7 @@ def _generate_work_order_material_requirements_from_bom(work_order_id, _tx=False
             """
             INSERT INTO wo_material_items
                 (wo_id, product_id, required_qty, issued_qty, returned_qty, unit_cost, amount, remark,
-                 warehouse_id, location_id, source_line_no, line_project_code, line_serial_no,
+                 warehouse_id, location_id, source_line_no, line_project_code, line_cabinet_no,
                  material_code, material_name, material_spec, material_unit)
             VALUES
                 (%s, %s, %s, 0, 0, %s, %s, %s,
@@ -16932,7 +16932,7 @@ def _generate_work_order_material_requirements_from_bom(work_order_id, _tx=False
                 line["location_id"],
                 line["source_line_no"],
                 line["line_project_code"],
-                line["line_serial_no"],
+                line["line_cabinet_no"],
                 line["material_code"],
                 line["material_name"],
                 line["material_spec"],
@@ -16978,7 +16978,7 @@ def _add_work_order_material_requirement(work_order_id, _tx=False):
         "location_id": request.form.getlist("location_id[]") or request.form.getlist("line_location_id[]"),
         "lot_no": request.form.getlist("lot_no[]") or request.form.getlist("lot_no"),
         "line_project_code": request.form.getlist("line_project_code[]") or request.form.getlist("line_project_code"),
-        "line_serial_no": request.form.getlist("line_serial_no[]") or request.form.getlist("line_serial_no"),
+        "line_cabinet_no": request.form.getlist("line_cabinet_no[]") or request.form.getlist("line_cabinet_no"),
     }
     created = 0
     requirement_lines = build_requirement_lines(product_ids, quantities, unit_costs, remarks, order, _safe_one, extra_fields)
@@ -16987,14 +16987,14 @@ def _add_work_order_material_requirement(work_order_id, _tx=False):
             """
             INSERT INTO wo_material_items
                 (wo_id, product_id, required_qty, issued_qty, returned_qty, unit_cost, remark,
-                 warehouse_id, location_id, lot_no, source_line_no, line_project_code, line_serial_no)
+                 warehouse_id, location_id, lot_no, source_line_no, line_project_code, line_cabinet_no)
             VALUES
                 (%s, %s, %s, 0, 0, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 work_order_id, line["product_id"], line["qty"], line["unit_cost"], line["remark"],
                 line.get("warehouse_id") or order.get("warehouse_id"), line.get("location_id"),
-                line.get("lot_no"), line.get("source_line_no"), line.get("line_project_code"), line.get("line_serial_no"),
+                line.get("lot_no"), line.get("source_line_no"), line.get("line_project_code"), line.get("line_cabinet_no"),
             ),
         )
         created += 1
@@ -17028,7 +17028,7 @@ def _add_work_order_extra_material(work_order_id, _tx=False):
             "source_line_no": request.form.getlist("source_line_no[]"),
             "location_id": request.form.getlist("location_id[]") or request.form.getlist("line_location_id[]"),
             "line_project_code": request.form.getlist("line_project_code[]"),
-            "line_serial_no": request.form.getlist("line_serial_no[]"),
+            "line_cabinet_no": request.form.getlist("line_cabinet_no[]"),
         }
         warehouse_id = _form_int("warehouse_id") or order.get("warehouse_id")
         issue_date = _form_text("issue_date", datetime.now().date().isoformat())
@@ -17049,7 +17049,7 @@ def _add_work_order_extra_material(work_order_id, _tx=False):
                 """
                 INSERT INTO wo_material_items
                     (wo_id, product_id, required_qty, issued_qty, returned_qty, unit_cost, remark,
-                     warehouse_id, location_id, lot_no, source_line_no, line_project_code, line_serial_no)
+                     warehouse_id, location_id, lot_no, source_line_no, line_project_code, line_cabinet_no)
                 VALUES
                     (%s, %s, %s, %s, 0, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
@@ -17057,7 +17057,7 @@ def _add_work_order_extra_material(work_order_id, _tx=False):
                 (
                     work_order_id, line["product_id"], line["qty"], line["qty"], line["unit_cost"], line["remark"],
                     warehouse_id, line.get("location_id"), line.get("lot_no"), line.get("source_line_no"),
-                    line.get("line_project_code") or order.get("project_code"), line.get("line_serial_no") or order.get("serial_no"),
+                    line.get("line_project_code") or order.get("project_code"), line.get("line_cabinet_no") or order.get("cabinet_no"),
                 ),
             )
             _apply_inventory_movement(
@@ -17070,7 +17070,7 @@ def _add_work_order_extra_material(work_order_id, _tx=False):
                 warehouse_id=warehouse_id,
                 location_id=line.get("location_id"),
                 lot_no=line["lot_no"],
-                serial_no=line.get("line_serial_no") or order.get("serial_no"),
+                cabinet_no=line.get("line_cabinet_no") or order.get("cabinet_no"),
                 tx_date=issue_date,
             )
             _log_action("工单补料", order.get("wo_no"), f"item={item.get('id')} qty={line['qty']}")
@@ -17100,7 +17100,7 @@ def _add_work_order_extra_material(work_order_id, _tx=False):
         """
         INSERT INTO wo_material_items
             (wo_id, product_id, required_qty, issued_qty, returned_qty, unit_cost, remark,
-             warehouse_id, location_id, lot_no, source_line_no, line_project_code, line_serial_no)
+             warehouse_id, location_id, lot_no, source_line_no, line_project_code, line_cabinet_no)
         VALUES
             (%s, %s, %s, %s, 0, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id
@@ -17108,7 +17108,7 @@ def _add_work_order_extra_material(work_order_id, _tx=False):
         (
             work_order_id, product_id, qty, qty, unit_cost, remark,
             warehouse_id, _form_int("location_id"), _form_text("lot_no"), _form_text("source_line_no"),
-            _form_text("line_project_code") or order.get("project_code"), _form_text("line_serial_no") or order.get("serial_no"),
+            _form_text("line_project_code") or order.get("project_code"), _form_text("line_cabinet_no") or order.get("cabinet_no"),
         ),
     )
     _apply_inventory_movement(
@@ -17121,7 +17121,7 @@ def _add_work_order_extra_material(work_order_id, _tx=False):
         warehouse_id=warehouse_id,
         location_id=_form_int("location_id"),
         lot_no=_form_text("lot_no"),
-        serial_no=_form_text("line_serial_no") or order.get("serial_no"),
+        cabinet_no=_form_text("line_cabinet_no") or order.get("cabinet_no"),
         tx_date=issue_date,
     )
     _execute_db(
@@ -17169,7 +17169,7 @@ def _complete_work_order(work_order_id, _tx=False):
     _execute_db(
         """
         INSERT INTO wo_complete_items
-            (wo_id, complete_date, qty, lot_no, unit_cost, product_id, serial_no, warehouse_id, location_id)
+            (wo_id, complete_date, qty, lot_no, unit_cost, product_id, cabinet_no, warehouse_id, location_id)
         VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
         """,
         (
@@ -17179,7 +17179,7 @@ def _complete_work_order(work_order_id, _tx=False):
             _form_text("lot_no"),
             unit_cost,
             order.get("product_id"),
-            _form_text("serial_no") or order.get("serial_no"),
+            _form_text("cabinet_no") or order.get("cabinet_no"),
             warehouse_id,
             _form_int("location_id"),
         ),
@@ -17194,7 +17194,7 @@ def _complete_work_order(work_order_id, _tx=False):
         warehouse_id=warehouse_id,
         location_id=_form_int("location_id"),
         lot_no=_form_text("lot_no"),
-        serial_no=_form_text("serial_no") or order.get("serial_no"),
+        cabinet_no=_form_text("cabinet_no") or order.get("cabinet_no"),
         tx_date=complete_date,
     )
     new_completed = _as_decimal(completed.get("qty")) + qty
@@ -17217,7 +17217,7 @@ def _complete_work_order(work_order_id, _tx=False):
             _execute_db,
             _execute_and_return,
             project_code=order.get("project_code"),
-            serial_no=order.get("serial_no"),
+            cabinet_no=order.get("cabinet_no"),
             work_order_id=work_order_id,
             created_by=session.get("user_id"),
         )
@@ -17232,7 +17232,7 @@ def _record_work_order_quality(work_order_id):
     _require_work_order_scope(work_order_id, action="operate")
     order = _safe_one(
         """
-        SELECT id, wo_no, product_id, quantity, status, cost_object_id, project_code, serial_no
+        SELECT id, wo_no, product_id, quantity, status, cost_object_id, project_code, cabinet_no
         FROM work_orders
         WHERE id=%s
         """,
@@ -17272,7 +17272,7 @@ def _record_work_order_quality(work_order_id):
         INSERT INTO quality_inspection_records
             (inspection_no, product_id, inspection_type, inspection_date, sample_size,
              passed_quantity, failed_quantity, inspection_result, defect_description,
-             corrective_action, status, cost_object_id, project_code, serial_no,
+             corrective_action, status, cost_object_id, project_code, cabinet_no,
              source_document_type, source_document_id)
         VALUES
             (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'work_order', %s)
@@ -17291,7 +17291,7 @@ def _record_work_order_quality(work_order_id):
             "completed",
             order.get("cost_object_id"),
             order.get("project_code"),
-            order.get("serial_no"),
+            order.get("cabinet_no"),
             work_order_id,
         ),
     )
@@ -17376,8 +17376,8 @@ def _service_order_or_redirect(order_id):
     if str(service.get("status") or "") in {"已关闭", "已完成", "已作废", "closed", "completed", "cancelled"}:
         flash("服务单已关闭、已完成或已作废，不能继续处理。", "warning")
         return None
-    if _project_serial_required() and (not (service.get("project_code") or "").strip() or not (service.get("serial_no") or "").strip()):
-        flash("系统已启用强制项目号/机号，服务单必须关联项目号和机号后才能继续流转。", "warning")
+    if _project_cabinet_required() and (not (service.get("project_code") or "").strip() or not (service.get("cabinet_no") or "").strip()):
+        flash("系统已启用强制项目号/柜号，服务单必须关联项目号和柜号后才能继续流转。", "warning")
         return None
     return service
 
@@ -17438,7 +17438,7 @@ def _service_part_issue_stock_error(product_id, quantity, warehouse_id, location
         actual_warehouse_id,
         location_id,
         lot_no,
-        service.get("serial_no") or "",
+        service.get("cabinet_no") or "",
         service.get("project_code") or "",
     )
     if available_qty < quantity:
@@ -17616,7 +17616,7 @@ def _issue_service_order_part(order_id):
                 """
                 INSERT INTO machine_service_order_items (
                     order_id, product_id, quantity, unit_cost, amount, warehouse_id, location_id,
-                    lot_no, serial_no, project_code, source_line_no,
+                    lot_no, cabinet_no, project_code, source_line_no,
                     material_code, material_name, material_spec, material_unit, spec, unit, remark
                 )
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -17630,7 +17630,7 @@ def _issue_service_order_part(order_id):
                     actual_warehouse_id,
                     actual_location_id,
                     lot_no,
-                    service.get("serial_no") or "",
+                    service.get("cabinet_no") or "",
                     service.get("project_code") or "",
                     source_line_no,
                     snapshot["material_code"],
@@ -17652,7 +17652,7 @@ def _issue_service_order_part(order_id):
                 warehouse_id=actual_warehouse_id,
                 location_id=actual_location_id,
                 lot_no=lot_no,
-                serial_no=service.get("serial_no") or "",
+                cabinet_no=service.get("cabinet_no") or "",
                 project_code=service.get("project_code") or "",
             )
             created += 1
@@ -17707,7 +17707,7 @@ def _issue_service_order_part(order_id):
         """
         INSERT INTO machine_service_order_items (
             order_id, product_id, quantity, unit_cost, amount, warehouse_id, location_id,
-            lot_no, serial_no, project_code, source_line_no,
+            lot_no, cabinet_no, project_code, source_line_no,
             material_code, material_name, material_spec, material_unit, spec, unit, remark
         )
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -17721,7 +17721,7 @@ def _issue_service_order_part(order_id):
             warehouse_id,
             location_id,
             lot_no,
-            service.get("serial_no") or "",
+            service.get("cabinet_no") or "",
             service.get("project_code") or "",
             source_line_no,
             snapshot["material_code"],
@@ -17743,7 +17743,7 @@ def _issue_service_order_part(order_id):
         warehouse_id=warehouse_id,
         location_id=location_id,
         lot_no=lot_no,
-        serial_no=service.get("serial_no") or "",
+        cabinet_no=service.get("cabinet_no") or "",
         project_code=service.get("project_code") or "",
     )
     service_cost = _safe_one(
@@ -17814,10 +17814,10 @@ def _create_rma_from_service_order(order_id):
             status, internal_claim_amount, supplier_claim_amount,
             supplier_recovered_amount, claim_status, claim_note,
             fault_summary, diagnosis, remark, created_by,
-            sales_order_id, cost_object_id, project_code, serial_no,
+            sales_order_id, cost_object_id, project_code, cabinet_no,
             product_id, quantity, unit_cost, amount, warehouse_id, location_id,
             lot_no, source_line_no, material_code, material_name, material_spec,
-            material_unit, line_project_code, line_serial_no
+            material_unit, line_project_code, line_cabinet_no
         )
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s,
                 %s, 0, 0, 0, %s, %s,
@@ -17844,7 +17844,7 @@ def _create_rma_from_service_order(order_id):
             service.get("sales_order_id"),
             service.get("cost_object_id"),
             service.get("project_code"),
-            service.get("serial_no"),
+            service.get("cabinet_no"),
             rma_item.get("product_id"),
             _as_decimal(rma_item.get("quantity")),
             _as_decimal(rma_item.get("unit_cost")),
@@ -17858,7 +17858,7 @@ def _create_rma_from_service_order(order_id):
             rma_item.get("material_spec") or "",
             rma_item.get("material_unit") or "",
             service.get("project_code") or "",
-            service.get("serial_no") or "",
+            service.get("cabinet_no") or "",
         ),
     )
     rma_id = _returned_id(new_rma)
@@ -17891,10 +17891,10 @@ def _edit_service_rma_from_form(rma_id):
         flash("请选择有效的来源服务单。", "warning")
         return redirect(f"/service-rmas/{rma_id}/edit")
     project_code = _form_text("project_code") or service.get("project_code")
-    serial_no = _form_text("serial_no") or service.get("serial_no")
-    project_serial_error = _require_project_serial_values_or_redirect(project_code, serial_no, f"/service-rmas/{rma_id}/edit")
-    if project_serial_error:
-        return project_serial_error
+    cabinet_no = _form_text("cabinet_no") or service.get("cabinet_no")
+    project_cabinet_error = _require_project_cabinet_values_or_redirect(project_code, cabinet_no, f"/service-rmas/{rma_id}/edit")
+    if project_cabinet_error:
+        return project_cabinet_error
     product_id = _form_int("product_id")
     product_error = _inactive_master_error("products", product_id, "RMA物料")
     if product_error:
@@ -17910,10 +17910,10 @@ def _edit_service_rma_from_form(rma_id):
             warranty_scope=%s, responsibility_type=%s, return_factory_required=%s,
             supplier_claim_amount=%s, claim_status=%s, claim_note=%s,
             fault_summary=%s, diagnosis=%s, remark=%s, sales_order_id=%s,
-            cost_object_id=%s, project_code=%s, serial_no=%s, product_id=%s,
+            cost_object_id=%s, project_code=%s, cabinet_no=%s, product_id=%s,
             quantity=%s, unit_cost=%s, amount=%s, warehouse_id=%s, location_id=%s,
             lot_no=%s, material_code=%s, material_name=%s, material_spec=%s,
-            material_unit=%s, source_line_no=%s, line_project_code=%s, line_serial_no=%s
+            material_unit=%s, source_line_no=%s, line_project_code=%s, line_cabinet_no=%s
         WHERE id=%s
         """,
         (
@@ -17933,7 +17933,7 @@ def _edit_service_rma_from_form(rma_id):
             service.get("sales_order_id"),
             service.get("cost_object_id"),
             project_code,
-            serial_no,
+            cabinet_no,
             product_id or None,
             quantity,
             unit_cost,
@@ -17947,7 +17947,7 @@ def _edit_service_rma_from_form(rma_id):
             product_snapshot.get("material_unit") or "",
             _form_text("source_line_no"),
             project_code,
-            serial_no,
+            cabinet_no,
             rma_id,
         ),
     )
@@ -17997,7 +17997,7 @@ def _return_visit_service_order(order_id):
         INSERT INTO machine_service_return_visits (
             visit_no, order_id, wo_id, service_card_id, visit_date, satisfaction, satisfaction_score, result,
             next_action, remark, created_by, sales_order_id, cost_object_id,
-            project_code, serial_no
+            project_code, cabinet_no
         )
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """,
@@ -18016,7 +18016,7 @@ def _return_visit_service_order(order_id):
             service.get("sales_order_id"),
             service.get("cost_object_id"),
             service.get("project_code"),
-            service.get("serial_no"),
+            service.get("cabinet_no"),
         ),
     )
     _execute_db("UPDATE machine_service_orders SET status=%s WHERE id=%s", ("已回访", order_id))
@@ -18085,8 +18085,8 @@ def _service_rma_or_redirect(rma_id):
     if str(rma.get("status") or "") in {"已关闭", "已完成", "closed", "completed", "已作废", "cancelled"}:
         flash("RMA已关闭、已完成或已作废，不能继续处理。", "warning")
         return None
-    if _project_serial_required() and (not (rma.get("project_code") or "").strip() or not (rma.get("serial_no") or "").strip()):
-        flash("系统已启用强制项目号/机号，RMA必须关联项目号和机号后才能继续流转。", "warning")
+    if _project_cabinet_required() and (not (rma.get("project_code") or "").strip() or not (rma.get("cabinet_no") or "").strip()):
+        flash("系统已启用强制项目号/柜号，RMA必须关联项目号和柜号后才能继续流转。", "warning")
         return None
     return rma
 
@@ -18199,7 +18199,7 @@ def _inventory_product_snapshot(product_id):
     }
 
 
-def _inventory_available_qty(product_id, warehouse_id=None, location_id=None, lot_no="", serial_no="", project_code=""):
+def _inventory_available_qty(product_id, warehouse_id=None, location_id=None, lot_no="", cabinet_no="", project_code=""):
     row = _safe_one(
         """
         SELECT COALESCE(SUM(quantity),0) AS available_qty
@@ -18208,10 +18208,10 @@ def _inventory_available_qty(product_id, warehouse_id=None, location_id=None, lo
           AND (%s IS NULL OR warehouse_id=%s)
           AND (%s IS NULL OR location_id=%s)
           AND COALESCE(lot_no,'')=COALESCE(%s,'')
-          AND COALESCE(serial_no,'')=COALESCE(%s,'')
+          AND COALESCE(cabinet_no,'')=COALESCE(%s,'')
           AND COALESCE(project_code,'')=COALESCE(%s,'')
         """,
-        (product_id, warehouse_id, warehouse_id, location_id, location_id, lot_no, serial_no, project_code),
+        (product_id, warehouse_id, warehouse_id, location_id, location_id, lot_no, cabinet_no, project_code),
     ) or {}
     return _as_decimal(row.get("available_qty"))
 
@@ -18229,7 +18229,7 @@ def _inventory_movement_can_audit(lines, direction):
             line.get("line_warehouse_id"),
             line.get("line_location_id"),
             line.get("lot_no") or "",
-            line.get("serial_no") or "",
+            line.get("cabinet_no") or "",
             line.get("project_code") or "",
         )
         if available_qty < qty:
@@ -18277,7 +18277,7 @@ def _first_form_line(product_field="product_id[]", quantity_field="quantity[]", 
     quantities = request.form.getlist(quantity_field)
     unit_costs = request.form.getlist("unit_cost[]") or request.form.getlist("unit_price[]")
     lot_nos = request.form.getlist("lot_no[]")
-    serial_nos = request.form.getlist("serial_no[]")
+    cabinet_nos = request.form.getlist("cabinet_no[]")
     source_line_nos = request.form.getlist("source_line_no[]")
     project_codes = request.form.getlist("line_project_code[]")
     warehouses = request.form.getlist("warehouse[]")
@@ -18298,7 +18298,7 @@ def _first_form_line(product_field="product_id[]", quantity_field="quantity[]", 
             "quantity": quantity,
             "unit_cost": _as_decimal(unit_costs[idx] if idx < len(unit_costs) else "0"),
             "lot_no": lot_nos[idx] if idx < len(lot_nos) else "",
-            "serial_no": serial_nos[idx] if idx < len(serial_nos) else "",
+            "cabinet_no": cabinet_nos[idx] if idx < len(cabinet_nos) else "",
             "source_line_no": source_line_nos[idx] if idx < len(source_line_nos) else "",
             "project_code": project_codes[idx] if idx < len(project_codes) else "",
             "warehouse": warehouses[idx] if idx < len(warehouses) else "",
@@ -18323,7 +18323,7 @@ def _inventory_form_lines(quantity_field="quantity"):
             "unit_cost": _as_decimal(_form_list_value("unit_cost[]", idx, "0")),
             "amount": quantity * _as_decimal(_form_list_value("unit_cost[]", idx, "0")),
             "lot_no": _form_list_value("lot_no[]", idx),
-            "serial_no": _form_list_value("serial_no[]", idx),
+            "cabinet_no": _form_list_value("cabinet_no[]", idx),
             "project_code": _form_list_value("line_project_code[]", idx),
             "source_line_no": _form_list_value("source_line_no[]", idx),
             "warehouse_id": _as_int(_form_list_value("line_warehouse_id[]", idx, "0")),
@@ -18366,7 +18366,7 @@ def _create_inventory_movement(direction):
     # Save writes only the header and lines. Audit posts inventory.
     use_draft_flow = True
     project_code = _form_text("project_code")
-    project_header_error = _require_project_serial_values_or_redirect(project_code, "pending-line-check", back_url)
+    project_header_error = _require_project_cabinet_values_or_redirect(project_code, "pending-line-check", back_url)
     if project_header_error:
         return project_header_error
     reference_no = _form_text("reference_no") or _next_doc_no("OI" if direction == "in" else "OO", "inventory_movement_documents", "doc_no")
@@ -18380,7 +18380,7 @@ def _create_inventory_movement(direction):
     quantities = request.form.getlist("quantity[]") or [str(_form_decimal("quantity"))]
     unit_costs = request.form.getlist("unit_cost[]") or [str(_form_decimal("unit_cost"))]
     lot_nos = request.form.getlist("lot_no[]") or [_form_text("lot_no")]
-    serial_nos = request.form.getlist("serial_no[]") or [_form_text("serial_no")]
+    cabinet_nos = request.form.getlist("cabinet_no[]") or [_form_text("cabinet_no")]
     line_warehouse_ids = request.form.getlist("line_warehouse_id[]")
     line_location_ids = request.form.getlist("line_location_id[]")
     warehouse_id = _as_int(line_warehouse_ids[0]) if line_warehouse_ids else _form_int("warehouse_id")
@@ -18430,13 +18430,13 @@ def _create_inventory_movement(direction):
             if direction == "out" and not use_draft_flow and not usage_reason:
                 raise ValueError("其他出库每行必须填写用途/原因。")
             lot_no = lot_nos[idx] if idx < len(lot_nos) else ""
-            serial_no = serial_nos[idx] if idx < len(serial_nos) else ""
-            project_serial_error = _require_project_serial_values_or_redirect(line_project_code, serial_no, back_url)
-            if project_serial_error:
+            cabinet_no = cabinet_nos[idx] if idx < len(cabinet_nos) else ""
+            project_cabinet_error = _require_project_cabinet_values_or_redirect(line_project_code, cabinet_no, back_url)
+            if project_cabinet_error:
                 _rollback_inventory_movement_draft(doc_id)
-                return project_serial_error
+                return project_cabinet_error
             if direction == "out" and not use_draft_flow:
-                available_qty = _inventory_available_qty(product_id, line_warehouse_id, location_id, lot_no, serial_no, line_project_code)
+                available_qty = _inventory_available_qty(product_id, line_warehouse_id, location_id, lot_no, cabinet_no, line_project_code)
                 if available_qty < entered_qty:
                     raise ValueError(f"库存不足，可用 {available_qty}，需要 {entered_qty}。")
             # Persist the line in inventory_movement_lines. For draft flow this is
@@ -18446,18 +18446,18 @@ def _create_inventory_movement(direction):
                 """
                 INSERT INTO inventory_movement_lines
                     (doc_id, line_no, product_id, quantity, unit_cost, amount,
-                     lot_no, serial_no, line_project_code, line_warehouse_id,
+                     lot_no, cabinet_no, line_project_code, line_warehouse_id,
                      line_location_id, usage_reason, source_doc_no, source_line_no,
                      created_at)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
                 """,
                 (doc_id, idx + 1, product_id, entered_qty, unit_cost, amount,
-                 lot_no, serial_no, line_project_code, line_warehouse_id, location_id,
+                 lot_no, cabinet_no, line_project_code, line_warehouse_id, location_id,
                  usage_reason, _form_list_value("source_doc_no[]", idx),
                  _form_list_value("source_line_no[]", idx)),
             )
             if not use_draft_flow:
-                _apply_inventory_movement(product_id, qty, unit_cost, tx_type, reference_no, usage_reason, line_warehouse_id, location_id, lot_no, serial_no, tx_date, line_project_code)
+                _apply_inventory_movement(product_id, qty, unit_cost, tx_type, reference_no, usage_reason, line_warehouse_id, location_id, lot_no, cabinet_no, tx_date, line_project_code)
                 _execute_db(
                     """
                     UPDATE stock_transactions
@@ -18529,7 +18529,7 @@ def _audit_inventory_movement(doc_no):
         return redirect(f"{detail_base}/{doc_no}")
     lines = _safe_rows(
         """
-        SELECT product_id, quantity, unit_cost, lot_no, serial_no,
+        SELECT product_id, quantity, unit_cost, lot_no, cabinet_no,
                line_project_code, line_warehouse_id, line_location_id,
                usage_reason, source_doc_no, source_line_no
         FROM inventory_movement_lines
@@ -18569,15 +18569,15 @@ def _audit_inventory_movement(doc_no):
             line_warehouse_id = line.get("line_warehouse_id") or header.get("warehouse_id")
             location_id = line.get("line_location_id") or header.get("location_id")
             lot_no = line.get("lot_no") or ""
-            serial_no = line.get("serial_no") or ""
+            cabinet_no = line.get("cabinet_no") or ""
             line_project_code = line.get("line_project_code") or header.get("project_code")
             if direction == "out":
-                available_qty = _inventory_available_qty(product_id, line_warehouse_id, location_id, lot_no, serial_no, line_project_code)
+                available_qty = _inventory_available_qty(product_id, line_warehouse_id, location_id, lot_no, cabinet_no, line_project_code)
                 if available_qty < entered_qty:
                     raise ValueError(f"库存不足，可用 {available_qty}，需要 {entered_qty}。")
             _apply_inventory_movement(
                 product_id, qty, unit_cost, tx_type, reference_no, usage_reason,
-                line_warehouse_id, location_id, lot_no, serial_no, tx_date,
+                line_warehouse_id, location_id, lot_no, cabinet_no, tx_date,
                 line_project_code,
                 query_one=query_one, execute_db_fn=execute_db,
             )
@@ -18623,7 +18623,7 @@ def _unaudit_inventory_movement(doc_no):
     deleting the stock_transactions rows that were created at audit time and
     reversing the inventory_balances effect. Used by the 详情页「反审」button.
     Guarded by a downstream-impact check: if any later stock_transactions row
-    references the same product/warehouse/lot/serial/project bucket, the unaudit
+    references the same product/warehouse/lot/cabinet/project bucket, the unaudit
     is refused to avoid corrupting balances."""
     header = _safe_one(
         """
@@ -18653,7 +18653,7 @@ def _unaudit_inventory_movement(doc_no):
     tx_rows = _safe_rows(
         """
         SELECT id, product_id, quantity, unit_cost, warehouse_id, location_id,
-               lot_no, serial_no, project_code
+               lot_no, cabinet_no, project_code
         FROM stock_transactions
         WHERE reference_no=%s AND transaction_type=%s
         ORDER BY id
@@ -18680,7 +18680,7 @@ def _unaudit_inventory_movement(doc_no):
                   AND COALESCE(warehouse_id,0)=COALESCE(%s,0)
                   AND COALESCE(location_id,0)=COALESCE(%s,0)
                   AND COALESCE(lot_no,'')=COALESCE(%s,'')
-                  AND COALESCE(serial_no,'')=COALESCE(%s,'')
+                  AND COALESCE(cabinet_no,'')=COALESCE(%s,'')
                   AND COALESCE(project_code,'')=COALESCE(%s,'')
                 ORDER BY id
                 LIMIT 1
@@ -18693,7 +18693,7 @@ def _unaudit_inventory_movement(doc_no):
                     tx.get("warehouse_id"),
                     tx.get("location_id"),
                     tx.get("lot_no") or "",
-                    tx.get("serial_no") or "",
+                    tx.get("cabinet_no") or "",
                     tx.get("project_code") or "",
                 ),
             )
@@ -18708,7 +18708,7 @@ def _unaudit_inventory_movement(doc_no):
                 warehouse_id=tx.get("warehouse_id"),
                 location_id=tx.get("location_id"),
                 lot_no=tx.get("lot_no") or "",
-                serial_no=tx.get("serial_no") or "",
+                cabinet_no=tx.get("cabinet_no") or "",
                 project_code=tx.get("project_code") or "",
                 query_one=query_one,
                 execute_db_fn=execute_db,
@@ -18796,7 +18796,7 @@ def _copy_inventory_movement_document(doc_no):
         return redirect(f"{detail_base}/{doc_no}")
     lines = _safe_rows(
         """
-        SELECT line_no, product_id, quantity, unit_cost, amount, lot_no, serial_no,
+        SELECT line_no, product_id, quantity, unit_cost, amount, lot_no, cabinet_no,
                line_project_code, line_warehouse_id, line_location_id,
                usage_reason, source_doc_no, source_line_no
         FROM inventory_movement_lines
@@ -18844,7 +18844,7 @@ def _copy_inventory_movement_document(doc_no):
                 """
                 INSERT INTO inventory_movement_lines
                     (doc_id, line_no, product_id, quantity, unit_cost, amount,
-                     lot_no, serial_no, line_project_code, line_warehouse_id,
+                     lot_no, cabinet_no, line_project_code, line_warehouse_id,
                      line_location_id, usage_reason, source_doc_no, source_line_no,
                      created_at)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
@@ -18857,7 +18857,7 @@ def _copy_inventory_movement_document(doc_no):
                     line.get("unit_cost"),
                     line.get("amount"),
                     line.get("lot_no"),
-                    line.get("serial_no"),
+                    line.get("cabinet_no"),
                     line.get("line_project_code"),
                     line.get("line_warehouse_id"),
                     line.get("line_location_id"),
@@ -19184,7 +19184,7 @@ def _copy_subcontract_document(kind, doc_id):
 
 
 
-def _reverse_inventory_movement_balance(product_id, signed_qty, unit_cost, warehouse_id, location_id, lot_no, serial_no, project_code, query_one=None, execute_db_fn=None):
+def _reverse_inventory_movement_balance(product_id, signed_qty, unit_cost, warehouse_id, location_id, lot_no, cabinet_no, project_code, query_one=None, execute_db_fn=None):
     """Reverse the inventory_balances effect of a previously-posted stock_transactions
     row. signed_qty is the original signed quantity (positive for inbound, negative
     for outbound). Reversal subtracts that signed qty from the balance (i.e. inbound
@@ -19201,13 +19201,13 @@ def _reverse_inventory_movement_balance(product_id, signed_qty, unit_cost, wareh
         WHERE product_id=%s AND COALESCE(warehouse_id,0)=COALESCE(%s,0)
           AND COALESCE(location_id,0)=COALESCE(%s,0)
           AND COALESCE(lot_no,'')=COALESCE(%s,'')
-          AND COALESCE(serial_no,'')=COALESCE(%s,'')
+          AND COALESCE(cabinet_no,'')=COALESCE(%s,'')
           AND COALESCE(project_code,'')=COALESCE(%s,'')
         ORDER BY id
         LIMIT 1
         FOR UPDATE
         """,
-        (product_id, warehouse_id, location_id, lot_no, serial_no, project_code),
+        (product_id, warehouse_id, location_id, lot_no, cabinet_no, project_code),
     )
     if not balance:
         raise ValueError("无法反审：找不到对应的库存余额记录。")
@@ -19271,9 +19271,9 @@ def _reverse_inventory_movement_balance(product_id, signed_qty, unit_cost, wareh
           AND location_id IS NOT DISTINCT FROM %s
           AND COALESCE(project_code,'')=%s
           AND COALESCE(lot_no,'')=%s
-          AND COALESCE(serial_no,'')=%s
+          AND COALESCE(cabinet_no,'')=%s
         """,
-        (product_id, warehouse_id, location_id, project_code or "", lot_no or "", serial_no or ""),
+        (product_id, warehouse_id, location_id, project_code or "", lot_no or "", cabinet_no or ""),
     ) or {}
     batch_qty = _as_decimal(balance_row.get("quantity"))
     batch_cost = _as_decimal(balance_row.get("unit_cost"))
@@ -19286,12 +19286,12 @@ def _reverse_inventory_movement_balance(product_id, signed_qty, unit_cost, wareh
           AND location_id IS NOT DISTINCT FROM %s
           AND COALESCE(project_code,'')=%s
           AND COALESCE(lot_no,'')=%s
-          AND COALESCE(serial_no,'')=%s
+          AND COALESCE(cabinet_no,'')=%s
         ORDER BY id
         LIMIT 1
         FOR UPDATE
         """,
-        (product_id, warehouse_id, location_id, project_code or "", lot_no or "", serial_no or ""),
+        (product_id, warehouse_id, location_id, project_code or "", lot_no or "", cabinet_no or ""),
     )
     if batch:
         execute_db_fn(
@@ -19308,7 +19308,7 @@ def _reverse_inventory_movement_balance(product_id, signed_qty, unit_cost, wareh
         execute_db_fn(
             """
             INSERT INTO batch_tracking
-                (lot_no, product_id, warehouse_id, location_id, serial_no, project_code,
+                (lot_no, product_id, warehouse_id, location_id, cabinet_no, project_code,
                  quantity_in, quantity_out, quantity_available, unit_cost, source_order_no,
                  status, created_at, updated_at)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'derived',NOW(),NOW())
@@ -19318,7 +19318,7 @@ def _reverse_inventory_movement_balance(product_id, signed_qty, unit_cost, wareh
                 product_id,
                 warehouse_id,
                 location_id,
-                serial_no or "",
+                cabinet_no or "",
                 project_code or "",
                 batch_qty,
                 Decimal("0"),
@@ -19337,7 +19337,7 @@ def _reverse_stock_transactions_for_reference(reference_no, tx_types=None, query
         tx_rows = query_rows(
             """
             SELECT id, product_id, quantity, unit_cost, warehouse_id, location_id,
-                   lot_no, serial_no, project_code, transaction_type
+                   lot_no, cabinet_no, project_code, transaction_type
             FROM stock_transactions
             WHERE reference_no=%s AND transaction_type = ANY(%s)
             ORDER BY id
@@ -19348,7 +19348,7 @@ def _reverse_stock_transactions_for_reference(reference_no, tx_types=None, query
         tx_rows = query_rows(
             """
             SELECT id, product_id, quantity, unit_cost, warehouse_id, location_id,
-                   lot_no, serial_no, project_code, transaction_type
+                   lot_no, cabinet_no, project_code, transaction_type
             FROM stock_transactions
             WHERE reference_no=%s
             ORDER BY id
@@ -19368,7 +19368,7 @@ def _reverse_stock_transactions_for_reference(reference_no, tx_types=None, query
               AND COALESCE(warehouse_id,0)=COALESCE(%s,0)
               AND COALESCE(location_id,0)=COALESCE(%s,0)
               AND COALESCE(lot_no,'')=COALESCE(%s,'')
-              AND COALESCE(serial_no,'')=COALESCE(%s,'')
+              AND COALESCE(cabinet_no,'')=COALESCE(%s,'')
               AND COALESCE(project_code,'')=COALESCE(%s,'')
             ORDER BY id
             LIMIT 1
@@ -19380,7 +19380,7 @@ def _reverse_stock_transactions_for_reference(reference_no, tx_types=None, query
                 tx.get("warehouse_id"),
                 tx.get("location_id"),
                 tx.get("lot_no") or "",
-                tx.get("serial_no") or "",
+                tx.get("cabinet_no") or "",
                 tx.get("project_code") or "",
             ),
         )
@@ -19393,7 +19393,7 @@ def _reverse_stock_transactions_for_reference(reference_no, tx_types=None, query
             warehouse_id=tx.get("warehouse_id"),
             location_id=tx.get("location_id"),
             lot_no=tx.get("lot_no") or "",
-            serial_no=tx.get("serial_no") or "",
+            cabinet_no=tx.get("cabinet_no") or "",
             project_code=tx.get("project_code") or "",
             query_one=query_one,
             execute_db_fn=execute_db_fn,
@@ -19412,7 +19412,7 @@ def _create_material_opening():
     back_url = "/inventory/opening/new"
     list_url = "/inventory/opening"
     project_code = _form_text("project_code")
-    project_header_error = _require_project_serial_values_or_redirect(project_code, "pending-line-check", back_url)
+    project_header_error = _require_project_cabinet_values_or_redirect(project_code, "pending-line-check", back_url)
     if project_header_error:
         return project_header_error
     reference_no = _form_text("reference_no") or _next_doc_no("MO", "stock_transactions", "reference_no")
@@ -19422,7 +19422,7 @@ def _create_material_opening():
     quantities = request.form.getlist("quantity[]") or [str(_form_decimal("quantity"))]
     unit_costs = request.form.getlist("unit_cost[]") or [str(_form_decimal("unit_cost"))]
     lot_nos = request.form.getlist("lot_no[]") or [_form_text("lot_no")]
-    serial_nos = request.form.getlist("serial_no[]") or [_form_text("serial_no")]
+    cabinet_nos = request.form.getlist("cabinet_no[]") or [_form_text("cabinet_no")]
     created = 0
     try:
         for idx, product_id_value in enumerate(product_ids):
@@ -19437,15 +19437,15 @@ def _create_material_opening():
                 return line_location_error
             unit_cost = _as_decimal(unit_costs[idx] if idx < len(unit_costs) else "0")
             lot_no = lot_nos[idx] if idx < len(lot_nos) else ""
-            serial_no = serial_nos[idx] if idx < len(serial_nos) else ""
+            cabinet_no = cabinet_nos[idx] if idx < len(cabinet_nos) else ""
             line_project_code = _form_list_value("line_project_code[]", idx) or project_code
-            project_serial_error = _require_project_serial_values_or_redirect(line_project_code, serial_no, back_url)
-            if project_serial_error:
-                return project_serial_error
+            project_cabinet_error = _require_project_cabinet_values_or_redirect(line_project_code, cabinet_no, back_url)
+            if project_cabinet_error:
+                return project_cabinet_error
             usage_reason = _form_list_value("usage_reason[]", idx) or remark or "上线期初"
             source_doc_no = _form_list_value("source_doc_no[]", idx) or reference_no
             amount = qty * unit_cost
-            _apply_inventory_movement(product_id, qty, unit_cost, tx_type, reference_no, usage_reason, line_warehouse_id, location_id, lot_no, serial_no, tx_date, line_project_code)
+            _apply_inventory_movement(product_id, qty, unit_cost, tx_type, reference_no, usage_reason, line_warehouse_id, location_id, lot_no, cabinet_no, tx_date, line_project_code)
             _execute_db(
                 """
                 UPDATE stock_transactions
@@ -19482,7 +19482,7 @@ def _render_material_opening_list():
               OR COALESCE(p.name,'') ILIKE %s
               OR COALESCE(p.code,'') ILIKE %s
               OR COALESCE(st.project_code,'') ILIKE %s
-              OR COALESCE(st.serial_no,'') ILIKE %s
+              OR COALESCE(st.cabinet_no,'') ILIKE %s
               OR COALESCE(st.lot_no,'') ILIKE %s
           )
         """
@@ -19498,7 +19498,7 @@ def _render_material_opening_list():
                COALESCE(w.name,'') AS warehouse_name,
                COALESCE(l.code || ' / ' || l.name, st.location, '') AS location_name,
                COALESCE(st.project_code,'') AS project_code,
-               COALESCE(st.serial_no,'') AS serial_no,
+               COALESCE(st.cabinet_no,'') AS cabinet_no,
                COALESCE(st.lot_no,'') AS lot_no,
                st.quantity,
                st.unit_cost,
@@ -19527,7 +19527,7 @@ def _render_material_opening_list():
             {"key": "warehouse_name", "label": "仓库"},
             {"key": "location_name", "label": "库位"},
             {"key": "project_code", "label": "项目号"},
-            {"key": "serial_no", "label": "机号"},
+            {"key": "cabinet_no", "label": "柜号"},
             {"key": "lot_no", "label": "批号"},
             {"key": "quantity", "label": "期初数量"},
             {"key": "unit_cost", "label": "期初单价"},
@@ -19544,7 +19544,7 @@ def _ensure_inventory_workflow_columns():
         for ddl in (
             "ALTER TABLE inventory_adjustments ADD COLUMN IF NOT EXISTS warehouse_id INTEGER",
             "ALTER TABLE inventory_adjustments ADD COLUMN IF NOT EXISTS location_id INTEGER",
-            "ALTER TABLE inventory_adjustments ADD COLUMN IF NOT EXISTS serial_no VARCHAR(120)",
+            "ALTER TABLE inventory_adjustments ADD COLUMN IF NOT EXISTS cabinet_no VARCHAR(120)",
             "ALTER TABLE inventory_adjustments ADD COLUMN IF NOT EXISTS project_code VARCHAR(120)",
             "ALTER TABLE inventory_adjustments ADD COLUMN IF NOT EXISTS amount NUMERIC(14,2) DEFAULT 0",
             "ALTER TABLE inventory_adjustments ADD COLUMN IF NOT EXISTS posted_at TIMESTAMP",
@@ -19591,7 +19591,7 @@ def _ensure_transfer_item_table():
             product_id INTEGER NOT NULL,
             quantity NUMERIC(14,3) NOT NULL,
             lot_no VARCHAR(100),
-            serial_no VARCHAR(100),
+            cabinet_no VARCHAR(100),
             unit_cost NUMERIC(14,2) DEFAULT 0,
             amount NUMERIC(14,2) DEFAULT 0,
             remark TEXT
@@ -19623,7 +19623,7 @@ def _create_inventory_adjustment():
         flash("反审请在已过账库存调整单详情页执行。", "warning")
         return redirect(back_url)
     project_code = _form_text("project_code")
-    project_header_error = _require_project_serial_values_or_redirect(project_code, "pending-line-check", back_url)
+    project_header_error = _require_project_cabinet_values_or_redirect(project_code, "pending-line-check", back_url)
     if project_header_error:
         return project_header_error
     rows = _inventory_form_lines("diff_quantity")
@@ -19632,7 +19632,7 @@ def _create_inventory_adjustment():
         diff_qty = _form_decimal("diff_quantity")
         if product_id and diff_qty != 0:
             unit_cost = _form_decimal("unit_cost")
-            rows = [{"product_id": product_id, "quantity": diff_qty, "unit_cost": unit_cost, "amount": diff_qty * unit_cost, "lot_no": _form_text("lot_no"), "serial_no": _form_text("serial_no"), "remark": _form_text("remark")}]
+            rows = [{"product_id": product_id, "quantity": diff_qty, "unit_cost": unit_cost, "amount": diff_qty * unit_cost, "lot_no": _form_text("lot_no"), "cabinet_no": _form_text("cabinet_no"), "remark": _form_text("remark")}]
     if not rows:
         flash("请录入至少一条有效的调整明细。", "warning")
         return redirect(back_url)
@@ -19645,9 +19645,9 @@ def _create_inventory_adjustment():
         return redirect(back_url)
     first_id = None
     for row in rows:
-        project_serial_error = _require_project_serial_values_or_redirect(project_code, row["serial_no"], back_url)
-        if project_serial_error:
-            return project_serial_error
+        project_cabinet_error = _require_project_cabinet_values_or_redirect(project_code, row["cabinet_no"], back_url)
+        if project_cabinet_error:
+            return project_cabinet_error
         row_warehouse_id = row.get("warehouse_id")
         row_location_id = row.get("location_id")
         row_location_error = _require_inventory_location_or_redirect(row_warehouse_id, row_location_id, back_url, "仓库")
@@ -19661,12 +19661,12 @@ def _create_inventory_adjustment():
             """
             INSERT INTO inventory_adjustments
                 (adj_no, adj_date, product_id, diff_quantity, unit_cost, adj_type,
-                 amount, status, reference_no, lot_no, project_code, warehouse_id, location_id, serial_no, remark,
+                 amount, status, reference_no, lot_no, project_code, warehouse_id, location_id, cabinet_no, remark,
                  source_line_no, line_project_code)
             VALUES (%s,%s,%s,%s,%s,%s,%s,'待过账',%s,%s,%s,%s,%s,%s,%s,%s,%s)
             RETURNING id
             """,
-            (adj_no, adj_date, row["product_id"], row["quantity"], row["unit_cost"], adj_type, row["amount"], row["serial_no"], row["lot_no"], row_project_code, row_warehouse_id, row_location_id, row["serial_no"], row.get("remark") or remark, row.get("source_line_no"), row_project_code),
+            (adj_no, adj_date, row["product_id"], row["quantity"], row["unit_cost"], adj_type, row["amount"], row["cabinet_no"], row["lot_no"], row_project_code, row_warehouse_id, row_location_id, row["cabinet_no"], row.get("remark") or remark, row.get("source_line_no"), row_project_code),
         )
         first_id = first_id or result.get("id")
     _save_document_custom_payload("inventory_adjustment", first_id)
@@ -19696,9 +19696,9 @@ def _edit_inventory_adjustment(adjustment_id):
         return redirect(back_url)
     adj_no = order.get("adj_no")
     for row in rows:
-        project_serial_error = _require_project_serial_values_or_redirect(project_code, row["serial_no"], back_url)
-        if project_serial_error:
-            return project_serial_error
+        project_cabinet_error = _require_project_cabinet_values_or_redirect(project_code, row["cabinet_no"], back_url)
+        if project_cabinet_error:
+            return project_cabinet_error
     _execute_db("DELETE FROM inventory_adjustments WHERE adj_no=%s", (adj_no,))
     first_id = None
     for row in rows:
@@ -19714,12 +19714,12 @@ def _edit_inventory_adjustment(adjustment_id):
             """
             INSERT INTO inventory_adjustments
                 (adj_no, adj_date, product_id, diff_quantity, unit_cost, adj_type,
-                 amount, status, reference_no, lot_no, project_code, warehouse_id, location_id, serial_no, remark,
+                 amount, status, reference_no, lot_no, project_code, warehouse_id, location_id, cabinet_no, remark,
                  source_line_no, line_project_code)
             VALUES (%s,%s,%s,%s,%s,%s,%s,'待过账',%s,%s,%s,%s,%s,%s,%s,%s,%s)
             RETURNING id
             """,
-            (adj_no, _form_text("adj_date", datetime.now().date().isoformat()), row["product_id"], row["quantity"], row["unit_cost"], adj_type, row["amount"], row["serial_no"], row["lot_no"], row_project_code, row_warehouse_id, row_location_id, row["serial_no"], row.get("remark") or remark, row.get("source_line_no"), row_project_code),
+            (adj_no, _form_text("adj_date", datetime.now().date().isoformat()), row["product_id"], row["quantity"], row["unit_cost"], adj_type, row["amount"], row["cabinet_no"], row["lot_no"], row_project_code, row_warehouse_id, row_location_id, row["cabinet_no"], row.get("remark") or remark, row.get("source_line_no"), row_project_code),
         )
         first_id = first_id or result.get("id")
     _log_action("编辑库存调整单", adj_no)
@@ -19753,7 +19753,7 @@ def _post_inventory_adjustment(adjustment_id):
             return redirect(f"/adjustments/{adjustment_id}")
         for row in _safe_rows("SELECT * FROM inventory_adjustments WHERE adj_no=%s ORDER BY id", (adj_no,)):
             _validate_inventory_location_or_raise(row.get("warehouse_id"), row.get("location_id"), "仓库")
-            _apply_inventory_movement(row.get("product_id"), row.get("diff_quantity"), row.get("unit_cost"), (f"库存调整 {row.get('adj_type')}" if (row.get('adj_type') or '').strip() and (row.get('adj_type') or '').strip() != '库存调整' else '库存调整'), adj_no, row.get("remark") or "", row.get("warehouse_id"), row.get("location_id"), row.get("lot_no") or "", row.get("serial_no") or row.get("reference_no") or "", row.get("adj_date"), row.get("project_code") or "")
+            _apply_inventory_movement(row.get("product_id"), row.get("diff_quantity"), row.get("unit_cost"), (f"库存调整 {row.get('adj_type')}" if (row.get('adj_type') or '').strip() and (row.get('adj_type') or '').strip() != '库存调整' else '库存调整'), adj_no, row.get("remark") or "", row.get("warehouse_id"), row.get("location_id"), row.get("lot_no") or "", row.get("cabinet_no") or row.get("reference_no") or "", row.get("adj_date"), row.get("project_code") or "")
         _execute_db("UPDATE inventory_adjustments SET status='已过账', posted_at=NOW(), posted_by=%s WHERE adj_no=%s", (session.get("user_id"), adj_no))
     except ValueError as exc:
         flash(str(exc), "warning")
@@ -19868,7 +19868,7 @@ def _create_inventory_transfer():
         flash("反审请在已过账库存调拨单详情页执行。", "warning")
         return redirect(back_url)
     project_code = _form_text("project_code")
-    project_header_error = _require_project_serial_values_or_redirect(project_code, "pending-line-check", back_url)
+    project_header_error = _require_project_cabinet_values_or_redirect(project_code, "pending-line-check", back_url)
     if project_header_error:
         return project_header_error
     items = _transfer_form_items()
@@ -19896,19 +19896,19 @@ def _create_inventory_transfer():
     )
     transfer_id = transfer.get("id")
     for item in items:
-        project_serial_error = _require_project_serial_values_or_redirect(project_code, item["serial_no"], back_url)
-        if project_serial_error:
-            return project_serial_error
+        project_cabinet_error = _require_project_cabinet_values_or_redirect(project_code, item["cabinet_no"], back_url)
+        if project_cabinet_error:
+            return project_cabinet_error
         item_project_code = item.get("line_project_code") or project_code
         _execute_db(
             """
             INSERT INTO transfer_order_items
-                (transfer_id, product_id, quantity, lot_no, serial_no, unit_cost, amount,
+                (transfer_id, product_id, quantity, lot_no, cabinet_no, unit_cost, amount,
                  from_warehouse_id, to_warehouse_id, from_location_id, to_location_id,
                  line_project_code, source_line_no, remark)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             """,
-            (transfer_id, item["product_id"], item["quantity"], item["lot_no"], item["serial_no"],
+            (transfer_id, item["product_id"], item["quantity"], item["lot_no"], item["cabinet_no"],
              item["unit_cost"], item["amount"], item.get("from_warehouse_id") or None, item.get("to_warehouse_id") or None,
              item.get("from_location_id"), item.get("to_location_id"),
              item_project_code, item.get("source_line_no"), item.get("remark") or _form_text("remark")),
@@ -19943,9 +19943,9 @@ def _edit_inventory_transfer(transfer_id):
     to_location_id = header_item.get("to_location_id")
     project_code = _form_text("project_code")
     for item in items:
-        project_serial_error = _require_project_serial_values_or_redirect(project_code, item["serial_no"], back_url)
-        if project_serial_error:
-            return project_serial_error
+        project_cabinet_error = _require_project_cabinet_values_or_redirect(project_code, item["cabinet_no"], back_url)
+        if project_cabinet_error:
+            return project_cabinet_error
     def operation(_cursor):
         _execute_db(
             """
@@ -19962,12 +19962,12 @@ def _edit_inventory_transfer(transfer_id):
             _execute_db(
                 """
                 INSERT INTO transfer_order_items
-                    (transfer_id, product_id, quantity, lot_no, serial_no, unit_cost, amount,
+                    (transfer_id, product_id, quantity, lot_no, cabinet_no, unit_cost, amount,
                      from_warehouse_id, to_warehouse_id, from_location_id, to_location_id,
                      line_project_code, source_line_no, remark)
                 VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 """,
-                (transfer_id, item["product_id"], item["quantity"], item["lot_no"], item["serial_no"],
+                (transfer_id, item["product_id"], item["quantity"], item["lot_no"], item["cabinet_no"],
                  item["unit_cost"], item["amount"], item.get("from_warehouse_id") or None, item.get("to_warehouse_id") or None,
                  item.get("from_location_id"), item.get("to_location_id"),
                  item_project_code, item.get("source_line_no"), item.get("remark") or _form_text("remark")),
@@ -20017,8 +20017,8 @@ def _post_inventory_transfer(transfer_id):
                 _validate_inventory_location_or_raise(item_from_warehouse_id, item_from_location_id, "from warehouse")
                 _validate_inventory_location_or_raise(item_to_warehouse_id, item_to_location_id, "to warehouse")
                 item_project_code = item.get("line_project_code") or fresh.get("project_code") or ""
-                _apply_inventory_movement(item.get("product_id"), -quantity, item.get("unit_cost"), "\u8c03\u62e8\u51fa\u5e93", reference_no, fresh.get("remark") or "", item_from_warehouse_id, item_from_location_id, item.get("lot_no") or "", item.get("serial_no") or "", fresh.get("transfer_date"), item_project_code, query_one=query_one, execute_db_fn=execute_db)
-                _apply_inventory_movement(item.get("product_id"), quantity, item.get("unit_cost"), "\u8c03\u62e8\u5165\u5e93", reference_no, fresh.get("remark") or "", item_to_warehouse_id, item_to_location_id, item.get("lot_no") or "", item.get("serial_no") or "", fresh.get("transfer_date"), item_project_code, query_one=query_one, execute_db_fn=execute_db)
+                _apply_inventory_movement(item.get("product_id"), -quantity, item.get("unit_cost"), "\u8c03\u62e8\u51fa\u5e93", reference_no, fresh.get("remark") or "", item_from_warehouse_id, item_from_location_id, item.get("lot_no") or "", item.get("cabinet_no") or "", fresh.get("transfer_date"), item_project_code, query_one=query_one, execute_db_fn=execute_db)
+                _apply_inventory_movement(item.get("product_id"), quantity, item.get("unit_cost"), "\u8c03\u62e8\u5165\u5e93", reference_no, fresh.get("remark") or "", item_to_warehouse_id, item_to_location_id, item.get("lot_no") or "", item.get("cabinet_no") or "", fresh.get("transfer_date"), item_project_code, query_one=query_one, execute_db_fn=execute_db)
             execute_db(
                 "UPDATE transfer_orders SET status=%s, posted_at=NOW(), posted_by=%s WHERE id=%s",
                 (INVENTORY_STATUS_POSTED, session.get("user_id"), transfer_id),
@@ -20187,7 +20187,7 @@ def _create_inventory_check():
         flash("反审请在已过账盘点单详情页执行。", "warning")
         return redirect(back_url)
     project_code = _form_text("project_code")
-    project_header_error = _require_project_serial_values_or_redirect(project_code, "pending-line-check", back_url)
+    project_header_error = _require_project_cabinet_values_or_redirect(project_code, "pending-line-check", back_url)
     if project_header_error:
         return project_header_error
     warehouse_id = _form_int("warehouse_id")
@@ -20221,9 +20221,9 @@ def _create_inventory_check():
               AND COALESCE(location_id,0)=COALESCE(%s,0)
               AND COALESCE(project_code,'')=COALESCE(%s,'')
               AND COALESCE(lot_no,'')=COALESCE(%s,'')
-              AND COALESCE(serial_no,'')=COALESCE(%s,'')
+              AND COALESCE(cabinet_no,'')=COALESCE(%s,'')
             """,
-            (item["product_id"], warehouse_id, location_id, line_project_code, item["lot_no"], item["serial_no"]),
+            (item["product_id"], warehouse_id, location_id, line_project_code, item["lot_no"], item["cabinet_no"]),
         ) or {}
         book_qty = _as_decimal(book.get("quantity"))
         unit_cost = item["unit_cost"] or _as_decimal(book.get("unit_cost"))
@@ -20232,10 +20232,10 @@ def _create_inventory_check():
         _execute_db(
             """
             INSERT INTO inventory_check_order_items
-                (check_id, product_id, book_qty, actual_qty, diff_qty, lot_no, serial_no, unit_cost, amount, line_project_code, source_line_no)
+                (check_id, product_id, book_qty, actual_qty, diff_qty, lot_no, cabinet_no, unit_cost, amount, line_project_code, source_line_no)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             """,
-            (check_id, item["product_id"], book_qty, item["actual_qty"], diff_qty, item["lot_no"], item["serial_no"], unit_cost, amount, line_project_code, item.get("source_line_no") or ""),
+            (check_id, item["product_id"], book_qty, item["actual_qty"], diff_qty, item["lot_no"], item["cabinet_no"], unit_cost, amount, line_project_code, item.get("source_line_no") or ""),
         )
     _save_document_custom_payload("inventory_check", check_id)
     return redirect(f"/inventory_checks/{check_id}")
@@ -20262,9 +20262,9 @@ def _edit_inventory_check(check_id):
         flash("请录入至少一条盘点明细。", "warning")
         return redirect(back_url)
     for item in items:
-        project_serial_error = _require_project_serial_values_or_redirect(project_code, item["serial_no"], back_url)
-        if project_serial_error:
-            return project_serial_error
+        project_cabinet_error = _require_project_cabinet_values_or_redirect(project_code, item["cabinet_no"], back_url)
+        if project_cabinet_error:
+            return project_cabinet_error
     warehouse = _safe_one("SELECT name FROM warehouses WHERE id=%s", (warehouse_id,))
 
     def operation(_cursor):
@@ -20288,9 +20288,9 @@ def _edit_inventory_check(check_id):
                   AND COALESCE(location_id,0)=COALESCE(%s,0)
                   AND COALESCE(project_code,'')=COALESCE(%s,'')
                   AND COALESCE(lot_no,'')=COALESCE(%s,'')
-                  AND COALESCE(serial_no,'')=COALESCE(%s,'')
+                  AND COALESCE(cabinet_no,'')=COALESCE(%s,'')
                 """,
-                (item["product_id"], warehouse_id, location_id, line_project_code, item["lot_no"], item["serial_no"]),
+                (item["product_id"], warehouse_id, location_id, line_project_code, item["lot_no"], item["cabinet_no"]),
             ) or {}
             book_qty = _as_decimal(book.get("quantity"))
             unit_cost = item["unit_cost"] or _as_decimal(book.get("unit_cost"))
@@ -20299,10 +20299,10 @@ def _edit_inventory_check(check_id):
             _execute_db(
                 """
                 INSERT INTO inventory_check_order_items
-                    (check_id, product_id, book_qty, actual_qty, diff_qty, lot_no, serial_no, unit_cost, amount, line_project_code, source_line_no)
+                    (check_id, product_id, book_qty, actual_qty, diff_qty, lot_no, cabinet_no, unit_cost, amount, line_project_code, source_line_no)
                 VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 """,
-                (check_id, item["product_id"], book_qty, item["actual_qty"], diff_qty, item["lot_no"], item["serial_no"], unit_cost, amount, line_project_code, item.get("source_line_no") or ""),
+                (check_id, item["product_id"], book_qty, item["actual_qty"], diff_qty, item["lot_no"], item["cabinet_no"], unit_cost, amount, line_project_code, item.get("source_line_no") or ""),
             )
 
     _run_registry_transaction(operation)
@@ -20344,7 +20344,7 @@ def _post_inventory_check(check_id):
             for item in query_db("SELECT * FROM inventory_check_order_items WHERE check_id=%s ORDER BY id", (check_id,)):
                 diff_qty = _as_decimal(item.get("diff_qty"))
                 if diff_qty != 0:
-                    _apply_inventory_movement(item.get("product_id"), diff_qty, item.get("unit_cost"), "\u76d8\u70b9\u5dee\u5f02", reference_no, fresh.get("remark") or "", fresh.get("warehouse_id"), fresh.get("location_id"), item.get("lot_no") or "", item.get("serial_no") or "", fresh.get("check_date"), item.get("line_project_code") or fresh.get("project_code") or "", query_one=query_one, execute_db_fn=execute_db)
+                    _apply_inventory_movement(item.get("product_id"), diff_qty, item.get("unit_cost"), "\u76d8\u70b9\u5dee\u5f02", reference_no, fresh.get("remark") or "", fresh.get("warehouse_id"), fresh.get("location_id"), item.get("lot_no") or "", item.get("cabinet_no") or "", fresh.get("check_date"), item.get("line_project_code") or fresh.get("project_code") or "", query_one=query_one, execute_db_fn=execute_db)
             execute_db(
                 "UPDATE inventory_check_orders SET status=%s, posted_at=NOW(), posted_by=%s WHERE id=%s",
                 (INVENTORY_STATUS_POSTED, session.get("user_id"), check_id),
@@ -20454,7 +20454,7 @@ def _ensure_inventory_assembly_tables():
             quantity NUMERIC(14, 3) NOT NULL DEFAULT 0,
             unit_cost NUMERIC(14, 4) DEFAULT 0,
             lot_no VARCHAR(120),
-            serial_no VARCHAR(120),
+            cabinet_no VARCHAR(120),
             project_code VARCHAR(120),
             status VARCHAR(80) NOT NULL DEFAULT '待过账',
             remark TEXT,
@@ -20482,7 +20482,7 @@ def _ensure_inventory_assembly_tables():
             quantity NUMERIC(14, 3) NOT NULL DEFAULT 0,
             unit_cost NUMERIC(14, 4) DEFAULT 0,
             lot_no VARCHAR(120),
-            serial_no VARCHAR(120),
+            cabinet_no VARCHAR(120),
             line_role VARCHAR(30) NOT NULL DEFAULT 'component',
             remark TEXT
         )
@@ -20529,8 +20529,8 @@ def _create_inventory_assembly_document(doc_type="assembly"):
         flash("反审请在已过账组装单详情页执行。", "warning")
         return redirect(meta["new_url"])
     project_code = _form_text("project_code")
-    parent_serial_no = _form_text("serial_no")
-    project_header_error = _require_project_serial_values_or_redirect(project_code, parent_serial_no, meta["new_url"])
+    parent_cabinet_no = _form_text("cabinet_no")
+    project_header_error = _require_project_cabinet_values_or_redirect(project_code, parent_cabinet_no, meta["new_url"])
     if project_header_error:
         return project_header_error
     warehouse_id = _form_int("warehouse_id")
@@ -20551,11 +20551,11 @@ def _create_inventory_assembly_document(doc_type="assembly"):
         """
         INSERT INTO inventory_assembly_orders
             (assembly_no, doc_type, doc_date, warehouse_id, location_id, product_id,
-             quantity, unit_cost, lot_no, serial_no, project_code, status, remark, created_by, posted_at, posted_by)
+             quantity, unit_cost, lot_no, cabinet_no, project_code, status, remark, created_by, posted_at, posted_by)
         VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'待过账',%s,%s,NULL,NULL)
         RETURNING id
         """,
-        (doc_no, meta["doc_type"], _form_text("doc_date", datetime.now().date().isoformat()), warehouse_id, location_id, product_id, quantity, _form_decimal("unit_cost"), _form_text("lot_no"), parent_serial_no, project_code, _form_text("remark"), session.get("user_id")),
+        (doc_no, meta["doc_type"], _form_text("doc_date", datetime.now().date().isoformat()), warehouse_id, location_id, product_id, quantity, _form_decimal("unit_cost"), _form_text("lot_no"), parent_cabinet_no, project_code, _form_text("remark"), session.get("user_id")),
     )
     order_id = order.get("id")
     for row in rows:
@@ -20564,19 +20564,19 @@ def _create_inventory_assembly_document(doc_type="assembly"):
         if line_location and not _warehouse_has_locations(line_warehouse):
             line_location = 0
         _validate_inventory_location_or_raise(line_warehouse, line_location, meta["title"])
-        project_serial_error = _require_project_serial_values_or_redirect(project_code, row["serial_no"], meta["new_url"])
-        if project_serial_error:
-            return project_serial_error
+        project_cabinet_error = _require_project_cabinet_values_or_redirect(project_code, row["cabinet_no"], meta["new_url"])
+        if project_cabinet_error:
+            return project_cabinet_error
         snapshot = _inventory_product_snapshot(row["product_id"])
         _execute_db(
             """
             INSERT INTO inventory_assembly_items
-                (order_id, product_id, quantity, unit_cost, lot_no, serial_no, line_role, remark,
+                (order_id, product_id, quantity, unit_cost, lot_no, cabinet_no, line_role, remark,
                  source_line_no, line_project_code, line_warehouse_id, line_location_id,
                  material_code, material_name, material_spec, material_unit, amount)
             VALUES (%s,%s,%s,%s,%s,%s,'component',%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             """,
-            (order_id, row["product_id"], row["quantity"], row["unit_cost"], row["lot_no"], row["serial_no"], row.get("remark") or _form_text("remark"), row.get("source_line_no") or "", row.get("project_code") or project_code, line_warehouse, line_location, snapshot["material_code"], snapshot["material_name"], snapshot["material_spec"], snapshot["material_unit"], row["quantity"] * row["unit_cost"]),
+            (order_id, row["product_id"], row["quantity"], row["unit_cost"], row["lot_no"], row["cabinet_no"], row.get("remark") or _form_text("remark"), row.get("source_line_no") or "", row.get("project_code") or project_code, line_warehouse, line_location, snapshot["material_code"], snapshot["material_name"], snapshot["material_spec"], snapshot["material_unit"], row["quantity"] * row["unit_cost"]),
         )
     _save_document_custom_payload(meta["document_kind"], order_id)
     return redirect(f"{meta['detail_base']}/{order_id}")
@@ -20601,8 +20601,8 @@ def _edit_inventory_assembly_document(order_id, doc_type="assembly"):
         flash("反审请在已过账组装单详情页执行。", "warning")
         return redirect(back_url)
     project_code = _form_text("project_code")
-    parent_serial_no = _form_text("serial_no")
-    project_header_error = _require_project_serial_values_or_redirect(project_code, parent_serial_no, back_url)
+    parent_cabinet_no = _form_text("cabinet_no")
+    project_header_error = _require_project_cabinet_values_or_redirect(project_code, parent_cabinet_no, back_url)
     if project_header_error:
         return project_header_error
     warehouse_id = _form_int("warehouse_id")
@@ -20625,9 +20625,9 @@ def _edit_inventory_assembly_document(order_id, doc_type="assembly"):
             if line_location and not _warehouse_has_locations(line_warehouse):
                 line_location = 0
             _validate_inventory_location_or_raise(line_warehouse, line_location, meta["title"])
-            project_serial_error = _require_project_serial_values_or_redirect(project_code, row["serial_no"], back_url)
-            if project_serial_error:
-                return project_serial_error
+            project_cabinet_error = _require_project_cabinet_values_or_redirect(project_code, row["cabinet_no"], back_url)
+            if project_cabinet_error:
+                return project_cabinet_error
     except ValueError as exc:
         flash(str(exc), "warning")
         return redirect(back_url)
@@ -20636,10 +20636,10 @@ def _edit_inventory_assembly_document(order_id, doc_type="assembly"):
             """
             UPDATE inventory_assembly_orders
             SET doc_date=%s, warehouse_id=%s, location_id=%s, product_id=%s,
-                quantity=%s, unit_cost=%s, lot_no=%s, serial_no=%s, project_code=%s, remark=%s
+                quantity=%s, unit_cost=%s, lot_no=%s, cabinet_no=%s, project_code=%s, remark=%s
             WHERE id=%s
             """,
-            (_form_text("doc_date", datetime.now().date().isoformat()), warehouse_id, location_id, product_id, quantity, _form_decimal("unit_cost"), _form_text("lot_no"), parent_serial_no, project_code, _form_text("remark"), order_id),
+            (_form_text("doc_date", datetime.now().date().isoformat()), warehouse_id, location_id, product_id, quantity, _form_decimal("unit_cost"), _form_text("lot_no"), parent_cabinet_no, project_code, _form_text("remark"), order_id),
         )
         _execute_db("DELETE FROM inventory_assembly_items WHERE order_id=%s", (order_id,))
         for row in rows:
@@ -20651,12 +20651,12 @@ def _edit_inventory_assembly_document(order_id, doc_type="assembly"):
             _execute_db(
                 """
                 INSERT INTO inventory_assembly_items
-                    (order_id, product_id, quantity, unit_cost, lot_no, serial_no, line_role, remark,
+                    (order_id, product_id, quantity, unit_cost, lot_no, cabinet_no, line_role, remark,
                      source_line_no, line_project_code, line_warehouse_id, line_location_id,
                      material_code, material_name, material_spec, material_unit, amount)
                 VALUES (%s,%s,%s,%s,%s,%s,'component',%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 """,
-                (order_id, row["product_id"], row["quantity"], row["unit_cost"], row["lot_no"], row["serial_no"], row.get("remark") or _form_text("remark"), row.get("source_line_no") or "", row.get("project_code") or project_code, line_warehouse, line_location, snapshot["material_code"], snapshot["material_name"], snapshot["material_spec"], snapshot["material_unit"], row["quantity"] * row["unit_cost"]),
+                (order_id, row["product_id"], row["quantity"], row["unit_cost"], row["lot_no"], row["cabinet_no"], row.get("remark") or _form_text("remark"), row.get("source_line_no") or "", row.get("project_code") or project_code, line_warehouse, line_location, snapshot["material_code"], snapshot["material_name"], snapshot["material_spec"], snapshot["material_unit"], row["quantity"] * row["unit_cost"]),
             )
 
     _run_registry_transaction(operation)
@@ -20703,13 +20703,13 @@ def _post_inventory_assembly_document(order_id, doc_type="assembly"):
                 qty = _as_decimal(item.get("quantity"))
                 move_qty = qty if doc_type == "disassembly" else -qty
                 tx_type = meta["in_tx"] if doc_type == "disassembly" else meta["out_tx"]
-                _apply_inventory_movement(item.get("product_id"), move_qty, item.get("unit_cost"), tx_type, reference_no, item.get("remark") or fresh.get("remark") or "", line_warehouse, line_location, item.get("lot_no") or "", item.get("serial_no") or "", fresh.get("doc_date"), item.get("line_project_code") or fresh.get("project_code") or "", query_one=query_one, execute_db_fn=execute_db)
+                _apply_inventory_movement(item.get("product_id"), move_qty, item.get("unit_cost"), tx_type, reference_no, item.get("remark") or fresh.get("remark") or "", line_warehouse, line_location, item.get("lot_no") or "", item.get("cabinet_no") or "", fresh.get("doc_date"), item.get("line_project_code") or fresh.get("project_code") or "", query_one=query_one, execute_db_fn=execute_db)
             parent_qty = -_as_decimal(fresh.get("quantity")) if doc_type == "disassembly" else _as_decimal(fresh.get("quantity"))
             parent_tx = meta["out_tx"] if doc_type == "disassembly" else meta["in_tx"]
             parent_location = fresh.get("location_id")
             if parent_location and not _warehouse_has_locations(fresh.get("warehouse_id")):
                 parent_location = 0
-            _apply_inventory_movement(fresh.get("product_id"), parent_qty, fresh.get("unit_cost"), parent_tx, reference_no, fresh.get("remark") or "", fresh.get("warehouse_id"), parent_location, fresh.get("lot_no") or "", fresh.get("serial_no") or "", fresh.get("doc_date"), fresh.get("project_code") or "", query_one=query_one, execute_db_fn=execute_db)
+            _apply_inventory_movement(fresh.get("product_id"), parent_qty, fresh.get("unit_cost"), parent_tx, reference_no, fresh.get("remark") or "", fresh.get("warehouse_id"), parent_location, fresh.get("lot_no") or "", fresh.get("cabinet_no") or "", fresh.get("doc_date"), fresh.get("project_code") or "", query_one=query_one, execute_db_fn=execute_db)
             execute_db(
                 "UPDATE inventory_assembly_orders SET status=%s, posted_at=NOW(), posted_by=%s WHERE id=%s",
                 (INVENTORY_STATUS_POSTED, session.get("user_id"), order_id),
@@ -20890,7 +20890,7 @@ def _render_inventory_assembly_list(doc_type="assembly"):
     meta = _inventory_assembly_meta(doc_type)
     rows = _safe_rows(
         """
-        SELECT iao.id, iao.assembly_no, iao.doc_date, iao.project_code, iao.serial_no,
+        SELECT iao.id, iao.assembly_no, iao.doc_date, iao.project_code, iao.cabinet_no,
                iao.quantity, iao.status, p.name AS product_name, p.specification, p.unit, w.name AS warehouse_name,
                CASE WHEN iao.status='待过账' THEN '复核后确认过账'
                     WHEN iao.status='已过账' THEN '库存已更新，可关闭'
@@ -20906,7 +20906,7 @@ def _render_inventory_assembly_list(doc_type="assembly"):
         """,
         (meta["doc_type"],),
     )
-    return render_template("simple_list.html", title=f"{meta['title']}列表", subtitle="保存后待过账，确认过账后才写入库存流水。", rows=rows, columns=_columns(("assembly_no", meta["title"]), ("doc_date", "单据日期"), ("product_name", "物料名称"), ("specification", "规格"), ("unit", "单位"), ("quantity", "数量"), ("project_code", "项目号"), ("serial_no", "机号"), ("warehouse_name", "仓库"), ("status", "状态"), ("next_step", "下一步")), detail_base=meta["detail_base"], add_url=meta["new_url"], bulk_actions=_inventory_bulk_actions(meta["doc_type"]))
+    return render_template("simple_list.html", title=f"{meta['title']}列表", subtitle="保存后待过账，确认过账后才写入库存流水。", rows=rows, columns=_columns(("assembly_no", meta["title"]), ("doc_date", "单据日期"), ("product_name", "物料名称"), ("specification", "规格"), ("unit", "单位"), ("quantity", "数量"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("warehouse_name", "仓库"), ("status", "状态"), ("next_step", "下一步")), detail_base=meta["detail_base"], add_url=meta["new_url"], bulk_actions=_inventory_bulk_actions(meta["doc_type"]))
 
 
 def _render_inventory_assembly_detail(order_id, doc_type="assembly"):
@@ -20988,7 +20988,7 @@ def _sync_batch_tracking(*_args, **_kwargs):
 def _service_card_source_status():
     status = {
         "card_count": 0,
-        "delivered_serial_count": 0,
+        "delivered_cabinet_count": 0,
         "cards_from_shipments_missing": 0,
         "blocked_reason": "",
         "next_action": "",
@@ -21000,30 +21000,30 @@ def _service_card_source_status():
             """
             SELECT COUNT(*) AS value
             FROM sales_shipments
-            WHERE COALESCE(serial_no, '')<>''
+            WHERE COALESCE(cabinet_no, '')<>''
             """
         )
-        status["delivered_serial_count"] = int((delivered or {}).get("value") or 0)
+        status["delivered_cabinet_count"] = int((delivered or {}).get("value") or 0)
         missing = _safe_one(
             """
             SELECT COUNT(*) AS value
             FROM sales_shipments s
             LEFT JOIN machine_service_cards c
-                   ON COALESCE(c.serial_no, '')=COALESCE(s.serial_no, '')
-            WHERE COALESCE(s.serial_no, '')<>''
+                   ON COALESCE(c.cabinet_no, '')=COALESCE(s.cabinet_no, '')
+            WHERE COALESCE(s.cabinet_no, '')<>''
               AND c.id IS NULL
             """
         )
         status["cards_from_shipments_missing"] = int((missing or {}).get("value") or 0)
     if status["card_count"] <= 0:
-        if status["delivered_serial_count"] > 0:
-            status["blocked_reason"] = "已发货机号还没有生成设备服务档案。"
-            status["next_action"] = "请先在服务档案中确认机号档案；如果是历史发货数据，先运行服务闭环修复脚本补齐服务卡。"
+        if status["delivered_cabinet_count"] > 0:
+            status["blocked_reason"] = "已发货柜号还没有生成设备服务档案。"
+            status["next_action"] = "请先在服务档案中确认柜号档案；如果是历史发货数据，先运行服务闭环修复脚本补齐服务卡。"
         else:
             status["blocked_reason"] = "当前没有可选设备服务档案。"
-            status["next_action"] = "服务单必须来源于设备服务档案；请先完成发货机号建档，或在测试数据中准备一台已发货设备。"
+            status["next_action"] = "服务单必须来源于设备服务档案；请先完成发货柜号建档，或在测试数据中准备一台已发货设备。"
     elif status["cards_from_shipments_missing"] > 0:
-        status["blocked_reason"] = "存在已发货机号未建服务档案。"
+        status["blocked_reason"] = "存在已发货柜号未建服务档案。"
         status["next_action"] = "建议先运行服务闭环修复脚本，再新增服务单，避免售后追溯断点。"
     return status
 
@@ -21051,7 +21051,7 @@ def _service_order_source_status():
             status["next_action"] = "请先从设备服务档案创建服务单，登记故障处理后再创建 RMA。"
         else:
             status["blocked_reason"] = "当前没有服务卡，也没有可用于 RMA 的服务单。"
-            status["next_action"] = "请先完成已发货机号服务档案，再创建服务单和 RMA。"
+            status["next_action"] = "请先完成已发货柜号服务档案，再创建服务单和 RMA。"
     return status
 
 
@@ -21060,7 +21060,7 @@ def _service_order_source_options():
         """
         SELECT so.id, so.order_no, so.service_date, so.service_type, so.status,
                so.service_card_id, so.wo_id, so.sales_order_id, so.cost_object_id,
-               so.project_code, so.serial_no, so.issue_summary,
+               so.project_code, so.cabinet_no, so.issue_summary,
                c.name AS customer_name, sc.machine_model
         FROM machine_service_orders so
         LEFT JOIN machine_service_cards sc ON sc.id=so.service_card_id
@@ -21122,22 +21122,22 @@ def _render_service_rma_form(rma=None, action_url="/service-rmas/new", mode="new
 def _create_service_order_from_form():
     service_card_id = _form_int("service_card_id")
     if not service_card_id:
-        flash("请选择设备服务档案。服务单必须从已发货机号的服务卡创建。", "warning")
+        flash("请选择设备服务档案。服务单必须从已发货柜号的服务卡创建。", "warning")
         return redirect("/service-orders/new")
     card = _safe_one("SELECT * FROM machine_service_cards WHERE id=%s", (service_card_id,))
     if not card:
-        flash("设备服务档案不存在，请先确认已发货机号服务卡。", "warning")
+        flash("设备服务档案不存在，请先确认已发货柜号服务卡。", "warning")
         return redirect("/service-orders/new")
     issue_summary = _form_text("issue_summary")
     if not issue_summary:
         flash("请填写服务事项。", "warning")
         return redirect("/service-orders/new")
     project_code = _form_text("project_code") or card.get("project_code")
-    serial_no = _form_text("serial_no") or card.get("serial_no")
-    project_serial_error = _require_project_serial_values_or_redirect(project_code, serial_no, "/service-orders/new")
-    if project_serial_error:
-        return project_serial_error
-    flow = service_order_flow_fields({"status": "待派工", "project_code": project_code, "serial_no": serial_no}, card)
+    cabinet_no = _form_text("cabinet_no") or card.get("cabinet_no")
+    project_cabinet_error = _require_project_cabinet_values_or_redirect(project_code, cabinet_no, "/service-orders/new")
+    if project_cabinet_error:
+        return project_cabinet_error
+    flow = service_order_flow_fields({"status": "待派工", "project_code": project_code, "cabinet_no": cabinet_no}, card)
     order_no = _next_daily_doc_no("SVO", "machine_service_orders", "order_no")
     new_order = _execute_and_return(
         """
@@ -21146,7 +21146,7 @@ def _create_service_order_from_form():
             warehouse_id, location_id, labor_cost, travel_cost, parts_cost, total_cost,
             billing_type, billable_amount, receivable_id, settlement_status,
             fault_category, fault_cause, prevention_action, status, issue_summary,
-            solution, remark, sales_order_id, cost_object_id, project_code, serial_no,
+            solution, remark, sales_order_id, cost_object_id, project_code, cabinet_no,
             warranty_policy, warranty_decision_basis, owner, blocked_reason,
             next_action, downstream_impact
         )
@@ -21172,7 +21172,7 @@ def _create_service_order_from_form():
             card.get("sales_order_id"),
             card.get("cost_object_id"),
             project_code,
-            serial_no,
+            cabinet_no,
             flow["warranty_policy"],
             flow["warranty_decision_basis"],
             flow["owner"],
@@ -21190,28 +21190,28 @@ def _create_service_order_from_form():
 def _create_service_acceptance_from_form():
     service_card_id = _form_int("service_card_id")
     if not service_card_id:
-        flash("请选择设备服务档案。安装验收必须从已发货机号的服务卡创建。", "warning")
+        flash("请选择设备服务档案。安装验收必须从已发货柜号的服务卡创建。", "warning")
         return redirect("/service-acceptance/new")
     card = _safe_one("SELECT * FROM machine_service_cards WHERE id=%s", (service_card_id,))
     if not card:
-        flash("设备服务档案不存在，请先确认已发货机号服务卡。", "warning")
+        flash("设备服务档案不存在，请先确认已发货柜号服务卡。", "warning")
         return redirect("/service-acceptance/new")
     item_name = _form_text("item_name")
     if not item_name:
         flash("请填写验收项目。", "warning")
         return redirect("/service-acceptance/new")
     project_code = _form_text("project_code") or card.get("project_code")
-    serial_no = _form_text("serial_no") or card.get("serial_no")
-    project_serial_error = _require_project_serial_values_or_redirect(project_code, serial_no, "/service-acceptance/new")
-    if project_serial_error:
-        return project_serial_error
+    cabinet_no = _form_text("cabinet_no") or card.get("cabinet_no")
+    project_cabinet_error = _require_project_cabinet_values_or_redirect(project_code, cabinet_no, "/service-acceptance/new")
+    if project_cabinet_error:
+        return project_cabinet_error
     check_date = _form_text("check_date", datetime.now().date().isoformat())
     result = _short_text(_form_text("result", "待整改"), 80)
     new_acceptance = _execute_and_return(
         """
         INSERT INTO machine_service_acceptance_checks (
             service_card_id, wo_id, check_date, checklist_type, item_name, result,
-            remark, created_by, sales_order_id, cost_object_id, project_code, serial_no
+            remark, created_by, sales_order_id, cost_object_id, project_code, cabinet_no
         )
         VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         RETURNING id
@@ -21228,7 +21228,7 @@ def _create_service_acceptance_from_form():
             card.get("sales_order_id"),
             card.get("cost_object_id"),
             project_code,
-            serial_no,
+            cabinet_no,
         ),
     )
     if result in {"通过", "合格", "已完成"}:
@@ -21251,22 +21251,22 @@ def _create_service_acceptance_from_form():
 def _create_service_order_from_form():
     service_card_id = _form_int("service_card_id")
     if not service_card_id:
-        flash("请选择设备服务档案。服务单必须从已发货机号的服务档案创建。", "warning")
+        flash("请选择设备服务档案。服务单必须从已发货柜号的服务档案创建。", "warning")
         return redirect("/service-orders/new")
     card = _safe_one("SELECT * FROM machine_service_cards WHERE id=%s", (service_card_id,))
     if not card:
-        flash("设备服务档案不存在，请先确认已发货机号服务卡。", "warning")
+        flash("设备服务档案不存在，请先确认已发货柜号服务卡。", "warning")
         return redirect("/service-orders/new")
     issue_summary = _form_text("issue_summary")
     if not issue_summary:
         flash("请填写服务事项。", "warning")
         return redirect("/service-orders/new")
     project_code = _form_text("project_code") or card.get("project_code")
-    serial_no = _form_text("serial_no") or card.get("serial_no")
-    project_serial_error = _require_project_serial_values_or_redirect(project_code, serial_no, "/service-orders/new")
-    if project_serial_error:
-        return project_serial_error
-    flow = service_order_flow_fields({"status": "待派工", "project_code": project_code, "serial_no": serial_no}, card)
+    cabinet_no = _form_text("cabinet_no") or card.get("cabinet_no")
+    project_cabinet_error = _require_project_cabinet_values_or_redirect(project_code, cabinet_no, "/service-orders/new")
+    if project_cabinet_error:
+        return project_cabinet_error
+    flow = service_order_flow_fields({"status": "待派工", "project_code": project_code, "cabinet_no": cabinet_no}, card)
     order_no = _next_daily_doc_no("SVO", "machine_service_orders", "order_no")
     new_order = _execute_and_return(
         """
@@ -21275,7 +21275,7 @@ def _create_service_order_from_form():
             warehouse_id, location_id, labor_cost, travel_cost, parts_cost, total_cost,
             billing_type, billable_amount, receivable_id, settlement_status,
             fault_category, fault_cause, prevention_action, status, issue_summary,
-            solution, remark, sales_order_id, cost_object_id, project_code, serial_no,
+            solution, remark, sales_order_id, cost_object_id, project_code, cabinet_no,
             warranty_policy, warranty_decision_basis, owner, blocked_reason,
             next_action, downstream_impact
         )
@@ -21301,7 +21301,7 @@ def _create_service_order_from_form():
             card.get("sales_order_id"),
             card.get("cost_object_id"),
             project_code,
-            serial_no,
+            cabinet_no,
             flow["warranty_policy"],
             flow["warranty_decision_basis"],
             flow["owner"],
@@ -21319,21 +21319,21 @@ def _create_service_order_from_form():
 def _create_service_acceptance_from_form():
     service_card_id = _form_int("service_card_id")
     if not service_card_id:
-        flash("请选择设备服务档案。安装验收必须来源于已发货机号的服务档案。", "warning")
+        flash("请选择设备服务档案。安装验收必须来源于已发货柜号的服务档案。", "warning")
         return redirect("/service-acceptance/new")
     card = _safe_one("SELECT * FROM machine_service_cards WHERE id=%s", (service_card_id,))
     if not card:
-        flash("设备服务档案不存在，请先确认已发货机号服务卡。", "warning")
+        flash("设备服务档案不存在，请先确认已发货柜号服务卡。", "warning")
         return redirect("/service-acceptance/new")
     item_name = _form_text("item_name")
     if not item_name:
         flash("请填写验收项目。", "warning")
         return redirect("/service-acceptance/new")
     project_code = _form_text("project_code") or card.get("project_code")
-    serial_no = _form_text("serial_no") or card.get("serial_no")
-    project_serial_error = _require_project_serial_values_or_redirect(project_code, serial_no, "/service-acceptance/new")
-    if project_serial_error:
-        return project_serial_error
+    cabinet_no = _form_text("cabinet_no") or card.get("cabinet_no")
+    project_cabinet_error = _require_project_cabinet_values_or_redirect(project_code, cabinet_no, "/service-acceptance/new")
+    if project_cabinet_error:
+        return project_cabinet_error
     check_date = _form_text("check_date", datetime.now().date().isoformat())
     result = _short_text(_form_text("result", "待整改"), 80)
     blocked_reason = "" if result in {"通过", "合格", "已完成"} else "客户验收未通过或待确认"
@@ -21343,7 +21343,7 @@ def _create_service_acceptance_from_form():
         """
         INSERT INTO machine_service_acceptance_checks (
             acceptance_no, service_card_id, wo_id, check_date, checklist_type, item_name, result,
-            remark, created_by, sales_order_id, cost_object_id, project_code, serial_no,
+            remark, created_by, sales_order_id, cost_object_id, project_code, cabinet_no,
             customer_acceptance_by, customer_acceptance_date, corrective_action,
             owner, blocked_reason, next_action, downstream_impact
         )
@@ -21363,14 +21363,14 @@ def _create_service_acceptance_from_form():
             card.get("sales_order_id"),
             card.get("cost_object_id"),
             project_code,
-            serial_no,
+            cabinet_no,
             _form_text("customer_acceptance_by"),
             _form_text("customer_acceptance_date") or None,
             _form_text("corrective_action"),
             _form_text("owner") or "售后现场",
             blocked_reason,
             next_action,
-            "影响质保起算、客户交付验收和机号服务档案",
+            "影响质保起算、客户交付验收和柜号服务档案",
         ),
     )
     if result in {"通过", "合格", "已完成"}:
@@ -21406,10 +21406,10 @@ def _create_service_rma_from_form():
         flash("来源服务单未关联设备服务档案，不能创建 RMA。", "warning")
         return redirect("/service-rmas/new")
     project_code = _form_text("project_code") or service.get("project_code")
-    serial_no = _form_text("serial_no") or service.get("serial_no")
-    project_serial_error = _require_project_serial_values_or_redirect(project_code, serial_no, "/service-rmas/new")
-    if project_serial_error:
-        return project_serial_error
+    cabinet_no = _form_text("cabinet_no") or service.get("cabinet_no")
+    project_cabinet_error = _require_project_cabinet_values_or_redirect(project_code, cabinet_no, "/service-rmas/new")
+    if project_cabinet_error:
+        return project_cabinet_error
     product_id = _form_int("product_id")
     product_error = _inactive_master_error("products", product_id, "RMA物料")
     if product_error:
@@ -21438,10 +21438,10 @@ def _create_service_rma_from_form():
             status, internal_claim_amount, supplier_claim_amount,
             supplier_recovered_amount, claim_status, claim_note,
             fault_summary, diagnosis, remark, created_by,
-            sales_order_id, cost_object_id, project_code, serial_no,
+            sales_order_id, cost_object_id, project_code, cabinet_no,
             product_id, quantity, unit_cost, amount, warehouse_id, location_id,
             lot_no, material_code, material_name, material_spec, material_unit,
-            source_line_no, line_project_code, line_serial_no,
+            source_line_no, line_project_code, line_cabinet_no,
             claim_owner, claim_settlement_basis, owner, blocked_reason,
             next_action, downstream_impact
         )
@@ -21475,7 +21475,7 @@ def _create_service_rma_from_form():
             service.get("sales_order_id"),
             service.get("cost_object_id"),
             project_code,
-            serial_no,
+            cabinet_no,
             product_id,
             quantity,
             unit_cost,
@@ -21489,7 +21489,7 @@ def _create_service_rma_from_form():
             product_snapshot.get("material_unit"),
             _form_text("source_line_no"),
             _form_text("line_project_code") or project_code,
-            _form_text("line_serial_no") or serial_no,
+            _form_text("line_cabinet_no") or cabinet_no,
             _form_text("claim_owner") or "售后/质量/采购",
             _form_text("claim_settlement_basis"),
             draft_flow["owner"],
@@ -22011,41 +22011,41 @@ def register_blueprints(app):
     def project_master_detail(project_id):
         return _render_project_master_detail(project_id)
 
-    @app.get("/machine-serial-master", endpoint="machine_serial_master_list")
+    @app.get("/cabinet-master", endpoint="cabinet_master_list")
     @_login_required
-    def machine_serial_master_list():
-        return _render_machine_serial_master_list()
+    def cabinet_master_list():
+        return _render_cabinet_master_list()
 
-    @app.route("/machine-serial-master/import", methods=["GET", "POST"], endpoint="machine_serial_master_import")
+    @app.route("/cabinet-master/import", methods=["GET", "POST"], endpoint="cabinet_master_import")
     @_login_required
-    def machine_serial_master_import():
+    def cabinet_master_import():
         if request.method == "POST":
-            return _import_basic_csv("machine_serial")
-        return _render_basic_import("machine_serial")
+            return _import_basic_csv("cabinet")
+        return _render_basic_import("cabinet")
 
-    @app.get("/machine-serial-master/download_template", endpoint="machine_serial_master_download_template")
+    @app.get("/cabinet-master/download_template", endpoint="cabinet_master_download_template")
     @_login_required
-    def machine_serial_master_download_template():
-        return _basic_import_template("machine_serial")
+    def cabinet_master_download_template():
+        return _basic_import_template("cabinet")
 
-    @app.route("/machine-serial-master/new", methods=["GET", "POST"], endpoint="machine_serial_master_new")
+    @app.route("/cabinet-master/new", methods=["GET", "POST"], endpoint="cabinet_master_new")
     @_login_required
-    def machine_serial_master_new():
+    def cabinet_master_new():
         if request.method == "POST":
-            return _save_machine_serial_master()
-        return _render_machine_serial_master_form()
+            return _save_cabinet_master()
+        return _render_cabinet_master_form()
 
-    @app.route("/machine-serial-master/<int:machine_id>/edit", methods=["GET", "POST"], endpoint="machine_serial_master_edit")
+    @app.route("/cabinet-master/<int:machine_id>/edit", methods=["GET", "POST"], endpoint="cabinet_master_edit")
     @_login_required
-    def machine_serial_master_edit(machine_id):
+    def cabinet_master_edit(machine_id):
         if request.method == "POST":
-            return _save_machine_serial_master(machine_id)
-        return _render_machine_serial_master_form(machine_id)
+            return _save_cabinet_master(machine_id)
+        return _render_cabinet_master_form(machine_id)
 
-    @app.get("/machine-serial-master/<int:machine_id>", endpoint="machine_serial_master_detail")
+    @app.get("/cabinet-master/<int:machine_id>", endpoint="cabinet_master_detail")
     @_login_required
-    def machine_serial_master_detail(machine_id):
-        return _render_machine_serial_master_detail(machine_id)
+    def cabinet_master_detail(machine_id):
+        return _render_cabinet_master_detail(machine_id)
 
     @app.route("/customer/import", methods=["GET", "POST"], endpoint="customer_import")
     @_login_required
@@ -22824,7 +22824,7 @@ def register_blueprints(app):
                 warehouse_id=line.get("warehouse_id") or receipt.get("warehouse_id"),
                 location_id=line.get("location_id"),
                 lot_no=line.get("lot_no") or "",
-                serial_no=receipt.get("serial_no") or "",
+                cabinet_no=receipt.get("cabinet_no") or "",
                 project_code=receipt.get("project_code") or "",
                 tx_date=receipt.get("receipt_date"),
             )
@@ -24413,7 +24413,7 @@ def register_blueprints(app):
             "info": [
                 ("申请人", req.get("requester_name") or "-"),
                 ("项目号", req.get("project_code") or "-"),
-                ("机号", req.get("serial_no") or "-"),
+                ("柜号", req.get("cabinet_no") or "-"),
                 ("备注", req.get("remark") or "-"),
             ],
             "columns": [

@@ -107,7 +107,7 @@
             <div><span class="field-label">供应商：</span>{{ invoice.partner_name or invoice.supplier_id or '' }}</div>
             <div><span class="field-label">来源单：</span>{{ invoice.source_no or invoice.source_type or '' }}</div>
             <div><span class="field-label">项目号：</span>{{ invoice.project_code or '' }}</div>
-            <div><span class="field-label">机号：</span>{{ invoice.serial_no or '' }}</div>
+            <div><span class="field-label">柜号：</span>{{ invoice.cabinet_no or '' }}</div>
             <div><span class="field-label">含税金额：</span>{{ '%.2f'|format(invoice.amount_with_tax or 0) }}</div>
             <div><span class="field-label">税额：</span>{{ '%.2f'|format(invoice.tax_amount or 0) }}</div>
         </section>

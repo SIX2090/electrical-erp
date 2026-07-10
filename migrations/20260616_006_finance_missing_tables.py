@@ -5,7 +5,7 @@ Migration: 20260616_006 - 补充财务模块缺失的核心表
 创建以下表：
 1. gl_account_balances - 科目余额表（总账余额）
 2. project_cost_ledger - 项目成本台账
-3. serial_cost_ledger - 机号成本台账
+3. cabinet_cost_ledger - 柜号成本台账
 4. inventory_costing - 存货核算表
 5. inventory_transactions - 库存交易明细表
 """
@@ -116,11 +116,11 @@ def get_sql_statements():
     statements.append("CREATE INDEX IF NOT EXISTS idx_project_cost_ledger_source ON project_cost_ledger(source_type, source_id)")
     statements.append("CREATE INDEX IF NOT EXISTS idx_project_cost_ledger_cost_object ON project_cost_ledger(cost_object_id)")
 
-    # 3. 机号成本台账表
+    # 3. 柜号成本台账表
     statements.append("""
-        CREATE TABLE IF NOT EXISTS serial_cost_ledger (
+        CREATE TABLE IF NOT EXISTS cabinet_cost_ledger (
             id SERIAL PRIMARY KEY,
-            serial_no VARCHAR(120) NOT NULL,
+            cabinet_no VARCHAR(120) NOT NULL,
             product_id INTEGER,
             product_code VARCHAR(120),
             product_name VARCHAR(255),
@@ -158,21 +158,21 @@ def get_sql_statements():
         )
     """)
 
-    statements.append("COMMENT ON TABLE serial_cost_ledger IS '机号成本台账'")
-    statements.append("COMMENT ON COLUMN serial_cost_ledger.serial_no IS '机号/序列号'")
-    statements.append("COMMENT ON COLUMN serial_cost_ledger.cost_category IS '成本类别（材料/人工/费用/制造费用）'")
-    statements.append("COMMENT ON COLUMN serial_cost_ledger.cost_type IS '成本类型（直接材料/间接材料/直接人工等）'")
-    statements.append("COMMENT ON COLUMN serial_cost_ledger.source_type IS '来源类型（采购入库/生产领料/工时/费用单）'")
-    statements.append("COMMENT ON COLUMN serial_cost_ledger.debit_amount IS '借方金额（成本增加）'")
-    statements.append("COMMENT ON COLUMN serial_cost_ledger.credit_amount IS '贷方金额（成本减少/转出）'")
-    statements.append("COMMENT ON COLUMN serial_cost_ledger.balance_amount IS '余额（累计成本）'")
+    statements.append("COMMENT ON TABLE cabinet_cost_ledger IS '柜号成本台账'")
+    statements.append("COMMENT ON COLUMN cabinet_cost_ledger.cabinet_no IS '柜号/序列号'")
+    statements.append("COMMENT ON COLUMN cabinet_cost_ledger.cost_category IS '成本类别（材料/人工/费用/制造费用）'")
+    statements.append("COMMENT ON COLUMN cabinet_cost_ledger.cost_type IS '成本类型（直接材料/间接材料/直接人工等）'")
+    statements.append("COMMENT ON COLUMN cabinet_cost_ledger.source_type IS '来源类型（采购入库/生产领料/工时/费用单）'")
+    statements.append("COMMENT ON COLUMN cabinet_cost_ledger.debit_amount IS '借方金额（成本增加）'")
+    statements.append("COMMENT ON COLUMN cabinet_cost_ledger.credit_amount IS '贷方金额（成本减少/转出）'")
+    statements.append("COMMENT ON COLUMN cabinet_cost_ledger.balance_amount IS '余额（累计成本）'")
 
-    statements.append("CREATE INDEX IF NOT EXISTS idx_serial_cost_ledger_serial ON serial_cost_ledger(serial_no)")
-    statements.append("CREATE INDEX IF NOT EXISTS idx_serial_cost_ledger_product ON serial_cost_ledger(product_id)")
-    statements.append("CREATE INDEX IF NOT EXISTS idx_serial_cost_ledger_date ON serial_cost_ledger(cost_date)")
-    statements.append("CREATE INDEX IF NOT EXISTS idx_serial_cost_ledger_period ON serial_cost_ledger(period_year, period_month)")
-    statements.append("CREATE INDEX IF NOT EXISTS idx_serial_cost_ledger_source ON serial_cost_ledger(source_type, source_id)")
-    statements.append("CREATE INDEX IF NOT EXISTS idx_serial_cost_ledger_cost_object ON serial_cost_ledger(cost_object_id)")
+    statements.append("CREATE INDEX IF NOT EXISTS idx_cabinet_cost_ledger_serial ON cabinet_cost_ledger(cabinet_no)")
+    statements.append("CREATE INDEX IF NOT EXISTS idx_cabinet_cost_ledger_product ON cabinet_cost_ledger(product_id)")
+    statements.append("CREATE INDEX IF NOT EXISTS idx_cabinet_cost_ledger_date ON cabinet_cost_ledger(cost_date)")
+    statements.append("CREATE INDEX IF NOT EXISTS idx_cabinet_cost_ledger_period ON cabinet_cost_ledger(period_year, period_month)")
+    statements.append("CREATE INDEX IF NOT EXISTS idx_cabinet_cost_ledger_source ON cabinet_cost_ledger(source_type, source_id)")
+    statements.append("CREATE INDEX IF NOT EXISTS idx_cabinet_cost_ledger_cost_object ON cabinet_cost_ledger(cost_object_id)")
 
     # 4. 存货核算表
     statements.append("""
@@ -260,7 +260,7 @@ def get_sql_statements():
             source_no VARCHAR(120),
             source_line_id INTEGER,
             project_code VARCHAR(120),
-            serial_no VARCHAR(120),
+            cabinet_no VARCHAR(120),
             batch_no VARCHAR(120),
             supplier_id INTEGER,
             supplier_name VARCHAR(255),
@@ -289,7 +289,7 @@ def get_sql_statements():
     statements.append("CREATE INDEX IF NOT EXISTS idx_inventory_transactions_warehouse ON inventory_transactions(warehouse_id)")
     statements.append("CREATE INDEX IF NOT EXISTS idx_inventory_transactions_source ON inventory_transactions(source_type, source_id)")
     statements.append("CREATE INDEX IF NOT EXISTS idx_inventory_transactions_project ON inventory_transactions(project_code)")
-    statements.append("CREATE INDEX IF NOT EXISTS idx_inventory_transactions_serial ON inventory_transactions(serial_no)")
+    statements.append("CREATE INDEX IF NOT EXISTS idx_inventory_transactions_serial ON inventory_transactions(cabinet_no)")
 
     return statements
 

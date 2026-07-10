@@ -5,13 +5,13 @@
 {{ document_menu_bar(actions=[
     {'label': '新增服务单', 'type': 'link', 'href': '/service-orders/new?service_card_id=' ~ card.id},
     {'label': '新增安装验收', 'type': 'link', 'href': '/service-acceptance/new?service_card_id=' ~ card.id},
-    {'label': '售后服务单列表', 'type': 'link', 'href': '/service-orders?keyword=' ~ ((card.serial_no or card.project_code or '')|urlencode)},
-    {'label': 'RMA列表', 'type': 'link', 'href': '/service-rmas?keyword=' ~ ((card.serial_no or card.project_code or '')|urlencode)},
+    {'label': '售后服务单列表', 'type': 'link', 'href': '/service-orders?keyword=' ~ ((card.cabinet_no or card.project_code or '')|urlencode)},
+    {'label': 'RMA列表', 'type': 'link', 'href': '/service-rmas?keyword=' ~ ((card.cabinet_no or card.project_code or '')|urlencode)},
     {'label': '下查', 'type': 'dropdown', 'items': [
-        {'label': '安装验收列表', 'type': 'link', 'href': '/service-acceptance?keyword=' ~ ((card.serial_no or card.project_code or '')|urlencode)},
+        {'label': '安装验收列表', 'type': 'link', 'href': '/service-acceptance?keyword=' ~ ((card.cabinet_no or card.project_code or '')|urlencode)},
         {'label': '销售订单', 'type': 'link', 'href': '/sales/' ~ card.sales_order_id if card.sales_order_id else '/sales-orders', 'disabled': not card.sales_order_id},
         {'label': '生产工单', 'type': 'link', 'href': '/work-orders/' ~ card.wo_id if card.wo_id else '/work-orders', 'disabled': not card.wo_id},
-        {'label': '项目台账', 'type': 'link', 'href': '/projects?keyword=' ~ ((card.project_code or card.serial_no or '')|urlencode)}
+        {'label': '项目台账', 'type': 'link', 'href': '/projects?keyword=' ~ ((card.project_code or card.cabinet_no or '')|urlencode)}
     ]},
     {'label': '附件/备注', 'type': 'button', 'event': 'focus-card-attachments'}
 ]) }}
@@ -23,7 +23,7 @@
 <div class="page-card mb-3">
     <div class="d-flex justify-content-between align-items-start gap-3">
         <div>
-            <h1 class="h4 mb-1">设备服务档案：{{ card.card_no or card.serial_no or card.id }}</h1>
+            <h1 class="h4 mb-1">设备服务档案：{{ card.card_no or card.cabinet_no or card.id }}</h1>
             <div class="text-muted">{{ card.customer_name or '-' }} / {{ card.machine_model or card.product_name or '-' }}</div>
         </div>
         <span class="badge text-bg-primary">{{ card.status or '-' }}</span>

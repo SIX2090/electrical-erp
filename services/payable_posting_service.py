@@ -180,7 +180,7 @@ def upsert_purchase_invoice_payable(
     unpaid_status,
     finance_remark,
     project_code=None,
-    serial_no=None,
+    cabinet_no=None,
 ) -> None:
     # 同 upsert_purchase_order_payable：partial unique index 无法用 ON CONFLICT (doc_type, doc_id) DO UPDATE，
     # 改为 INSERT ON CONFLICT DO NOTHING + UPDATE。
@@ -188,7 +188,7 @@ def upsert_purchase_invoice_payable(
         """
         INSERT INTO supplier_payables
             (supplier_id, payable_no, doc_type, doc_id, doc_no, doc_date, amount, paid_amount,
-             balance, status, finance_remark, project_code, serial_no)
+             balance, status, finance_remark, project_code, cabinet_no)
         VALUES (%s,%s,'purchase_invoice',%s,%s,%s,%s,0,%s,%s,%s,%s,%s)
         ON CONFLICT DO NOTHING
         """,
@@ -203,7 +203,7 @@ def upsert_purchase_invoice_payable(
             status,
             finance_remark,
             project_code,
-            serial_no,
+            cabinet_no,
         ),
     )
     execute_db(
@@ -217,7 +217,7 @@ def upsert_purchase_invoice_payable(
             status=CASE WHEN GREATEST(%s-COALESCE(paid_amount,0),0)=0 THEN %s ELSE %s END,
             finance_remark=%s,
             project_code=%s,
-            serial_no=%s
+            cabinet_no=%s
         WHERE doc_type='purchase_invoice' AND doc_id=%s
         """,
         (
@@ -231,7 +231,7 @@ def upsert_purchase_invoice_payable(
             unpaid_status,
             finance_remark,
             project_code,
-            serial_no,
+            cabinet_no,
             doc_id,
         ),
     )

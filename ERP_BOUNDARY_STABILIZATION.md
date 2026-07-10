@@ -95,7 +95,7 @@ A change is NOT done until ALL of the following are true:
     - removed routes: none
 - Data owner: existing document header and line tables remain the data owners, including `purchase_receipts`, `purchase_receipt_items`, `inventory_movement_documents`, `inventory_movement_lines`, `inventory_adjustments`, `transfer_orders`, `transfer_order_items`, `inventory_check_orders`, `inventory_check_order_items`, `inventory_assembly_orders`, `inventory_assembly_items`, `pick_lists`, `wo_material_items`, `subcontract_issue_orders`, `subcontract_issue_lines`, `subcontract_receive_orders`, and `subcontract_receive_lines`.
 - Upstream source document: purchase order, work order, subcontract order, inventory opening sheet, manual stock evidence, transfer/check evidence, or assembly/disassembly instruction according to the existing document type.
-- Downstream impact: inventory balances, stock transactions, batch tracking, work-order material quantities, subcontract WIP, project/serial trace, and finance cost reports.
+- Downstream impact: inventory balances, stock transactions, batch tracking, work-order material quantities, subcontract WIP, project/cabinet trace, and finance cost reports.
 - Schema change: none.
 - Permission: unchanged; existing warehouse, purchase, production, and subcontract route permissions remain in force.
 - Menu classification: unchanged; existing document-entry pages remain `live`.
@@ -233,7 +233,7 @@ A change is NOT done until ALL of the following are true:
     - removed routes: none
 - Data owner: system administrator owns role permission configuration; master data remains owned by each master-data owner.
 - Upstream source document: role permission form submission and default pilot role permission definitions.
-- Downstream impact: visible navigation and direct access matrix must agree; document-entry operators need read-only access to material, customer, supplier, warehouse, unit, project, and machine serial master data.
+- Downstream impact: visible navigation and direct access matrix must agree; document-entry operators need read-only access to material, customer, supplier, warehouse, unit, project, and machine cabinet master data.
 - Schema change: none.
 - Permission: preserve existing role groups and ensure the default read-only `master` group cannot be accidentally removed from business pilot roles by a partial form save.
 - Menu classification: existing routes remain `live`; no navigation expansion.
@@ -262,12 +262,12 @@ A change is NOT done until ALL of the following are true:
     - removed routes: none
 - Data owner: `inventory_movement_documents` and `inventory_movement_lines` own other inbound/outbound draft document headers and lines; `stock_transactions` owns posted inventory movement history.
 - Upstream source document: manual stock adjustment evidence, physical count sheet, old system opening sheet, supplier/customer return source document where applicable.
-- Downstream impact: inventory balance, stock transaction trace, project/serial inventory occupation, and inventory cost reports.
+- Downstream impact: inventory balance, stock transaction trace, project/cabinet inventory occupation, and inventory cost reports.
 - Schema change: none.
 - Permission: existing warehouse permissions; no permission expansion.
 - Menu classification: existing routes remain `live`.
 - Acceptance check:
-    1. `/inventory/inbound` and `/inventory/outbound` show document information plus source document, material detail count, inventory cost unit price, lot number, project number, and machine serial number context.
+    1. `/inventory/inbound` and `/inventory/outbound` show document information plus source document, material detail count, inventory cost unit price, lot number, project number, and cabinet number context.
     2. `/inventory/inbound/new` and `/inventory/outbound/new` remain the only normal document-entry routes for manual other movement creation.
     3. `/inventory/opening/new` remains a material-opening form with opening-only labels and a visible save action.
     4. `audit_material_opening_boundary.py` and `audit_trial_core_document_fields.py` pass.
@@ -294,7 +294,7 @@ A change is NOT done until ALL of the following are true:
     - removed routes: none
 - Data owner: `supplier_payables.payable_no` owns the formal payable document number. Existing `doc_no` and `source_no` remain upstream/source compatibility fields.
 - Upstream source document: purchase receipt, purchase invoice, subcontract receive, opening payable, and other existing posting sources.
-- Downstream impact: supplier payment source selection, payable settlement display, AP reports, project/serial cost trace, and system document-number settings.
+- Downstream impact: supplier payment source selection, payable settlement display, AP reports, project/cabinet cost trace, and system document-number settings.
 - Schema change: add nullable `supplier_payables.payable_no`, backfill existing rows as `AP-LEGACY-<id>`, create a unique partial index, and seed a default inactive document-number rule.
 - Permission: existing finance/payable/system-admin permissions; no permission expansion.
 - Menu classification: existing routes remain `live`.
@@ -330,7 +330,7 @@ A change is NOT done until ALL of the following are true:
     - `machine_service_return_visits.visit_no` owns the return-visit document number.
     - `customer_receivables.receivable_no` owns the receivable document number; `source_no` remains the upstream document reference.
 - Upstream source document: sales shipment/sales order/service order/sales invoice depending on the business event.
-- Downstream impact: service trace, service closure check, receivable settlement, customer receipt allocation, project/serial trace.
+- Downstream impact: service trace, service closure check, receivable settlement, customer receipt allocation, project/cabinet trace.
 - Schema change: add nullable number columns and unique partial indexes in `services/schema_migrations.py`; backfill existing rows as `SC-LEGACY-<id>`, `SV-LEGACY-<id>`, and `AR-LEGACY-<id>`.
 - Permission: existing service and finance permissions; no permission expansion.
 - Menu classification: existing routes remain `live`.
@@ -382,7 +382,7 @@ A change is NOT done until ALL of the following are true:
 ### B-006 Add service acceptance document number - CLOSED 2026-06-29
 - Date: 2026-06-29
 - Trigger: user approved fixing document headers that lack document numbers, starting with installation acceptance.
-- Business loop: service card by shipped machine serial -> installation acceptance -> warranty start/customer acceptance evidence -> service order/RMA follow-up -> project/serial trace.
+- Business loop: service card by shipped machine cabinet -> installation acceptance -> warranty start/customer acceptance evidence -> service order/RMA follow-up -> project/cabinet trace.
 - Page type: document entry, document list, document detail.
 - Route exposure:
     - new routes: none
@@ -393,8 +393,8 @@ A change is NOT done until ALL of the following are true:
         - GET/POST /service-acceptance/<id>/edit
     - removed routes: none
 - Data owner: `machine_service_acceptance_checks.acceptance_no` owns the formal installation acceptance document number.
-- Upstream source document: machine service card created from shipped machine serial / sales shipment.
-- Downstream impact: warranty start evidence, customer acceptance follow-up, service order/RMA trace, project/serial ledger.
+- Upstream source document: machine service card created from shipped machine cabinet / sales shipment.
+- Downstream impact: warranty start evidence, customer acceptance follow-up, service order/RMA trace, project/cabinet ledger.
 - Schema change: add `machine_service_acceptance_checks.acceptance_no` and a unique index in `services/schema_migrations.py`; backfill existing rows from id as `SA-LEGACY-<id>`.
 - Permission: existing service acceptance permissions in `services/pilot_permissions.py`; no permission change.
 - Menu classification: existing `/service-acceptance` and `/service-acceptance/new` remain `live`.
@@ -402,7 +402,7 @@ A change is NOT done until ALL of the following are true:
     1. Creating an installation acceptance generates an `SA` document number and stores it in `machine_service_acceptance_checks.acceptance_no`.
     2. The service acceptance list can search by acceptance number and shows the number as the first document column.
     3. The detail and edit pages display the acceptance number instead of using database id as the operator-facing document number.
-    4. Project/serial trace uses the acceptance number for service acceptance events.
+    4. Project/cabinet trace uses the acceptance number for service acceptance events.
 - Verification:
     - Pre-migration backup: `backups/pre_migration_service_acceptance_no.dump`.
     - Schema migration applied: `20260629_001_service_acceptance_document_number`.

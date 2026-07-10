@@ -102,7 +102,7 @@ PAGES = [
     ("/department", "08_master_engineering/08_department_master.png"),
     ("/employee", "08_master_engineering/09_employee_master.png"),
     ("/project-master", "08_master_engineering/10_project_master.png"),
-    ("/machine-serial-master", "08_master_engineering/11_machine_serial_master.png"),
+    ("/cabinet-master", "08_master_engineering/11_cabinet_master.png"),
     ("/categories/product", "08_master_engineering/12_product_category.png"),
     ("/categories/customer", "08_master_engineering/13_customer_category.png"),
     ("/categories/supplier", "08_master_engineering/14_supplier_category.png"),

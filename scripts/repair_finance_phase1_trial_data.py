@@ -70,7 +70,7 @@ def ensure_receipt_flow(cur):
     receivable = one(
         cur,
         """
-        SELECT id, customer_id, source_no, balance, project_code, serial_no
+        SELECT id, customer_id, source_no, balance, project_code, cabinet_no
         FROM customer_receivables
         WHERE COALESCE(balance,0) > 0
         ORDER BY
@@ -98,7 +98,7 @@ def ensure_receipt_flow(cur):
             INSERT INTO customer_receipts
                 (receipt_no, receipt_date, customer_id, amount, payment_method, bank_account,
                  remark, source_type, source_id, source_no, receivable_id, project_code,
-                 serial_no, status, unapplied_amount, created_at)
+                 cabinet_no, status, unapplied_amount, created_at)
             VALUES
                 (%s, CURRENT_DATE, %s, %s, 'bank', %s,
                  'Trial first-machine receipt settlement sample', 'customer_receivable',
@@ -114,7 +114,7 @@ def ensure_receipt_flow(cur):
                 receivable["source_no"],
                 receivable["id"],
                 receivable["project_code"],
-                receivable["serial_no"],
+                receivable["cabinet_no"],
             ),
         )
         receipt_id = cur.fetchone()["id"]
@@ -148,7 +148,7 @@ def ensure_receipt_flow(cur):
             """
             INSERT INTO cash_bank_journal_entries
                 (account_id, entry_date, entry_no, source_type, source_no, direction, amount,
-                 balance_after, partner_type, partner_name, project_code, serial_no, summary,
+                 balance_after, partner_type, partner_name, project_code, cabinet_no, summary,
                  status, created_at)
             VALUES
                 (%s, CURRENT_DATE, %s, 'customer_receipt', %s, 'in', %s,
@@ -164,7 +164,7 @@ def ensure_receipt_flow(cur):
                 account["id"],
                 amount,
                 receivable["project_code"],
-                receivable["serial_no"],
+                receivable["cabinet_no"],
             ),
         )
         cur.execute(

@@ -35,7 +35,7 @@ def main():
     os.environ.setdefault("WTF_CSRF_ENABLED", "0")
     values = load_first_machine_values(TEMPLATE)
     project_code = values["project_code"]
-    serial_no = values["serial_no"]
+    cabinet_no = values["cabinet_no"]
     checks = []
 
     conn = connect_db(get_db_config())
@@ -48,11 +48,11 @@ def main():
                 """
                 SELECT *
                 FROM work_orders
-                WHERE project_code=%s AND serial_no=%s
+                WHERE project_code=%s AND cabinet_no=%s
                 ORDER BY id DESC
                 LIMIT 1
                 """,
-                (project_code, serial_no),
+                (project_code, cabinet_no),
             )
             checks.append(("work_order_ready", bool(work_order), work_order.get("wo_no") if work_order else "missing"))
     finally:
@@ -75,24 +75,24 @@ def main():
                 FROM quality_inspection_records qi
                 LEFT JOIN work_orders wo ON qi.source_document_type='work_order' AND wo.id=qi.source_document_id
                 LEFT JOIN products p ON p.id=qi.product_id
-                WHERE qi.project_code=%s AND qi.serial_no=%s
+                WHERE qi.project_code=%s AND qi.cabinet_no=%s
                 ORDER BY qi.id DESC
                 LIMIT 1
                 """,
-                (project_code, serial_no),
+                (project_code, cabinet_no),
             )
             checks.append(("quality_record_traceable", bool(inspection), inspection.get("inspection_no") if inspection else "missing"))
             if inspection:
                 checks.append(("quality_source_work_order", inspection.get("source_document_type") == "work_order", inspection.get("source_document_type")))
                 checks.append(("quality_result_passed", (inspection.get("inspection_result") or "").lower() in {"pass", "passed"}, inspection.get("inspection_result")))
-                checks.append(("quality_project_serial", inspection.get("project_code") == project_code and inspection.get("serial_no") == serial_no, "project/serial"))
+                checks.append(("quality_project_cabinet", inspection.get("project_code") == project_code and inspection.get("cabinet_no") == cabinet_no, "project/cabinet"))
     finally:
         conn.close()
 
     if login.status_code == 302 and work_order:
         page_expectations = [
-            (f"/production-enhance/quality-inspections?keyword={project_code}", [project_code, serial_no, inspection["inspection_no"] if inspection else "QI"]),
-            (f"/work-orders/{work_order['id']}", [project_code, serial_no, inspection["inspection_no"] if inspection else "QI"]),
+            (f"/production-enhance/quality-inspections?keyword={project_code}", [project_code, cabinet_no, inspection["inspection_no"] if inspection else "QI"]),
+            (f"/work-orders/{work_order['id']}", [project_code, cabinet_no, inspection["inspection_no"] if inspection else "QI"]),
             (f"/projects?keyword={project_code}", [project_code]),
         ]
         for path, expected in page_expectations:
@@ -107,7 +107,7 @@ def main():
     print("first_machine_quality_closure_audit=ok" if not failures else "first_machine_quality_closure_audit=failed")
     print(f"checked_items={len(checks)}")
     print(f"project_code={project_code}")
-    print(f"serial_no={serial_no}")
+    print(f"cabinet_no={cabinet_no}")
     for name, ok, detail in checks:
         print(f"{'ok' if ok else 'failed'} | {name} | {detail}")
     return 1 if failures else 0

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "partials/document_menu_bar.html" import document_menu_bar %}
 
-{% block title %}机号成本明细{% endblock %}
+{% block title %}柜号成本明细{% endblock %}
 
 {% block content %}
 {{ document_menu_bar(actions=[
@@ -11,11 +11,11 @@
         {'label': '下一张', 'event': 'doc-nav-next', 'icon': 'bi-chevron-right'},
         {'label': '末张', 'event': 'doc-nav-last', 'icon': 'bi-chevron-double-right'}
     ]}
-], aria_label='机号成本操作菜单') }}
+], aria_label='柜号成本操作菜单') }}
 <div class="container-fluid">
     <div class="page-header">
-        <h1>机号成本明细报表</h1>
-        <p class="text-muted">查询机号成本明细流水</p>
+        <h1>柜号成本明细报表</h1>
+        <p class="text-muted">查询柜号成本明细流水</p>
     </div>
 
     <!-- 筛选条件 -->
@@ -26,16 +26,16 @@
             </h5>
         </div>
         <div class="card-body">
-            <form method="get" action="/finance/serial-cost/detail">
+            <form method="get" action="/finance/cabinet-cost/detail">
                 <div class="row">
                     <div class="col-md-2">
                         <div class="form-group">
-                            <label>机号</label>
-                            <select name="serial_no" class="form-control">
-                                <option value="">请选择机号</option>
-                                {% for s in serial_nos %}
-                                <option value="{{ s.serial_no }}" {% if filters.serial_no == s.serial_no %}selected{% endif %}>
-                                    {{ s.serial_no }}{% if s.project_code %} ({{ s.project_code }}){% endif %}
+                            <label>柜号</label>
+                            <select name="cabinet_no" class="form-control">
+                                <option value="">请选择柜号</option>
+                                {% for s in cabinet_nos %}
+                                <option value="{{ s.cabinet_no }}" {% if filters.cabinet_no == s.cabinet_no %}selected{% endif %}>
+                                    {{ s.cabinet_no }}{% if s.project_code %} ({{ s.project_code }}){% endif %}
                                 </option>
                                 {% endfor %}
                             </select>
@@ -83,39 +83,39 @@
         </div>
     </div>
 
-    <!-- 机号成本汇总卡片 -->
-    {% if serial_summary %}
+    <!-- 柜号成本汇总卡片 -->
+    {% if cabinet_summary %}
     <div class="card mb-4 border-primary">
         <div class="card-header bg-primary text-white">
             <h5 class="mb-0">
-                <i class="fas fa-calculator"></i> 机号成本汇总 - {{ filters.serial_no }}
+                <i class="fas fa-calculator"></i> 柜号成本汇总 - {{ filters.cabinet_no }}
             </h5>
         </div>
         <div class="card-body">
             <div class="row">
                 <div class="col-md-2">
                     <h6 class="text-muted">领料成本</h6>
-                    <h4 class="text-primary">{{ "%.2f"|format(serial_summary.material_cost) }}</h4>
+                    <h4 class="text-primary">{{ "%.2f"|format(cabinet_summary.material_cost) }}</h4>
                 </div>
                 <div class="col-md-2">
                     <h6 class="text-muted">采购成本</h6>
-                    <h4 class="text-success">{{ "%.2f"|format(serial_summary.purchase_cost) }}</h4>
+                    <h4 class="text-success">{{ "%.2f"|format(cabinet_summary.purchase_cost) }}</h4>
                 </div>
                 <div class="col-md-2">
                     <h6 class="text-muted">委外成本</h6>
-                    <h4 class="text-warning">{{ "%.2f"|format(serial_summary.outsource_cost) }}</h4>
+                    <h4 class="text-warning">{{ "%.2f"|format(cabinet_summary.outsource_cost) }}</h4>
                 </div>
                 <div class="col-md-2">
                     <h6 class="text-muted">人工成本</h6>
-                    <h4 class="text-info">{{ "%.2f"|format(serial_summary.labor_cost) }}</h4>
+                    <h4 class="text-info">{{ "%.2f"|format(cabinet_summary.labor_cost) }}</h4>
                 </div>
                 <div class="col-md-2">
                     <h6 class="text-muted">其他成本</h6>
-                    <h4 class="text-secondary">{{ "%.2f"|format(serial_summary.other_cost) }}</h4>
+                    <h4 class="text-secondary">{{ "%.2f"|format(cabinet_summary.other_cost) }}</h4>
                 </div>
                 <div class="col-md-2">
                     <h6 class="text-muted">总成本</h6>
-                    <h3 class="text-danger"><strong>{{ "%.2f"|format(serial_summary.total_cost) }}</strong></h3>
+                    <h3 class="text-danger"><strong>{{ "%.2f"|format(cabinet_summary.total_cost) }}</strong></h3>
                 </div>
             </div>
         </div>
@@ -145,7 +145,7 @@
                         <tr>
                             <th>序号</th>
                             <th>成本日期</th>
-                            <th>机号</th>
+                            <th>柜号</th>
                             <th>项目号</th>
                             <th>产品</th>
                             <th>成本类型</th>
@@ -163,7 +163,7 @@
                             <td>{{ loop.index }}</td>
                             <td>{{ row.cost_date }}</td>
                             <td>
-                                <span class="badge badge-secondary">{{ row.serial_no }}</span>
+                                <span class="badge badge-secondary">{{ row.cabinet_no }}</span>
                             </td>
                             <td>
                                 {% if row.project_code %}

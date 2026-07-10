@@ -16,7 +16,7 @@
 <div class="page-card erp-list-card mb-3">
     <form class="row g-2" method="get" action="/purchase_receipts">
         <div class="col-lg-4">
-            <input class="form-control" name="keyword" value="{{ filters.keyword }}" placeholder="入库单、采购订单、供应商、项目号、机号">
+            <input class="form-control" name="keyword" value="{{ filters.keyword }}" placeholder="入库单、采购订单、供应商、项目号、柜号">
         </div>
         <div class="col-lg-2">
             <select class="form-select" name="status">
@@ -64,7 +64,7 @@
                 <th>预计到货</th>
                 <th>供应商</th>
                 <th>项目号</th>
-                <th>机号</th>
+                <th>柜号</th>
                 <th>状态</th>
                 <th class="text-end">未收数量</th>
                 <th class="text-end">未收金额</th>
@@ -79,7 +79,7 @@
                 <td>{{ row.expected_date or '-' }}</td>
                 <td>{{ row.supplier_name|clean_text }}</td>
                 <td>{{ row.project_code|clean_text }}</td>
-                <td>{{ row.serial_no|clean_text }}</td>
+                <td>{{ row.cabinet_no|clean_text }}</td>
                 <td>{{ row.status|clean_text }}</td>
                 <td class="text-end fw-semibold">{{ row.pending_qty|qty }}</td>
                 <td class="text-end">{{ row.pending_amount|money }}</td>
@@ -112,7 +112,7 @@
                 <th>供应商</th>
                 <th>收货仓库</th>
                 <th>项目号</th>
-                <th>机号</th>
+                <th>柜号</th>
                 <th>质检状态</th>
                 <th>入库状态</th>
                 <th class="text-end">收货数量</th>
@@ -130,7 +130,7 @@
                 <td>{{ row.supplier_name|clean_text }}</td>
                 <td>{{ row.warehouse_name|clean_text }}</td>
                 <td>{{ row.project_code|clean_text }}</td>
-                <td>{{ row.serial_no|clean_text }}</td>
+                <td>{{ row.cabinet_no|clean_text }}</td>
                 <td>{{ row.qc_state_label|clean_text }}</td>
                 <td>{{ row.stock_state_label|clean_text }}</td>
                 <td class="text-end">{{ row.received_qty|qty }}</td>

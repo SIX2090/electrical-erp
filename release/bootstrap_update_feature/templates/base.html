@@ -21,7 +21,7 @@
             <span class="brand-mark">机</span>
             <span>
                 <strong>数控机床制造业 ERP</strong>
-                <small>项目/机号主线</small>
+                <small>项目/柜号主线</small>
             </span>
         </div>
         <div class="nav-section">业务导航</div>
@@ -30,7 +30,7 @@
         <div class="menu-parent"><i class="bi bi-kanban"></i> 工作台</div>
         <div class="submenu">
             <a href="/project-delivery-workbench" data-nav-link>&#39033;&#30446;&#20132;&#20184;&#24037;&#20316;&#21488;</a>
-            <a href="/projects" data-nav-link>项目/机号台账</a>
+            <a href="/projects" data-nav-link>项目/柜号台账</a>
             <a href="/reports" data-nav-link>报表中心</a>
             <a href="/pending-documents" data-nav-link>待处理单据</a>
             <a href="/approval/pending" data-nav-link>待审核</a>
@@ -70,11 +70,11 @@
             <a href="/sales/reports/invoice-summary" data-nav-link>销售发票汇总表</a>
             <a href="/sales/reports/receivable-collection-detail" data-nav-link>销售收款执行明细</a>
             <a href="/sales/reports/receivable-aging" data-nav-link>销售应收账龄分析</a>
-            <a href="/sales/reports/project-serial-order-tracking" data-nav-link>项目/机号销售跟踪</a>
+            <a href="/sales/reports/project-cabinet-order-tracking" data-nav-link>项目/柜号销售跟踪</a>
             <a href="/sales/reports/shipped-unsettled-detail" data-nav-link>销售发货未结明细</a>
             <a href="/sales/reports/shipped-goods-detail" data-nav-link>发出商品明细</a>
             <a href="/sales/reports/shipped-goods-summary" data-nav-link>发出商品汇总</a>
-            <a href="/sales/reports/project-serial-gross-margin" data-nav-link>项目/机号销售毛利分析</a>
+            <a href="/sales/reports/project-cabinet-gross-margin" data-nav-link>项目/柜号销售毛利分析</a>
             <a href="/sales/reports/price-execution-analysis" data-nav-link>销售价格执行分析</a>
             <a href="/sales/reports/delivery-delay-analysis" data-nav-link>销售交付逾期分析</a>
             <a href="/sales/reports/operation-snapshot" data-nav-link>销售经营快照</a>
@@ -122,7 +122,7 @@
             <a href="/purchase/reports/invoice-summary" data-nav-link>采购发票汇总表/税票汇总表</a>
             <a href="/purchase/reports/payment-overview" data-nav-link>采购付款一览表</a>
             <a href="/purchase/reports/payable-reconciliation-detail" data-nav-link>采购应付对账明细</a>
-            <a href="/purchase/reports/project-serial-purchase-cost-detail" data-nav-link>项目/机号采购成本明细</a>
+            <a href="/purchase/reports/project-cabinet-purchase-cost-detail" data-nav-link>项目/柜号采购成本明细</a>
             <a href="/purchase/reports/daily" data-nav-link>采购日报</a>
         </div>
         {% endif %}
@@ -178,7 +178,7 @@
             <a href="/production/reports/material-issue-detail" data-nav-link>工单领料明细</a>
             <a href="/production/reports/completion-inbound-detail" data-nav-link>完工入库明细</a>
             <a href="/production/reports/operation-report-detail" data-nav-link>工序报工明细</a>
-            <a href="/production/reports/project-serial-progress" data-nav-link>项目/机号生产进度</a>
+            <a href="/production/reports/project-cabinet-progress" data-nav-link>项目/柜号生产进度</a>
         </div>
         {% endif %}
 
@@ -203,7 +203,7 @@
             <a href="/inventory/detail" data-nav-link>库存明细</a>
             <a href="/transactions" data-nav-link>库存流水</a>
             <a href="/inventory_alerts" data-nav-link>库存预警</a>
-            <a href="/batch/tracking" data-nav-link>批次机号追溯</a>
+            <a href="/batch/tracking" data-nav-link>批次柜号追溯</a>
             <div class="submenu-label">库存报表</div>
             <a href="/inventory/reports/ledger" data-nav-link>标准库存明细账</a>
             <a href="/inventory/reports/account-book" data-nav-link>库存台账</a>
@@ -215,7 +215,7 @@
             <a href="/inventory/reports/available-stock" data-nav-link>可用库存表</a>
             <a href="/inventory/reports/shortage" data-nav-link>安全库存/短缺报表</a>
             <a href="/inventory/reports/turnover" data-nav-link>库存周转率报表</a>
-            <a href="/inventory/reports/project-occupation" data-nav-link>项目/机号库存占用表</a>
+            <a href="/inventory/reports/project-occupation" data-nav-link>项目/柜号库存占用表</a>
             <a href="/inventory/reports/check-difference" data-nav-link>盘点差异汇总表</a>
             <a href="/inventory/reports/fund-occupation" data-nav-link>库存资金占用表</a>
             <a href="/inventory/reports/batch-trace" data-nav-link>批次追溯报表</a>
@@ -342,7 +342,7 @@
             <a href="/finance/inventory-cost/summary" data-nav-link>库存成本总账</a>
             <a href="/finance/inventory-cost/detail" data-nav-link>库存成本明细账</a>
             <a href="/finance/reports/project-cost" data-nav-link>项目成本明细</a>
-            <a href="/finance/reports/machine-cost" data-nav-link>机号成本明细</a>
+            <a href="/finance/reports/machine-cost" data-nav-link>柜号成本明细</a>
             <div class="submenu-label">期末处理</div>
             <a href="/finance/period-close" data-nav-link>期间结账</a>
             <a href="/finance/exchange-adjustment" data-nav-link>期末调汇</a>
@@ -368,7 +368,7 @@
             <div class="submenu-label">基础档案</div>
             <a href="/material" data-nav-link>物料档案</a>
             <a href="/project-master" data-nav-link>项目档案</a>
-            <a href="/machine-serial-master" data-nav-link>机号档案</a>
+            <a href="/cabinet-master" data-nav-link>柜号档案</a>
             <a href="/customer" data-nav-link>客户档案</a>
             <a href="/supplier" data-nav-link>供应商/委外商</a>
             <a href="/warehouse" data-nav-link>仓库档案</a>

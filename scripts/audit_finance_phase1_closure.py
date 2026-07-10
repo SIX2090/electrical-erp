@@ -89,8 +89,8 @@ def main():
                 "customer_receipt_settlements": "SELECT COUNT(*) AS value FROM customer_receipt_settlements",
                 "supplier_payment_settlements": "SELECT COUNT(*) AS value FROM supplier_payment_settlements",
                 "cash_bank_journal_entries": "SELECT COUNT(*) AS value FROM cash_bank_journal_entries",
-                "supplier_payables_trace_columns": "SELECT COUNT(*) AS value FROM information_schema.columns WHERE table_name='supplier_payables' AND column_name IN ('project_code','serial_no')",
-                "customer_receivables_trace_columns": "SELECT COUNT(*) AS value FROM information_schema.columns WHERE table_name='customer_receivables' AND column_name IN ('project_code','serial_no')",
+                "supplier_payables_trace_columns": "SELECT COUNT(*) AS value FROM information_schema.columns WHERE table_name='supplier_payables' AND column_name IN ('project_code','cabinet_no')",
+                "customer_receivables_trace_columns": "SELECT COUNT(*) AS value FROM information_schema.columns WHERE table_name='customer_receivables' AND column_name IN ('project_code','cabinet_no')",
                 "purchase_invoices_table": "SELECT COUNT(*) AS value FROM information_schema.tables WHERE table_name='purchase_invoices'",
                 "test_receivable_partners": """
                     SELECT COUNT(*) AS value
@@ -116,9 +116,9 @@ def main():
                 except Exception as exc:
                     findings.append(("finance_data", name, type(exc).__name__))
             if results.get("supplier_payables_trace_columns", 0) < 2:
-                findings.append(("finance_data", "supplier_payables", "missing project/serial trace columns"))
+                findings.append(("finance_data", "supplier_payables", "missing project/cabinet trace columns"))
             if results.get("customer_receivables_trace_columns", 0) < 2:
-                findings.append(("finance_data", "customer_receivables", "missing project/serial trace columns"))
+                findings.append(("finance_data", "customer_receivables", "missing project/cabinet trace columns"))
             if results.get("purchase_invoices_table", 0) < 1:
                 findings.append(("finance_data", "purchase_invoices", "table missing"))
             if results.get("cash_bank_journal_entries", 0) < 1:

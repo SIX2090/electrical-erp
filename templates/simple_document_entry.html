@@ -60,7 +60,7 @@
                 {% if kind == 'sales_return' %}
                 <datalist id="salesReturnSourceNoOptions">
                     {% for source in sales_return_sources %}
-                    <option value="{{ source.source_no }}" label="{{ source.source_no }} / {{ source.customer_name or '-' }} / {{ source.project_code or '-' }} / {{ source.serial_no or '-' }}"></option>
+                    <option value="{{ source.source_no }}" label="{{ source.source_no }} / {{ source.customer_name or '-' }} / {{ source.project_code or '-' }} / {{ source.cabinet_no or '-' }}"></option>
                     {% endfor %}
                 </datalist>
                 {% elif kind == 'purchase_return' %}
@@ -74,7 +74,7 @@
                 {% if kind == 'sales_return' %}
                 <datalist id="salesReturnOrderNoOptions">
                     {% for source in sales_return_orders %}
-                    <option value="{{ source.source_order_no }}" label="{{ source.source_order_no }} / {{ source.customer_name or '-' }} / {{ source.project_code or '-' }} / {{ source.serial_no or '-' }}"></option>
+                    <option value="{{ source.source_order_no }}" label="{{ source.source_order_no }} / {{ source.customer_name or '-' }} / {{ source.project_code or '-' }} / {{ source.cabinet_no or '-' }}"></option>
                     {% endfor %}
                 </datalist>
                 {% elif kind == 'purchase_return' %}
@@ -87,8 +87,8 @@
                 <input class="form-control form-control-sm" name="project_code" value="{{ form_state.project_code or '' }}" placeholder="推荐追溯字段">
             </div>
             <div class="erp-inline-field">
-                <label>机号</label>
-                <input class="form-control form-control-sm" name="serial_no" value="{{ form_state.serial_no or '' }}" placeholder="推荐追溯字段">
+                <label>柜号</label>
+                <input class="form-control form-control-sm" name="cabinet_no" value="{{ form_state.cabinet_no or '' }}" placeholder="推荐追溯字段">
             </div>
             {% if kind in ['quotation', 'supplier_quote'] %}
             <div class="erp-inline-field erp-inline-field-date">
@@ -269,11 +269,11 @@ function applySalesReturnSource(row) {
     const customer = document.querySelector('select[name="customer_id"]');
     const sourceOrder = document.querySelector('[name="source_order_no"]');
     const project = document.querySelector('[name="project_code"]');
-    const serial = document.querySelector('[name="serial_no"]');
+    const cabinet = document.querySelector('[name="cabinet_no"]');
     if (customer && row.customer_id) customer.value = String(row.customer_id);
     if (sourceOrder && row.source_order_no) sourceOrder.value = row.source_order_no;
     if (project && row.project_code) project.value = row.project_code;
-    if (serial && row.serial_no) serial.value = row.serial_no;
+    if (cabinet && row.cabinet_no) cabinet.value = row.cabinet_no;
 }
 document.querySelector('[data-sales-return-source]')?.addEventListener('change', function () {
     const value = this.value.trim();
@@ -318,7 +318,7 @@ function setPurchaseReturnOptions(list, rows, valueField) {
             row.supplier_name || '-',
             row.source_order_no || row.source_no || '-',
             row.project_code || '-',
-            row.serial_no || '-'
+            row.cabinet_no || '-'
         ].join(' / ');
         list.appendChild(option);
     });
@@ -335,7 +335,7 @@ function applyPurchaseReturnSource(row) {
     const sourceNo = document.querySelector('[name="source_no"]');
     const sourceOrder = document.querySelector('[name="source_order_no"]');
     const project = document.querySelector('[name="project_code"]');
-    const serial = document.querySelector('[name="serial_no"]');
+    const cabinet = document.querySelector('[name="cabinet_no"]');
     const warehouse = document.querySelector('select[name="warehouse_id"]');
     const location = document.querySelector('select[name="location_id"]');
     const lot = document.querySelector('[name="lot_no"]');
@@ -343,7 +343,7 @@ function applyPurchaseReturnSource(row) {
     if (sourceNo && row.source_no) sourceNo.value = row.source_no;
     if (sourceOrder && row.source_order_no) sourceOrder.value = row.source_order_no;
     if (project) project.value = row.project_code || '';
-    if (serial) serial.value = row.serial_no || '';
+    if (cabinet) cabinet.value = row.cabinet_no || '';
     if (productIdInput) productIdInput.value = row.product_id || '';
     if (productNameInput) productNameInput.value = row.product_name || '';
     if (materialSpecInput) materialSpecInput.value = row.specification || '';

@@ -15,7 +15,7 @@ PERMISSION_TYPES = {"view", "edit", "approve", "export"}
 logger = logging.getLogger(__name__)
 SCOPE_LABELS = {
     "project": "项目",
-    "serial": "机号",
+    "cabinet": "柜号",
     "department": "部门",
     "customer": "客户",
     "supplier": "供应商",
@@ -311,7 +311,7 @@ def get_user_permissions(query_db, user_id, role) -> Dict[str, List[str]]:
         SELECT scope_type, scope_id
         FROM data_permission_rules
         WHERE status='enabled'
-          AND scope_type IN ('project','serial','department','customer','supplier')
+          AND scope_type IN ('project','cabinet','department','customer','supplier')
           AND (
             (subject_type='user' AND subject_id=%s)
             OR (subject_type='role' AND subject_id=%s)
@@ -345,14 +345,14 @@ def _resolve_scope_label(query_db, scope_type: str, scope_id: str) -> str:
             )
             if row:
                 return _clean(row.get("project_name")) or _clean(row.get("project_code")) or scope_id
-        elif scope_type == "serial":
+        elif scope_type == "cabinet":
             row = query_db(
-                "SELECT serial_no FROM machine_serial_masters WHERE serial_no=%s LIMIT 1",
+                "SELECT cabinet_no FROM cabinet_masters WHERE cabinet_no=%s LIMIT 1",
                 (scope_id,),
                 one=True,
             )
             if row:
-                return _clean(row.get("serial_no")) or scope_id
+                return _clean(row.get("cabinet_no")) or scope_id
         elif scope_type == "department":
             row = query_db("SELECT name FROM departments WHERE id=%s LIMIT 1", (scope_id,), one=True)
             if row:
@@ -399,23 +399,23 @@ def get_available_scopes(query_db, scope_type: str) -> List[Dict]:
                     """
                 ) or []
             result = [{"id": _clean(r.get("id")), "label": _clean(r.get("label")) or _clean(r.get("id"))} for r in rows]
-        elif scope_type == "serial":
+        elif scope_type == "cabinet":
             rows = query_db(
                 """
-                SELECT serial_no AS id, serial_no AS label
-                FROM machine_serial_masters
-                WHERE COALESCE(serial_no,'') <> ''
-                ORDER BY serial_no
+                SELECT cabinet_no AS id, cabinet_no AS label
+                FROM cabinet_masters
+                WHERE COALESCE(cabinet_no,'') <> ''
+                ORDER BY cabinet_no
                 LIMIT 500
                 """
             ) or []
             if not rows:
                 rows = query_db(
                     """
-                    SELECT DISTINCT serial_no AS id, serial_no AS label
+                    SELECT DISTINCT cabinet_no AS id, cabinet_no AS label
                     FROM work_orders
-                    WHERE COALESCE(serial_no,'') <> ''
-                    ORDER BY serial_no
+                    WHERE COALESCE(cabinet_no,'') <> ''
+                    ORDER BY cabinet_no
                     LIMIT 500
                     """
                 ) or []
@@ -546,7 +546,7 @@ def sync_to_data_scope_rules(query_db, execute_db) -> Tuple[int, int]:
         """
         SELECT subject_type, subject_id, scope_type, scope_id, permission, status
         FROM data_permission_rules
-        WHERE scope_type IN ('project','serial','department','customer','supplier')
+        WHERE scope_type IN ('project','cabinet','department','customer','supplier')
         """
     ) or []
     synced = 0

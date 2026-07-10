@@ -198,7 +198,7 @@
     <div class="col-md-3"><div class="metric"><div class="label">单据日期</div><div class="value h5">{{ order.order_date or '-' }}</div></div></div>
     <div class="col-md-3"><div class="metric"><div class="label">{{ partner_label }}</div><div class="value h5">{{ partner_name or '-' }}</div></div></div>
     <div class="col-md-3"><div class="metric"><div class="label">项目号</div><div class="value h5">{{ order.project_code or '-' }}</div></div></div>
-    <div class="col-md-3"><div class="metric"><div class="label">机号</div><div class="value h5">{{ order.serial_no or '-' }}</div></div></div>
+    <div class="col-md-3"><div class="metric"><div class="label">柜号</div><div class="value h5">{{ order.cabinet_no or '-' }}</div></div></div>
 </div>
 
 <div class="row g-3 mb-3">
@@ -270,7 +270,7 @@
                 <th class="text-end">含税金额</th>
                 <th>批号</th>
                 <th>项目号</th>
-                <th>机号</th>
+                <th>柜号</th>
             </tr>
             </thead>
             <tbody>
@@ -311,7 +311,7 @@
                 <td class="text-end">{{ item.amount_with_tax|money }}</td>
                 <td>{{ item.item_lot_no or '-' }}</td>
                 <td>{{ item.line_project_code|clean_text or order.project_code|clean_text or '-' }}</td>
-                <td>{{ item.line_serial_no|clean_text or order.serial_no|clean_text or '-' }}</td>
+                <td>{{ item.line_cabinet_no|clean_text or order.cabinet_no|clean_text or '-' }}</td>
             </tr>
             {% endfor %}
             </tbody>

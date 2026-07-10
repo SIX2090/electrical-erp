@@ -21,7 +21,7 @@
         <a class="filter-scheme {% if filters.risk == 'credit' %}active{% endif %}" href="{{ back_url }}?risk=credit">信用预警</a>
     </div>
     <form class="row g-2" method="get" action="{{ back_url }}" data-list-filter-form>
-        <div class="col-lg-3"><input class="form-control" name="keyword" value="{{ filters.keyword }}" placeholder="销售订单、客户、项目号、机号"></div>
+        <div class="col-lg-3"><input class="form-control" name="keyword" value="{{ filters.keyword }}" placeholder="销售订单、客户、项目号、柜号"></div>
         <div class="col-lg-2">
             <select class="form-select" name="customer_id">
                 <option value="">全部客户</option>
@@ -61,14 +61,14 @@
     </div>
     <div class="table-responsive">
         <table class="table table-sm align-middle simple-list-table client-paginate">
-            <thead><tr><th>销售订单</th><th>客户</th><th>项目/机号</th><th>产品分类/BOM</th><th>交货日期</th><th class="text-end">数量</th><th class="text-end">待发货</th><th class="text-end">应收余额</th><th data-column-key="status">状态</th><th>下一步</th><th>发货条件</th><th data-column-system="actions">操作</th></tr></thead>
+            <thead><tr><th>销售订单</th><th>客户</th><th>项目/柜号</th><th>产品分类/BOM</th><th>交货日期</th><th class="text-end">数量</th><th class="text-end">待发货</th><th class="text-end">应收余额</th><th data-column-key="status">状态</th><th>下一步</th><th>发货条件</th><th data-column-system="actions">操作</th></tr></thead>
             <tbody>
             {% if orders %}
             {% for row in orders %}
             <tr>
                 <td><a href="/sales/{{ row.id }}">{{ row.order_no }}</a><div class="text-muted small">{{ row.order_date or '-' }}</div></td>
                 <td>{{ row.customer_name|clean_text }}</td>
-                <td>{{ row.project_code|clean_text }} / {{ row.serial_no|clean_text }}</td>
+                <td>{{ row.project_code|clean_text }} / {{ row.cabinet_no|clean_text }}</td>
                 <td>
                     {{ row.product_families|clean_text }}
                     <div class="text-muted small">{{ row.bom_versions|clean_text }}</div>
@@ -82,8 +82,8 @@
                 <td>{{ row.blocked_reason|clean_text if row.blocked_reason else '-' }}</td>
                 <td class="text-nowrap">
                     <a class="btn btn-outline-primary btn-sm" href="/sales/{{ row.id }}">详情</a>
-                    {% set trace_key = row.project_code or row.serial_no or row.order_no %}
-                    <a class="btn btn-outline-secondary btn-sm" href="/projects?keyword={{ trace_key|urlencode }}">项目/机号台账</a>
+                    {% set trace_key = row.project_code or row.cabinet_no or row.order_no %}
+                    <a class="btn btn-outline-secondary btn-sm" href="/projects?keyword={{ trace_key|urlencode }}">项目/柜号台账</a>
                 </td>
             </tr>
             {% endfor %}

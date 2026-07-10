@@ -39,7 +39,7 @@ print(f"[3] Location: {loc}")
 # 4. inventory_balances for this dimension
 print(f"\n[4] inventory_balances rows for this dimension:")
 cur.execute("""
-    SELECT id, product_id, warehouse_id, location_id, lot_no, serial_no, project_code,
+    SELECT id, product_id, warehouse_id, location_id, lot_no, cabinet_no, project_code,
            quantity, unit_cost, updated_at
     FROM inventory_balances
     WHERE product_id=%s AND warehouse_id=%s AND location_id=%s
@@ -74,25 +74,25 @@ print(f"  Columns: {cols6}")
 for row in cur.fetchall():
     print(f"  {dict(zip(cols6, row))}")
 
-# 7. Summary: sum of stock_transactions by lot_no/serial_no/project_code
-print(f"\n[7] stock_transactions grouped by lot_no/serial_no/project_code:")
+# 7. Summary: sum of stock_transactions by lot_no/cabinet_no/project_code
+print(f"\n[7] stock_transactions grouped by lot_no/cabinet_no/project_code:")
 cur.execute("""
-    SELECT lot_no, serial_no, project_code,
+    SELECT lot_no, cabinet_no, project_code,
            SUM(quantity) as total_qty,
            COUNT(*) as txn_count,
            MIN(id) as min_id, MAX(id) as max_id
     FROM stock_transactions
     WHERE product_id=%s AND warehouse_id=%s AND location_id=%s
-    GROUP BY lot_no, serial_no, project_code
-    ORDER BY lot_no, serial_no, project_code
+    GROUP BY lot_no, cabinet_no, project_code
+    ORDER BY lot_no, cabinet_no, project_code
 """, (PRODUCT_ID, WAREHOUSE_ID, LOCATION_ID))
 for row in cur.fetchall():
-    print(f"  lot='{row[0]}', serial='{row[1]}', project='{row[2]}', sum_qty={row[3]}, count={row[4]}, ids={row[5]}-{row[6]}")
+    print(f"  lot='{row[0]}', cabinet='{row[1]}', project='{row[2]}', sum_qty={row[3]}, count={row[4]}, ids={row[5]}-{row[6]}")
 
 # 8. Check if there are batch_tracking rows with same dimension but different lot_no
 print(f"\n[8] ALL batch_tracking for this product (all warehouses/locations):")
 cur.execute("""
-    SELECT id, product_id, warehouse_id, location_id, lot_no, serial_no, project_code,
+    SELECT id, product_id, warehouse_id, location_id, lot_no, cabinet_no, project_code,
            quantity_in, quantity_out, quantity_available, unit_cost, updated_at
     FROM batch_tracking
     WHERE product_id=%s
@@ -104,7 +104,7 @@ for row in cur.fetchall():
 # 9. Check ALL inventory_balances for this product
 print(f"\n[9] ALL inventory_balances for this product (all warehouses/locations):")
 cur.execute("""
-    SELECT id, product_id, warehouse_id, location_id, lot_no, serial_no, project_code,
+    SELECT id, product_id, warehouse_id, location_id, lot_no, cabinet_no, project_code,
            quantity, unit_cost, updated_at
     FROM inventory_balances
     WHERE product_id=%s

@@ -13,8 +13,8 @@
     {'label': '下查', 'type': 'dropdown', 'items': [
         {'label': '来源服务单', 'type': 'link', 'href': '/service-orders/' ~ rma.order_id if rma.order_id else '/service-orders', 'disabled': not rma.order_id},
         {'label': '设备服务档案', 'type': 'link', 'href': '/service-cards/' ~ rma.service_card_id if rma.service_card_id else '/service-cards', 'disabled': not rma.service_card_id},
-        {'label': 'RMA索赔报表', 'type': 'link', 'href': '/service/reports/rma-claim?keyword=' ~ ((rma.rma_no or rma.serial_no or rma.project_code or '')|urlencode)},
-        {'label': '项目台账', 'type': 'link', 'href': '/projects?keyword=' ~ ((rma.project_code or rma.serial_no or rma.rma_no or '')|urlencode)}
+        {'label': 'RMA索赔报表', 'type': 'link', 'href': '/service/reports/rma-claim?keyword=' ~ ((rma.rma_no or rma.cabinet_no or rma.project_code or '')|urlencode)},
+        {'label': '项目台账', 'type': 'link', 'href': '/projects?keyword=' ~ ((rma.project_code or rma.cabinet_no or rma.rma_no or '')|urlencode)}
     ]},
     {'label': '附件/备注', 'type': 'button', 'event': 'focus-attachments'}
 ]) }}
@@ -32,7 +32,7 @@
     <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
         <div>
             <h1 class="h4 mb-1">RMA：{{ rma.rma_no }}</h1>
-            <div class="text-muted">{{ rma.customer_name or '-' }} / {{ rma.card_serial_no or rma.serial_no or '-' }} / {{ rma.machine_model or '-' }}</div>
+            <div class="text-muted">{{ rma.customer_name or '-' }} / {{ rma.card_cabinet_no or rma.cabinet_no or '-' }} / {{ rma.machine_model or '-' }}</div>
         </div>
         <span class="badge {{ 'text-bg-secondary' if not can_operate else 'text-bg-primary' }}">{{ rma.status or '-' }}</span>
     </div>
@@ -47,8 +47,8 @@
         <span class="badge text-bg-info">{{ rma.claim_status or '-' }}</span>
     </div>
     {% if can_operate %}
-    {% if nav_mode in ['gt_pilot', 'pilot_gtym', 'gtym_pilot'] and (not rma.project_code or not (rma.serial_no or rma.card_serial_no)) %}
-    <div class="alert alert-info mt-3 mb-0">项目号和机号用于RMA追溯；系统启用强制项目号/机号时，RMA必须补齐后才能继续流转。</div>
+    {% if nav_mode in ['gt_pilot', 'pilot_gtym', 'gtym_pilot'] and (not rma.project_code or not (rma.cabinet_no or rma.card_cabinet_no)) %}
+    <div class="alert alert-info mt-3 mb-0">项目号和柜号用于RMA追溯；系统启用强制项目号/柜号时，RMA必须补齐后才能继续流转。</div>
     {% endif %}
     <div class="row g-3 mt-2">
         <div class="col-lg-6">
@@ -113,7 +113,7 @@
                 <div class="col-md-6"><strong>责任：</strong>{{ rma.responsibility_type or '-' }}</div>
                 <div class="col-md-6"><strong>需返厂：</strong>{{ '是' if rma.return_factory_required else '否' }}</div>
                 <div class="col-md-6"><strong>项目号：</strong>{{ rma.project_code or '-' }}</div>
-                <div class="col-md-6"><strong>机号：</strong>{{ rma.serial_no or rma.card_serial_no or '-' }}</div>
+                <div class="col-md-6"><strong>柜号：</strong>{{ rma.cabinet_no or rma.card_cabinet_no or '-' }}</div>
                 <div class="col-md-6"><strong>产品分类：</strong>{{ rma.product_family|clean_text if rma.product_family else '-' }}</div>
                 <div class="col-md-6"><strong>BOM：</strong>{% if rma.bom_no %}<a href="/bom/{{ rma.bom_no }}">{{ rma.bom_display }}</a>{% else %}{{ rma.bom_display or '-' }}{% endif %}</div>
                 <div class="col-md-6"><strong>管控：</strong>{{ rma.control_display or '-' }}</div>
@@ -157,7 +157,7 @@
                 <th data-column-key="location">库位</th>
                 <th data-column-key="lot_no">批号</th>
                 <th data-column-key="project_code">项目号</th>
-                <th data-column-key="serial_no">机号</th>
+                <th data-column-key="cabinet_no">柜号</th>
             </tr>
             </thead>
             <tbody>
@@ -175,7 +175,7 @@
                 <td>{{ item.location_name or item.location_id or '-' }}</td>
                 <td>{{ item.lot_no or '-' }}</td>
                 <td>{{ item.line_project_code or item.project_code or '-' }}</td>
-                <td>{{ item.line_serial_no or item.serial_no or '-' }}</td>
+                <td>{{ item.line_cabinet_no or item.cabinet_no or '-' }}</td>
             </tr>
             {% else %}
             <tr><td colspan="13" class="text-muted">暂无RMA物料明细。</td></tr>

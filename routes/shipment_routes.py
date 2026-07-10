@@ -88,7 +88,7 @@ def render_shipment_detail(
         LEFT JOIN users u ON u.id=ss.operator_id
         LEFT JOIN machine_service_cards sc
           ON sc.sales_order_id=ss.order_id
-         AND (sc.serial_no=ss.serial_no OR COALESCE(ss.serial_no, '')='')
+         AND (sc.cabinet_no=ss.cabinet_no OR COALESCE(ss.cabinet_no, '')='')
         LEFT JOIN LATERAL (
             SELECT COUNT(*) AS stock_txn_count
             FROM stock_transactions st
@@ -111,7 +111,7 @@ def render_shipment_detail(
         return render_template("simple_detail.html", title="销售发货详情", row=None, back_url=back_url, labels={})
 
     project_code = shipment.get("project_code")
-    serial_no = shipment.get("serial_no")
+    cabinet_no = shipment.get("cabinet_no")
     receivable_params = (
         shipment.get("shipment_no"),
         shipment.get("order_no"),
@@ -150,7 +150,7 @@ def render_shipment_detail(
         """
         SELECT st.id, st.transaction_date, st.transaction_type, p.code AS product_code,
                p.name AS product_name, st.quantity, st.unit_cost, st.reference_no,
-               st.lot_no, st.serial_no, st.location
+               st.lot_no, st.cabinet_no, st.location
         FROM stock_transactions st
         LEFT JOIN products p ON p.id=st.product_id
         WHERE st.reference_no=%s OR st.source_doc_no=%s
@@ -175,11 +175,11 @@ def render_shipment_detail(
         """
         SELECT id, shipment_no, shipment_date, status
         FROM sales_shipments
-        WHERE id<>%s AND ((%s IS NOT NULL AND project_code=%s) OR (%s IS NOT NULL AND serial_no=%s))
+        WHERE id<>%s AND ((%s IS NOT NULL AND project_code=%s) OR (%s IS NOT NULL AND cabinet_no=%s))
         ORDER BY id DESC
         LIMIT 20
         """,
-        (shipment_id, project_code, project_code, serial_no, serial_no),
+        (shipment_id, project_code, project_code, cabinet_no, cabinet_no),
     )
     shipment["next_action"] = shipment_next_action(shipment)
     context = {
@@ -189,7 +189,7 @@ def render_shipment_detail(
         "metrics": [
             {"label": "发货数量", "value": qty_metric(total_qty), "hint": f"{len(items)} 行物料"},
             {"label": "发货未税金额", "value": money_metric(total_amount), "hint": "按发货明细汇总"},
-            {"label": "应收余额", "value": money_metric(shipment.get("receivable_balance")), "hint": "来源销售订单/发货/项目机号"},
+            {"label": "应收余额", "value": money_metric(shipment.get("receivable_balance")), "hint": "来源销售订单/发货/项目柜号"},
             {"label": "库存流水", "value": shipment.get("stock_txn_count") or 0, "hint": "销售出库影响记录"},
         ],
         "stock_transactions": stock_transactions,
@@ -251,7 +251,7 @@ def render_shipment_print(shipment_id, query_one, query_rows, as_decimal):
             ("来源销售订单", shipment.get("order_no") or shipment.get("source_no")),
             ("仓库", shipment.get("warehouse_name")),
             ("项目号", shipment.get("project_code")),
-            ("机号", shipment.get("serial_no")),
+            ("柜号", shipment.get("cabinet_no")),
         ],
         "columns": [
             ("product_code", "物料编码", ""),
@@ -276,7 +276,7 @@ def render_shipment_print(shipment_id, query_one, query_rows, as_decimal):
     doc["contact_person"] = shipment.get("contact_person")
     doc["partner_phone"] = shipment.get("customer_phone")
     doc["project_code"] = shipment.get("project_code")
-    doc["serial_no"] = shipment.get("serial_no")
+    doc["cabinet_no"] = shipment.get("cabinet_no")
     doc["warehouse_name"] = shipment.get("warehouse_name")
     template_grid = build_template_grid_for_document("shipment", doc, query_one)
     return render_template("document_print.html", doc=doc, template_grid=template_grid)

@@ -15,7 +15,7 @@
                 <option value="">请选择生产工单</option>
                 {% for wo in work_orders %}
                 <option value="{{ wo.id }}" {% if work_order_id|string == wo.id|string %}selected{% endif %}>
-                    {{ wo.wo_no|clean_text }} / 项目 {{ wo.project_code|clean_text or '-' }} / 机号 {{ wo.serial_no|clean_text or '-' }} / 可处理 {{ wo.available_quantity|qty }} / {{ wo.line_count }} 行
+                    {{ wo.wo_no|clean_text }} / 项目 {{ wo.project_code|clean_text or '-' }} / 柜号 {{ wo.cabinet_no|clean_text or '-' }} / 可处理 {{ wo.available_quantity|qty }} / {{ wo.line_count }} 行
                 </option>
                 {% endfor %}
             </select>
@@ -54,8 +54,8 @@
             </div>
             <div class="col-md-3">
                 <div class="input-group input-group-sm">
-                    <span class="input-group-text">机号</span>
-                    <input class="form-control" value="{{ source_order.serial_no|clean_text if source_order else '' }}" readonly>
+                    <span class="input-group-text">柜号</span>
+                    <input class="form-control" value="{{ source_order.cabinet_no|clean_text if source_order else '' }}" readonly>
                 </div>
             </div>
             <div class="col-md-3">

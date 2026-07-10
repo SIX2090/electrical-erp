@@ -30,7 +30,7 @@
                     <option value="">未指定</option>
                     {% for order in work_orders %}
                     <option value="{{ order.id }}" {% if form_state.work_order_id|string == order.id|string %}selected{% endif %}>
-                        {{ order.wo_no|clean_text }} {{ order.project_code|clean_text }} {{ order.serial_no|clean_text }} {{ order.status|clean_text }}
+                        {{ order.wo_no|clean_text }} {{ order.project_code|clean_text }} {{ order.cabinet_no|clean_text }} {{ order.status|clean_text }}
                     </option>
                     {% endfor %}
                 </select>

@@ -19,7 +19,7 @@
 <div class="page-card mb-3">
     <form class="row g-2" method="get" data-list-filter-form>
         <div class="col-md-7">
-            <input class="form-control form-control-sm" name="keyword" value="{{ keyword|clean_text }}" placeholder="单号 / 工单 / 物料名称 / 项目号 / 机号">
+            <input class="form-control form-control-sm" name="keyword" value="{{ keyword|clean_text }}" placeholder="单号 / 工单 / 物料名称 / 项目号 / 柜号">
         </div>
         <div class="col-md-3">
             <select class="form-select form-select-sm" name="status">
@@ -46,7 +46,7 @@
                     <th>来源工单</th>
                     <th>物料</th>
                     <th>项目号</th>
-                    <th>机号</th>
+                    <th>柜号</th>
                     <th>仓库</th>
                     <th class="text-end">完工数量</th>
                     <th class="text-end">单位成本</th>
@@ -76,7 +76,7 @@
                     <td>{% if row.work_order_id or row.wo_id %}<a href="/work-orders/{{ row.work_order_id or row.wo_id }}">{{ row.wo_no|clean_text or row.work_order_id or row.wo_id }}</a>{% else %}-{% endif %}</td>
                     <td>{{ row.product_code|clean_text or '-' }} / {{ row.product_name|clean_text or '-' }}</td>
                     <td>{{ row.project_code|clean_text or '-' }}</td>
-                    <td>{{ row.serial_no|clean_text or '-' }}</td>
+                    <td>{{ row.cabinet_no|clean_text or '-' }}</td>
                     <td>{{ row.warehouse_name|clean_text or '-' }}</td>
                     <td class="text-end">{{ row.quantity|default(row.qty)|qty }}</td>
                     <td class="text-end">{{ row.unit_cost|money }}</td>

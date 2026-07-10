@@ -45,7 +45,7 @@
         </div>
         <div class="col-md-6">
             <label class="form-label small text-muted mb-1">关键字</label>
-            <input class="form-control form-control-sm" name="keyword" value="{{ filters.keyword }}" placeholder="工单号 / 项目号 / 机号 / 成品编码 / 成品名称">
+            <input class="form-control form-control-sm" name="keyword" value="{{ filters.keyword }}" placeholder="工单号 / 项目号 / 柜号 / 成品编码 / 成品名称">
         </div>
         <div class="col-md-3 d-flex gap-2">
             <button class="btn btn-primary btn-sm flex-fill" type="submit">查询</button>
@@ -67,7 +67,7 @@
             <tr>
                 <th>工单号</th>
                 <th>成品</th>
-                <th>项目/机号</th>
+                <th>项目/柜号</th>
                 <th class="text-end">需求</th>
                 <th class="text-end">已领</th>
                 <th class="text-end">已退</th>
@@ -89,7 +89,7 @@
                     <div>{{ row.product_code or '-' }} {{ row.product_name or '' }}</div>
                     <div class="text-muted small">{{ row.product_family|clean_text if row.product_family else '-' }} / {{ row.bom_display|clean_text if row.bom_display else '-' }}</div>
                 </td>
-                <td>{{ row.project_code or '-' }} / {{ row.serial_no or '-' }}</td>
+                <td>{{ row.project_code or '-' }} / {{ row.cabinet_no or '-' }}</td>
                 <td class="text-end">{{ row.required_qty|clean_text }}</td>
                 <td class="text-end">{{ row.issued_qty|clean_text }}</td>
                 <td class="text-end">{{ row.returned_qty|clean_text }}</td>
@@ -129,7 +129,7 @@
             <thead>
             <tr>
                 <th>工单号</th>
-                <th>项目/机号</th>
+                <th>项目/柜号</th>
                 <th>物料</th>
                 <th>规格</th>
                 <th>单位</th>
@@ -147,7 +147,7 @@
             {% for line in material_lines %}
             <tr>
                 <td>{{ line.wo_no }}</td>
-                <td>{{ line.project_code or '-' }} / {{ line.serial_no or '-' }}</td>
+                <td>{{ line.project_code or '-' }} / {{ line.cabinet_no or '-' }}</td>
                 <td>{{ line.product_code or '-' }} / {{ line.product_name or '-' }}</td>
                 <td>{{ line.specification or '-' }}</td>
                 <td>{{ line.unit or '-' }}</td>

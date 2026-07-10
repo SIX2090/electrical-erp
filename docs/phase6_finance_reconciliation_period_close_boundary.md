@@ -17,7 +17,7 @@ Included:
 - Settlement detail to settlement header consistency.
 - Sales and purchase invoice registration lists.
 - Sales and purchase three-way matching and invoice reconciliation reports.
-- Customer, supplier, project number, and machine serial number finance detail reports.
+- Customer, supplier, project number, and cabinet number finance detail reports.
 - Cash/bank account governance, bank reconciliation, and fund reports.
 - Voucher generation preview and period-close readiness checks.
 - Menu exposure for finance users and administrators.
@@ -35,14 +35,14 @@ Excluded:
 - AR documents are owned by Finance and sourced from sales shipment, sales invoice, or opening AR data.
 - AP documents are owned by Finance and sourced from purchase receipt, subcontract receive, purchase invoice, or opening AP data.
 - Receipt and payment documents are owned by Finance and must reconcile with settlement details and cash/bank journals.
-- Project number and machine serial number remain traceability dimensions. They are used for finance detail and cost follow-up, not as universal mandatory fields.
+- Project number and cabinet number remain traceability dimensions. They are used for finance detail and cost follow-up, not as universal mandatory fields.
 - Inventory and cost posting remain owned by the designated posting services; finance routes must not write inventory or cost facts directly.
 
 ## Stabilization Findings
 
 - Customer receipt and supplier payment headers can become stale when settlement detail rows exist but header settled and unapplied amounts are not recalculated.
 - Finance menu exposure must keep management, invoice, reconciliation, report, period-end, and settings entries distinct.
-- Project/machine-number AR and AP details must remain visible to finance users because project number and machine serial number are the main manufacturing traceability axis.
+- Project/machine-number AR and AP details must remain visible to finance users because project number and cabinet number are the main manufacturing traceability axis.
 - Sales invoice registration and purchase invoice registration belong under finance invoice management, not sales or purchase operator menus.
 
 ## Acceptance Checks

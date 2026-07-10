@@ -41,7 +41,7 @@ Completed after reading the finance blueprint:
 
 - Updated AR/AP document audits to follow canonical `/finance/...` routes instead of legacy compatibility paths.
 - Added canonical finance receipt/payment document routes to `MENU_ROLLOUT_CLASSIFICATION.md`.
-- Proved first-machine finance settlement workflow with project and serial traceability.
+- Proved first-machine finance settlement workflow with project and cabinet traceability.
 - Recorded evidence in `docs/finance_phase1_operator_workflow_evidence_20260616.md`.
 - No installer package was built.
 
@@ -148,7 +148,7 @@ Goal: prove an operator can trace a sales order through delivery and receivable 
 Scope:
 
 - Use existing sales order, shipment, invoice, receivable, and receipt pages.
-- Verify project number and machine serial number display where existing data supports them.
+- Verify project number and cabinet number display where existing data supports them.
 - Verify sales list pages show status, next action, or blocked reason where implemented.
 - Keep sales reports read-only.
 
@@ -260,7 +260,7 @@ Priority: P1
 
 Business loop: work order -> material issue/return -> operation report -> completion inbound -> WIP/cost evidence.
 
-Goal: prove the production execution loop can be followed and reconciled by project/serial where available.
+Goal: prove the production execution loop can be followed and reconciled by project/cabinet where available.
 
 Scope:
 
@@ -392,7 +392,7 @@ Goal: make document lists useful for daily follow-up.
 
 Scope:
 
-- Review list pages for status, date, partner, material, document number, project number, serial number, owner, blocked reason, and next action.
+- Review list pages for status, date, partner, material, document number, project number, cabinet number, owner, blocked reason, and next action.
 - Add missing filters or columns only where backed by existing data.
 - Do not turn list pages into document-entry pages.
 
@@ -428,7 +428,7 @@ Goal: make master data maintenance support core loops without becoming transacti
 
 Scope:
 
-- Review material, customer, supplier, warehouse, location, unit, department, employee, category, project master, and machine serial master pages.
+- Review material, customer, supplier, warehouse, location, unit, department, employee, category, project master, and machine cabinet master pages.
 - Ensure import/export/template behavior is available where already implemented.
 - Ensure trace/detail links do not duplicate business document entrances.
 
@@ -585,7 +585,7 @@ Goal: make existing production schedules useful for daily dispatch and reschedul
 Scope:
 
 - Stabilize existing production schedule list/detail/edit and dispatch controls.
-- Show work order, project number, machine serial number, work center, planned dates, dispatch status, responsible person, blocked reason, next action, and downstream impact where existing data supports it.
+- Show work order, project number, cabinet number, work center, planned dates, dispatch status, responsible person, blocked reason, next action, and downstream impact where existing data supports it.
 - Review whether the existing schedule surface can show work-center workload, daily capacity, and conflict warnings from current tables.
 - Keep start/finish operation reporting owned by existing operation-report or work-order execution pages.
 - Keep `/production-schedules` as a schedule/query/dispatch surface, not a work-order entry page.
@@ -672,7 +672,7 @@ Task: P1-01 Sales Order To Shipment To Receivable Proof
 Date: 2026-06-16
 Operator role: pilot sales, pilot production, pilot warehouse
 Routes tested: /shipments, /service-cards, /receivables, /projects, /transactions
-Data used: project PJ-GT-TRIAL-20260526-001, serial SN-GT-TRIAL-20260526-001
+Data used: project PJ-GT-TRIAL-20260526-001, cabinet SN-GT-TRIAL-20260526-001
 Defect found: none
 Files changed: docs/erp_loop_acceptance_worksheet_20260616.md
 Audits run: scripts/audit_first_machine_completion_shipment_finance.py
@@ -686,7 +686,7 @@ Task: P1-02 Purchase Request To Receipt To Payable Proof
 Date: 2026-06-16
 Operator role: pilot purchase, pilot production
 Routes tested: /engineering/kitting, /production-enhance/mrp-requirements, /procurement/suggestions, /purchase_request, /purchase-orders, /purchase_receipts, /payables, /projects
-Data used: project PJ-GT-TRIAL-20260526-001, serial SN-GT-TRIAL-20260526-001
+Data used: project PJ-GT-TRIAL-20260526-001, cabinet SN-GT-TRIAL-20260526-001
 Defect found: none
 Files changed: docs/erp_loop_acceptance_worksheet_20260616.md
 Audits run: scripts/audit_first_machine_procurement.py, scripts/audit_first_machine_purchase_to_receipt.py
@@ -700,7 +700,7 @@ Task: P1-03 Inventory Posting And Balance Proof
 Date: 2026-06-16
 Operator role: pilot warehouse, admin
 Routes tested: /transfers, /inventory_checks, /adjustments, /transactions, /inventory, /inventory/detail, /projects
-Data used: project PJ-GT-TRIAL-20260526-001, serial SN-GT-TRIAL-20260526-001
+Data used: project PJ-GT-TRIAL-20260526-001, cabinet SN-GT-TRIAL-20260526-001
 Defect found: none
 Files changed: docs/erp_loop_acceptance_worksheet_20260616.md
 Audits run: scripts/audit_first_machine_inventory_execution.py, scripts/audit_first_machine_inventory_trace.py, scripts/audit_inventory_balance_consistency.py
@@ -728,7 +728,7 @@ Task: P1-05 Work Order To Issue To Completion Proof
 Date: 2026-06-16
 Operator role: production
 Routes tested: work order, production issue/return/completion, operation/cost closure APIs, stock transaction evidence
-Data used: project PJ-GT-TRIAL-20260526-001, serial SN-GT-TRIAL-20260526-001
+Data used: project PJ-GT-TRIAL-20260526-001, cabinet SN-GT-TRIAL-20260526-001
 Defect found: none
 Files changed: docs/erp_loop_acceptance_worksheet_20260616.md
 Audits run: scripts/audit_phase4_production_closure.py, scripts/audit_first_machine_work_order_issue.py
@@ -742,7 +742,7 @@ Task: P1-06 Subcontracting Issue And Receive Proof
 Date: 2026-06-16
 Operator role: purchase/outsourcing
 Routes tested: /subcontract, /subcontract_issue, /subcontract_receive, /payables, /projects, project ledger phase-5 events
-Data used: project PJ-GT-TRIAL-20260526-001, serial SN-GT-TRIAL-20260526-001, subcontract OS-GT-TRIAL-20260526-001
+Data used: project PJ-GT-TRIAL-20260526-001, cabinet SN-GT-TRIAL-20260526-001, subcontract OS-GT-TRIAL-20260526-001
 Defect found: none
 Files changed: docs/erp_loop_acceptance_worksheet_20260616.md
 Audits run: scripts/audit_first_machine_subcontract_closure.py, scripts/audit_phase5_delivery_outsourcing_service_closure.py
@@ -756,7 +756,7 @@ Task: P1-07 Service Order To RMA Closure Proof
 Date: 2026-06-16
 Operator role: service
 Routes tested: /service-cards, /service-acceptance, /service-orders, /service-rmas, /projects
-Data used: project PJ-GT-TRIAL-20260526-001, serial SN-GT-TRIAL-20260526-001, service order SV-GT-TRIAL-20260526-001
+Data used: project PJ-GT-TRIAL-20260526-001, cabinet SN-GT-TRIAL-20260526-001, service order SV-GT-TRIAL-20260526-001
 Defect found: none
 Files changed: docs/erp_loop_acceptance_worksheet_20260616.md
 Audits run: scripts/audit_after_sale_service_boundary.py, scripts/audit_after_sale_boundary.py, scripts/audit_first_machine_service_closure.py
@@ -770,7 +770,7 @@ Task: P1-08 Finance AR/AP Reconciliation Proof
 Date: 2026-06-16
 Operator role: finance
 Routes tested: /receivables, /payables, /finance, /projects, customer AR document routes, supplier AP document routes, /finance/period-close, /finance/financial-statements
-Data used: project PJ-GT-TRIAL-20260526-001, serial SN-GT-TRIAL-20260526-001, sales order SO-GT-TRIAL-20260526-001, purchase order PO-PJ-GT-TRIAL-20260526-001
+Data used: project PJ-GT-TRIAL-20260526-001, cabinet SN-GT-TRIAL-20260526-001, sales order SO-GT-TRIAL-20260526-001, purchase order PO-PJ-GT-TRIAL-20260526-001
 Defect found: finance role could not access /receivables and /payables in the settlement audit; AR/AP formal document routes were not aligned between finance navigation and pilot permission groups.
 Files changed: services/pilot_permissions.py, MENU_ROLLOUT_CLASSIFICATION.md, templates/base.html, docs/erp_loop_acceptance_worksheet_20260616.md
 Audits run: scripts/audit_first_machine_finance_settlement.py, scripts/audit_first_machine_period_close_readiness.py, scripts/audit_finance_ar_documents.py, scripts/audit_finance_ap_documents.py, scripts/audit_finance_phase1_closure.py, scripts/audit_trial_visible_navigation.py, scripts/audit_trial_direct_access_matrix.py
@@ -825,7 +825,7 @@ Next task: P2-04 Master Data Practicality Pass
 Task: P2-04 Master Data Practicality Pass
 Date: 2026-06-16
 Operator role: admin
-Routes tested: /material, /customer, /supplier, /warehouse, /locations, /unit, /department, /employee, /categories/product, /categories/customer, /categories/supplier, /categories/warehouse, /project-master, /machine-serial-master and their new/import/download_template entries
+Routes tested: /material, /customer, /supplier, /warehouse, /locations, /unit, /department, /employee, /categories/product, /categories/customer, /categories/supplier, /categories/warehouse, /project-master, /cabinet-master and their new/import/download_template entries
 Data used: packaged trial database and existing audit probes
 Defect found: none
 Files changed: ERP_NEXT_DEVELOPMENT_TASKS.md
@@ -888,29 +888,29 @@ Next task: select the next development batch from remaining manual acceptance ri
 Task: P5-01 Project Serial Data Quality And Lifecycle Trace Pass
 Date: 2026-06-16
 Operator role: admin, production, warehouse, finance
-Routes tested: /projects, /projects/23, /production-enhance/quality-inspections, project/serial trace and first-machine lifecycle ledger audit paths
-Data used: current development PostgreSQL database, project PJ-GT-TRIAL-20260526-001, serial SN-GT-TRIAL-20260526-001, quality inspection QI-PJ-GT-TRIAL-20260526-001
+Routes tested: /projects, /projects/23, /production-enhance/quality-inspections, project/cabinet trace and first-machine lifecycle ledger audit paths
+Data used: current development PostgreSQL database, project PJ-GT-TRIAL-20260526-001, cabinet SN-GT-TRIAL-20260526-001, quality inspection QI-PJ-GT-TRIAL-20260526-001
 Defect found: the database already contained first-machine quality inspection evidence, but the project lifecycle detail event stream did not expose QI events, so the trace page could not show the full production quality step.
 Files changed: routes/project_routes.py, templates/project_trace_detail.html, ERP_NEXT_DEVELOPMENT_TASKS.md
-Audits run: scripts/verify_project_serial_traceability.py, scripts/audit_fk_validation_readiness.py, scripts/detailed_data_audit.py, scripts/check_first_machine_master_data.py, scripts/audit_inventory_balance_consistency.py, scripts/audit_project_serial_option.py, scripts/audit_inventory_batch_balance.py, scripts/audit_first_machine_lifecycle_ledger.py, python -m compileall app.py routes services scripts, scripts/source_integrity_audit.py, scripts/erp_prelaunch_audit.py, scripts/audit_erp_crud_completeness.py, scripts/audit_trial_visible_navigation.py, scripts/audit_trial_direct_access_matrix.py
+Audits run: scripts/verify_project_cabinet_traceability.py, scripts/audit_fk_validation_readiness.py, scripts/detailed_data_audit.py, scripts/check_first_machine_master_data.py, scripts/audit_inventory_balance_consistency.py, scripts/audit_project_cabinet_option.py, scripts/audit_inventory_batch_balance.py, scripts/audit_first_machine_lifecycle_ledger.py, python -m compileall app.py routes services scripts, scripts/source_integrity_audit.py, scripts/erp_prelaunch_audit.py, scripts/audit_erp_crud_completeness.py, scripts/audit_trial_visible_navigation.py, scripts/audit_trial_direct_access_matrix.py
 Result: passed after adding quality inspection as a read-only project lifecycle event and label; first_machine_lifecycle_ledger_audit=ok checked_items=36, trial_visible_navigation_audit=ok checked_items=1950, trial_direct_access_matrix_audit=ok checked_items=2779 checked_paths=396
-Remaining risk: verify_project_serial_traceability.py still reports 6 nonblocking orphan project/serial findings because require_project_serial=0; these should be reviewed before enabling mandatory project/serial control. Clean-machine recovery and installer package refresh were not run.
-Next task: continue data-linkage cleanup for nonblocking project/serial orphan findings or run a user-selected business loop; do not build or refresh installer package until explicitly requested.
+Remaining risk: verify_project_cabinet_traceability.py still reports 6 nonblocking orphan project/cabinet findings because require_project_cabinet=0; these should be reviewed before enabling mandatory project/cabinet control. Clean-machine recovery and installer package refresh were not run.
+Next task: continue data-linkage cleanup for nonblocking project/cabinet orphan findings or run a user-selected business loop; do not build or refresh installer package until explicitly requested.
 ```
 
 ```text
 Task: P5-02 Development Project Serial Master Data Backfill
 Date: 2026-06-16
 Operator role: admin
-Routes tested: project/serial traceability audit paths, /project-master, /machine-serial-master through CRUD baseline
-Data used: current development PostgreSQL database; audit and verification fixture project/serial pairs from work_orders, subcontract_orders, and production_completion_orders
-Defect found: development verification documents contained 9 project/serial pairs without matching project_masters and machine_serial_masters records. These were fixture records from audit and loop verification scripts, not package data.
+Routes tested: project/cabinet traceability audit paths, /project-master, /cabinet-master through CRUD baseline
+Data used: current development PostgreSQL database; audit and verification fixture project/cabinet pairs from work_orders, subcontract_orders, and production_completion_orders
+Defect found: development verification documents contained 9 project/cabinet pairs without matching project_masters and cabinet_masters records. These were fixture records from audit and loop verification scripts, not package data.
 Files changed: ERP_NEXT_DEVELOPMENT_TASKS.md
-Database changes: inserted 9 project_masters rows and 9 machine_serial_masters rows using the existing master-data status convention for ready/enabled/not-installed records.
-Audits run: scripts/verify_project_serial_traceability.py, scripts/audit_first_machine_lifecycle_ledger.py, scripts/detailed_data_audit.py, scripts/erp_prelaunch_audit.py, scripts/audit_erp_crud_completeness.py, scripts/audit_fk_validation_readiness.py, scripts/source_integrity_audit.py
+Database changes: inserted 9 project_masters rows and 9 cabinet_masters rows using the existing master-data status convention for ready/enabled/not-installed records.
+Audits run: scripts/verify_project_cabinet_traceability.py, scripts/audit_first_machine_lifecycle_ledger.py, scripts/detailed_data_audit.py, scripts/erp_prelaunch_audit.py, scripts/audit_erp_crud_completeness.py, scripts/audit_fk_validation_readiness.py, scripts/source_integrity_audit.py
 Result: baseline passed; first_machine_lifecycle_ledger_audit=ok checked_items=36, postgres_data_audit=ok, core_pages=34 errors=0 warnings=0, erp_crud_targets=46 ok=46 warnings=0 errors=0, fk_validation_readiness=ok, source_integrity=ok.
-Remaining risk: scripts/verify_project_serial_traceability.py still reports 6 nonblocking orphan categories because its reference source logic reads projects, machine_service_cards, and sales_orders, but does not read the current master tables project_masters and machine_serial_masters. Per project rule, verify_*.py scripts were not modified in this batch.
-Next task: either explicitly approve updating verify_project_serial_traceability.py to recognize project_masters/machine_serial_masters, or continue the next blueprint business-loop pass without changing audit scripts; do not build or refresh installer package until explicitly requested.
+Remaining risk: scripts/verify_project_cabinet_traceability.py still reports 6 nonblocking orphan categories because its reference source logic reads projects, machine_service_cards, and sales_orders, but does not read the current master tables project_masters and cabinet_masters. Per project rule, verify_*.py scripts were not modified in this batch.
+Next task: either explicitly approve updating verify_project_cabinet_traceability.py to recognize project_masters/cabinet_masters, or continue the next blueprint business-loop pass without changing audit scripts; do not build or refresh installer package until explicitly requested.
 ```
 
 ```text
@@ -931,29 +931,29 @@ Next task: Finance Phase 1 operator workflow proof for receivable-to-receipt set
 Task: P5-03 Bug Hunter Zero Findings And Development Master Data Cleanup
 Date: 2026-06-16
 Operator role: admin/audit
-Routes tested: frontend audit document entry routes, bug hunter exact GET route scan, /export/project-masters, /export/machine-serial-masters
-Data used: current development PostgreSQL database; verification fixture project/serial master rows
-Defect found: frontend audit could fail when run directly because project root was not on sys.path and PG_PASSWORD was not defaulted; bug hunter treated expected high-risk 404 routes as failures; 9 project_masters and 9 machine_serial_masters development fixture rows contained dirty ?? placeholders in status/remark fields.
+Routes tested: frontend audit document entry routes, bug hunter exact GET route scan, /export/project-masters, /export/cabinet-masters
+Data used: current development PostgreSQL database; verification fixture project/cabinet master rows
+Defect found: frontend audit could fail when run directly because project root was not on sys.path and PG_PASSWORD was not defaulted; bug hunter treated expected high-risk 404 routes as failures; 9 project_masters and 9 cabinet_masters development fixture rows contained dirty ?? placeholders in status/remark fields.
 Files changed: scripts/erp_frontend_bug_audit.py, scripts/erp_bug_hunter.py, docs/bug_hunter_zero_findings_evidence_20260616.md, ERP_NEXT_DEVELOPMENT_TASKS.md
-Database changes: cleaned development fixture rows in project_masters and machine_serial_masters with clear Chinese status/stage/service/remark values.
+Database changes: cleaned development fixture rows in project_masters and cabinet_masters with clear Chinese status/stage/service/remark values.
 Audits run: scripts/erp_frontend_bug_audit.py, scripts/erp_bug_hunter.py, python -m compileall app.py routes services scripts, scripts/source_integrity_audit.py, scripts/audit_database_mojibake.py, scripts/erp_prelaunch_audit.py, scripts/audit_erp_crud_completeness.py
 Result: passed; bug_hunter findings=0, frontend findings=0, source_integrity=ok, database_mojibake_findings=0, core_pages=34 errors=0 warnings=0, erp_crud_targets=46 ok=46 warnings=0 errors=0
-Remaining risk: verify_project_serial_traceability.py still has older reference-source limitations noted in P5-02; clean-machine installer extraction/recovery was not run.
-Next task: continue project/serial traceability audit-source cleanup or run another user-selected blueprint business-loop batch; do not build or refresh installer package until explicitly requested.
+Remaining risk: verify_project_cabinet_traceability.py still has older reference-source limitations noted in P5-02; clean-machine installer extraction/recovery was not run.
+Next task: continue project/cabinet traceability audit-source cleanup or run another user-selected blueprint business-loop batch; do not build or refresh installer package until explicitly requested.
 ```
 
 ```text
 Task: P5-04 Project Serial Traceability Audit Source Cleanup
 Date: 2026-06-16
 Operator role: admin/audit
-Routes tested: project/serial traceability audit sources, first-machine lifecycle ledger project trace pages
-Data used: current development PostgreSQL database, project_masters, machine_serial_masters, first-machine project PJ-GT-TRIAL-20260526-001 and serial SN-GT-TRIAL-20260526-001
-Defect found: verify_project_serial_traceability.py did not include project_masters and machine_serial_masters as reference sources, so valid development fixture project/serial master rows were still reported as nonblocking orphans.
-Files changed: scripts/verify_project_serial_traceability.py, docs/project_serial_traceability_audit_cleanup_20260616.md, ERP_NEXT_DEVELOPMENT_TASKS.md
+Routes tested: project/cabinet traceability audit sources, first-machine lifecycle ledger project trace pages
+Data used: current development PostgreSQL database, project_masters, cabinet_masters, first-machine project PJ-GT-TRIAL-20260526-001 and cabinet SN-GT-TRIAL-20260526-001
+Defect found: verify_project_cabinet_traceability.py did not include project_masters and cabinet_masters as reference sources, so valid development fixture project/cabinet master rows were still reported as nonblocking orphans.
+Files changed: scripts/verify_project_cabinet_traceability.py, docs/project_cabinet_traceability_audit_cleanup_20260616.md, ERP_NEXT_DEVELOPMENT_TASKS.md
 Database changes: none in this batch
-Audits run: scripts/verify_project_serial_traceability.py, scripts/audit_first_machine_lifecycle_ledger.py, scripts/detailed_data_audit.py, python -m compileall scripts/verify_project_serial_traceability.py scripts/erp_frontend_bug_audit.py scripts/erp_bug_hunter.py, scripts/source_integrity_audit.py, scripts/erp_prelaunch_audit.py, scripts/audit_erp_crud_completeness.py, scripts/erp_bug_hunter.py
-Result: passed; project_serial_traceability=ok findings=0 blocking=0, first_machine_lifecycle_ledger_audit=ok checked_items=36, postgres_data_audit=ok, source_integrity=ok, core_pages=34 errors=0 warnings=0, erp_crud_targets=46 ok=46 warnings=0 errors=0, bug_hunter findings=0
-Remaining risk: mandatory project/serial control remains disabled with require_project_serial=0; clean-machine installer extraction/recovery was not run.
+Audits run: scripts/verify_project_cabinet_traceability.py, scripts/audit_first_machine_lifecycle_ledger.py, scripts/detailed_data_audit.py, python -m compileall scripts/verify_project_cabinet_traceability.py scripts/erp_frontend_bug_audit.py scripts/erp_bug_hunter.py, scripts/source_integrity_audit.py, scripts/erp_prelaunch_audit.py, scripts/audit_erp_crud_completeness.py, scripts/erp_bug_hunter.py
+Result: passed; project_cabinet_traceability=ok findings=0 blocking=0, first_machine_lifecycle_ledger_audit=ok checked_items=36, postgres_data_audit=ok, source_integrity=ok, core_pages=34 errors=0 warnings=0, erp_crud_targets=46 ok=46 warnings=0 errors=0, bug_hunter findings=0
+Remaining risk: mandatory project/cabinet control remains disabled with require_project_cabinet=0; clean-machine installer extraction/recovery was not run.
 Next task: run another user-selected blueprint hardening batch or prepare for package/recovery only after explicit user instruction; do not build or refresh installer package until explicitly requested.
 ```
 
@@ -1052,7 +1052,7 @@ Task: D1-01 First Machine Quality Closure Idempotency Fix
 Date: 2026-06-24
 Operator role: admin/audit
 Routes tested: /production-enhance/quality-inspections, /work-orders/<id>, /projects
-Data used: first-machine trial project PJ-GT-TRIAL-20260526-001 and serial SN-GT-TRIAL-20260526-001
+Data used: first-machine trial project PJ-GT-TRIAL-20260526-001 and cabinet SN-GT-TRIAL-20260526-001
 Defect found: audit_first_machine_quality_closure.py could fail on repeated runs because first_machine_trial_utils only reused an existing quality inspection by source work order and did not also reuse the fixed first-machine inspection number. Re-running the baseline could attempt to insert duplicate inspection_no QI-PJ-GT-TRIAL-20260526-001.
 Files changed: scripts/first_machine_trial_utils.py, ERP_NEXT_DEVELOPMENT_TASKS.md
 Database changes: used the existing inventory balance repair script after the quality closure audit created first-machine inventory balance differences; repair run inventory_balance_repair:193320 updated derived legacy inventory and batch_tracking summaries and appended 2 stock transaction reconciliation adjustments for trial material dimensions only.

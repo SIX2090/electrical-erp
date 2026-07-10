@@ -21,7 +21,7 @@
                 <option value="">请选择工单</option>
                 {% for wo in work_orders %}
                 <option value="{{ wo.id }}" {{ 'selected' if work_order_id == wo.id else '' }}>
-                    {{ wo.wo_no }} | {{ wo.product_code or '' }} {{ wo.product_name or '' }} | 项目 {{ wo.project_code or '-' }} / 机号 {{ wo.serial_no or '-' }} | {{ wo.status or '' }}
+                    {{ wo.wo_no }} | {{ wo.product_code or '' }} {{ wo.product_name or '' }} | 项目 {{ wo.project_code or '-' }} / 柜号 {{ wo.cabinet_no or '-' }} | {{ wo.status or '' }}
                 </option>
                 {% endfor %}
             </select>
@@ -75,7 +75,7 @@
     </div>
     <div class="row g-2">
         <div class="col-md-3"><strong>项目号</strong><br>{{ header.project_code or '-' }}</div>
-        <div class="col-md-3"><strong>机号</strong><br>{{ header.serial_no or '-' }}</div>
+        <div class="col-md-3"><strong>柜号</strong><br>{{ header.cabinet_no or '-' }}</div>
         <div class="col-md-3"><strong>毛需求</strong><br>{{ qty(summary.total_gross_qty) }}</div>
         <div class="col-md-3"><strong>净缺口</strong><br>{{ qty(summary.total_net_qty) }}</div>
     </div>

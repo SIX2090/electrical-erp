@@ -70,7 +70,7 @@
         <div class="col-md-3"><strong>单据编号：</strong>{{ doc_no|clean_text }}</div>
         <div class="col-md-3"><strong>来源单：</strong>{{ doc.source_no or '-' }}</div>
         <div class="col-md-3"><strong>项目号：</strong>{{ doc.project_code or '-' }}</div>
-        <div class="col-md-3"><strong>机号：</strong>{{ doc.serial_no or '-' }}</div>
+        <div class="col-md-3"><strong>柜号：</strong>{{ doc.cabinet_no or '-' }}</div>
         <div class="col-md-3"><strong>方式：</strong>{{ doc.payment_method or '-' }}</div>
         <div class="col-md-4"><strong>资金账户/票据号：</strong>{{ doc.bank_account or '-' }}</div>
         <div class="col-md-8"><strong>备注：</strong>{{ doc.remark or '-' }}</div>

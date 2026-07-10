@@ -17,13 +17,13 @@
             <a class="btn btn-outline-secondary btn-sm" href="/work-orders">生产工单列表</a>
             <a class="btn btn-outline-secondary btn-sm" href="/production/operation-reports">工序报工列表</a>
             <a class="btn btn-outline-secondary btn-sm" href="/engineering/kitting">齐套查询</a>
-            <a class="btn btn-outline-secondary btn-sm" href="/production/reports/project-serial-progress">项目/机号生产进度</a>
+            <a class="btn btn-outline-secondary btn-sm" href="/production/reports/project-cabinet-progress">项目/柜号生产进度</a>
         </div>
     </div>
     <form class="row g-2 align-items-end mb-3" method="get" data-list-filter-form>
         <div class="col-md-5">
             <label class="form-label small text-muted">搜索</label>
-            <input class="form-control form-control-sm" name="keyword" value="{{ filters.keyword }}" placeholder="排程单号 / 工单 / 项目号 / 机号 / 工作中心">
+            <input class="form-control form-control-sm" name="keyword" value="{{ filters.keyword }}" placeholder="排程单号 / 工单 / 项目号 / 柜号 / 工作中心">
         </div>
         <div class="col-md-3">
             <label class="form-label small text-muted">状态</label>
@@ -52,7 +52,7 @@
                 <th style="width: 150px;">排程单号</th>
                 <th style="width: 150px;">来源工单</th>
                 <th style="width: 130px;">项目号</th>
-                <th style="width: 130px;">机号</th>
+                <th style="width: 130px;">柜号</th>
                 <th style="min-width: 150px;">工作中心</th>
                 <th style="width: 170px;">计划日期</th>
                 <th style="width: 100px;">数量</th>
@@ -70,7 +70,7 @@
                 <td class="fw-semibold">{{ row.schedule_no|clean_text }}</td>
                 <td>{{ row.wo_no|clean_text or '-' }}</td>
                 <td>{{ row.project_code|clean_text or '-' }}</td>
-                <td>{{ row.serial_no|clean_text or '-' }}</td>
+                <td>{{ row.cabinet_no|clean_text or '-' }}</td>
                 <td>{{ row.work_center_name|clean_text or '-' }}
                     {% if row.conflict_count and row.conflict_count > 0 %}
                     <span class="badge bg-warning text-dark ms-1" title="{{ row.conflict_warning }}">冲突 {{ row.conflict_count }}</span>

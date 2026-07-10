@@ -63,7 +63,7 @@
 <div class="page-card erp-list-card mb-3">
     <form class="row g-2" method="get" action="{{ back_url }}">
         <div class="col-lg-3">
-            <input class="form-control" name="keyword" value="{{ filters.keyword }}" placeholder="销售订单、客户、项目号、机号">
+            <input class="form-control" name="keyword" value="{{ filters.keyword }}" placeholder="销售订单、客户、项目号、柜号">
         </div>
         <div class="col-lg-2">
             <select class="form-select" name="customer_id">
@@ -106,7 +106,7 @@
 <div class="page-card erp-list-card mb-3">
     <div class="section-title">
         <div>
-            <h2>项目/机号交付焦点</h2>
+            <h2>项目/柜号交付焦点</h2>
             <span>按堵点、逾期和待发货优先排序</span>
         </div>
         <a class="btn btn-outline-secondary btn-sm" href="/sales-orders">打开列表页</a>
@@ -115,7 +115,7 @@
         <table class="table table-sm table-hover align-middle erp-list-table">
             <thead>
             <tr>
-                <th>项目号 / 机号</th>
+                <th>项目号 / 柜号</th>
                 <th>销售订单</th>
                 <th>客户</th>
                 <th>交期</th>
@@ -131,7 +131,7 @@
             {% if project_focus %}
             {% for row in project_focus %}
             <tr>
-                <td class="fw-semibold">{{ row.project_code|clean_text }} / {{ row.serial_no|clean_text }}</td>
+                <td class="fw-semibold">{{ row.project_code|clean_text }} / {{ row.cabinet_no|clean_text }}</td>
                 <td><a href="/sales/{{ row.id }}">{{ row.order_no|clean_text }}</a><div class="text-muted small">{{ (row.display_status or row.status)|clean_text }}</div></td>
                 <td>{{ row.customer_name|clean_text }}</td>
                 <td>{{ row.delivery_date or '-' }}</td>
@@ -147,7 +147,7 @@
             </tr>
             {% endfor %}
             {% else %}
-            <tr><td class="text-muted text-center" colspan="10">当前没有需要销售工作台处理的项目/机号。</td></tr>
+            <tr><td class="text-muted text-center" colspan="10">当前没有需要销售工作台处理的项目/柜号。</td></tr>
             {% endif %}
             </tbody>
         </table>
@@ -160,12 +160,12 @@
             <div class="section-title"><div><h2>待发货明细</h2><span>销售跟单确认条件，仓库在发货单据中执行出库</span></div></div>
             <div class="table-responsive">
                 <table class="table table-sm table-hover align-middle erp-list-table">
-                    <thead><tr><th>销售订单</th><th>项目/机号</th><th>物料名称</th><th>规格</th><th>单位</th><th class="text-end">待发</th><th>交期</th></tr></thead>
+                    <thead><tr><th>销售订单</th><th>项目/柜号</th><th>物料名称</th><th>规格</th><th>单位</th><th class="text-end">待发</th><th>交期</th></tr></thead>
                     <tbody>
                     {% for row in pending_items[:12] %}
                     <tr>
                         <td><a href="/sales/{{ row.order_id }}">{{ row.order_no|clean_text }}</a><div class="text-muted small">{{ row.customer_name|clean_text }}</div></td>
-                        <td>{{ row.project_code|clean_text }} / {{ row.serial_no|clean_text }}</td>
+                        <td>{{ row.project_code|clean_text }} / {{ row.cabinet_no|clean_text }}</td>
                         <td>{{ row.product_code|clean_text }} / {{ row.product_name|clean_text }}</td>
                         <td>{{ row.specification|clean_text or '-' }}</td>
                         <td>{{ row.unit|clean_text or '-' }}</td>

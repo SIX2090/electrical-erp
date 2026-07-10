@@ -2,7 +2,7 @@
 {% from "partials/document_menu_bar.html" import document_menu_bar %}
 {% block title %}{{ title }} - {{ doc_no }}{% endblock %}
 {% block content %}
-{% set trace_keyword = row.get('project_code') or row.get('serial_no') or doc_no %}
+{% set trace_keyword = row.get('project_code') or row.get('cabinet_no') or doc_no %}
 {% set production_action_prefix = '' %}
 {% if row.get('doc_type') == 'production_issue' %}
     {% set production_action_prefix = '/production-issues' %}
@@ -93,7 +93,7 @@
     <div class="section-title">
         <div>
             <h2>单据信息</h2>
-            <span>来源、状态、项目号和机号追溯</span>
+            <span>来源、状态、项目号和柜号追溯</span>
         </div>
     </div>
     <dl class="row mb-0">

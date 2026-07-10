@@ -29,7 +29,7 @@
                 {% if report.work_order_id %}<a href="/work-orders/{{ report.work_order_id }}">{{ report.wo_no or report.work_order_id }}</a>{% else %}-{% endif %}
                 {% if report.operation_name %} / 工序 {{ report.operation_no or report.work_order_process_id }} {{ report.operation_name }}{% endif %}
                 {% if report.project_code %} / 项目 {{ report.project_code }}{% endif %}
-                {% if report.serial_no %} / 机号 {{ report.serial_no }}{% endif %}
+                {% if report.cabinet_no %} / 柜号 {{ report.cabinet_no }}{% endif %}
             </div>
         </div>
         <span class="badge text-bg-primary">{{ status_label(report.status) }}</span>

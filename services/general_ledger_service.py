@@ -154,7 +154,7 @@ def query_account_detail_ledger(query_db, filters=None):
             - start_date: 开始日期
             - end_date: 结束日期
             - project_code: 项目号
-            - serial_no: 机号
+            - cabinet_no: 柜号
 
     Returns:
         list: 明细账列表
@@ -181,10 +181,10 @@ def query_account_detail_ledger(query_db, filters=None):
         where_clauses.append("gl.project_code = %s")
         params.append(filters['project_code'])
 
-    # 机号
-    if filters.get('serial_no'):
-        where_clauses.append("gl.serial_no = %s")
-        params.append(filters['serial_no'])
+    # 柜号
+    if filters.get('cabinet_no'):
+        where_clauses.append("gl.cabinet_no = %s")
+        params.append(filters['cabinet_no'])
 
     where_sql = " AND ".join(where_clauses)
 
@@ -197,7 +197,7 @@ def query_account_detail_ledger(query_db, filters=None):
         gl.debit_amount,
         gl.credit_amount,
         gl.project_code,
-        gl.serial_no,
+        gl.cabinet_no,
         v.voucher_type,
         v.status AS voucher_status
     FROM general_ledger gl
@@ -228,7 +228,7 @@ def query_account_detail_ledger(query_db, filters=None):
             'credit_amount': float(credit),
             'balance': float(balance),
             'project_code': row['project_code'],
-            'serial_no': row['serial_no']
+            'cabinet_no': row['cabinet_no']
         })
 
     return result

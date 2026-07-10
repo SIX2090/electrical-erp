@@ -7,10 +7,10 @@
 的 20260621_004_p0_cost_engine 迁移中定义，本服务在请求期不再执行 DDL。
 
 核心功能：
-1. 按项目号/机号/工单归集材料、人工、制造费用、委外、售后、质量成本
+1. 按项目号/柜号/工单归集材料、人工、制造费用、委外、售后、质量成本
 2. 生成成本计算运行记录 (cost_runs / cost_run_items)
 3. 查询成本运行明细
-4. 项目/机号成本汇总
+4. 项目/柜号成本汇总
 """
 from __future__ import annotations
 
@@ -89,7 +89,7 @@ def _has_column(query_rows, table_name: str, column: str) -> bool:
 def _work_order_filter_clause(
     *,
     project_code: Optional[str],
-    serial_no: Optional[str],
+    cabinet_no: Optional[str],
     work_order_id: Optional[int],
     wo_alias: str = "wo",
 ) -> Tuple[str, List[Any]]:
@@ -102,9 +102,9 @@ def _work_order_filter_clause(
     if project_code:
         clauses.append(f"COALESCE({wo_alias}.project_code, '')=%s")
         params.append(project_code)
-    if serial_no:
-        clauses.append(f"COALESCE({wo_alias}.serial_no, '')=%s")
-        params.append(serial_no)
+    if cabinet_no:
+        clauses.append(f"COALESCE({wo_alias}.cabinet_no, '')=%s")
+        params.append(cabinet_no)
     if not clauses:
         return "1=1", params
     return " AND ".join(clauses), params
@@ -118,18 +118,18 @@ def collect_material_costs(
     query_rows,
     *,
     project_code: Optional[str] = None,
-    serial_no: Optional[str] = None,
+    cabinet_no: Optional[str] = None,
     work_order_id: Optional[int] = None,
 ) -> Tuple[Decimal, List[Dict]]:
     """从 wo_material_items 归集材料成本（领料为正、退料为负）。"""
     wo_columns = _optional_columns(query_rows, "work_orders")
-    if "project_code" not in wo_columns and "serial_no" not in wo_columns and not work_order_id:
+    if "project_code" not in wo_columns and "cabinet_no" not in wo_columns and not work_order_id:
         # 没有任何过滤条件可用且 work_orders 缺关键字段时直接返回空
         return Decimal("0"), []
 
     where_sql, params = _work_order_filter_clause(
         project_code=project_code,
-        serial_no=serial_no,
+        cabinet_no=cabinet_no,
         work_order_id=work_order_id,
         wo_alias="wo",
     )
@@ -141,7 +141,7 @@ def collect_material_costs(
                COALESCE(mi.returned_qty, 0) AS returned_qty,
                COALESCE(NULLIF(mi.unit_cost, 0), p.standard_price, 0) AS unit_cost,
                COALESCE(mi.material_name, p.name, mi.material_code, p.code) AS material_name,
-               wo.wo_no, wo.project_code, wo.serial_no
+               wo.wo_no, wo.project_code, wo.cabinet_no
         FROM wo_material_items mi
         JOIN work_orders wo ON wo.id=mi.wo_id
         LEFT JOIN products p ON p.id=mi.product_id
@@ -159,7 +159,7 @@ def collect_material_costs(
         unit_cost = _decimal(row.get("unit_cost"))
         wo_id = row.get("work_order_id")
         proj = row.get("project_code")
-        sno = row.get("serial_no")
+        sno = row.get("cabinet_no")
         if issued_qty > 0:
             amount = issued_qty * unit_cost
             total += amount
@@ -174,7 +174,7 @@ def collect_material_costs(
                 "amount": amount,
                 "work_order_id": wo_id,
                 "project_code": proj,
-                "serial_no": sno,
+                "cabinet_no": sno,
                 "remark": row.get("material_name") or "",
             })
         if returned_qty > 0:
@@ -191,7 +191,7 @@ def collect_material_costs(
                 "amount": amount,
                 "work_order_id": wo_id,
                 "project_code": proj,
-                "serial_no": sno,
+                "cabinet_no": sno,
                 "remark": row.get("material_name") or "",
             })
     return total, lines
@@ -205,7 +205,7 @@ def collect_labor_costs(
     query_rows,
     *,
     project_code: Optional[str] = None,
-    serial_no: Optional[str] = None,
+    cabinet_no: Optional[str] = None,
     work_order_id: Optional[int] = None,
 ) -> Tuple[Decimal, List[Dict]]:
     """从 operation_reports 归集人工成本。
@@ -225,7 +225,7 @@ def collect_labor_costs(
 
     where_sql, params = _work_order_filter_clause(
         project_code=project_code,
-        serial_no=serial_no,
+        cabinet_no=cabinet_no,
         work_order_id=work_order_id,
         wo_alias="wo",
     )
@@ -259,7 +259,7 @@ def collect_labor_costs(
         SELECT opr.id, opr.work_order_id,
                {labor_cost_expr} AS labor_cost,
                {report_no_expr} AS report_no,
-               wo.wo_no, wo.product_id, wo.project_code, wo.serial_no
+               wo.wo_no, wo.product_id, wo.project_code, wo.cabinet_no
         FROM operation_reports opr
         {extra_joins}
         JOIN work_orders wo ON wo.id=opr.work_order_id
@@ -287,7 +287,7 @@ def collect_labor_costs(
             "amount": labor,
             "work_order_id": row.get("work_order_id"),
             "project_code": row.get("project_code"),
-            "serial_no": row.get("serial_no"),
+            "cabinet_no": row.get("cabinet_no"),
             "remark": "工序报工人工归集",
         })
     return total, lines
@@ -301,7 +301,7 @@ def collect_overhead_costs(
     query_rows,
     *,
     project_code: Optional[str] = None,
-    serial_no: Optional[str] = None,
+    cabinet_no: Optional[str] = None,
     work_order_id: Optional[int] = None,
 ) -> Tuple[Decimal, List[Dict]]:
     """从 operation_reports 归集制造费用（设备/制造成本）。
@@ -326,7 +326,7 @@ def collect_overhead_costs(
 
     where_sql, params = _work_order_filter_clause(
         project_code=project_code,
-        serial_no=serial_no,
+        cabinet_no=cabinet_no,
         work_order_id=work_order_id,
         wo_alias="wo",
     )
@@ -352,7 +352,7 @@ def collect_overhead_costs(
         SELECT opr.id, opr.work_order_id,
                {overhead_cost_expr} AS overhead_cost,
                {report_no_expr} AS report_no,
-               wo.wo_no, wo.product_id, wo.project_code, wo.serial_no
+               wo.wo_no, wo.product_id, wo.project_code, wo.cabinet_no
         FROM operation_reports opr
         {extra_joins}
         JOIN work_orders wo ON wo.id=opr.work_order_id
@@ -380,7 +380,7 @@ def collect_overhead_costs(
             "amount": overhead,
             "work_order_id": row.get("work_order_id"),
             "project_code": row.get("project_code"),
-            "serial_no": row.get("serial_no"),
+            "cabinet_no": row.get("cabinet_no"),
             "remark": "工序报工设备/制造费用归集",
         })
     return total, lines
@@ -394,7 +394,7 @@ def collect_outsource_costs(
     query_rows,
     *,
     project_code: Optional[str] = None,
-    serial_no: Optional[str] = None,
+    cabinet_no: Optional[str] = None,
     work_order_id: Optional[int] = None,
 ) -> Tuple[Decimal, List[Dict]]:
     """从 supplier_payables (doc_type='subcontract_receive') 归集委外成本。"""
@@ -414,9 +414,9 @@ def collect_outsource_costs(
     if project_code:
         clauses.append("COALESCE(sp.project_code, sc.project_code, '')=%s")
         params.append(project_code)
-    if serial_no:
-        clauses.append("COALESCE(sp.serial_no, sc.serial_no, '')=%s")
-        params.append(serial_no)
+    if cabinet_no:
+        clauses.append("COALESCE(sp.cabinet_no, sc.cabinet_no, '')=%s")
+        params.append(cabinet_no)
 
     where_sql = " AND ".join(clauses)
 
@@ -426,7 +426,7 @@ def collect_outsource_costs(
                COALESCE(sp.doc_no, sro.receive_no) AS source_no,
                COALESCE(NULLIF(sp.confirmed_amount, 0), sp.amount, 0) AS amount,
                COALESCE(sro.total_quantity, 0) AS quantity,
-               sp.project_code, sp.serial_no,
+               sp.project_code, sp.cabinet_no,
                sc.parent_work_order_id AS work_order_id
         FROM supplier_payables sp
         LEFT JOIN subcontract_receive_orders sro ON sro.id=sp.doc_id
@@ -460,7 +460,7 @@ def collect_outsource_costs(
             "amount": amount,
             "work_order_id": row.get("work_order_id"),
             "project_code": row.get("project_code"),
-            "serial_no": row.get("serial_no"),
+            "cabinet_no": row.get("cabinet_no"),
             "remark": "委外收货应付成本归集",
         })
     return total, lines
@@ -474,10 +474,10 @@ def collect_service_costs(
     query_rows,
     *,
     project_code: Optional[str] = None,
-    serial_no: Optional[str] = None,
+    cabinet_no: Optional[str] = None,
 ) -> Tuple[Decimal, List[Dict]]:
     """从 machine_service_orders 归集售后服务成本。"""
-    if not serial_no and not project_code:
+    if not cabinet_no and not project_code:
         return Decimal("0"), []
 
     mso_columns = _optional_columns(query_rows, "machine_service_orders")
@@ -486,9 +486,9 @@ def collect_service_costs(
 
     clauses: List[str] = []
     params: List[Any] = []
-    if serial_no:
-        clauses.append("COALESCE(mso.serial_no, '')=%s")
-        params.append(serial_no)
+    if cabinet_no:
+        clauses.append("COALESCE(mso.cabinet_no, '')=%s")
+        params.append(cabinet_no)
     if project_code:
         clauses.append("COALESCE(mso.project_code, '')=%s")
         params.append(project_code)
@@ -510,7 +510,7 @@ def collect_service_costs(
                COALESCE({parts_expr}, 0) AS parts_cost,
                COALESCE({labor_expr}, 0) AS labor_cost,
                COALESCE({travel_expr}, 0) AS travel_cost,
-               mso.project_code, mso.serial_no
+               mso.project_code, mso.cabinet_no
         FROM machine_service_orders mso
         WHERE {where_sql}
         ORDER BY mso.id
@@ -541,7 +541,7 @@ def collect_service_costs(
             "amount": amount,
             "work_order_id": None,
             "project_code": row.get("project_code"),
-            "serial_no": row.get("serial_no"),
+            "cabinet_no": row.get("cabinet_no"),
             "remark": remark,
         })
     return total, lines
@@ -555,7 +555,7 @@ def collect_quality_costs(
     query_rows,
     *,
     project_code: Optional[str] = None,
-    serial_no: Optional[str] = None,
+    cabinet_no: Optional[str] = None,
     work_order_id: Optional[int] = None,
 ) -> Tuple[Decimal, List[Dict]]:
     """从 operation_reports.scrap_qty 与 work_order_costs.scrap_cost 归集质量成本。
@@ -569,17 +569,17 @@ def collect_quality_costs(
     total = Decimal("0")
 
     # 优先使用 work_order_costs.scrap_cost
-    if "scrap_cost" in woc_columns and (work_order_id or project_code or serial_no):
+    if "scrap_cost" in woc_columns and (work_order_id or project_code or cabinet_no):
         where_sql, params = _work_order_filter_clause(
             project_code=project_code,
-            serial_no=serial_no,
+            cabinet_no=cabinet_no,
             work_order_id=work_order_id,
             wo_alias="wo",
         )
         rows = query_rows(
             f"""
             SELECT woc.id, woc.work_order_id, woc.scrap_cost,
-                   wo.wo_no, wo.project_code, wo.serial_no, wo.product_id
+                   wo.wo_no, wo.project_code, wo.cabinet_no, wo.product_id
             FROM work_order_costs woc
             JOIN work_orders wo ON wo.id=woc.work_order_id
             WHERE {where_sql}
@@ -604,15 +604,15 @@ def collect_quality_costs(
                 "amount": amount,
                 "work_order_id": row.get("work_order_id"),
                 "project_code": row.get("project_code"),
-                "serial_no": row.get("serial_no"),
+                "cabinet_no": row.get("cabinet_no"),
                 "remark": "工单报废成本归集",
             })
 
     # 补充：从 operation_reports.scrap_qty * standard_price 估算
-    if "scrap_qty" in op_columns and "work_order_id" in op_columns and (work_order_id or project_code or serial_no):
+    if "scrap_qty" in op_columns and "work_order_id" in op_columns and (work_order_id or project_code or cabinet_no):
         where_sql, params = _work_order_filter_clause(
             project_code=project_code,
-            serial_no=serial_no,
+            cabinet_no=cabinet_no,
             work_order_id=work_order_id,
             wo_alias="wo",
         )
@@ -621,7 +621,7 @@ def collect_quality_costs(
             f"""
             SELECT opr.id, opr.work_order_id, opr.scrap_qty,
                    {report_no_expr} AS report_no,
-                   wo.wo_no, wo.product_id, wo.project_code, wo.serial_no,
+                   wo.wo_no, wo.product_id, wo.project_code, wo.cabinet_no,
                    COALESCE(p.standard_price, 0) AS unit_cost
             FROM operation_reports opr
             JOIN work_orders wo ON wo.id=opr.work_order_id
@@ -650,7 +650,7 @@ def collect_quality_costs(
                 "amount": amount,
                 "work_order_id": row.get("work_order_id"),
                 "project_code": row.get("project_code"),
-                "serial_no": row.get("serial_no"),
+                "cabinet_no": row.get("cabinet_no"),
                 "remark": "工序报废数量 * 标准成本估算",
             })
 
@@ -689,14 +689,14 @@ def _sync_cost_run_to_ledgers(
     run_no: str,
     period: Optional[str] = None,
     project_code: Optional[str] = None,
-    serial_no: Optional[str] = None,
+    cabinet_no: Optional[str] = None,
     created_by: Optional[int] = None,
 ) -> int:
-    """Sync cost_run_items into serial_cost_ledger / project_cost_ledger.
+    """Sync cost_run_items into cabinet_cost_ledger / project_cost_ledger.
 
     Bridges the dual-track cost system: the engine-populated cost_runs and
-    the ledger tables used by serial/project cost reports. Items with a
-    serial_no are synced to serial_cost_ledger; items with only a
+    the ledger tables used by cabinet/project cost reports. Items with a
+    cabinet_no are synced to cabinet_cost_ledger; items with only a
     project_code are synced to project_cost_ledger. Re-running replaces
     previous ledger entries for the same run (idempotent).
 
@@ -704,7 +704,7 @@ def _sync_cost_run_to_ledgers(
     """
     # Idempotent re-runs: remove previous sync for this run.
     execute_db(
-        "DELETE FROM serial_cost_ledger WHERE source_no = %s AND source_type = 'cost_run'",
+        "DELETE FROM cabinet_cost_ledger WHERE source_no = %s AND source_type = 'cost_run'",
         (run_no,),
     )
     execute_db(
@@ -716,7 +716,7 @@ def _sync_cost_run_to_ledgers(
         """
         SELECT cost_type, source_type, source_id, source_no,
                product_id, quantity, unit_cost, amount,
-               project_code, serial_no, work_order_id
+               project_code, cabinet_no, work_order_id
         FROM cost_run_items
         WHERE run_id = %s
         """,
@@ -738,18 +738,18 @@ def _sync_cost_run_to_ledgers(
 
     synced = 0
     for item in items:
-        item_serial = item.get("serial_no") or serial_no
+        item_cabinet = item.get("cabinet_no") or cabinet_no
         item_project = item.get("project_code") or project_code
         amount = _decimal(item.get("amount"))
         # Map English cost_type to Chinese label for ledger categorization.
         cost_type_label = COST_TYPE_LABELS.get(item.get("cost_type"), item.get("cost_type") or "")
         description = f"成本运行 {run_no} 自动归集"
 
-        if item_serial:
+        if item_cabinet:
             execute_db(
                 """
-                INSERT INTO serial_cost_ledger
-                    (serial_no, product_id, project_code, cost_date, cost_type,
+                INSERT INTO cabinet_cost_ledger
+                    (cabinet_no, product_id, project_code, cost_date, cost_type,
                      source_type, source_no, description,
                      cost_amount, debit_amount, credit_amount,
                      quantity, unit_cost, work_order_id,
@@ -757,7 +757,7 @@ def _sync_cost_run_to_ledgers(
                 VALUES (%s,%s,%s,%s,%s,'cost_run',%s,%s,%s,%s,0,%s,%s,%s,%s,%s,%s)
                 """,
                 (
-                    item_serial,
+                    item_cabinet,
                     item.get("product_id"),
                     item_project,
                     cost_date,
@@ -814,7 +814,7 @@ def run_cost_calculation(
     *,
     period: Optional[str] = None,
     project_code: Optional[str] = None,
-    serial_no: Optional[str] = None,
+    cabinet_no: Optional[str] = None,
     work_order_id: Optional[int] = None,
     created_by: Optional[int] = None,
 ) -> Dict:
@@ -824,13 +824,13 @@ def run_cost_calculation(
     execute_db(
         """
         INSERT INTO cost_runs
-            (run_no, period, project_code, serial_no, work_order_id,
+            (run_no, period, project_code, cabinet_no, work_order_id,
              status, total_material_cost, total_labor_cost, total_overhead_cost,
              total_outsource_cost, total_quality_cost, total_service_cost,
              total_cost, created_by, created_at)
         VALUES (%s,%s,%s,%s,%s,'draft',0,0,0,0,0,0,0,%s,NOW())
         """,
-        (run_no, period, project_code, serial_no, work_order_id, created_by),
+        (run_no, period, project_code, cabinet_no, work_order_id, created_by),
     )
 
     run_row = query_one(
@@ -843,27 +843,27 @@ def run_cost_calculation(
 
     material_total, material_lines = collect_material_costs(
         query_one, query_rows,
-        project_code=project_code, serial_no=serial_no, work_order_id=work_order_id,
+        project_code=project_code, cabinet_no=cabinet_no, work_order_id=work_order_id,
     )
     labor_total, labor_lines = collect_labor_costs(
         query_one, query_rows,
-        project_code=project_code, serial_no=serial_no, work_order_id=work_order_id,
+        project_code=project_code, cabinet_no=cabinet_no, work_order_id=work_order_id,
     )
     overhead_total, overhead_lines = collect_overhead_costs(
         query_one, query_rows,
-        project_code=project_code, serial_no=serial_no, work_order_id=work_order_id,
+        project_code=project_code, cabinet_no=cabinet_no, work_order_id=work_order_id,
     )
     outsource_total, outsource_lines = collect_outsource_costs(
         query_one, query_rows,
-        project_code=project_code, serial_no=serial_no, work_order_id=work_order_id,
+        project_code=project_code, cabinet_no=cabinet_no, work_order_id=work_order_id,
     )
     service_total, service_lines = collect_service_costs(
         query_one, query_rows,
-        project_code=project_code, serial_no=serial_no,
+        project_code=project_code, cabinet_no=cabinet_no,
     )
     quality_total, quality_lines = collect_quality_costs(
         query_one, query_rows,
-        project_code=project_code, serial_no=serial_no, work_order_id=work_order_id,
+        project_code=project_code, cabinet_no=cabinet_no, work_order_id=work_order_id,
     )
 
     all_lines = (
@@ -919,7 +919,7 @@ def run_cost_calculation(
                 (run_id, cost_type, source_type, source_id, source_no,
                  product_id, quantity, unit_cost, amount,
                  standard_cost, variance_amount, variance_reason,
-                 project_code, serial_no, work_order_id, remark, created_at)
+                 project_code, cabinet_no, work_order_id, remark, created_at)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,NOW())
             """,
             (
@@ -936,7 +936,7 @@ def run_cost_calculation(
                 line.get("variance_amount"),
                 line.get("variance_reason"),
                 line.get("project_code"),
-                line.get("serial_no"),
+                line.get("cabinet_no"),
                 line.get("work_order_id"),
                 line.get("remark"),
             ),
@@ -1004,7 +1004,7 @@ def run_cost_calculation(
                 link_type="posts_to",
                 link_strength="soft",
                 project_code=project_code,
-                serial_no=serial_no,
+                cabinet_no=cabinet_no,
                 created_by=created_by,
                 created_event="cost_run",
                 execute_and_return=execute_and_return,
@@ -1014,8 +1014,8 @@ def run_cost_calculation(
             logger.warning("cost run trace link failed for run_no=%s", run_no, exc_info=True)
             pass
 
-    # Sync cost run results into serial/project cost ledgers so the
-    # serial_cost_service / project_cost_service reports reflect engine
+    # Sync cost run results into cabinet/project cost ledgers so the
+    # cabinet_cost_service / project_cost_service reports reflect engine
     # output without requiring manual AJAX entry.
     ledger_synced = 0
     try:
@@ -1026,7 +1026,7 @@ def run_cost_calculation(
             run_no=run_no,
             period=period,
             project_code=project_code,
-            serial_no=serial_no,
+            cabinet_no=cabinet_no,
             created_by=created_by,
         )
     except Exception:
@@ -1040,7 +1040,7 @@ def run_cost_calculation(
         "run_no": run_no,
         "period": period,
         "project_code": project_code,
-        "serial_no": serial_no,
+        "cabinet_no": cabinet_no,
         "work_order_id": work_order_id,
         "totals": {
             "material": material_total,
@@ -1076,7 +1076,7 @@ def get_cost_run(query_one, query_rows, run_id: int) -> Dict:
     """
     run = query_one(
         """
-        SELECT id, run_no, period, project_code, serial_no, work_order_id,
+        SELECT id, run_no, period, project_code, cabinet_no, work_order_id,
                status, total_material_cost, total_labor_cost, total_overhead_cost,
                total_outsource_cost, total_quality_cost, total_service_cost,
                total_cost, created_by, created_at
@@ -1092,7 +1092,7 @@ def get_cost_run(query_one, query_rows, run_id: int) -> Dict:
         """
         SELECT id, run_id, cost_type, source_type, source_id, source_no,
                product_id, quantity, unit_cost, amount,
-               project_code, serial_no, work_order_id, remark, created_at
+               project_code, cabinet_no, work_order_id, remark, created_at
         FROM cost_run_items
         WHERE run_id=%s
         ORDER BY cost_type, id
@@ -1121,7 +1121,7 @@ def get_cost_run_items(query_rows, run_id: int) -> List[Dict]:
         """
         SELECT id, run_id, cost_type, source_type, source_id, source_no,
                product_id, quantity, unit_cost, amount,
-               project_code, serial_no, work_order_id, remark, created_at
+               project_code, cabinet_no, work_order_id, remark, created_at
         FROM cost_run_items
         WHERE run_id=%s
         ORDER BY cost_type, id
@@ -1141,9 +1141,9 @@ def list_cost_runs(query_rows, filters: Optional[Dict] = None) -> List[Dict]:
     if filters.get("project_code"):
         clauses.append("COALESCE(project_code, '')=%s")
         params.append(filters["project_code"])
-    if filters.get("serial_no"):
-        clauses.append("COALESCE(serial_no, '')=%s")
-        params.append(filters["serial_no"])
+    if filters.get("cabinet_no"):
+        clauses.append("COALESCE(cabinet_no, '')=%s")
+        params.append(filters["cabinet_no"])
     if filters.get("status"):
         clauses.append("status=%s")
         params.append(filters["status"])
@@ -1153,7 +1153,7 @@ def list_cost_runs(query_rows, filters: Optional[Dict] = None) -> List[Dict]:
     where_sql = " AND ".join(clauses)
     rows = query_rows(
         f"""
-        SELECT id, run_no, period, project_code, serial_no, work_order_id,
+        SELECT id, run_no, period, project_code, cabinet_no, work_order_id,
                status, total_material_cost, total_labor_cost, total_overhead_cost,
                total_outsource_cost, total_quality_cost, total_service_cost,
                total_cost, created_by, created_at
@@ -1209,11 +1209,11 @@ def get_project_cost_summary(query_one, project_code: str) -> Dict:
     }
 
 
-def get_serial_cost_summary(query_one, serial_no: str) -> Dict:
-    """汇总指定机号的所有成本运行结果。"""
-    if not serial_no:
+def get_cabinet_cost_summary(query_one, cabinet_no: str) -> Dict:
+    """汇总指定柜号的所有成本运行结果。"""
+    if not cabinet_no:
         return {
-            "serial_no": "",
+            "cabinet_no": "",
             "material": Decimal("0"),
             "labor": Decimal("0"),
             "overhead": Decimal("0"),
@@ -1234,12 +1234,12 @@ def get_serial_cost_summary(query_one, serial_no: str) -> Dict:
                COALESCE(SUM(total_quality_cost), 0) AS quality,
                COALESCE(SUM(total_cost), 0) AS total
         FROM cost_runs
-        WHERE serial_no=%s AND status='completed'
+        WHERE cabinet_no=%s AND status='completed'
         """,
-        (serial_no,),
+        (cabinet_no,),
     ) or {}
     return {
-        "serial_no": serial_no,
+        "cabinet_no": cabinet_no,
         "material": _decimal(row.get("material")),
         "labor": _decimal(row.get("labor")),
         "overhead": _decimal(row.get("overhead")),
@@ -1266,7 +1266,7 @@ def get_cost_variance_report(query_rows, run_id: int) -> Dict:
         SELECT cri.id, cri.cost_type, cri.source_type, cri.source_no,
                cri.product_id, cri.quantity, cri.unit_cost, cri.amount,
                cri.standard_cost, cri.variance_amount, cri.variance_reason,
-               cri.project_code, cri.serial_no, cri.work_order_id,
+               cri.project_code, cri.cabinet_no, cri.work_order_id,
                p.code AS product_code, p.name AS product_name,
                p.specification AS product_spec,
                cr.run_no

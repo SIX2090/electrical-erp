@@ -9,8 +9,8 @@
     {'label': '新增服务单', 'type': 'link', 'href': '/service-orders/new?service_card_id=' ~ acceptance.service_card_id},
     {'label': '下查', 'type': 'dropdown', 'items': [
         {'label': '设备服务档案', 'type': 'link', 'href': '/service-cards/' ~ acceptance.service_card_id if acceptance.service_card_id else '/service-cards', 'disabled': not acceptance.service_card_id},
-        {'label': '售后服务单列表', 'type': 'link', 'href': '/service-orders?keyword=' ~ ((acceptance.serial_no or acceptance.project_code or '')|urlencode)},
-        {'label': '项目台账', 'type': 'link', 'href': '/projects?keyword=' ~ ((acceptance.project_code or acceptance.serial_no or '')|urlencode)}
+        {'label': '售后服务单列表', 'type': 'link', 'href': '/service-orders?keyword=' ~ ((acceptance.cabinet_no or acceptance.project_code or '')|urlencode)},
+        {'label': '项目台账', 'type': 'link', 'href': '/projects?keyword=' ~ ((acceptance.project_code or acceptance.cabinet_no or '')|urlencode)}
     ]},
     {'label': '附件/备注', 'type': 'button', 'event': 'focus-attachments'},
     {'type': 'nav', 'items': [
@@ -36,7 +36,7 @@
     <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
         <div>
             <h1 class="h4 mb-1">安装验收：{{ acceptance.acceptance_no or ('#' ~ acceptance.id) }}{% if acceptance.item_name %} - {{ acceptance.item_name }}{% endif %}</h1>
-            <div class="text-muted">{{ acceptance.customer_name or '-' }} / {{ acceptance.card_serial_no or acceptance.serial_no or '-' }} / {{ acceptance.machine_model or '-' }}</div>
+            <div class="text-muted">{{ acceptance.customer_name or '-' }} / {{ acceptance.card_cabinet_no or acceptance.cabinet_no or '-' }} / {{ acceptance.machine_model or '-' }}</div>
         </div>
         <span class="badge text-bg-primary">{{ acceptance.result or '-' }}</span>
     </div>
@@ -49,7 +49,7 @@
         <div class="col-md-3"><strong>验收日期：</strong>{{ acceptance.check_date or '-' }}</div>
         <div class="col-md-3"><strong>验收类型：</strong>{{ acceptance.checklist_type or '-' }}</div>
         <div class="col-md-3"><strong>项目号：</strong>{{ acceptance.project_code or '-' }}</div>
-        <div class="col-md-3"><strong>机号：</strong>{{ acceptance.serial_no or acceptance.card_serial_no or '-' }}</div>
+        <div class="col-md-3"><strong>柜号：</strong>{{ acceptance.cabinet_no or acceptance.card_cabinet_no or '-' }}</div>
         <div class="col-md-3"><strong>销售订单：</strong>{{ acceptance.sales_order_no or '-' }}</div>
         <div class="col-md-3"><strong>工单：</strong>{{ acceptance.wo_no or '-' }}</div>
         <div class="col-md-3"><strong>物料：</strong>{{ acceptance.product_code or '-' }} {{ acceptance.product_name or '' }}</div>

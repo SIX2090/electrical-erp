@@ -29,7 +29,7 @@
 {% endif %}
 {% set prev_id = order.id - 1 if order.id and order.id > 1 else 1 %}
 {% set doc_no = number or order.doc_no or order.adj_no or order.transfer_no or order.check_no or order.id %}
-{% set trace_keyword = order.project_code or order.serial_no or doc_no %}
+{% set trace_keyword = order.project_code or order.cabinet_no or doc_no %}
 
 {{ document_menu_bar(actions=[
     {'label': '返回列表', 'type': 'link', 'href': back_url or '/inventory/detail', 'icon': 'bi-arrow-left'},
@@ -49,7 +49,7 @@
     {'label': '复制', 'type': 'button', 'button_type': 'submit', 'form': 'copyForm', 'icon': 'bi-copy', 'title': '复制为新的草稿单据'},
     {'label': '工具', 'type': 'dropdown', 'items': [
         {'label': '下查库存流水', 'type': 'link', 'href': '/transactions?keyword=' ~ (doc_no|urlencode)},
-        {'label': '批次/机号追溯', 'type': 'link', 'href': '/transactions?keyword=' ~ (trace_keyword|urlencode)},
+        {'label': '批次/柜号追溯', 'type': 'link', 'href': '/transactions?keyword=' ~ (trace_keyword|urlencode)},
         {'label': '上查来源单', 'type': 'link', 'href': (back_url or '/inventory/detail') ~ '?keyword=' ~ ((order.source_no or order.source_order_no or order.reference_no or doc_no)|urlencode)},
         {'label': '附件', 'type': 'link', 'href': '#documentAttachmentsPanel'},
         {'label': '备注/操作记录', 'type': 'link', 'href': '#documentNotesPanel'}
@@ -75,7 +75,7 @@
 <div class="alert alert-info mb-3">
     <strong>当前状态：</strong>{{ status or '待过账' }}。
     {% if can_post %}
-    单据已保存，尚未影响库存；请复核仓库、库位、批号、机号和数量后确认过账。
+    单据已保存，尚未影响库存；请复核仓库、库位、批号、柜号和数量后确认过账。
     {% elif status == '已过账' %}
     单据已写入库存流水，可关闭锁定为最终追溯依据。
     {% elif status == '已关闭' %}
@@ -129,7 +129,7 @@
 {% endif %}
 
   <div class="page-card mb-3">
-    <div class="section-title"><div><h2>物料明细</h2><span>单据过账涉及的物料、数量、批号、机号、库位和成本</span></div></div>
+    <div class="section-title"><div><h2>物料明细</h2><span>单据过账涉及的物料、数量、批号、柜号、库位和成本</span></div></div>
     {% if items %}
     <div class="table-responsive">
         <table class="table table-sm align-middle">
@@ -144,7 +144,7 @@
                 <th>单位</th>
                 {% if doc_type == 'check' %}<th>仓库</th><th>库位</th>{% endif %}
                 {% if doc_type == 'transfer' %}<th>调出仓库</th><th>调出库位</th><th>调入仓库</th><th>调入库位</th>{% endif %}
-                <th class="text-end">成本</th><th class="text-end">成本金额</th><th>批号</th><th>项目号</th><th>机号</th><th>备注</th>
+                <th class="text-end">成本</th><th class="text-end">成本金额</th><th>批号</th><th>项目号</th><th>柜号</th><th>备注</th>
             </tr>
             </thead>
             <tbody>
@@ -180,7 +180,7 @@
                 <td class="text-end">{{ item.amount|money }}</td>
                 <td>{{ item.lot_no or '-' }}</td>
                 <td>{{ item.line_project_code|clean_text or item.project_code|clean_text or order.project_code|clean_text or '-' }}</td>
-                <td>{{ item.serial_no or '-' }}</td>
+                <td>{{ item.cabinet_no or '-' }}</td>
                 <td>{{ item.remark or '-' }}</td>
             </tr>
             {% endfor %}
@@ -197,7 +197,7 @@
     {% if transactions %}
     <div class="table-responsive">
         <table class="table table-sm align-middle">
-            <thead><tr><th>日期</th><th>类型</th><th>物料</th><th>产品分类/BOM</th><th>仓库</th><th>库位</th><th class="text-end">数量</th><th class="text-end">成本</th><th class="text-end">成本金额</th><th>批号</th><th>机号</th><th>备注</th></tr></thead>
+            <thead><tr><th>日期</th><th>类型</th><th>物料</th><th>产品分类/BOM</th><th>仓库</th><th>库位</th><th class="text-end">数量</th><th class="text-end">成本</th><th class="text-end">成本金额</th><th>批号</th><th>柜号</th><th>备注</th></tr></thead>
             <tbody>
             {% for tx in transactions %}
             <tr>
@@ -211,7 +211,7 @@
                 <td class="text-end">{{ tx.unit_cost|money }}</td>
                 <td class="text-end">{{ tx.amount|money }}</td>
                 <td>{{ tx.lot_no or '-' }}</td>
-                <td>{{ tx.serial_no or '-' }}</td>
+                <td>{{ tx.cabinet_no or '-' }}</td>
                 <td>{{ tx.remark or '-' }}</td>
             </tr>
             {% endfor %}

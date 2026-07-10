@@ -27,9 +27,9 @@ def get_db_config() -> dict:
 def main() -> int:
     os.environ.setdefault("PG_PASSWORD", "admin")
     values = load_first_machine_values()
-    if values.get("project_code") != "PJ-GT-TRIAL-20260526-001" or values.get("serial_no") != "SN-GT-TRIAL-20260526-001":
+    if values.get("project_code") != "PJ-GT-TRIAL-20260526-001" or values.get("cabinet_no") != "SN-GT-TRIAL-20260526-001":
         print("repair_first_machine_lifecycle_sample=blocked")
-        print("reason=unexpected first-machine project or serial axis")
+        print("reason=unexpected first-machine project or cabinet axis")
         return 1
 
     conn = connect_db(get_db_config())
@@ -43,7 +43,7 @@ def main() -> int:
     print("repair_first_machine_lifecycle_sample=ok")
     for key in (
         "project_code",
-        "serial_no",
+        "cabinet_no",
         "sales_order_id",
         "bom_id",
         "work_order_id",

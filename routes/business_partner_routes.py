@@ -254,7 +254,7 @@ def render_customer_detail(customer_id, query_one, query_rows, money_metric, col
                 "title": "销售订单",
                 "rows": query_rows(
                     """
-                    SELECT id, order_no, order_date, project_code, serial_no, status, total_amount, shipped_amount, delivery_date
+                    SELECT id, order_no, order_date, project_code, cabinet_no, status, total_amount, shipped_amount, delivery_date
                     FROM sales_orders
                     WHERE customer_id=%s
                     ORDER BY id DESC
@@ -262,7 +262,7 @@ def render_customer_detail(customer_id, query_one, query_rows, money_metric, col
                     """,
                     (customer_id,),
                 ),
-                "columns": columns(("order_no", "销售订单"), ("order_date", "日期"), ("project_code", "项目号"), ("serial_no", "机号"), ("total_amount", "金额"), ("shipped_amount", "已发货"), ("delivery_date", "交期"), ("status", "状态")),
+                "columns": columns(("order_no", "销售订单"), ("order_date", "日期"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("total_amount", "金额"), ("shipped_amount", "已发货"), ("delivery_date", "交期"), ("status", "状态")),
                 "detail_base": "/sales",
             },
             {
@@ -298,7 +298,7 @@ def render_customer_detail(customer_id, query_one, query_rows, money_metric, col
                 "title": "销售发货",
                 "rows": query_rows(
                     """
-                    SELECT ss.id, ss.shipment_no, ss.shipment_date, ss.project_code, ss.serial_no, ss.status, so.order_no
+                    SELECT ss.id, ss.shipment_no, ss.shipment_date, ss.project_code, ss.cabinet_no, ss.status, so.order_no
                     FROM sales_shipments ss
                     LEFT JOIN sales_orders so ON so.id=ss.order_id
                     WHERE so.customer_id=%s
@@ -307,7 +307,7 @@ def render_customer_detail(customer_id, query_one, query_rows, money_metric, col
                     """,
                     (customer_id,),
                 ),
-                "columns": columns(("shipment_no", "发货单"), ("shipment_date", "日期"), ("order_no", "销售订单"), ("project_code", "项目号"), ("serial_no", "机号"), ("status", "状态")),
+                "columns": columns(("shipment_no", "发货单"), ("shipment_date", "日期"), ("order_no", "销售订单"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("status", "状态")),
             },
         ],
     }
@@ -383,7 +383,7 @@ def render_supplier_detail(supplier_id, query_one, query_rows, money_metric, qty
                 "title": "采购订单",
                 "rows": query_rows(
                     """
-                    SELECT id, order_no, order_date, expected_date, project_code, serial_no, status, amount_with_tax, received_amount
+                    SELECT id, order_no, order_date, expected_date, project_code, cabinet_no, status, amount_with_tax, received_amount
                     FROM purchase_orders
                     WHERE supplier_id=%s
                     ORDER BY id DESC
@@ -391,7 +391,7 @@ def render_supplier_detail(supplier_id, query_one, query_rows, money_metric, qty
                     """,
                     (supplier_id,),
                 ),
-                "columns": columns(("order_no", "采购单"), ("order_date", "日期"), ("expected_date", "预计到货"), ("project_code", "项目号"), ("serial_no", "机号"), ("amount_with_tax", "含税金额"), ("received_amount", "已收"), ("status", "状态")),
+                "columns": columns(("order_no", "采购单"), ("order_date", "日期"), ("expected_date", "预计到货"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("amount_with_tax", "含税金额"), ("received_amount", "已收"), ("status", "状态")),
                 "detail_base": "/purchase_order",
             },
             {

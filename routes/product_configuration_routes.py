@@ -148,7 +148,7 @@ def _next_action_for(row, blocked_reason=""):
 
 
 def _downstream_impact(row):
-    return row.get("downstream_impact") or "影响项目BOM、工艺准备、MRP齐套、采购委外需求、项目机号成本测算；本页不直接生成采购、生产、库存或财务单据。"
+    return row.get("downstream_impact") or "影响项目BOM、工艺准备、MRP齐套、采购委外需求、项目柜号成本测算；本页不直接生成采购、生产、库存或财务单据。"
 
 
 def _form_state(default_status="draft"):
@@ -161,7 +161,7 @@ def _form_state(default_status="draft"):
         "base_bom_id": _int_or_none("base_bom_id"),
         "project_bom_id": _int_or_none("project_bom_id"),
         "project_code": _text("project_code"),
-        "serial_no": _text("serial_no"),
+        "cabinet_no": _text("cabinet_no"),
         "product_family": _text("product_family"),
         "machine_model": _text("machine_model"),
         "status": _text("status") or default_status,
@@ -190,7 +190,7 @@ def register_product_configuration_routes(
             "products": query_rows("SELECT id, code, name, specification, unit, category, category AS product_family FROM products ORDER BY code LIMIT 800"),
             "sales_orders": query_rows(
                 """
-                SELECT so.id, so.order_no, so.project_code, so.serial_no, so.customer_id,
+                SELECT so.id, so.order_no, so.project_code, so.cabinet_no, so.customer_id,
                        c.name AS customer_name, soi.product_id,
                        p.code AS product_code, p.name AS product_name, p.specification AS product_specification,
                        p.category AS product_family
@@ -210,7 +210,7 @@ def register_product_configuration_routes(
             ),
             "quotations": query_rows(
                 """
-                SELECT q.id, q.quote_no, q.project_code, q.serial_no, q.customer_id, c.name AS customer_name
+                SELECT q.id, q.quote_no, q.project_code, q.cabinet_no, q.customer_id, c.name AS customer_name
                 FROM quotation_headers q
                 LEFT JOIN customers c ON c.id=q.customer_id
                 ORDER BY q.id DESC
@@ -316,7 +316,7 @@ def register_product_configuration_routes(
                 (
                     pc.config_no ILIKE %s OR so.order_no ILIKE %s OR q.quote_no ILIKE %s
                     OR c.name ILIKE %s OR p.code ILIKE %s OR p.name ILIKE %s
-                    OR pc.project_code ILIKE %s OR pc.serial_no ILIKE %s OR pc.machine_model ILIKE %s
+                    OR pc.project_code ILIKE %s OR pc.cabinet_no ILIKE %s OR pc.machine_model ILIKE %s
                     OR pc.owner ILIKE %s OR pc.engineering_owner ILIKE %s
                 )
                 """
@@ -328,7 +328,7 @@ def register_product_configuration_routes(
         where_sql = "WHERE " + " AND ".join(where) if where else ""
         rows = query_rows(
             f"""
-            SELECT pc.id, pc.config_no, pc.config_date, pc.status, pc.project_code, pc.serial_no,
+            SELECT pc.id, pc.config_no, pc.config_date, pc.status, pc.project_code, pc.cabinet_no,
                    pc.machine_model, pc.owner, pc.engineering_owner, pc.blocked_reason,
                    pc.next_action, pc.downstream_impact, pc.project_bom_id,
                    so.order_no AS sales_order_no, q.quote_no AS quotation_no,
@@ -423,7 +423,7 @@ def register_product_configuration_routes(
                     """
                     INSERT INTO product_configurations
                         (config_no, config_date, sales_order_id, quotation_id, customer_id, product_id,
-                         base_bom_id, project_bom_id, project_code, serial_no, product_family, machine_model,
+                         base_bom_id, project_bom_id, project_code, cabinet_no, product_family, machine_model,
                          status, owner, engineering_owner, blocked_reason, next_action, downstream_impact,
                          remark, created_by)
                     VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
@@ -439,7 +439,7 @@ def register_product_configuration_routes(
                         config["base_bom_id"],
                         config["project_bom_id"],
                         config["project_code"],
-                        config["serial_no"],
+                        config["cabinet_no"],
                         config["product_family"],
                         config["machine_model"],
                         "draft",

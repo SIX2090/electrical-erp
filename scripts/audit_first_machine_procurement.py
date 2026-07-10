@@ -50,9 +50,9 @@ def main():
                 """
                 SELECT COUNT(*) AS lines, COALESCE(SUM(shortage_quantity), 0) AS shortage_qty
                 FROM mrp_requirements
-                WHERE project_code=%s AND serial_no=%s AND COALESCE(shortage_quantity, 0) > 0
+                WHERE project_code=%s AND cabinet_no=%s AND COALESCE(shortage_quantity, 0) > 0
                 """,
-                (values["项目号"], values["机号"]),
+                (values["项目号"], values["柜号"]),
             )
             shortage = cur.fetchone() or {}
             lines = int(shortage.get("lines") or 0)
@@ -64,11 +64,11 @@ def main():
                 FROM mrp_requirements mr
                 JOIN products p ON p.id=mr.product_id
                 WHERE mr.project_code=%s
-                  AND mr.serial_no=%s
+                  AND mr.cabinet_no=%s
                   AND COALESCE(mr.shortage_quantity, 0) > 0
                   AND p.code IN (%s, %s)
                 """,
-                (values["项目号"], values["机号"], values["关键物料1编码"], values.get("关键物料2编码") or ""),
+                (values["项目号"], values["柜号"], values["关键物料1编码"], values.get("关键物料2编码") or ""),
             )
             material_lines = int((cur.fetchone() or {}).get("lines") or 0)
             checks.append(("shortage_materials_match_bom", material_lines >= 1, material_lines))
@@ -90,14 +90,14 @@ def main():
             response = client.get(path)
             body = response.get_data(as_text=True)
             checks.append((f"{path}:status", response.status_code == 200, response.status_code))
-            checks.append((f"{path}:project_visible", values["项目号"] in body and values["机号"] in body, "visible"))
+            checks.append((f"{path}:project_visible", values["项目号"] in body and values["柜号"] in body, "visible"))
             checks.append((f"{path}:clean", not any(marker in body for marker in ["\ufffd", "???", "\u9435", "\u93bf", "\u93b5"]), "clean"))
 
     failures = [(name, detail) for name, ok, detail in checks if not ok]
     print("first_machine_procurement_audit=ok" if not failures else "first_machine_procurement_audit=failed")
     print(f"checked_items={len(checks)}")
     print(f"project_code={values['项目号']}")
-    print(f"serial_no={values['机号']}")
+    print(f"cabinet_no={values['柜号']}")
     for name, ok, detail in checks:
         print(f"{'ok' if ok else 'failed'} | {name} | {detail}")
     return 1 if failures else 0

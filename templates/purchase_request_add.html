@@ -65,7 +65,7 @@
 <div class="page-heading">
     <div>
         <h1>{{ page_title or '新增采购申请单' }}</h1>
-        <p class="text-muted mb-0">按项目号、机号、物料需求、建议供应商和来源行录入采购申请，审核后可下推采购订单。</p>
+        <p class="text-muted mb-0">按项目号、柜号、物料需求、建议供应商和来源行录入采购申请，审核后可下推采购订单。</p>
     </div>
     <div class="d-flex gap-2">
         <a href="/purchase_request" class="btn btn-outline-secondary btn-sm">返回</a>
@@ -116,8 +116,8 @@
                 <input type="text" class="form-control form-control-sm" name="project_code" value="{{ order.project_code if order else '' }}" placeholder="可留空">
             </div>
             <div class="col-md">
-                <label class="form-label-sm">机号 <span class="text-muted small">建议</span></label>
-                <input type="text" class="form-control form-control-sm" name="serial_no" value="{{ order.serial_no if order else '' }}" placeholder="可留空">
+                <label class="form-label-sm">柜号 <span class="text-muted small">建议</span></label>
+                <input type="text" class="form-control form-control-sm" name="cabinet_no" value="{{ order.cabinet_no if order else '' }}" placeholder="可留空">
             </div>
         </div>
         <div class="row g-2">
@@ -167,7 +167,7 @@
                     <th data-column-key="warehouse" data-column-label="收货仓库">收货仓库</th>
                     {% if location_management_enabled %}<th data-column-key="location" data-column-label="收货库位">收货库位</th>{% endif %}
                     <th data-column-key="lot_no" data-column-label="批号">批号</th>
-                    <th data-column-key="serial_no" data-column-label="机号">机号</th>
+                    <th data-column-key="cabinet_no" data-column-label="柜号">柜号</th>
                     <th data-column-key="project_code" data-column-label="项目号">项目号</th>
                     <th data-column-key="expected_delivery_date" data-column-label="期望到货日期">期望到货日期</th>
                     <th data-column-key="estimated_price" data-column-label="预计单价">预计单价</th>
@@ -245,7 +245,7 @@ function addNewRow(insertBeforeRow, data) {
         <td data-column-key="warehouse"><select class="form-select form-select-sm warehouse-id">${warehouseOptions()}</select></td>
         {% if location_management_enabled %}<td data-column-key="location"><select class="form-select form-select-sm location-id">${locationOptions()}</select></td>{% endif %}
         <td data-column-key="lot_no"><input class="form-control form-control-sm lot-no"></td>
-        <td data-column-key="serial_no"><input class="form-control form-control-sm serial-no"></td>
+        <td data-column-key="cabinet_no"><input class="form-control form-control-sm serial-no"></td>
         <td data-column-key="project_code"><input class="form-control form-control-sm line-project-code"></td>
         <td data-column-key="expected_delivery_date"><input class="form-control form-control-sm expected-delivery-date" type="date"></td>
         <td data-column-key="estimated_price"><input class="form-control form-control-sm estimated-price text-end" type="number" step="0.01"></td>
@@ -273,7 +273,7 @@ function fillRowData(row, data) {
     row.querySelector('.warehouse-id').value = data.warehouse_id || '';
     var _locEl = row.querySelector('.location-id'); if (_locEl) _locEl.value = data.location_id || '';
     row.querySelector('.lot-no').value = data.lot_no || '';
-    row.querySelector('.serial-no').value = data.serial_no || '';
+    row.querySelector('.serial-no').value = data.cabinet_no || '';
     row.querySelector('.line-project-code').value = data.project_code || '';
     row.querySelector('.source-line-no').value = data.source_line_no || '';
     updateRowAmount(row);
@@ -341,7 +341,7 @@ function collectItems() {
         warehouse_id: row.querySelector('.warehouse-id').value || null,
         location_id: (row.querySelector('.location-id') || {}).value || null,
         lot_no: row.querySelector('.lot-no').value.trim(),
-        serial_no: row.querySelector('.serial-no').value.trim() || headerValue('serial_no'),
+        cabinet_no: row.querySelector('.serial-no').value.trim() || headerValue('cabinet_no'),
         project_code: row.querySelector('.line-project-code').value.trim() || headerValue('project_code'),
         quantity: row.querySelector('.quantity').value,
         expected_delivery_date: row.querySelector('.expected-delivery-date').value || headerValue('expected_date'),
@@ -433,7 +433,7 @@ function submitForm(saveAndNew) {
         urgency: formData.get('urgency'),
         expected_date: formData.get('expected_date'),
         project_code: formData.get('project_code'),
-        serial_no: formData.get('serial_no'),
+        cabinet_no: formData.get('cabinet_no'),
         warehouse_id: formData.get('warehouse_id'),
         location_id: formData.get('location_id'),
         reason: formData.get('reason'),

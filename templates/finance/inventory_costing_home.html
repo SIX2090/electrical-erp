@@ -98,7 +98,7 @@
                             <th class="text-right">总成本</th>
                             <th class="text-right">平均成本</th>
                             <th>项目号</th>
-                            <th>机号</th>
+                            <th>柜号</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -143,8 +143,8 @@
                                 {% endif %}
                             </td>
                             <td>
-                                {% if row.serial_no %}
-                                    <small class="badge badge-secondary">{{ row.serial_no }}</small>
+                                {% if row.cabinet_no %}
+                                    <small class="badge badge-secondary">{{ row.cabinet_no }}</small>
                                 {% else %}
                                     -
                                 {% endif %}

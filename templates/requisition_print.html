@@ -109,7 +109,7 @@
 
         <section class="info-grid">
             <div><span class="field-label">项目号：</span>{{ requisition.project_code or '-' }}</div>
-            <div><span class="field-label">机号：</span>{{ requisition.serial_no or '-' }}</div>
+            <div><span class="field-label">柜号：</span>{{ requisition.cabinet_no or '-' }}</div>
             <div><span class="field-label">生产物料：</span>{{ ((requisition.product_code or '') ~ ' ' ~ (requisition.product_name or ''))|trim or '-' }}</div>
             <div><span class="field-label">用途：</span>{{ requisition.purpose or '-' }}</div>
             <div><span class="field-label">备注：</span>{{ requisition.remark or '-' }}</div>
@@ -128,7 +128,7 @@
                     <th>仓库</th>
                     <th>库位</th>
                     <th>批号</th>
-                    <th>机号</th>
+                    <th>柜号</th>
                     <th>备注</th>
                 </tr>
             </thead>
@@ -144,7 +144,7 @@
                     <td>{{ line.warehouse_name or '' }}</td>
                     <td>{{ line.location_name or '' }}</td>
                     <td>{{ line.lot_no or '' }}</td>
-                    <td>{{ line.line_serial_no or '' }}</td>
+                    <td>{{ line.line_cabinet_no or '' }}</td>
                     <td>{{ line.remark or '' }}</td>
                 </tr>
                 {% else %}

@@ -17,7 +17,7 @@ def _filters(args=None):
         "date_end": (getter("date_end") or getter("end_date") or "").strip(),
         "customer_name": (getter("customer_name") or getter("customer") or "").strip(),
         "project_code": (getter("project_code") or getter("project") or "").strip(),
-        "serial_no": (getter("serial_no") or "").strip(),
+        "cabinet_no": (getter("cabinet_no") or "").strip(),
         "source_no": (getter("source_no") or "").strip(),
         "status": (getter("status") or "").strip(),
         "only_overdue": (getter("only_overdue") or "").strip(),
@@ -47,9 +47,9 @@ def _append_common_filters(where, params, filters, date_alias):
     if filters.get("project_code"):
         where.append("COALESCE(cr.project_code, r.project_code, so.project_code, ss.project_code, '') ILIKE %s")
         params.append(f"%{filters['project_code']}%")
-    if filters.get("serial_no"):
-        where.append("COALESCE(cr.serial_no, r.serial_no, so.serial_no, ss.serial_no, '') ILIKE %s")
-        params.append(f"%{filters['serial_no']}%")
+    if filters.get("cabinet_no"):
+        where.append("COALESCE(cr.cabinet_no, r.cabinet_no, so.cabinet_no, ss.cabinet_no, '') ILIKE %s")
+        params.append(f"%{filters['cabinet_no']}%")
     if filters.get("source_no"):
         where.append("COALESCE(cr.source_no, r.source_no, so.order_no, ss.shipment_no, r.receipt_no, '') ILIKE %s")
         params.append(f"%{filters['source_no']}%")
@@ -103,7 +103,7 @@ def query_receivable_collection_detail(query_rows, args=None):
                 r.source_no AS receipt_source_no,
                 r.receivable_id AS direct_receivable_id,
                 r.project_code AS receipt_project_code,
-                r.serial_no AS receipt_serial_no
+                r.cabinet_no AS receipt_cabinet_no
             FROM customer_receipts r
         ),
         settlement_rows AS (
@@ -130,7 +130,7 @@ def query_receivable_collection_detail(query_rows, args=None):
                 cr.balance,
                 cr.status AS receivable_status,
                 cr.project_code,
-                cr.serial_no,
+                cr.cabinet_no,
                 '应收核销关联' AS collection_basis
             FROM receipt_base rb
             JOIN customer_receipt_settlements s ON s.receipt_id = rb.receipt_id
@@ -160,7 +160,7 @@ def query_receivable_collection_detail(query_rows, args=None):
                 cr.balance,
                 cr.status AS receivable_status,
                 COALESCE(cr.project_code, rb.receipt_project_code) AS project_code,
-                COALESCE(cr.serial_no, rb.receipt_serial_no) AS serial_no,
+                COALESCE(cr.cabinet_no, rb.receipt_cabinet_no) AS cabinet_no,
                 CASE
                     WHEN cr.id IS NULL THEN '客户收款记录'
                     ELSE '收款单直接关联应收'
@@ -199,7 +199,7 @@ def query_receivable_collection_detail(query_rows, args=None):
             combined.payment_method,
             combined.bank_account,
             combined.project_code,
-            combined.serial_no,
+            combined.cabinet_no,
             combined.receipt_status,
             combined.receivable_status,
             combined.collection_basis,
@@ -263,9 +263,9 @@ def query_customer_ranking(query_rows, args=None):
     if filters.get("project_code"):
         where.append("COALESCE(so.project_code, '') ILIKE %s")
         params.append(f"%{filters['project_code']}%")
-    if filters.get("serial_no"):
-        where.append("COALESCE(so.serial_no, '') ILIKE %s")
-        params.append(f"%{filters['serial_no']}%")
+    if filters.get("cabinet_no"):
+        where.append("COALESCE(so.cabinet_no, '') ILIKE %s")
+        params.append(f"%{filters['cabinet_no']}%")
     if filters.get("status"):
         where.append("COALESCE(so.status, '') = %s")
         params.append(filters["status"])
@@ -453,7 +453,7 @@ def collection_detail_columns():
         {"key": "order_no", "label": "销售订单"},
         {"key": "shipment_no", "label": "发货单"},
         {"key": "project_code", "label": "项目号"},
-        {"key": "serial_no", "label": "机号"},
+        {"key": "cabinet_no", "label": "柜号"},
         {"key": "receivable_amount", "label": "应收金额", "format": "money", "align": "right"},
         {"key": "collection_amount", "label": "本次收款/核销金额", "format": "money", "align": "right"},
         {"key": "received_amount", "label": "应收已收金额", "format": "money", "align": "right"},

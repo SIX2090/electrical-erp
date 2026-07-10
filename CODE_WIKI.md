@@ -25,7 +25,7 @@
 
 ## 1. 项目概述
 
-本项目是一套面向**机床与专用设备制造业**的 ERP 系统，以 **项目号 / 机号** 为核心追溯主线，贯穿销售、BOM、采购、库存、委外、工单、装配、调试、发货、售后、应收应付及成本报表的完整业务闭环。
+本项目是一套面向**机床与专用设备制造业**的 ERP 系统，以 **项目号 / 柜号** 为核心追溯主线，贯穿销售、BOM、采购、库存、委外、工单、装配、调试、发货、售后、应收应付及成本报表的完整业务闭环。
 
 **行业定位**：参考达易隆（Digiwin）风格制造业 ERP，产品族包括滚筒研磨机、双头铣床、铣磨复合机、瓦楞辊专用磨床、粗框机、精铣机、龙门铣等。
 
@@ -228,7 +228,7 @@ register_invoice_matching_routes(...)       # 发票三单匹配
 register_invoice_red_flush_routes(...)      # 发票红冲
 register_invoice_reconciliation_routes(...) # 发票勾稽
 register_inventory_costing_routes(...)      # 存货核算
-register_serial_cost_routes(...)            # 机号成本
+register_cabinet_cost_routes(...)            # 柜号成本
 register_period_closing_routes(...)         # 期末结账
 register_financial_report_routes(...)       # 财务报表
 register_blueprints(app)                    # registry 中的 Blueprint
@@ -423,9 +423,9 @@ register_blueprints(app)                    # registry 中的 Blueprint
 
 实现项目成本归集、毛利计算和成本报表。
 
-#### [services/serial_cost_service.py](file:///c:/erp/services/serial_cost_service.py) — 机号成本服务
+#### [services/cabinet_cost_service.py](file:///c:/erp/services/cabinet_cost_service.py) — 柜号成本服务
 
-实现机号成本归集、标准成本对比和成本差异分析。
+实现柜号成本归集、标准成本对比和成本差异分析。
 
 ### 6.5 发票服务
 
@@ -455,7 +455,7 @@ register_blueprints(app)                    # registry 中的 Blueprint
 | [services/notification_service.py](file:///c:/erp/services/notification_service.py) | 系统通知：创建/查询/标记已读 |
 | [services/update_service.py](file:///c:/erp/services/update_service.py) | 版本更新：读取发布信息、解析更新清单 |
 | [services/trace_engine.py](file:///c:/erp/services/trace_engine.py) | 追溯引擎：创建追溯快照和追溯链接 |
-| [services/data_scope_service.py](file:///c:/erp/services/data_scope_service.py) | 数据范围控制：按项目/机号/部门/客户/供应商过滤数据 |
+| [services/data_scope_service.py](file:///c:/erp/services/data_scope_service.py) | 数据范围控制：按项目/柜号/部门/客户/供应商过滤数据 |
 | [services/after_sale_service.py](file:///c:/erp/services/after_sale_service.py) | 售后服务：质保策略、服务工单/RMA 流程字段 |
 | [services/mechanical_erp_config.py](file:///c:/erp/services/mechanical_erp_config.py) | 机床产品族配置（7 种产品族的编码前缀、工艺模板、控制点） |
 | [services/industry_defaults.py](file:///c:/erp/services/industry_defaults.py) | 行业默认值（默认计量单位） |
@@ -634,7 +634,7 @@ routes/*_routes.py      → 路由注册
 | 20260528-31 | 文档行追溯、生产状态追溯、工程技术确认、财务 AR/AP |
 | 20260601-06 | 主数据完善、工单变更控制、排程派工、图纸管理、售后质保 |
 | 20260607-12 | 财务汇率调整、审计审批、系统通知、主数据结构化字段 |
-| 20260614-19 | 库存余额一致性、凭证系统、项目机号主数据、领料单、工序报表、工单成本、打印模板、生产完工、总账状态、追溯引擎 |
+| 20260614-19 | 库存余额一致性、凭证系统、项目柜号主数据、领料单、工序报表、工单成本、打印模板、生产完工、总账状态、追溯引擎 |
 | 20260620 | 数据范围服务、销售发货库存过账 |
 
 ### 9.3 Alembic（辅助）
@@ -654,7 +654,7 @@ routes/*_routes.py      → 路由注册
 | 基础 | `warehouses` / `locations` | 仓库 / 库位 |
 | 基础 | `units` | 计量单位 |
 | 基础 | `departments` / `employees` | 部门 / 员工 |
-| 基础 | `project_masters` / `machine_serial_masters` | 项目档案 / 机号档案 |
+| 基础 | `project_masters` / `cabinet_masters` | 项目档案 / 柜号档案 |
 | 销售 | `sales_orders` | 销售订单 |
 | 销售 | `sales_shipments` | 销售发货单 |
 | 销售 | `sales_returns` | 销售退货单 |
@@ -671,7 +671,7 @@ routes/*_routes.py      → 路由注册
 | 库存 | `inventory_adjustments` | 库存调整 |
 | 库存 | `inventory_check_orders` | 盘点单 |
 | 库存 | `inventory_assembly_orders` | 组装/拆卸单 |
-| 库存 | `batch_tracking` | 批次/机号追溯 |
+| 库存 | `batch_tracking` | 批次/柜号追溯 |
 | 生产 | `work_orders` | 生产工单 |
 | 生产 | `boms` | BOM |
 | 生产 | `pick_lists` | 领料单 |
@@ -760,7 +760,7 @@ routes/*_routes.py      → 路由注册
 | Cookie 安全 | `HTTPOnly`、`SameSite=Lax`、生产环境 `Secure` |
 | 审计日志 | 所有 POST/PUT/DELETE 操作记录到 `audit_logs` 表 |
 | 操作日志 | 业务操作记录到 `operation_logs` 表（含 trace_id） |
-| 数据范围控制 | `data_scope_service` 按项目/机号/部门/客户/供应商过滤 |
+| 数据范围控制 | `data_scope_service` 按项目/柜号/部门/客户/供应商过滤 |
 
 ---
 
@@ -811,7 +811,7 @@ routes/*_routes.py      → 路由注册
 - `/adjustments` — 调整单
 - `/inventory_checks` — 盘点单
 - `/assembly-orders` / `/disassembly-orders` — 组装/拆卸
-- `/batch/tracking` — 批次机号追溯
+- `/batch/tracking` — 批次柜号追溯
 - `/inventory/reports/*` — 库存报表
 
 **成本核算**：移动加权平均法，由 `inventory_inbound_weighted_avg` 和 `inventory_outbound` 实现。
@@ -835,7 +835,7 @@ routes/*_routes.py      → 路由注册
 
 ### 11.5 财务模块
 
-**核心功能**：应收应付、收付款、发票、会计凭证、期末结账、财务报表、存货核算、项目/机号成本
+**核心功能**：应收应付、收付款、发票、会计凭证、期末结账、财务报表、存货核算、项目/柜号成本
 
 **关键路由**：
 - `/receivables` / `/payables` — 应收/应付
@@ -845,12 +845,12 @@ routes/*_routes.py      → 路由注册
 - `/finance/period-close` — 期末结账
 - `/finance/balance-sheet` / `/finance/income-statement` / `/finance/cash-flow` — 财务报表
 - `/finance/inventory-costing` — 存货核算
-- `/finance/project-cost` / `/finance/serial-cost` — 项目/机号成本
+- `/finance/project-cost` / `/finance/cabinet-cost` — 项目/柜号成本
 - `/cash-bank-accounts` / `/cash-bank-journal` — 现金银行
 
 ### 11.6 售后服务模块
 
-**业务闭环**：服务卡（按机号）→ 安装验收 → 服务工单 → RMA → 费用/成本
+**业务闭环**：服务卡（按柜号）→ 安装验收 → 服务工单 → RMA → 费用/成本
 
 **关键路由**：
 - `/service-cards` — 服务卡
@@ -1108,9 +1108,9 @@ set INVENTORY_NAV_MODE=gt_pilot && set PG_PASSWORD=admin && python scripts\audit
 
 ERP 核心原则：单据录入页（`/new`）回答"创建什么单据"，列表页回答"存在哪些单据"。列表页不暴露新建按钮，新建操作必须在独立的单据录入路由完成。
 
-### A4. 项目号/机号追溯主线
+### A4. 项目号/柜号追溯主线
 
-项目号（`project_code`）和机号（`serial_no`）是机床制造业的核心追溯轴，贯穿所有业务单据。它们是追溯字段而非强制字段，仅在 `require_project_serial` 系统选项启用时才强制要求。
+项目号（`project_code`）和柜号（`cabinet_no`）是机床制造业的核心追溯轴，贯穿所有业务单据。它们是追溯字段而非强制字段，仅在 `require_project_cabinet` 系统选项启用时才强制要求。
 
 ---
 

@@ -1,4 +1,4 @@
-"""Trace routes: forward and reverse traceability by project number and machine serial number."""
+"""Trace routes: forward and reverse traceability by project number and cabinet number."""
 from __future__ import annotations
 
 from flask import abort, flash, redirect, render_template, request, session, url_for
@@ -6,7 +6,7 @@ from flask import abort, flash, redirect, render_template, request, session, url
 from services.data_scope_service import get_data_scope, log_data_access, row_allowed, scope_has_rules
 from services.trace_engine import (
     find_by_project,
-    find_by_serial,
+    find_by_cabinet,
     find_downstream_recursive,
     find_upstream_recursive,
     get_trace_snapshot,
@@ -41,7 +41,7 @@ def register_routes(app, deps):
     login_required = deps["login_required"]
     log_action = deps.get("log_action")
 
-    _SCOPE_FIELD_MAP = {"project": "project_code", "serial": "serial_no"}
+    _SCOPE_FIELD_MAP = {"project": "project_code", "cabinet": "cabinet_no"}
 
     def _current_scope():
         try:
@@ -87,14 +87,14 @@ def register_routes(app, deps):
     def trace_index():
         _log_view("trace_index", reason="追溯首页")
         project_code = (request.args.get("project_code") or "").strip()
-        serial_no = (request.args.get("serial_no") or "").strip()
+        cabinet_no = (request.args.get("cabinet_no") or "").strip()
         doc_type = (request.args.get("doc_type") or "").strip()
         doc_id = (request.args.get("doc_id") or "").strip()
 
         if project_code:
             return redirect(url_for("trace_project", project_code=project_code))
-        if serial_no:
-            return redirect(url_for("trace_serial", serial_no=serial_no))
+        if cabinet_no:
+            return redirect(url_for("trace_cabinet", cabinet_no=cabinet_no))
         if doc_type and doc_id:
             return redirect(url_for("trace_document", doc_type=doc_type, doc_id=doc_id))
 
@@ -137,15 +137,15 @@ def register_routes(app, deps):
             label=_label,
         )
 
-    @app.get("/trace/serial/<serial_no>", endpoint="trace_serial")
+    @app.get("/trace/cabinet/<cabinet_no>", endpoint="trace_cabinet")
     @login_required
-    def trace_serial(serial_no):
-        serial_no = serial_no.strip()
-        _log_view("trace_serial", resource_id=serial_no, reason="机号追溯")
-        if _scope_denied({"serial_no": serial_no}):
+    def trace_cabinet(cabinet_no):
+        cabinet_no = cabinet_no.strip()
+        _log_view("trace_cabinet", resource_id=cabinet_no, reason="柜号追溯")
+        if _scope_denied({"cabinet_no": cabinet_no}):
             abort(403)
-        links = find_by_serial(query_db, serial_no, limit=500)
-        score = trace_completeness_score(query_db, serial_no=serial_no)
+        links = find_by_cabinet(query_db, cabinet_no, limit=500)
+        score = trace_completeness_score(query_db, cabinet_no=cabinet_no)
         graph = {"nodes": [], "edges": [], "seed": None}
         if links:
             first = links[0]
@@ -156,8 +156,8 @@ def register_routes(app, deps):
                 depth=3,
             )
         return render_template(
-            "trace/serial_trace.html",
-            serial_no=serial_no,
+            "trace/cabinet_trace.html",
+            cabinet_no=cabinet_no,
             links=links,
             score=score,
             graph=graph,
@@ -249,7 +249,7 @@ def register_routes(app, deps):
     @app.post("/trace/integrity/backfill", endpoint="trace_integrity_backfill")
     @login_required
     def trace_integrity_backfill():
-        """P4-B2: 执行追溯回填（缺失 trace_links + 缺失 project_code/serial_no）。"""
+        """P4-B2: 执行追溯回填（缺失 trace_links + 缺失 project_code/cabinet_no）。"""
         _log_view("trace_backfill", reason="执行追溯回填")
         result = backfill_trace_links(
             query_db,

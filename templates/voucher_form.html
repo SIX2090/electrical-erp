@@ -100,7 +100,7 @@
                             <th width="120" data-column-key="debit_amount">借方金额</th>
                             <th width="120" data-column-key="credit_amount">贷方金额</th>
                             <th width="120" data-column-key="project_code">项目号</th>
-                            <th width="120" data-column-key="serial_no">机号</th>
+                            <th width="120" data-column-key="cabinet_no">柜号</th>
                             {% if not readonly and (not voucher or voucher.status == 'draft') %}
                             <th width="50" data-column-key="actions">操作</th>
                             {% endif %}
@@ -124,7 +124,7 @@
                             <td data-column-key="credit_amount"><input type="number" step="0.01" class="form-control form-control-sm credit-amount" name="line_credit_{{ line.line_no }}" value="{{ '%.2f'|format(line.credit_amount|default(0)) if line.credit_amount else '0.00' }}"
                                        onchange="calcTotals()" {% if readonly or (voucher and voucher.status != 'draft') %}readonly{% endif %}></td>
                             <td data-column-key="project_code">{{ line.project_code or '' }}</td>
-                            <td data-column-key="serial_no">{{ line.serial_no or '' }}</td>
+                            <td data-column-key="cabinet_no">{{ line.cabinet_no or '' }}</td>
                             {% if not readonly and (not voucher or voucher.status == 'draft') %}
                             <td data-column-key="actions"><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeLine(this)">×</button></td>
                             {% endif %}

@@ -99,11 +99,11 @@ def convert_to_purchase_requisition(
     product = _product_snapshot(query_one, suggestion.get("material_id"))
     req_no = _next_doc_no(query_one, "PR", "purchase_requisitions", "req_no")
     project_code = suggestion.get("project_code") or None
-    serial_no = suggestion.get("serial_no") or None
+    cabinet_no = suggestion.get("cabinet_no") or None
     req_row = execute_and_return(
         """
         INSERT INTO purchase_requisitions
-            (req_no, req_date, department, purpose, status, remark, project_code, serial_no)
+            (req_no, req_date, department, purpose, status, remark, project_code, cabinet_no)
         VALUES (%s, CURRENT_DATE, %s, %s, %s, %s, %s, %s)
         RETURNING id, req_no
         """,
@@ -114,7 +114,7 @@ def convert_to_purchase_requisition(
             "待提交",
             f"由 MRP 建议 {suggestion.get('run_id')}-{suggestion_id} 自动生成",
             project_code,
-            serial_no,
+            cabinet_no,
         ),
     ) or {}
     req_id = req_row.get("id")
@@ -124,7 +124,7 @@ def convert_to_purchase_requisition(
         """
         INSERT INTO purchase_requisition_items
             (req_id, product_id, quantity, unit_price, amount, need_date,
-             suggested_supplier_id, remark, project_code, serial_no,
+             suggested_supplier_id, remark, project_code, cabinet_no,
              material_code, material_name, material_spec, material_unit)
         VALUES (%s,%s,%s,%s,%s,%s,NULL,%s,%s,%s,%s,%s,%s,%s)
         """,
@@ -137,7 +137,7 @@ def convert_to_purchase_requisition(
             suggestion.get("required_date"),
             f"MRP 建议自动生成，来源 MRP 运行 {suggestion.get('run_id')}",
             project_code,
-            serial_no,
+            cabinet_no,
             product.get("code"),
             product.get("name"),
             product.get("specification"),
@@ -157,7 +157,7 @@ def convert_to_purchase_requisition(
             target_doc_no=req_no,
             link_type="source_of",
             project_code=project_code,
-            serial_no=serial_no,
+            cabinet_no=cabinet_no,
             created_by=created_by,
             created_event="mrp_convert",
         )
@@ -194,13 +194,13 @@ def convert_to_work_order(
     product = _product_snapshot(query_one, suggestion.get("material_id"))
     wo_no = _next_doc_no(query_one, "WO", "work_orders", "wo_no")
     project_code = suggestion.get("project_code") or None
-    serial_no = suggestion.get("serial_no") or None
+    cabinet_no = suggestion.get("cabinet_no") or None
     wo_row = execute_and_return(
         """
         INSERT INTO work_orders
             (wo_no, wo_date, product_id, quantity, status,
              material_code, material_name, material_spec, material_unit,
-             production_stage, status_changed_at, project_code, serial_no, remark)
+             production_stage, status_changed_at, project_code, cabinet_no, remark)
         VALUES (%s, CURRENT_DATE, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, %s, %s, %s)
         RETURNING id, wo_no
         """,
@@ -215,7 +215,7 @@ def convert_to_work_order(
             product.get("unit"),
             "创建",
             project_code,
-            serial_no,
+            cabinet_no,
             f"由 MRP 建议 {suggestion.get('run_id')}-{suggestion_id} 自动生成",
         ),
     ) or {}
@@ -233,7 +233,7 @@ def convert_to_work_order(
             target_doc_no=wo_no,
             link_type="source_of",
             project_code=project_code,
-            serial_no=serial_no,
+            cabinet_no=cabinet_no,
             created_by=created_by,
             created_event="mrp_convert",
         )
@@ -270,12 +270,12 @@ def convert_to_subcontract_order(
     product = _product_snapshot(query_one, suggestion.get("material_id"))
     order_no = _next_doc_no(query_one, "SCO", "subcontract_orders", "order_no")
     project_code = suggestion.get("project_code") or None
-    serial_no = suggestion.get("serial_no") or None
+    cabinet_no = suggestion.get("cabinet_no") or None
     order_row = execute_and_return(
         """
         INSERT INTO subcontract_orders
             (order_no, order_date, product_id, quantity, unit_price, total_amount,
-             project_code, serial_no, status, remark, updated_at, arrival_status,
+             project_code, cabinet_no, status, remark, updated_at, arrival_status,
              shortage_qty, received_qty,
              material_code, material_name, material_spec, material_unit)
         VALUES (%s, CURRENT_DATE, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, %s, %s, 0, %s, %s, %s, %s)
@@ -288,7 +288,7 @@ def convert_to_subcontract_order(
             _as_decimal(product.get("standard_price")),
             qty * _as_decimal(product.get("standard_price")),
             project_code,
-            serial_no,
+            cabinet_no,
             "draft",
             f"由 MRP 建议 {suggestion.get('run_id')}-{suggestion_id} 自动生成",
             "未发料",
@@ -313,7 +313,7 @@ def convert_to_subcontract_order(
             target_doc_no=order_no,
             link_type="source_of",
             project_code=project_code,
-            serial_no=serial_no,
+            cabinet_no=cabinet_no,
             created_by=created_by,
             created_event="mrp_convert",
         )

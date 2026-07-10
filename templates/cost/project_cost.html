@@ -73,7 +73,7 @@
                 <tr>
                     <th>运行编号</th>
                     <th>期间</th>
-                    <th>机号</th>
+                    <th>柜号</th>
                     <th>工单</th>
                     <th>状态</th>
                     <th class="text-end">总成本</th>
@@ -85,7 +85,7 @@
                 <tr>
                     <td><a href="/cost/runs/{{ run.id }}">{{ run.run_no }}</a></td>
                     <td>{{ run.period or '-' }}</td>
-                    <td>{{ run.serial_no or '-' }}</td>
+                    <td>{{ run.cabinet_no or '-' }}</td>
                     <td>{{ run.work_order_id or '-' }}</td>
                     <td>
                         {% if run.status == 'completed' %}

@@ -18,14 +18,14 @@
     <div class="section-title">
         <div>
             <h2>滚筒研磨机试点队列</h2>
-            <span>按项目号、机号、BOM、缺料、采购、委外、工单、发货、售后跟进一台设备的闭环，优先处理项目/机号风险</span>
+            <span>按项目号、柜号、BOM、缺料、采购、委外、工单、发货、售后跟进一台设备的闭环，优先处理项目/柜号风险</span>
         </div>
     </div>
     <div class="quick-grid">
         {% if can_projects %}
         <a class="quick-link" href="/projects">
             <i class="bi bi-kanban"></i>
-            <span><strong>项目/机号台账</strong><span>按机号查看全生命周期</span></span>
+            <span><strong>项目/柜号台账</strong><span>按柜号查看全生命周期</span></span>
         </a>
         {% endif %}
         {% if can_tech_or_production %}
@@ -86,7 +86,7 @@
             {% if see_all or role in ['sales', 'purchase', 'production'] %}
             <a class="quick-link" href="/sales-orders">
                 <i class="bi bi-clipboard-check"></i>
-                <span><strong>待技术确认</strong><span>订单、项目号、机号、交期</span></span>
+                <span><strong>待技术确认</strong><span>订单、项目号、柜号、交期</span></span>
             </a>
             {% endif %}
             {% if can_tech_or_production %}
@@ -277,8 +277,8 @@
         <section class="erp-home-command page-card">
             <div>
                 <div class="erp-home-kicker">机床制造 ERP 工作台</div>
-                <h1>项目交付 · 机号追溯 · 齐套协同</h1>
-                <p>围绕项目号和机号处理销售、BOM、采购、委外、生产、库存、发货、售后和财务闭环。</p>
+                <h1>项目交付 · 柜号追溯 · 齐套协同</h1>
+                <p>围绕项目号和柜号处理销售、BOM、采购、委外、生产、库存、发货、售后和财务闭环。</p>
             </div>
         </section>
 
@@ -310,7 +310,7 @@
                 {% endif %}
                 {% if can_master %}
                 <a class="erp-launch-tile" href="/project-master/new"><i class="bi bi-folder-plus"></i><span>新建项目档案</span></a>
-                <a class="erp-launch-tile" href="/machine-serial-master/new"><i class="bi bi-upc-scan"></i><span>新建机号档案</span></a>
+                <a class="erp-launch-tile" href="/cabinet-master/new"><i class="bi bi-upc-scan"></i><span>新建柜号档案</span></a>
                 {% endif %}
             </div>
         </section>
@@ -439,7 +439,7 @@
                 <a class="erp-home-alert-row" href="/work-orders"><strong>{% if metric_errors.open_work_orders %}--{% else %}{{ operating.open_work_orders }}{% endif %}</strong><span>未完工单</span><i class="bi bi-chevron-right"></i></a>
                 {% endif %}
                 {% if can_master %}
-                <a class="erp-home-alert-row" href="/project-master"><strong>{% if metric_errors.projects_without_machine %}--{% else %}{{ operating.projects_without_machine }}{% endif %}</strong><span>项目未建机号</span><i class="bi bi-chevron-right"></i></a>
+                <a class="erp-home-alert-row" href="/project-master"><strong>{% if metric_errors.projects_without_machine %}--{% else %}{{ operating.projects_without_machine }}{% endif %}</strong><span>项目未建柜号</span><i class="bi bi-chevron-right"></i></a>
                 {% endif %}
             </section>
 
@@ -454,7 +454,7 @@
                 {% if can_master %}
                 <div class="erp-home-master-mini">
                     <a href="/project-master"><span>项目档案</span><strong>{% if metric_errors.project_master_count %}--{% else %}{{ operating.project_master_count }}{% endif %}</strong></a>
-                    <a href="/machine-serial-master"><span>机号档案</span><strong>{% if metric_errors.machine_serial_count %}--{% else %}{{ operating.machine_serial_count }}{% endif %}</strong></a>
+                    <a href="/cabinet-master"><span>柜号档案</span><strong>{% if metric_errors.cabinet_count %}--{% else %}{{ operating.cabinet_count }}{% endif %}</strong></a>
                 </div>
                 {% endif %}
                 <div class="erp-home-mini-links">

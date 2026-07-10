@@ -14,7 +14,7 @@
             <h1 class="h4 mb-1">{{ balance.product_code or balance.product_id }} / {{ balance.product_name or '-' }}</h1>
             <div class="text-muted">
                 仓库 {{ balance.warehouse_name or '-' }} / 库位 {{ balance.location_code or balance.location_name or '-' }}
-                / 批号 {{ balance.lot_no or '-' }} / 机号 {{ balance.serial_no or '-' }}
+                / 批号 {{ balance.lot_no or '-' }} / 柜号 {{ balance.cabinet_no or '-' }}
             </div>
         </div>
         <span class="badge text-bg-primary">库存余额</span>
@@ -41,7 +41,7 @@
         <div class="col-md-3"><span class="text-muted">仓库：</span>{{ balance.warehouse_name or '-' }}</div>
         <div class="col-md-3"><span class="text-muted">库位：</span>{{ balance.location_code or balance.location_name or '-' }}</div>
         <div class="col-md-3"><span class="text-muted">批号：</span>{{ balance.lot_no or '-' }}</div>
-        <div class="col-md-3"><span class="text-muted">机号：</span>{{ balance.serial_no or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">柜号：</span>{{ balance.cabinet_no or '-' }}</div>
         <div class="col-md-3"><span class="text-muted">有效期：</span>{{ balance.expire_date or '-' }}</div>
         <div class="col-md-3"><span class="text-muted">更新时间：</span>{{ balance.updated_at or '-' }}</div>
     </div>
@@ -60,7 +60,7 @@
                 <th class="text-end">成本</th>
                 <th>来源</th>
                 <th>批号</th>
-                <th>机号</th>
+                <th>柜号</th>
                 <th>备注</th>
             </tr>
             </thead>
@@ -73,7 +73,7 @@
                 <td class="text-end">{{ row.unit_cost|money }}</td>
                 <td>{{ row.reference_no or '-' }}</td>
                 <td>{{ row.lot_no or '-' }}</td>
-                <td>{{ row.serial_no or '-' }}</td>
+                <td>{{ row.cabinet_no or '-' }}</td>
                 <td>{{ row.remark or '-' }}</td>
             </tr>
             {% endfor %}

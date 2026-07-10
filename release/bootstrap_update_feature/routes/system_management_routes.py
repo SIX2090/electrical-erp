@@ -45,11 +45,11 @@ def system_parameter_effect_rows():
             "acceptance": "用试运行用户检查菜单可见性和直接访问矩阵。",
         },
         {
-            "area": "项目/机号追踪",
-            "keys": "require_project_serial, batch_serial_control",
-            "effect": "控制项目号、机号作为推荐追踪字段或强制校验字段的行为。",
+            "area": "项目/柜号追踪",
+            "keys": "require_project_cabinet, batch_cabinet_control",
+            "effect": "控制项目号、柜号作为推荐追踪字段或强制校验字段的行为。",
             "owner": "系统管理员/生产计划",
-            "acceptance": "检查销售、采购、库存、生产、售后页面的项目号和机号提示。",
+            "acceptance": "检查销售、采购、库存、生产、售后页面的项目号和柜号提示。",
         },
         {
             "area": "库存与成本",
@@ -74,8 +74,8 @@ def system_parameter_effect_rows():
         },
         {
             "area": "生产与售后",
-            "keys": "work_order_requires_bom, service_requires_machine_serial",
-            "effect": "控制工单来源 BOM、服务单机号追踪和成本归集提示。",
+            "keys": "work_order_requires_bom, service_requires_cabinet",
+            "effect": "控制工单来源 BOM、服务单柜号追踪和成本归集提示。",
             "owner": "生产/售后",
             "acceptance": "按工单领料完工、服务卡到服务单闭环验收。",
         },
@@ -402,7 +402,7 @@ def build_setting_groups(query_one=None):
                     {"value": "gt_pilot", "label": "试点核心菜单"},
                     {"value": "full", "label": "完整菜单"},
                 ]),
-                _setting("require_project_serial", "强制项目号/机号", "关闭时项目号和机号作为建议追溯字段；预测生产、备库生产、小公司简化流程可不填。", option_value("require_project_serial", "0"), "bool"),
+                _setting("require_project_cabinet", "强制项目号/柜号", "关闭时项目号和柜号作为建议追溯字段；预测生产、备库生产、小公司简化流程可不填。", option_value("require_project_cabinet", "0"), "bool"),
                 _setting("hide_unstable_modules", "隐藏未稳定模块", "高级售后、质量、资产、物流、营销等模块在核心稳定前不进入普通导航。", option_value("hide_unstable_modules", "1"), "bool"),
                 _setting("document_approval_flow", "启用单据审批流", "销售、采购、库存、生产、委外、售后和财务单据按保存、提交、审核、反审核、作废控制动作。", option_value("document_approval_flow", "1"), "bool"),
                 _setting("draft_document_number_policy", "草稿单据编号方式", "控制草稿保存时是否立即占用正式单号。", option_value("draft_document_number_policy", "reserve"), "select", options=[
@@ -420,7 +420,7 @@ def build_setting_groups(query_one=None):
             "settings": [
                 _setting("negative_stock_block", "禁止负库存", "出库、领料、委外发料必须先校验可用库存。关闭后允许临时负库存，但数据健康会提示风险。", option_value("negative_stock_block", "1"), "bool"),
                 _setting("allow_negative_stock", "允许负库存", "仅用于试运行或历史补录；正式上线建议关闭，并以禁止负库存作为主控制。", option_value("allow_negative_stock", "0"), "bool"),
-                _setting("batch_serial_control", "启用批号/机号追溯", "启用后库存单据、委外、生产领料和售后备件需保留批号、机号或项目号追溯字段。", option_value("batch_serial_control", "1"), "bool"),
+                _setting("batch_cabinet_control", "启用批号/柜号追溯", "启用后库存单据、委外、生产领料和售后备件需保留批号、柜号或项目号追溯字段。", option_value("batch_cabinet_control", "1"), "bool"),
                 _setting("period_close_inventory_check", "结账前库存检查", "期间结账前检查待过账单据、负库存、未核成本和未关闭异常。", option_value("period_close_inventory_check", "1"), "bool"),
                 _setting("warehouse_location_required", "启用库位管理", "启用后库存单据需要维护仓库和库位。", option_value("warehouse_location_required", "1"), "bool"),
                 _setting("inventory_batch_required", "启用批号管理", "启用后入库、出库、调拨和盘点需要维护批号。", option_value("inventory_batch_required", "0"), "bool"),
@@ -457,7 +457,7 @@ def build_setting_groups(query_one=None):
             "key": "sales_control",
             "title": "销售参数",
             "icon": "bi-receipt",
-            "description": "控制销售订单、发货、应收和项目机号追踪规则。",
+            "description": "控制销售订单、发货、应收和项目柜号追踪规则。",
             "settings": [
                 _setting("sales_shipment_requires_order", "发货要求来源销售订单", "开启后销售发货必须关联销售订单，便于发货、应收和项目交付对账。", option_value("sales_shipment_requires_order", "1"), "bool"),
                 _setting("sales_credit_limit_check", "启用客户信用检查", "保存或审核销售订单时提示客户信用额度、逾期应收和未结发货风险。", option_value("sales_credit_limit_check", "0"), "bool"),
@@ -480,7 +480,7 @@ def build_setting_groups(query_one=None):
             "key": "production_control",
             "title": "生产参数",
             "icon": "bi-gear-wide-connected",
-            "description": "控制工单、BOM、领料、完工入库和项目机号追踪规则。",
+            "description": "控制工单、BOM、领料、完工入库和项目柜号追踪规则。",
             "settings": [
                 _setting("work_order_requires_bom", "工单要求有效BOM", "开启后生产工单必须关联有效BOM；研发试制可先关闭并由工程复核。", option_value("work_order_requires_bom", "1"), "bool"),
                 _setting("production_pick_requires_work_order", "生产领料要求来源工单", "开启后领料必须关联工单，便于材料耗用、成本和项目追踪。", option_value("production_pick_requires_work_order", "1"), "bool"),
@@ -504,7 +504,7 @@ def build_setting_groups(query_one=None):
             "icon": "bi-tools",
             "description": "控制服务卡、安装验收、服务单、RMA 和费用成本归集规则。",
             "settings": [
-                _setting("service_requires_machine_serial", "服务单建议关联机号", "开启后服务单保存时提示机号；是否强制仍由项目号/机号总开关控制。", option_value("service_requires_machine_serial", "1"), "bool"),
+                _setting("service_requires_cabinet", "服务单建议关联柜号", "开启后服务单保存时提示柜号；是否强制仍由项目号/柜号总开关控制。", option_value("service_requires_cabinet", "1"), "bool"),
                 _setting("rma_requires_service_order", "RMA要求来源服务单", "开启后退换修必须从服务单生成，便于问题关闭和费用追踪。", option_value("rma_requires_service_order", "1"), "bool"),
                 _setting("service_cost_collection", "启用服务成本归集", "开启后服务材料、工时和委外费用进入服务成本报表。", option_value("service_cost_collection", "1"), "bool"),
             ],

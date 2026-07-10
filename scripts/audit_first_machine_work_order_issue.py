@@ -30,7 +30,7 @@ def db_config():
 def load_values():
     values = {
         "project_code": "PJ-GT-TRIAL-20260526-001",
-        "serial_no": "SN-GT-TRIAL-20260526-001",
+        "cabinet_no": "SN-GT-TRIAL-20260526-001",
         "product_code": "GT-RD-TRIAL-001",
         "bom_no": "BOM-GT-TRIAL-001",
         "sales_qty": "1",
@@ -111,7 +111,7 @@ def ensure_bom(cur, bom_no, product_id, material_lines):
     return bom_id
 
 
-def ensure_stock(cur, product_id, warehouse_id, serial_no, qty):
+def ensure_stock(cur, product_id, warehouse_id, cabinet_no, qty):
     qty = Decimal(str(qty))
     row = fetch_one(
         cur,
@@ -119,10 +119,10 @@ def ensure_stock(cur, product_id, warehouse_id, serial_no, qty):
         SELECT id, quantity
         FROM inventory_balances
         WHERE product_id=%s AND COALESCE(warehouse_id,0)=COALESCE(%s,0)
-          AND COALESCE(serial_no,'')=%s
+          AND COALESCE(cabinet_no,'')=%s
         ORDER BY id LIMIT 1
         """,
-        (product_id, warehouse_id, serial_no),
+        (product_id, warehouse_id, cabinet_no),
     )
     if row:
         if row["quantity"] < qty:
@@ -131,26 +131,26 @@ def ensure_stock(cur, product_id, warehouse_id, serial_no, qty):
     cur.execute(
         """
         INSERT INTO inventory_balances
-            (product_id, warehouse_id, quantity, unit_cost, serial_no, updated_at)
+            (product_id, warehouse_id, quantity, unit_cost, cabinet_no, updated_at)
         VALUES (%s, %s, %s, 10, %s, NOW())
         """,
-        (product_id, warehouse_id, qty, serial_no),
+        (product_id, warehouse_id, qty, cabinet_no),
     )
 
 
 def ensure_work_order(cur, values, product_id, bom_id, warehouse_id, material_lines):
     project_code = values["project_code"]
-    serial_no = values["serial_no"]
+    cabinet_no = values["cabinet_no"]
     row = fetch_one(
         cur,
         """
         SELECT id, wo_no
         FROM work_orders
-        WHERE project_code=%s AND serial_no=%s
+        WHERE project_code=%s AND cabinet_no=%s
         ORDER BY id DESC
         LIMIT 1
         """,
-        (project_code, serial_no),
+        (project_code, cabinet_no),
     )
     if row:
         wo_id = row["id"]
@@ -160,13 +160,13 @@ def ensure_work_order(cur, values, product_id, bom_id, warehouse_id, material_li
             """
             INSERT INTO work_orders
                 (wo_no, wo_date, product_id, bom_id, warehouse_id, quantity, status,
-                 planned_start_date, planned_end_date, project_code, serial_no, remark)
+                 planned_start_date, planned_end_date, project_code, cabinet_no, remark)
             VALUES
                 ('WO-GT-TRIAL-20260526-001', CURRENT_DATE, %s, %s, %s, %s, 'new',
                  CURRENT_DATE, CURRENT_DATE + INTERVAL '7 days', %s, %s, 'first machine trial work order')
             RETURNING id, wo_no
             """,
-            (product_id, bom_id, warehouse_id, values["sales_qty"], project_code, serial_no),
+            (product_id, bom_id, warehouse_id, values["sales_qty"], project_code, cabinet_no),
         )
         row = cur.fetchone()
         wo_id = row["id"]
@@ -188,11 +188,11 @@ def prepare_data(cur, values):
     product_id = ensure_product(cur, values["product_code"], "First machine trial product", "set", "100")
     material_1_id = ensure_product(cur, values["material_code_1"], "First machine key material 1")
     material_lines = [(material_1_id, values["material_qty_1"])]
-    ensure_stock(cur, material_1_id, warehouse_id, values["serial_no"], "20")
+    ensure_stock(cur, material_1_id, warehouse_id, values["cabinet_no"], "20")
     if values.get("material_code_2"):
         material_2_id = ensure_product(cur, values["material_code_2"], "First machine key material 2")
         material_lines.append((material_2_id, values.get("material_qty_2") or "1"))
-        ensure_stock(cur, material_2_id, warehouse_id, values["serial_no"], "20")
+        ensure_stock(cur, material_2_id, warehouse_id, values["cabinet_no"], "20")
     bom_id = ensure_bom(cur, values["bom_no"], product_id, material_lines)
     return ensure_work_order(cur, values, product_id, bom_id, warehouse_id, material_lines), material_lines
 
@@ -258,7 +258,7 @@ def main():
     print("first_machine_work_order_issue_audit=ok" if not failures else "first_machine_work_order_issue_audit=failed")
     print(f"checked_items={len(checks)}")
     print(f"project_code={values['project_code']}")
-    print(f"serial_no={values['serial_no']}")
+    print(f"cabinet_no={values['cabinet_no']}")
     for name, ok, detail in checks:
         print(f"{'ok' if ok else 'failed'} | {name} | {detail}")
     return 1 if failures else 0

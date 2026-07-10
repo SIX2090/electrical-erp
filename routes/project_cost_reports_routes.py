@@ -37,7 +37,7 @@ def register_project_cost_routes(app, query_db, execute_db, _login_required):
         _login_required: 登录验证装饰器
     """
 
-    _PROJECT_SCOPE_FIELD_MAP = {"project": "project_code", "serial": "serial_no"}
+    _PROJECT_SCOPE_FIELD_MAP = {"project": "project_code", "cabinet": "cabinet_no"}
 
     def _current_project_scope():
         try:

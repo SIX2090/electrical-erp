@@ -71,7 +71,7 @@ from routes.invoice_reconciliation_routes import register_invoice_reconciliation
 from routes.general_ledger_routes import register_general_ledger_routes
 from routes.inventory_costing_routes import register_inventory_costing_routes
 from routes.project_cost_reports_routes import register_project_cost_routes as register_project_cost_reports_routes
-from routes.serial_cost_reports_routes import register_serial_cost_routes
+from routes.cabinet_cost_reports_routes import register_cabinet_cost_routes
 from routes.period_closing_routes import register_period_closing_routes
 from routes.financial_report_routes import register_financial_report_routes
 from routes.trace_routes import register_routes as register_trace_routes
@@ -783,11 +783,11 @@ def create_app(config=None):
             ),
         )
 
-    def _inventory_outbound(product_id, quantity, location="", reference_no="", remark="", tx_date=None, tx_type="\u51fa\u5e93", lot_no="", serial_no=""):
-        inventory_outbound(query_db, execute_db, product_id, quantity, location, reference_no, remark, tx_date, tx_type, lot_no, serial_no)
+    def _inventory_outbound(product_id, quantity, location="", reference_no="", remark="", tx_date=None, tx_type="\u51fa\u5e93", lot_no="", cabinet_no=""):
+        inventory_outbound(query_db, execute_db, product_id, quantity, location, reference_no, remark, tx_date, tx_type, lot_no, cabinet_no)
 
-    def _inventory_inbound_weighted_avg(product_id, quantity, unit_cost, location="", reference_no="", remark="", tx_date=None, tx_type="\u5165\u5e93", lot_no="", serial_no=""):
-        inventory_inbound_weighted_avg(query_db, execute_db, product_id, quantity, unit_cost, location, reference_no, remark, tx_date, tx_type, lot_no, serial_no)
+    def _inventory_inbound_weighted_avg(product_id, quantity, unit_cost, location="", reference_no="", remark="", tx_date=None, tx_type="\u5165\u5e93", lot_no="", cabinet_no=""):
+        inventory_inbound_weighted_avg(query_db, execute_db, product_id, quantity, unit_cost, location, reference_no, remark, tx_date, tx_type, lot_no, cabinet_no)
 
     def _post_inventory_receipt(product_id, quantity, unit_cost, tx_date, tx_type, reference_no="", remark=""):
         post_inventory_receipt(query_db, execute_db, product_id, quantity, unit_cost, tx_date, tx_type, reference_no, remark)
@@ -1004,7 +1004,7 @@ def create_app(config=None):
         execute_db,
         login_required,
     )
-    register_serial_cost_routes(
+    register_cabinet_cost_routes(
         app,
         query_db,
         execute_db,

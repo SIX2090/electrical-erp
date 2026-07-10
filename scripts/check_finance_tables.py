@@ -76,7 +76,7 @@ def main():
 
         # 成本核算
         ('project_cost_ledger', '项目成本台账'),
-        ('serial_cost_ledger', '机号成本台账'),
+        ('cabinet_cost_ledger', '柜号成本台账'),
         ('inventory_costing', '存货核算表'),
         ('inventory_transactions', '库存交易明细表'),
 

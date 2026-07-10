@@ -126,7 +126,7 @@ def run_fx_adjustment(
         """
         SELECT si.id, si.invoice_no, si.customer_id, c.name AS customer_name,
                si.amount_with_tax AS original_amount, si.amount AS amount_no_tax,
-               si.tax_amount, si.project_code, si.serial_no
+               si.tax_amount, si.project_code, si.cabinet_no
         FROM sales_invoices si
         LEFT JOIN customers c ON si.customer_id = c.id
         WHERE si.invoice_date <= %s
@@ -147,13 +147,13 @@ def run_fx_adjustment(
         SELECT si.id, si.invoice_no, si.customer_id, c.name AS customer_name,
                si.amount_with_tax AS original_amount,
                COALESCE(SUM(cr.settled_amount), 0) AS settled_amount,
-               si.project_code, si.serial_no
+               si.project_code, si.cabinet_no
         FROM sales_invoices si
         LEFT JOIN customers c ON si.customer_id = c.id
         LEFT JOIN customer_receipt_settlements cr ON cr.receivable_id = si.id
         WHERE si.invoice_date <= %s
           AND COALESCE(si.status, '') NOT IN ('void', 'voided', 'cancelled', 'closed', '已关闭')
-        GROUP BY si.id, si.invoice_no, si.customer_id, c.name, si.amount_with_tax, si.project_code, si.serial_no
+        GROUP BY si.id, si.invoice_no, si.customer_id, c.name, si.amount_with_tax, si.project_code, si.cabinet_no
         HAVING si.amount_with_tax - COALESCE(SUM(cr.settled_amount), 0) > 0.01
         """,
         (period_end,),
@@ -202,13 +202,13 @@ def run_fx_adjustment(
         SELECT pi.id, pi.invoice_no, pi.supplier_id, s.name AS supplier_name,
                pi.amount_with_tax AS original_amount,
                COALESCE(SUM(sp.settled_amount), 0) AS settled_amount,
-               pi.project_code, pi.serial_no
+               pi.project_code, pi.cabinet_no
         FROM purchase_invoices pi
         LEFT JOIN suppliers s ON pi.supplier_id = s.id
         LEFT JOIN supplier_payment_settlements sp ON sp.payable_id = pi.id
         WHERE pi.invoice_date <= %s
           AND COALESCE(pi.status, '') NOT IN ('void', 'voided', 'cancelled', 'closed', '已关闭')
-        GROUP BY pi.id, pi.invoice_no, pi.supplier_id, s.name, pi.amount_with_tax, pi.project_code, pi.serial_no
+        GROUP BY pi.id, pi.invoice_no, pi.supplier_id, s.name, pi.amount_with_tax, pi.project_code, pi.cabinet_no
         HAVING pi.amount_with_tax - COALESCE(SUM(sp.settled_amount), 0) > 0.01
         """,
         (period_end,),

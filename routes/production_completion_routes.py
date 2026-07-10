@@ -145,7 +145,7 @@ def register_production_completion_routes(app, deps):
         status = (status or "").strip()
         if keyword:
             conditions.append(
-                "(pc.completion_no ILIKE %s OR wo.wo_no ILIKE %s OR pc.project_code ILIKE %s OR pc.serial_no ILIKE %s OR p.name ILIKE %s)"
+                "(pc.completion_no ILIKE %s OR wo.wo_no ILIKE %s OR pc.project_code ILIKE %s OR pc.cabinet_no ILIKE %s OR p.name ILIKE %s)"
             )
             params.extend([f"%{keyword}%"] * 5)
         if status:
@@ -159,7 +159,7 @@ def register_production_completion_routes(app, deps):
                    pc.quantity, pc.completion_date, pc.completion_date AS complete_date,
                    pc.product_id, p.code AS product_code, p.name AS product_name,
                    pc.unit_cost, pc.warehouse_id, w.name AS warehouse_name,
-                   pc.location_id, pc.lot_no, pc.serial_no, pc.project_code, pc.status,
+                   pc.location_id, pc.lot_no, pc.cabinet_no, pc.project_code, pc.status,
                    pc.wo_complete_item_id, pc.posted_at, pc.reverse_posted_at
             FROM production_completion_orders pc
             LEFT JOIN work_orders wo ON wo.id=pc.work_order_id
@@ -183,7 +183,7 @@ def register_production_completion_routes(app, deps):
             legacy_params.append(work_order_id)
         if keyword:
             legacy_conditions.append(
-                "(COALESCE(wc.source_doc_no, 'LEGACY-WC-' || wc.id::text) ILIKE %s OR wo.wo_no ILIKE %s OR wo.project_code ILIKE %s OR wc.serial_no ILIKE %s OR p.name ILIKE %s)"
+                "(COALESCE(wc.source_doc_no, 'LEGACY-WC-' || wc.id::text) ILIKE %s OR wo.wo_no ILIKE %s OR wo.project_code ILIKE %s OR wc.cabinet_no ILIKE %s OR p.name ILIKE %s)"
             )
             legacy_params.extend([f"%{keyword}%"] * 5)
         if status:
@@ -199,7 +199,7 @@ def register_production_completion_routes(app, deps):
                    wc.complete_date, wc.complete_date AS completion_date, wc.product_id,
                    p.code AS product_code, p.name AS product_name, wc.unit_cost,
                    wc.warehouse_id, w.name AS warehouse_name, wc.location_id,
-                   wc.lot_no, wc.serial_no, wo.project_code, '历史完工' AS status,
+                   wc.lot_no, wc.cabinet_no, wo.project_code, '历史完工' AS status,
                    wc.id AS wo_complete_item_id, NULL AS posted_at, wc.reverse_posted_at
             FROM wo_complete_items wc
             LEFT JOIN work_orders wo ON wo.id=wc.wo_id
@@ -274,7 +274,7 @@ def register_production_completion_routes(app, deps):
         ensure_schema()
         return safe_rows(
             """
-            SELECT wo.id, wo.wo_no, wo.wo_date, wo.project_code, wo.serial_no, wo.status,
+            SELECT wo.id, wo.wo_no, wo.wo_date, wo.project_code, wo.cabinet_no, wo.status,
                    wo.quantity, wo.warehouse_id, wo.location_id,
                    p.code AS product_code, p.name AS product_name, p.specification, p.unit AS product_unit,
                    COALESCE(done.completed_qty, 0) AS completed_qty,
@@ -311,11 +311,11 @@ def register_production_completion_routes(app, deps):
             FROM quality_inspection_records
             WHERE (source_document_type='work_order' AND source_document_id=%s)
                OR (%s IS NOT NULL AND project_code=%s)
-               OR (%s IS NOT NULL AND serial_no=%s)
+               OR (%s IS NOT NULL AND cabinet_no=%s)
             ORDER BY id DESC
             LIMIT 30
             """,
-            (order.get("id"), order.get("project_code"), order.get("project_code"), order.get("serial_no"), order.get("serial_no")),
+            (order.get("id"), order.get("project_code"), order.get("project_code"), order.get("cabinet_no"), order.get("cabinet_no")),
         )
         processes = safe_rows(
             """
@@ -332,13 +332,13 @@ def register_production_completion_routes(app, deps):
             FROM mrp_requirements
             WHERE work_order_id=%s
                OR (%s IS NOT NULL AND project_code=%s)
-               OR (%s IS NOT NULL AND serial_no=%s)
+               OR (%s IS NOT NULL AND cabinet_no=%s)
             LIMIT 100
             """,
-            (order.get("id"), order.get("project_code"), order.get("project_code"), order.get("serial_no"), order.get("serial_no")),
+            (order.get("id"), order.get("project_code"), order.get("project_code"), order.get("cabinet_no"), order.get("cabinet_no")),
         )
         completion_rows = safe_rows(
-            "SELECT complete_date, qty, lot_no, serial_no, warehouse_id, location_id FROM wo_complete_items WHERE wo_id=%s",
+            "SELECT complete_date, qty, lot_no, cabinet_no, warehouse_id, location_id FROM wo_complete_items WHERE wo_id=%s",
             (order.get("id"),),
         )
         stock_rows = safe_rows("SELECT transaction_type FROM stock_transactions WHERE reference_no=%s", (order.get("wo_no"),))
@@ -371,7 +371,7 @@ def register_production_completion_routes(app, deps):
             """
             INSERT INTO production_completion_orders
                 (completion_no, completion_date, work_order_id, product_id, quantity, failed_quantity,
-                 unit_cost, warehouse_id, location_id, lot_no, serial_no, project_code, status, remark, created_by)
+                 unit_cost, warehouse_id, location_id, lot_no, cabinet_no, project_code, status, remark, created_by)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             RETURNING id, completion_no
             """,
@@ -386,7 +386,7 @@ def register_production_completion_routes(app, deps):
                 doc.get("warehouse_id"),
                 doc.get("location_id"),
                 doc.get("lot_no"),
-                doc.get("serial_no"),
+                doc.get("cabinet_no"),
                 doc.get("project_code"),
                 DOC_STATUS_DRAFT,
                 doc.get("remark"),
@@ -425,14 +425,14 @@ def register_production_completion_routes(app, deps):
         location_id = form_int("location_id") or order.get("location_id")
         if not _location_enabled():
             location_id = None
-        serial_no = form_text("serial_no") or order.get("serial_no")
+        cabinet_no = form_text("cabinet_no") or order.get("cabinet_no")
         candidate = {
             "quantity": quantity,
             "complete_date": completion_date,
             "warehouse_id": warehouse_id,
             "location_id": location_id,
             "lot_no": form_text("lot_no"),
-            "serial_no": serial_no,
+            "cabinet_no": cabinet_no,
         }
         gate = load_gate(order, candidate)
         if not gate.get("can_complete"):
@@ -443,7 +443,7 @@ def register_production_completion_routes(app, deps):
             """
             UPDATE production_completion_orders
             SET completion_date=%s, quantity=%s, failed_quantity=%s, unit_cost=%s,
-                warehouse_id=%s, location_id=%s, lot_no=%s, serial_no=%s,
+                warehouse_id=%s, location_id=%s, lot_no=%s, cabinet_no=%s,
                 project_code=%s, remark=%s, updated_at=NOW()
             WHERE id=%s
             """,
@@ -455,7 +455,7 @@ def register_production_completion_routes(app, deps):
                 warehouse_id,
                 location_id,
                 form_text("lot_no"),
-                serial_no,
+                cabinet_no,
                 order.get("project_code"),
                 form_text("remark"),
                 doc_id,
@@ -574,7 +574,7 @@ def register_production_completion_routes(app, deps):
             "warehouse_id": doc.get("warehouse_id"),
             "location_id": doc.get("location_id"),
             "lot_no": doc.get("lot_no") or "",
-            "serial_no": doc.get("serial_no") or order.get("serial_no"),
+            "cabinet_no": doc.get("cabinet_no") or order.get("cabinet_no"),
         }
         gate = load_gate(order, candidate)
         if not gate.get("can_complete"):
@@ -610,7 +610,7 @@ def register_production_completion_routes(app, deps):
             complete_item = tx_execute_and_return(
                 """
                 INSERT INTO wo_complete_items
-                    (wo_id, complete_date, qty, lot_no, unit_cost, product_id, serial_no,
+                    (wo_id, complete_date, qty, lot_no, unit_cost, product_id, cabinet_no,
                      warehouse_id, location_id, source_doc_type, source_doc_no, reverse_posted)
                 VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,FALSE)
                 RETURNING id
@@ -622,7 +622,7 @@ def register_production_completion_routes(app, deps):
                     doc.get("lot_no") or "",
                     doc.get("unit_cost") or 0,
                     doc.get("product_id"),
-                    doc.get("serial_no") or order.get("serial_no"),
+                    doc.get("cabinet_no") or order.get("cabinet_no"),
                     doc.get("warehouse_id"),
                     doc.get("location_id"),
                     "production_completion",
@@ -639,7 +639,7 @@ def register_production_completion_routes(app, deps):
                 warehouse_id=doc.get("warehouse_id"),
                 location_id=doc.get("location_id"),
                 lot_no=doc.get("lot_no") or "",
-                serial_no=doc.get("serial_no") or order.get("serial_no"),
+                cabinet_no=doc.get("cabinet_no") or order.get("cabinet_no"),
                 tx_date=doc.get("completion_date"),
                 project_code=doc.get("project_code") or "",
                 query_one=query_one,
@@ -666,7 +666,7 @@ def register_production_completion_routes(app, deps):
                         link_type="posts_to",
                         link_strength="soft",
                         project_code=doc.get("project_code") or order.get("project_code"),
-                        serial_no=doc.get("serial_no") or order.get("serial_no"),
+                        cabinet_no=doc.get("cabinet_no") or order.get("cabinet_no"),
                         created_by=session.get("user_id"),
                         created_event="production_completion_inventory",
                     )
@@ -707,7 +707,7 @@ def register_production_completion_routes(app, deps):
                 execute_db,
                 execute_and_return,
                 project_code=doc.get("project_code") or order.get("project_code"),
-                serial_no=doc.get("serial_no") or order.get("serial_no"),
+                cabinet_no=doc.get("cabinet_no") or order.get("cabinet_no"),
                 work_order_id=order.get("id"),
                 created_by=session.get("user_id"),
             )
@@ -725,7 +725,7 @@ def register_production_completion_routes(app, deps):
                 target_doc_no=doc.get("completion_no"),
                 link_type="source_of",
                 project_code=doc.get("project_code") or order.get("project_code"),
-                serial_no=doc.get("serial_no") or order.get("serial_no"),
+                cabinet_no=doc.get("cabinet_no") or order.get("cabinet_no"),
                 created_by=session.get("user_id"),
                 created_event="completion_post",
             )
@@ -770,7 +770,7 @@ def register_production_completion_routes(app, deps):
               AND COALESCE(location_id, 0)=COALESCE(%s, 0)
               AND COALESCE(project_code, '')=COALESCE(%s, '')
               AND COALESCE(lot_no, '')=COALESCE(%s, '')
-              AND COALESCE(serial_no, '')=COALESCE(%s, '')
+              AND COALESCE(cabinet_no, '')=COALESCE(%s, '')
             """,
             (
                 doc.get("product_id"),
@@ -778,7 +778,7 @@ def register_production_completion_routes(app, deps):
                 doc.get("location_id"),
                 doc.get("project_code") or "",
                 doc.get("lot_no") or "",
-                doc.get("serial_no") or order.get("serial_no") or "",
+                doc.get("cabinet_no") or order.get("cabinet_no") or "",
             ),
         )
         available_qty = as_decimal((balance or {}).get("quantity"))
@@ -797,7 +797,7 @@ def register_production_completion_routes(app, deps):
                 warehouse_id=doc.get("warehouse_id"),
                 location_id=doc.get("location_id"),
                 lot_no=doc.get("lot_no") or "",
-                serial_no=doc.get("serial_no") or order.get("serial_no"),
+                cabinet_no=doc.get("cabinet_no") or order.get("cabinet_no"),
                 tx_date=datetime.now().date().isoformat(),
                 project_code=doc.get("project_code") or "",
                 query_one=query_one,
@@ -879,14 +879,14 @@ def register_production_completion_routes(app, deps):
             location_id = form_int("location_id") or order.get("location_id")
             if not _location_enabled():
                 location_id = None
-            serial_no = form_text("serial_no") or order.get("serial_no")
+            cabinet_no = form_text("cabinet_no") or order.get("cabinet_no")
             candidate = {
                 "quantity": quantity,
                 "complete_date": completion_date,
                 "warehouse_id": warehouse_id,
                 "location_id": location_id,
                 "lot_no": form_text("lot_no"),
-                "serial_no": serial_no,
+                "cabinet_no": cabinet_no,
             }
             gate = load_gate(order, candidate)
             if not gate.get("can_complete"):
@@ -898,7 +898,7 @@ def register_production_completion_routes(app, deps):
                 """
                 INSERT INTO production_completion_orders
                     (completion_no, completion_date, work_order_id, product_id, quantity, failed_quantity,
-                     unit_cost, warehouse_id, location_id, lot_no, serial_no, project_code, status, remark, created_by)
+                     unit_cost, warehouse_id, location_id, lot_no, cabinet_no, project_code, status, remark, created_by)
                 VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 RETURNING id, completion_no
                 """,
@@ -913,7 +913,7 @@ def register_production_completion_routes(app, deps):
                     warehouse_id,
                     location_id,
                     form_text("lot_no"),
-                    serial_no,
+                    cabinet_no,
                     order.get("project_code"),
                     DOC_STATUS_DRAFT,
                     form_text("remark", "完工入库"),
@@ -933,7 +933,7 @@ def register_production_completion_routes(app, deps):
                 link_type="source_of",
                 link_strength="hard",
                 project_code=order.get("project_code"),
-                serial_no=serial_no,
+                cabinet_no=cabinet_no,
                 created_by=session.get("user_id"),
                 created_event="create_production_completion",
             )
@@ -955,7 +955,7 @@ def register_production_completion_routes(app, deps):
         if order:
             completed = safe_one("SELECT COALESCE(SUM(qty),0) AS qty FROM wo_complete_items WHERE wo_id=%s", (work_order_id,)) or completed
             remaining = as_decimal(order.get("quantity")) - as_decimal(completed.get("qty"))
-            gate = load_gate(order, {"quantity": remaining if remaining > 0 else Decimal("0"), "serial_no": order.get("serial_no")})
+            gate = load_gate(order, {"quantity": remaining if remaining > 0 else Decimal("0"), "cabinet_no": order.get("cabinet_no")})
         g.toolbar_extras = []
         warehouses = safe_rows("SELECT id, code, name FROM warehouses ORDER BY name LIMIT 200")
         locations = safe_rows("SELECT id, warehouse_id, code, name FROM locations WHERE COALESCE(is_active, TRUE)=TRUE ORDER BY code LIMIT 300")
@@ -991,7 +991,7 @@ def register_production_completion_routes(app, deps):
             "warehouse_id": doc.get("warehouse_id"),
             "location_id": doc.get("location_id"),
             "lot_no": doc.get("lot_no") or "",
-            "serial_no": doc.get("serial_no") or (order or {}).get("serial_no"),
+            "cabinet_no": doc.get("cabinet_no") or (order or {}).get("cabinet_no"),
         }
         gate = load_gate(order, candidate) if order else None
         set_completion_form_toolbar(order, not gate or bool(gate.get("can_complete")))
@@ -1023,7 +1023,7 @@ def register_production_completion_routes(app, deps):
         stock_rows = safe_rows(
             f"""
             SELECT st.id, st.transaction_date, st.transaction_type, st.quantity, st.unit_cost,
-                   st.reference_no, st.project_code, st.serial_no, st.remark
+                   st.reference_no, st.project_code, st.cabinet_no, st.remark
             FROM stock_transactions st
             WHERE st.reference_no=%s {source_doc_filter}
             ORDER BY st.id DESC

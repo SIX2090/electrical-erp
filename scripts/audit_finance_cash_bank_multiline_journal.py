@@ -53,7 +53,7 @@ def main():
         partner_type="customer",
         partner_name="audit customer",
         project_code="PJ-AUDIT",
-        serial_no="SN-AUDIT",
+        cabinet_no="SN-AUDIT",
         summary="audit multiline receipt",
         created_by=1,
     )

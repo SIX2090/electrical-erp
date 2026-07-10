@@ -480,7 +480,7 @@ def _bom_readonly_drilldown(detail, items, query_rows):
     )[0]
     recent_work_orders = query_rows(
         """
-        SELECT id, wo_no, status, production_stage, project_code, serial_no, quantity, planned_end_date
+        SELECT id, wo_no, status, production_stage, project_code, cabinet_no, quantity, planned_end_date
         FROM work_orders
         WHERE bom_id=%s OR product_id=%s
         ORDER BY id DESC
@@ -506,7 +506,7 @@ def _bom_readonly_drilldown(detail, items, query_rows):
         )[0]
         mrp_rows = query_rows(
             """
-            SELECT mr.id, mr.requirement_date, mr.project_code, mr.serial_no,
+            SELECT mr.id, mr.requirement_date, mr.project_code, mr.cabinet_no,
                    p.code AS product_code, p.name AS product_name,
                    mr.quantity, mr.available_quantity, mr.shortage_quantity, mr.status
             FROM mrp_requirements mr
@@ -542,7 +542,7 @@ def _bom_readonly_drilldown(detail, items, query_rows):
         )[0]
         purchase_rows = query_rows(
             """
-            SELECT po.id, po.order_no, po.status, po.project_code, po.serial_no,
+            SELECT po.id, po.order_no, po.status, po.project_code, po.cabinet_no,
                    p.code AS product_code, p.name AS product_name,
                    poi.quantity, poi.received_qty,
                    GREATEST(COALESCE(poi.quantity, 0)-COALESCE(poi.received_qty, 0), 0) AS pending_qty
@@ -604,7 +604,7 @@ def _ecn_impact_summary(bom, items, query_rows):
     )[0]
     recent_work_orders = query_rows(
         """
-        SELECT id, wo_no, status, project_code, serial_no, quantity, planned_end_date
+        SELECT id, wo_no, status, project_code, cabinet_no, quantity, planned_end_date
         FROM work_orders
         WHERE bom_id=%s OR product_id=%s
         ORDER BY id DESC
@@ -628,7 +628,7 @@ def _ecn_impact_summary(bom, items, query_rows):
         )[0]
         mrp_rows = query_rows(
             """
-            SELECT mr.id, mr.requirement_date, mr.project_code, mr.serial_no,
+            SELECT mr.id, mr.requirement_date, mr.project_code, mr.cabinet_no,
                    p.code AS product_code, p.name AS product_name,
                    mr.quantity, mr.shortage_quantity, mr.status
             FROM mrp_requirements mr

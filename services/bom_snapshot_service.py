@@ -65,7 +65,7 @@ def _load_work_order(query_db, work_order_id: int) -> Dict[str, Any]:
     row = query_db(
         """
         SELECT wo.id, wo.wo_no, wo.product_id, wo.bom_id,
-               wo.project_code, wo.serial_no, wo.status, wo.quantity,
+               wo.project_code, wo.cabinet_no, wo.status, wo.quantity,
                p.code AS product_code, p.name AS product_name,
                p.specification AS product_specification, p.unit AS product_unit,
                b.bom_no, b.version AS bom_version
@@ -161,14 +161,14 @@ def _load_drawings_for_order(query_db, order: Dict[str, Any]) -> List[Dict[str, 
                d.drawing_name, d.drawing_type, d.effective_date, d.obsolete_date,
                d.release_no, d.approved_by, d.approval_date,
                d.file_location, d.checksum,
-               dl.product_id, dl.bom_id, dl.project_code, dl.serial_no, dl.usage_scope
+               dl.product_id, dl.bom_id, dl.project_code, dl.cabinet_no, dl.usage_scope
         FROM engineering_drawings d
         LEFT JOIN engineering_drawing_links dl ON dl.drawing_id=d.id
         WHERE d.status='released'
           AND (
                 dl.product_id=%s OR dl.bom_id=%s
                 OR (COALESCE(%s, '')<>'' AND COALESCE(dl.project_code, '')=COALESCE(%s, ''))
-                OR (COALESCE(%s, '')<>'' AND COALESCE(dl.serial_no, '')=COALESCE(%s, ''))
+                OR (COALESCE(%s, '')<>'' AND COALESCE(dl.cabinet_no, '')=COALESCE(%s, ''))
           )
         ORDER BY d.id DESC
         LIMIT 50
@@ -178,8 +178,8 @@ def _load_drawings_for_order(query_db, order: Dict[str, Any]) -> List[Dict[str, 
             order.get("bom_id"),
             order.get("project_code"),
             order.get("project_code"),
-            order.get("serial_no"),
-            order.get("serial_no"),
+            order.get("cabinet_no"),
+            order.get("cabinet_no"),
         ),
     )
     return [_as_dict(row) for row in rows or []]
@@ -224,7 +224,7 @@ def create_bom_snapshot(
         "bom_header": _serialize_row(header),
         "bom_items": [_serialize_row(item) for item in items],
         "project_code": order.get("project_code"),
-        "serial_no": order.get("serial_no"),
+        "cabinet_no": order.get("cabinet_no"),
     }
     row = execute_and_return(
         """
@@ -267,7 +267,7 @@ def create_process_snapshot(
         "routing_header": _serialize_row(header),
         "routing_operations": [_serialize_row(op) for op in operations],
         "project_code": order.get("project_code"),
-        "serial_no": order.get("serial_no"),
+        "cabinet_no": order.get("cabinet_no"),
     }
     row = execute_and_return(
         """
@@ -311,7 +311,7 @@ def create_drawing_snapshot(
         "drawing_version_id": drawing_version_id,
         "drawings": [_serialize_row(d) for d in (drawing_rows or [])],
         "project_code": order.get("project_code"),
-        "serial_no": order.get("serial_no"),
+        "cabinet_no": order.get("cabinet_no"),
     }
     row = execute_and_return(
         """

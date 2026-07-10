@@ -42,7 +42,7 @@
 <div class="row g-3">
     <div class="col-md-3"><div class="metric"><div class="label">状态</div><div class="value">{{ config.status_label|clean_text }}</div></div></div>
     <div class="col-md-3"><div class="metric"><div class="label">项目号</div><div class="value">{{ config.project_code|clean_text or '-' }}</div></div></div>
-    <div class="col-md-3"><div class="metric"><div class="label">机号</div><div class="value">{{ config.serial_no|clean_text or '-' }}</div></div></div>
+    <div class="col-md-3"><div class="metric"><div class="label">柜号</div><div class="value">{{ config.cabinet_no|clean_text or '-' }}</div></div></div>
     <div class="col-md-3"><div class="metric"><div class="label">选配日期</div><div class="value">{{ config.config_date or '-' }}</div></div></div>
 </div>
 

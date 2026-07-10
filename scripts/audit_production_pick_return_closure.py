@@ -118,7 +118,7 @@ def _prepare_fixture():
                     "status": "投产",
                     "warehouse_id": warehouse_id,
                     "project_code": "AUDIT-PRJ",
-                    "serial_no": "AUDIT-SN",
+                    "cabinet_no": "AUDIT-SN",
                     "production_type": "整机生产",
                 },
             )
@@ -140,13 +140,13 @@ def _prepare_fixture():
                     "material_unit": "件",
                     "source_line_no": "AUDIT-L1",
                     "line_project_code": "AUDIT-PRJ",
-                    "line_serial_no": "AUDIT-SN",
+                    "line_cabinet_no": "AUDIT-SN",
                 },
             )
             cur.execute(
                 """
                 INSERT INTO inventory_balances
-                    (product_id, warehouse_id, location_id, lot_no, serial_no, project_code, quantity, locked_qty, unit_cost, updated_at)
+                    (product_id, warehouse_id, location_id, lot_no, cabinet_no, project_code, quantity, locked_qty, unit_cost, updated_at)
                 VALUES (%s,%s,NULL,'','AUDIT-SN','AUDIT-PRJ',10,0,10,NOW())
                 """,
                 (product_id, warehouse_id),
@@ -161,7 +161,7 @@ def _prepare_fixture():
             cur.execute(
                 """
                 INSERT INTO batch_tracking
-                    (lot_no, product_id, warehouse_id, location_id, serial_no, project_code,
+                    (lot_no, product_id, warehouse_id, location_id, cabinet_no, project_code,
                      quantity_in, quantity_out, quantity_available, unit_cost, source_order_no, status, created_at, updated_at)
                 VALUES ('', %s, %s, NULL, 'AUDIT-SN', 'AUDIT-PRJ', 10, 0, 10, 10, %s, 'derived', NOW(), NOW())
                 """,
@@ -171,7 +171,7 @@ def _prepare_fixture():
                 """
                 INSERT INTO stock_transactions
                     (transaction_date, transaction_type, product_id, quantity, unit_cost, reference_no,
-                     lot_no, serial_no, project_code, location, remark, warehouse_id, location_id,
+                     lot_no, cabinet_no, project_code, location, remark, warehouse_id, location_id,
                      source_doc_type, source_doc_no, source_line_no, amount)
                 VALUES ('2026-06-03', 'audit_opening_balance', %s, 10, 10, %s,
                         '', 'AUDIT-SN', 'AUDIT-PRJ', '', 'audit production pick return opening balance',

@@ -34,7 +34,7 @@
 
 | 权限组（标签） | admin | manager | sales | purchase | warehouse | production | service | finance |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| sales（销售/应收/项目机号） | FULL | FULL | FULL | — | — | — | — | V+X+P |
+| sales（销售/应收/项目柜号） | FULL | FULL | FULL | — | — | — | — | V+X+P |
 | tech（技术/BOM/工艺） | FULL | FULL | — | FULL | — | FULL | — | — |
 | purchase（采购/委外/应付） | FULL | FULL | — | FULL | — | — | — | V+X+P |
 | inventory（库存/流水/盘点） | FULL | FULL | — | FULL | FULL | FULL | — | V+X |
@@ -128,7 +128,7 @@
 | period_close（期间结账） | VAOPX | VAOPX | VAOPX |
 | financial_statements（经营财务快照） | VX | VX | VX |
 | project_cost_report（项目成本明细） | VX | VX | VX |
-| machine_cost_report（机号成本明细） | VX | VX | VX |
+| machine_cost_report（柜号成本明细） | VX | VX | VX |
 | aging_report（应收应付账龄） | VX | VX | VX |
 
 ### 4.8 基础资料组
@@ -140,7 +140,7 @@
 | supplier（供应商档案） | VCEDPX | VCEDPX | V | V | V | V | V | V |
 | warehouse_master（仓库档案） | VCEDX | VCEDX | V | V | V | V | V | V |
 | project_master（项目档案） | VCEX | VCEX | V | V | V | V | V | V |
-| machine_serial_master（机号档案） | VCEX | VCEX | V | V | V | V | V | V |
+| cabinet_master（柜号档案） | VCEX | VCEX | V | V | V | V | V | V |
 | material_opening（物料期初） | VCEX | VCEX | — | — | VCEX | — | — | VX |
 | subcontract_opening（委外期初） | VCEX | VCEX | — | VCEX | — | — | — | VXP |
 | receivable_opening（应收期初） | VCEX | VCEX | — | — | — | — | — | VCEX |

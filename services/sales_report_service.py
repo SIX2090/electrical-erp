@@ -59,9 +59,9 @@ def _add_common_filters(where_clauses, params, table_alias, filters):
     if filters.get("project_code"):
         where_clauses.append(f"{table_alias}.project_code ILIKE %s")
         params.append(f"%{filters['project_code']}%")
-    if filters.get("serial_no"):
-        where_clauses.append(f"{table_alias}.serial_no ILIKE %s")
-        params.append(f"%{filters['serial_no']}%")
+    if filters.get("cabinet_no"):
+        where_clauses.append(f"{table_alias}.cabinet_no ILIKE %s")
+        params.append(f"%{filters['cabinet_no']}%")
 
 
 def query_sales_order_execution_detail(query_db, filters=None):
@@ -140,7 +140,7 @@ def query_sales_order_execution_detail(query_db, filters=None):
             so.order_date,
             c.name AS customer_name,
             so.project_code,
-            so.serial_no,
+            so.cabinet_no,
             so.status,
             so.delivery_date,
             COALESCE(so.amount_with_tax, so.total_amount, 0) AS order_amount,
@@ -204,7 +204,7 @@ def query_receivable_aging_analysis(query_db, filters=None):
             c.name AS customer_name,
             c.id AS customer_id,
             cr.project_code,
-            cr.serial_no,
+            cr.cabinet_no,
             cr.source_type,
             cr.source_no,
             cr.receivable_date AS source_date,
@@ -254,10 +254,10 @@ def query_receivable_aging_analysis(query_db, filters=None):
     return rows
 
 
-def query_project_serial_sales_tracking(query_db, filters=None):
-    """Project/serial sales order trace across shipment, receivable, and service cards."""
+def query_project_cabinet_sales_tracking(query_db, filters=None):
+    """Project/cabinet sales order trace across shipment, receivable, and service cards."""
     filters = filters or {}
-    where_clauses = ["(NULLIF(so.project_code, '') IS NOT NULL OR NULLIF(so.serial_no, '') IS NOT NULL)"]
+    where_clauses = ["(NULLIF(so.project_code, '') IS NOT NULL OR NULLIF(so.cabinet_no, '') IS NOT NULL)"]
     params = []
     _add_common_filters(where_clauses, params, "so", filters)
 
@@ -281,13 +281,13 @@ def query_project_serial_sales_tracking(query_db, filters=None):
             GROUP BY sales_order_id
         ),
         service_by_trace AS (
-            SELECT project_code, serial_no, COUNT(DISTINCT id) AS service_card_count
+            SELECT project_code, cabinet_no, COUNT(DISTINCT id) AS service_card_count
             FROM machine_service_cards
-            GROUP BY project_code, serial_no
+            GROUP BY project_code, cabinet_no
         )
         SELECT
             so.project_code,
-            so.serial_no,
+            so.cabinet_no,
             c.name AS customer_name,
             so.order_no,
             so.order_date,
@@ -305,9 +305,9 @@ def query_project_serial_sales_tracking(query_db, filters=None):
         LEFT JOIN service_by_order ON so.id = service_by_order.order_id
         LEFT JOIN service_by_trace
           ON so.project_code IS NOT DISTINCT FROM service_by_trace.project_code
-         AND so.serial_no IS NOT DISTINCT FROM service_by_trace.serial_no
+         AND so.cabinet_no IS NOT DISTINCT FROM service_by_trace.cabinet_no
         WHERE {" AND ".join(where_clauses)}
-        ORDER BY so.project_code, so.serial_no, so.order_date DESC
+        ORDER BY so.project_code, so.cabinet_no, so.order_date DESC
     """
 
     rows = query_db(sql, tuple(params))
@@ -371,7 +371,7 @@ def query_shipped_unsettled_detail(query_db, filters=None):
                 c.name AS customer_name,
                 so.order_no,
                 ss.project_code,
-                ss.serial_no,
+                ss.cabinet_no,
                 COALESCE(ss.amount_with_tax, ss.shipped_amount, 0) AS shipped_amount,
                 COALESCE(inv_by_id.invoiced_amount, inv_by_no.invoiced_amount, 0) AS invoiced_amount,
                 GREATEST(COALESCE(ss.amount_with_tax, ss.shipped_amount, 0) - COALESCE(inv_by_id.invoiced_amount, inv_by_no.invoiced_amount, 0), 0) AS uninvoiced_amount,

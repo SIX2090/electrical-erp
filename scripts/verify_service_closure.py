@@ -75,18 +75,18 @@ def fetch_scalar(cur, sql: str, params: tuple = ()) -> int:
     return int(row[0] if row and not isinstance(row, dict) else (row or {}).get("count", 0) or (row or {}).get("c", 0))
 
 
-def repair_missing_card_serials(cur) -> int:
+def repair_missing_card_cabinets(cur) -> int:
     cur.execute(
         """
         UPDATE machine_service_cards c
-           SET serial_no = src.serial_no
+           SET cabinet_no = src.cabinet_no
           FROM (
-                SELECT c.id AS card_id, COALESCE(NULLIF(s.serial_no, ''), NULLIF(so.serial_no, '')) AS serial_no
+                SELECT c.id AS card_id, COALESCE(NULLIF(s.cabinet_no, ''), NULLIF(so.cabinet_no, '')) AS cabinet_no
                   FROM machine_service_cards c
              LEFT JOIN sales_shipments s ON s.order_id=c.sales_order_id
              LEFT JOIN sales_orders so ON so.id=c.sales_order_id
-                 WHERE COALESCE(c.serial_no, '')=''
-                   AND COALESCE(NULLIF(s.serial_no, ''), NULLIF(so.serial_no, '')) IS NOT NULL
+                 WHERE COALESCE(c.cabinet_no, '')=''
+                   AND COALESCE(NULLIF(s.cabinet_no, ''), NULLIF(so.cabinet_no, '')) IS NOT NULL
                ) src
          WHERE c.id=src.card_id
         """
@@ -100,10 +100,10 @@ def repair_missing_service_cards_from_shipments(cur) -> int:
     cur.execute(
         """
         WITH candidates AS (
-            SELECT DISTINCT ON (s.serial_no)
+            SELECT DISTINCT ON (s.cabinet_no)
                    s.order_id AS sales_order_id,
                    COALESCE(NULLIF(s.project_code, ''), NULLIF(so.project_code, '')) AS project_code,
-                   NULLIF(s.serial_no, '') AS serial_no,
+                   NULLIF(s.cabinet_no, '') AS cabinet_no,
                    COALESCE(s.customer_id, so.customer_id) AS customer_id,
                    so.cost_object_id,
                    s.shipment_date,
@@ -113,17 +113,17 @@ def repair_missing_service_cards_from_shipments(cur) -> int:
          LEFT JOIN sales_shipment_items si ON si.shipment_id=s.id
          LEFT JOIN sales_order_items soi ON soi.id=si.order_item_id OR soi.order_id=s.order_id
          LEFT JOIN machine_service_cards c
-                ON COALESCE(c.serial_no, '')=COALESCE(s.serial_no, '')
-             WHERE COALESCE(s.serial_no, '')<>''
+                ON COALESCE(c.cabinet_no, '')=COALESCE(s.cabinet_no, '')
+             WHERE COALESCE(s.cabinet_no, '')<>''
                AND c.id IS NULL
                AND COALESCE(si.product_id, soi.product_id) IS NOT NULL
-          ORDER BY s.serial_no, s.shipment_date NULLS LAST, s.id
+          ORDER BY s.cabinet_no, s.shipment_date NULLS LAST, s.id
         )
         INSERT INTO machine_service_cards (
-            sales_order_id, cost_object_id, project_code, serial_no, product_id,
+            sales_order_id, cost_object_id, project_code, cabinet_no, product_id,
             customer_id, install_date, installation_date, status, remark
         )
-        SELECT sales_order_id, cost_object_id, project_code, serial_no, product_id,
+        SELECT sales_order_id, cost_object_id, project_code, cabinet_no, product_id,
                customer_id, shipment_date, shipment_date, '已安装待验收',
                'Backfilled by verify_service_closure from posted sales shipment trace.'
           FROM candidates
@@ -142,7 +142,7 @@ def collect_findings(cur) -> list[Finding]:
         """
         SELECT id, sales_order_id, project_code
           FROM machine_service_cards
-         WHERE COALESCE(serial_no, '')=''
+         WHERE COALESCE(cabinet_no, '')=''
          LIMIT 50
         """
     )
@@ -189,11 +189,11 @@ def collect_findings(cur) -> list[Finding]:
     if table_exists(cur, "sales_shipments"):
         cur.execute(
             """
-            SELECT s.id, s.shipment_no, s.order_id, s.project_code, s.serial_no
+            SELECT s.id, s.shipment_no, s.order_id, s.project_code, s.cabinet_no
               FROM sales_shipments s
          LEFT JOIN machine_service_cards c
-                ON COALESCE(c.serial_no, '')=COALESCE(s.serial_no, '')
-             WHERE COALESCE(s.serial_no, '')<>''
+                ON COALESCE(c.cabinet_no, '')=COALESCE(s.cabinet_no, '')
+             WHERE COALESCE(s.cabinet_no, '')<>''
                AND c.id IS NULL
              LIMIT 50
             """
@@ -202,25 +202,25 @@ def collect_findings(cur) -> list[Finding]:
             findings.append(
                 Finding(
                     "SVC-LIFECYCLE-BREAK",
-                    f"shipment_id={row['id']} shipment_no={row['shipment_no'] or ''} order_id={row['order_id']} project_code={row['project_code'] or ''} serial_no={row['serial_no'] or ''} missing_service_card",
+                    f"shipment_id={row['id']} shipment_no={row['shipment_no'] or ''} order_id={row['order_id']} project_code={row['project_code'] or ''} cabinet_no={row['cabinet_no'] or ''} missing_service_card",
                 )
             )
 
     cur.execute(
         """
-        SELECT c.id, c.serial_no
+        SELECT c.id, c.cabinet_no
           FROM machine_service_cards c
          WHERE NOT EXISTS (
                SELECT 1 FROM machine_service_orders o
-                WHERE o.service_card_id=c.id OR COALESCE(o.serial_no, '')=COALESCE(c.serial_no, '')
+                WHERE o.service_card_id=c.id OR COALESCE(o.cabinet_no, '')=COALESCE(c.cabinet_no, '')
          )
            AND NOT EXISTS (
                SELECT 1 FROM machine_service_acceptance_checks a
-                WHERE a.service_card_id=c.id OR COALESCE(a.serial_no, '')=COALESCE(c.serial_no, '')
+                WHERE a.service_card_id=c.id OR COALESCE(a.cabinet_no, '')=COALESCE(c.cabinet_no, '')
          )
            AND NOT EXISTS (
                SELECT 1 FROM machine_service_rmas r
-                WHERE r.service_card_id=c.id OR COALESCE(r.serial_no, '')=COALESCE(c.serial_no, '')
+                WHERE r.service_card_id=c.id OR COALESCE(r.cabinet_no, '')=COALESCE(c.cabinet_no, '')
          )
          LIMIT 50
         """
@@ -228,7 +228,7 @@ def collect_findings(cur) -> list[Finding]:
     # A card can be newly installed and legitimately have no after-sale activity yet.
     # Keep this as informational output instead of a blocking finding.
     for row in cur.fetchall()[:10]:
-        findings.append(Finding("SVC-CARD-NO-ACTIVITY-INFO", f"service_card_id={row['id']} serial_no={row['serial_no'] or ''}"))
+        findings.append(Finding("SVC-CARD-NO-ACTIVITY-INFO", f"service_card_id={row['id']} cabinet_no={row['cabinet_no'] or ''}"))
 
     return findings
 
@@ -242,7 +242,7 @@ def main() -> int:
                 print("SVC-TABLE-MISSING | machine_service_cards")
                 return 1
 
-            serial_repairs = repair_missing_card_serials(cur)
+            cabinet_repairs = repair_missing_card_cabinets(cur)
             card_repairs = repair_missing_service_cards_from_shipments(cur)
             conn.commit()
 
@@ -250,7 +250,7 @@ def main() -> int:
 
     blocking = [f for f in findings if not f.code.endswith("-INFO")]
     print("service_closure=ok" if not blocking else "service_closure=failed")
-    print(f"repairs_applied.card_serial_backfill={serial_repairs}")
+    print(f"repairs_applied.card_serial_backfill={cabinet_repairs}")
     print(f"repairs_applied.shipment_service_cards={card_repairs}")
     print(f"findings={len(findings)} blocking={len(blocking)}")
     for finding in findings:

@@ -20,52 +20,52 @@ def _build_project_focus_rows(query_db):
     rows = query_db(
         """
         WITH base_orders AS (
-            SELECT so.id, so.order_no, so.project_code, so.serial_no, so.status,
+            SELECT so.id, so.order_no, so.project_code, so.cabinet_no, so.status,
                    so.delivery_date, c.name AS customer_name
             FROM sales_orders so
             LEFT JOIN customers c ON c.id=so.customer_id
             WHERE NULLIF(TRIM(COALESCE(so.project_code, '')), '') IS NOT NULL
-               OR NULLIF(TRIM(COALESCE(so.serial_no, '')), '') IS NOT NULL
+               OR NULLIF(TRIM(COALESCE(so.cabinet_no, '')), '') IS NOT NULL
         ),
         mrp AS (
             SELECT COALESCE(NULLIF(project_code, ''), '') AS project_code,
-                   COALESCE(NULLIF(serial_no, ''), '') AS serial_no,
+                   COALESCE(NULLIF(cabinet_no, ''), '') AS cabinet_no,
                    COUNT(*) AS shortage_lines
             FROM mrp_requirements
             WHERE COALESCE(shortage_quantity, 0) > 0
-            GROUP BY COALESCE(NULLIF(project_code, ''), ''), COALESCE(NULLIF(serial_no, ''), '')
+            GROUP BY COALESCE(NULLIF(project_code, ''), ''), COALESCE(NULLIF(cabinet_no, ''), '')
         ),
         po AS (
             SELECT COALESCE(NULLIF(po.project_code, ''), '') AS project_code,
-                   COALESCE(NULLIF(po.serial_no, ''), '') AS serial_no,
+                   COALESCE(NULLIF(po.cabinet_no, ''), '') AS cabinet_no,
                    COUNT(*) FILTER (
                        WHERE GREATEST(COALESCE(poi.quantity,0)-COALESCE(poi.received_qty,0),0) > 0
                    ) AS pending_purchase_lines
             FROM purchase_orders po
             LEFT JOIN purchase_order_items poi ON poi.order_id=po.id
-            GROUP BY COALESCE(NULLIF(po.project_code, ''), ''), COALESCE(NULLIF(po.serial_no, ''), '')
+            GROUP BY COALESCE(NULLIF(po.project_code, ''), ''), COALESCE(NULLIF(po.cabinet_no, ''), '')
         ),
         wo AS (
             SELECT COALESCE(NULLIF(project_code, ''), '') AS project_code,
-                   COALESCE(NULLIF(serial_no, ''), '') AS serial_no,
+                   COALESCE(NULLIF(cabinet_no, ''), '') AS cabinet_no,
                    COUNT(*) FILTER (
                        WHERE COALESCE(status, '') NOT IN ('已完工','已关闭','已完成','closed','completed')
                    ) AS unfinished_work_orders
             FROM work_orders
-            GROUP BY COALESCE(NULLIF(project_code, ''), ''), COALESCE(NULLIF(serial_no, ''), '')
+            GROUP BY COALESCE(NULLIF(project_code, ''), ''), COALESCE(NULLIF(cabinet_no, ''), '')
         ),
         ar AS (
             SELECT COALESCE(NULLIF(project_code, ''), '') AS project_code,
-                   COALESCE(NULLIF(serial_no, ''), '') AS serial_no,
+                   COALESCE(NULLIF(cabinet_no, ''), '') AS cabinet_no,
                    COALESCE(SUM(balance), 0) AS receivable_balance
             FROM customer_receivables
-            GROUP BY COALESCE(NULLIF(project_code, ''), ''), COALESCE(NULLIF(serial_no, ''), '')
+            GROUP BY COALESCE(NULLIF(project_code, ''), ''), COALESCE(NULLIF(cabinet_no, ''), '')
         )
         SELECT bo.*,
                CASE
                    WHEN pm.id IS NULL THEN '项目未建档'
-                   WHEN bo.serial_no IS NOT NULL AND msm.id IS NULL THEN '机号未建档'
-                   WHEN msm.project_code IS NOT NULL AND bo.project_code IS NOT NULL AND msm.project_code<>bo.project_code THEN '机号项目不一致'
+                   WHEN bo.cabinet_no IS NOT NULL AND msm.id IS NULL THEN '柜号未建档'
+                   WHEN msm.project_code IS NOT NULL AND bo.project_code IS NOT NULL AND msm.project_code<>bo.project_code THEN '柜号项目不一致'
                    WHEN COALESCE(mrp.shortage_lines,0) > 0 THEN 'MRP缺料'
                    WHEN COALESCE(po.pending_purchase_lines,0) > 0 THEN '采购未收'
                    WHEN COALESCE(wo.unfinished_work_orders,0) > 0 THEN '生产未完工'
@@ -78,13 +78,13 @@ def _build_project_focus_rows(query_db):
                COALESCE(ar.receivable_balance,0) AS receivable_balance
         FROM base_orders bo
         LEFT JOIN project_masters pm ON pm.project_code=bo.project_code
-        LEFT JOIN machine_serial_masters msm ON msm.serial_no=bo.serial_no
-        LEFT JOIN mrp ON mrp.project_code=COALESCE(NULLIF(bo.project_code,''), '') OR mrp.serial_no=COALESCE(NULLIF(bo.serial_no,''), '')
-        LEFT JOIN po ON po.project_code=COALESCE(NULLIF(bo.project_code,''), '') OR po.serial_no=COALESCE(NULLIF(bo.serial_no,''), '')
-        LEFT JOIN wo ON wo.project_code=COALESCE(NULLIF(bo.project_code,''), '') OR wo.serial_no=COALESCE(NULLIF(bo.serial_no,''), '')
-        LEFT JOIN ar ON ar.project_code=COALESCE(NULLIF(bo.project_code,''), '') OR ar.serial_no=COALESCE(NULLIF(bo.serial_no,''), '')
+        LEFT JOIN cabinet_masters msm ON msm.cabinet_no=bo.cabinet_no
+        LEFT JOIN mrp ON mrp.project_code=COALESCE(NULLIF(bo.project_code,''), '') OR mrp.cabinet_no=COALESCE(NULLIF(bo.cabinet_no,''), '')
+        LEFT JOIN po ON po.project_code=COALESCE(NULLIF(bo.project_code,''), '') OR po.cabinet_no=COALESCE(NULLIF(bo.cabinet_no,''), '')
+        LEFT JOIN wo ON wo.project_code=COALESCE(NULLIF(bo.project_code,''), '') OR wo.cabinet_no=COALESCE(NULLIF(bo.cabinet_no,''), '')
+        LEFT JOIN ar ON ar.project_code=COALESCE(NULLIF(bo.project_code,''), '') OR ar.cabinet_no=COALESCE(NULLIF(bo.cabinet_no,''), '')
         WHERE pm.id IS NULL
-           OR (bo.serial_no IS NOT NULL AND msm.id IS NULL)
+           OR (bo.cabinet_no IS NOT NULL AND msm.id IS NULL)
            OR (msm.project_code IS NOT NULL AND bo.project_code IS NOT NULL AND msm.project_code<>bo.project_code)
            OR COALESCE(mrp.shortage_lines,0) > 0
            OR COALESCE(po.pending_purchase_lines,0) > 0
@@ -93,7 +93,7 @@ def _build_project_focus_rows(query_db):
         ORDER BY
             CASE
                 WHEN pm.id IS NULL THEN 0
-                WHEN bo.serial_no IS NOT NULL AND msm.id IS NULL THEN 1
+                WHEN bo.cabinet_no IS NOT NULL AND msm.id IS NULL THEN 1
                 WHEN COALESCE(mrp.shortage_lines,0) > 0 THEN 2
                 WHEN COALESCE(wo.unfinished_work_orders,0) > 0 THEN 3
                 ELSE 4
@@ -119,14 +119,14 @@ def _build_project_focus_rows(query_db):
         elif reason == "应收未清":
             owner = "财务/销售"
             next_step = "进入待收款清单"
-        elif reason in {"项目未建档", "机号未建档", "机号项目不一致"}:
+        elif reason in {"项目未建档", "柜号未建档", "柜号项目不一致"}:
             owner = "销售/项目"
-            next_step = "维护项目档案和机号档案"
+            next_step = "维护项目档案和柜号档案"
         focus_rows.append(
             {
                 "order_no": row.get("order_no"),
                 "project_code": row.get("project_code"),
-                "serial_no": row.get("serial_no"),
+                "cabinet_no": row.get("cabinet_no"),
                 "customer_name": row.get("customer_name"),
                 "blocked_reason": reason,
                 "owner": owner,
@@ -156,12 +156,12 @@ def build_project_delivery_workbench(query_db):
         """,
         one=True,
     )
-    serial_missing = query_db(
+    cabinet_missing = query_db(
         """
         SELECT COUNT(*) AS value
         FROM sales_orders so
-        LEFT JOIN machine_serial_masters msm ON msm.serial_no=so.serial_no
-        WHERE NULLIF(TRIM(COALESCE(so.serial_no,'')), '') IS NOT NULL
+        LEFT JOIN cabinet_masters msm ON msm.cabinet_no=so.cabinet_no
+        WHERE NULLIF(TRIM(COALESCE(so.cabinet_no,'')), '') IS NOT NULL
           AND msm.id IS NULL
         """,
         one=True,
@@ -169,7 +169,7 @@ def build_project_delivery_workbench(query_db):
     shortage = query_db(
         """
         SELECT COUNT(*) AS lines,
-               COUNT(DISTINCT COALESCE(project_code, '') || '|' || COALESCE(serial_no, '')) AS projects
+               COUNT(DISTINCT COALESCE(project_code, '') || '|' || COALESCE(cabinet_no, '')) AS projects
         FROM mrp_requirements
         WHERE COALESCE(shortage_quantity, 0) > 0
         """,
@@ -202,23 +202,23 @@ def build_project_delivery_workbench(query_db):
         one=True,
     )
 
-    project_risk_count = _scalar(project_missing, "value") + _scalar(serial_missing, "value")
+    project_risk_count = _scalar(project_missing, "value") + _scalar(cabinet_missing, "value")
     process_nodes = [
         {"label": "销售项目", "count": _scalar(active_projects, "value"), "hint": "未关闭销售项目", "url": "/sales-orders"},
-        {"label": "项目/机号建档", "count": project_risk_count, "hint": "缺档或追溯风险", "url": "/project-master"},
+        {"label": "项目/柜号建档", "count": project_risk_count, "hint": "缺档或追溯风险", "url": "/project-master"},
         {"label": "BOM/MRP齐套", "count": _scalar(shortage, "lines"), "hint": "缺料行", "url": "/engineering/kitting"},
         {"label": "采购到货", "count": _scalar(pending_purchase, "value"), "hint": "采购未收行", "url": "/purchase-orders?risk=pending_receive"},
         {"label": "生产完工", "count": _scalar(unfinished_work, "value"), "hint": "未完工单", "url": "/work-orders"},
         {"label": "发货交付", "count": _scalar(shipments, "value"), "hint": "发货单", "url": "/shipments"},
         {"label": "应收回款", "count": _money(_scalar(receivables, "balance")), "hint": "应收余额", "url": "/finance/receivables/pending-collections"},
-        {"label": "服务追溯", "count": "台账", "hint": "按机号追溯", "url": "/projects"},
+        {"label": "服务追溯", "count": "台账", "hint": "按柜号追溯", "url": "/projects"},
     ]
     queue_cards = [
         {
-            "title": "项目/机号风险",
+            "title": "项目/柜号风险",
             "count": project_risk_count,
             "owner": "销售/项目",
-            "next_step": "补齐项目档案、机号档案或修正归属",
+            "next_step": "补齐项目档案、柜号档案或修正归属",
             "impact": "影响销售、生产、发货、服务和成本追溯",
             "url": "/project-master",
         },

@@ -100,7 +100,7 @@ def delete_if_table(cur, table, where_sql, params=()):
         cur.execute(f"DELETE FROM {table} WHERE {where_sql}", params)
 
 
-def seed_initial_inventory(cur, product_id, qty, unit_cost, warehouse_id, location_id, project_code, serial_no, suffix):
+def seed_initial_inventory(cur, product_id, qty, unit_cost, warehouse_id, location_id, project_code, cabinet_no, suffix):
     amount = qty * unit_cost
     insert_dynamic(
         cur,
@@ -114,7 +114,7 @@ def seed_initial_inventory(cur, product_id, qty, unit_cost, warehouse_id, locati
             "amount": amount,
             "lot_no": "",
             "project_code": project_code,
-            "serial_no": serial_no,
+            "cabinet_no": cabinet_no,
             "status": "available",
         },
     )
@@ -150,7 +150,7 @@ def seed_initial_inventory(cur, product_id, qty, unit_cost, warehouse_id, locati
             "warehouse_id": warehouse_id,
             "location_id": location_id,
             "lot_no": "",
-            "serial_no": serial_no,
+            "cabinet_no": cabinet_no,
             "project_code": project_code,
             "quantity_in": qty,
             "quantity_out": Decimal("0"),
@@ -173,7 +173,7 @@ def seed_initial_inventory(cur, product_id, qty, unit_cost, warehouse_id, locati
             "warehouse_id": warehouse_id,
             "location_id": location_id,
             "lot_no": "",
-            "serial_no": serial_no,
+            "cabinet_no": cabinet_no,
             "project_code": project_code,
             "reference_no": f"{PREFIX}-OPEN-{suffix}",
             "source_doc_no": f"{PREFIX}-OPEN-{suffix}",
@@ -191,7 +191,7 @@ def reconcile_fixture_batch_tracking(cur):
                    COALESCE(ib.warehouse_id, 0) AS warehouse_id,
                    COALESCE(ib.location_id, 0) AS location_id,
                    COALESCE(ib.lot_no, '') AS lot_no,
-                   COALESCE(ib.serial_no, '') AS serial_no,
+                   COALESCE(ib.cabinet_no, '') AS cabinet_no,
                    COALESCE(ib.project_code, '') AS project_code,
                    SUM(COALESCE(ib.quantity, 0)) AS quantity,
                    CASE WHEN COALESCE(SUM(ib.quantity),0) <> 0
@@ -202,22 +202,22 @@ def reconcile_fixture_batch_tracking(cur):
             JOIN products p ON p.id=ib.product_id
             WHERE p.code LIKE %s
             GROUP BY ib.product_id, COALESCE(ib.warehouse_id, 0), COALESCE(ib.location_id, 0),
-                     COALESCE(ib.lot_no, ''), COALESCE(ib.serial_no, ''), COALESCE(ib.project_code, '')
+                     COALESCE(ib.lot_no, ''), COALESCE(ib.cabinet_no, ''), COALESCE(ib.project_code, '')
         ),
         existing AS (
             SELECT DISTINCT ON (bt.product_id, COALESCE(bt.warehouse_id, 0), COALESCE(bt.location_id, 0),
-                                COALESCE(bt.lot_no, ''), COALESCE(bt.serial_no, ''), COALESCE(bt.project_code, ''))
+                                COALESCE(bt.lot_no, ''), COALESCE(bt.cabinet_no, ''), COALESCE(bt.project_code, ''))
                    bt.id, bt.product_id,
                    COALESCE(bt.warehouse_id, 0) AS warehouse_id,
                    COALESCE(bt.location_id, 0) AS location_id,
                    COALESCE(bt.lot_no, '') AS lot_no,
-                   COALESCE(bt.serial_no, '') AS serial_no,
+                   COALESCE(bt.cabinet_no, '') AS cabinet_no,
                    COALESCE(bt.project_code, '') AS project_code
             FROM batch_tracking bt
             JOIN products p ON p.id=bt.product_id
             WHERE p.code LIKE %s
             ORDER BY bt.product_id, COALESCE(bt.warehouse_id, 0), COALESCE(bt.location_id, 0),
-                     COALESCE(bt.lot_no, ''), COALESCE(bt.serial_no, ''), COALESCE(bt.project_code, ''), bt.id
+                     COALESCE(bt.lot_no, ''), COALESCE(bt.cabinet_no, ''), COALESCE(bt.project_code, ''), bt.id
         )
         UPDATE batch_tracking bt
         SET quantity_available=desired.quantity,
@@ -231,7 +231,7 @@ def reconcile_fixture_batch_tracking(cur):
          AND existing.warehouse_id=desired.warehouse_id
          AND existing.location_id=desired.location_id
          AND existing.lot_no=desired.lot_no
-         AND existing.serial_no=desired.serial_no
+         AND existing.cabinet_no=desired.cabinet_no
          AND existing.project_code=desired.project_code
         WHERE bt.id=existing.id
         """,
@@ -240,13 +240,13 @@ def reconcile_fixture_batch_tracking(cur):
     cur.execute(
         """
         INSERT INTO batch_tracking
-            (product_id, warehouse_id, location_id, lot_no, serial_no, project_code,
+            (product_id, warehouse_id, location_id, lot_no, cabinet_no, project_code,
              quantity_in, quantity_out, quantity_available, unit_cost, source_order_no, status)
         SELECT desired.product_id,
                NULLIF(desired.warehouse_id, 0),
                NULLIF(desired.location_id, 0),
                desired.lot_no,
-               desired.serial_no,
+               desired.cabinet_no,
                desired.project_code,
                GREATEST(desired.quantity, 0),
                0,
@@ -259,7 +259,7 @@ def reconcile_fixture_batch_tracking(cur):
                    COALESCE(ib.warehouse_id, 0) AS warehouse_id,
                    COALESCE(ib.location_id, 0) AS location_id,
                    COALESCE(ib.lot_no, '') AS lot_no,
-                   COALESCE(ib.serial_no, '') AS serial_no,
+                   COALESCE(ib.cabinet_no, '') AS cabinet_no,
                    COALESCE(ib.project_code, '') AS project_code,
                    SUM(COALESCE(ib.quantity, 0)) AS quantity,
                    CASE WHEN COALESCE(SUM(ib.quantity),0) <> 0
@@ -270,7 +270,7 @@ def reconcile_fixture_batch_tracking(cur):
             JOIN products p ON p.id=ib.product_id
             WHERE p.code LIKE %s
             GROUP BY ib.product_id, COALESCE(ib.warehouse_id, 0), COALESCE(ib.location_id, 0),
-                     COALESCE(ib.lot_no, ''), COALESCE(ib.serial_no, ''), COALESCE(ib.project_code, '')
+                     COALESCE(ib.lot_no, ''), COALESCE(ib.cabinet_no, ''), COALESCE(ib.project_code, '')
         ) desired
         WHERE NOT EXISTS (
             SELECT 1
@@ -279,7 +279,7 @@ def reconcile_fixture_batch_tracking(cur):
               AND COALESCE(bt.warehouse_id, 0)=desired.warehouse_id
               AND COALESCE(bt.location_id, 0)=desired.location_id
               AND COALESCE(bt.lot_no, '')=desired.lot_no
-              AND COALESCE(bt.serial_no, '')=desired.serial_no
+              AND COALESCE(bt.cabinet_no, '')=desired.cabinet_no
               AND COALESCE(bt.project_code, '')=desired.project_code
         )
         """,
@@ -289,35 +289,35 @@ def reconcile_fixture_batch_tracking(cur):
 
 def cleanup(cur):
     like = f"{PREFIX}%"
-    delete_if_table(cur, "machine_service_rmas", "project_code LIKE %s OR serial_no LIKE %s OR rma_no LIKE %s", (like, like, like))
-    delete_if_table(cur, "machine_service_order_items", "order_id IN (SELECT id FROM machine_service_orders WHERE project_code LIKE %s OR serial_no LIKE %s)", (like, like))
-    delete_if_table(cur, "machine_service_order_checklists", "order_id IN (SELECT id FROM machine_service_orders WHERE project_code LIKE %s OR serial_no LIKE %s)", (like, like))
-    delete_if_table(cur, "machine_service_orders", "project_code LIKE %s OR serial_no LIKE %s OR order_no LIKE %s", (like, like, like))
-    delete_if_table(cur, "machine_service_acceptance_checks", "project_code LIKE %s OR serial_no LIKE %s", (like, like))
-    delete_if_table(cur, "machine_service_cards", "project_code LIKE %s OR serial_no LIKE %s", (like, like))
-    delete_if_table(cur, "supplier_payables", "project_code LIKE %s OR serial_no LIKE %s OR doc_no LIKE %s", (like, like, like))
+    delete_if_table(cur, "machine_service_rmas", "project_code LIKE %s OR cabinet_no LIKE %s OR rma_no LIKE %s", (like, like, like))
+    delete_if_table(cur, "machine_service_order_items", "order_id IN (SELECT id FROM machine_service_orders WHERE project_code LIKE %s OR cabinet_no LIKE %s)", (like, like))
+    delete_if_table(cur, "machine_service_order_checklists", "order_id IN (SELECT id FROM machine_service_orders WHERE project_code LIKE %s OR cabinet_no LIKE %s)", (like, like))
+    delete_if_table(cur, "machine_service_orders", "project_code LIKE %s OR cabinet_no LIKE %s OR order_no LIKE %s", (like, like, like))
+    delete_if_table(cur, "machine_service_acceptance_checks", "project_code LIKE %s OR cabinet_no LIKE %s", (like, like))
+    delete_if_table(cur, "machine_service_cards", "project_code LIKE %s OR cabinet_no LIKE %s", (like, like))
+    delete_if_table(cur, "supplier_payables", "project_code LIKE %s OR cabinet_no LIKE %s OR doc_no LIKE %s", (like, like, like))
     delete_if_table(
         cur,
         "supplier_payables",
         "supplier_id IN (SELECT id FROM suppliers WHERE name LIKE %s)",
         (f"{PREFIX} supplier%",),
     )
-    delete_if_table(cur, "customer_receivables", "project_code LIKE %s OR serial_no LIKE %s OR source_no LIKE %s", (like, like, like))
-    delete_if_table(cur, "subcontract_receive_lines", "project_code LIKE %s OR serial_no LIKE %s OR receive_id IN (SELECT id FROM subcontract_receive_orders WHERE subcontract_order_id IN (SELECT id FROM subcontract_orders WHERE project_code LIKE %s OR serial_no LIKE %s))", (like, like, like, like))
-    delete_if_table(cur, "subcontract_receive_orders", "subcontract_order_id IN (SELECT id FROM subcontract_orders WHERE project_code LIKE %s OR serial_no LIKE %s)", (like, like))
-    delete_if_table(cur, "subcontract_issue_lines", "project_code LIKE %s OR serial_no LIKE %s OR issue_id IN (SELECT id FROM subcontract_issue_orders WHERE subcontract_order_id IN (SELECT id FROM subcontract_orders WHERE project_code LIKE %s OR serial_no LIKE %s))", (like, like, like, like))
-    delete_if_table(cur, "subcontract_issue_orders", "subcontract_order_id IN (SELECT id FROM subcontract_orders WHERE project_code LIKE %s OR serial_no LIKE %s)", (like, like))
-    delete_if_table(cur, "subcontract_orders", "project_code LIKE %s OR serial_no LIKE %s OR order_no LIKE %s", (like, like, like))
-    delete_if_table(cur, "work_order_cost_lines", "work_order_id IN (SELECT id FROM work_orders WHERE project_code LIKE %s OR serial_no LIKE %s) OR source_no LIKE %s", (like, like, like))
-    delete_if_table(cur, "work_order_costs", "work_order_id IN (SELECT id FROM work_orders WHERE project_code LIKE %s OR serial_no LIKE %s)", (like, like))
-    delete_if_table(cur, "stock_transactions", "reference_no LIKE %s OR project_code LIKE %s OR serial_no LIKE %s", (like, like, like))
-    delete_if_table(cur, "sales_shipment_items", "shipment_id IN (SELECT id FROM sales_shipments WHERE project_code LIKE %s OR serial_no LIKE %s)", (like, like))
-    delete_if_table(cur, "sales_shipments", "project_code LIKE %s OR serial_no LIKE %s OR shipment_no LIKE %s", (like, like, like))
-    delete_if_table(cur, "sales_order_items", "order_id IN (SELECT id FROM sales_orders WHERE project_code LIKE %s OR serial_no LIKE %s)", (like, like))
-    delete_if_table(cur, "sales_orders", "project_code LIKE %s OR serial_no LIKE %s OR order_no LIKE %s", (like, like, like))
-    delete_if_table(cur, "wo_material_items", "wo_id IN (SELECT id FROM work_orders WHERE project_code LIKE %s OR serial_no LIKE %s)", (like, like))
-    delete_if_table(cur, "work_orders", "project_code LIKE %s OR serial_no LIKE %s OR wo_no LIKE %s", (like, like, like))
-    delete_if_table(cur, "machine_serial_masters", "project_code LIKE %s OR serial_no LIKE %s", (like, like))
+    delete_if_table(cur, "customer_receivables", "project_code LIKE %s OR cabinet_no LIKE %s OR source_no LIKE %s", (like, like, like))
+    delete_if_table(cur, "subcontract_receive_lines", "project_code LIKE %s OR cabinet_no LIKE %s OR receive_id IN (SELECT id FROM subcontract_receive_orders WHERE subcontract_order_id IN (SELECT id FROM subcontract_orders WHERE project_code LIKE %s OR cabinet_no LIKE %s))", (like, like, like, like))
+    delete_if_table(cur, "subcontract_receive_orders", "subcontract_order_id IN (SELECT id FROM subcontract_orders WHERE project_code LIKE %s OR cabinet_no LIKE %s)", (like, like))
+    delete_if_table(cur, "subcontract_issue_lines", "project_code LIKE %s OR cabinet_no LIKE %s OR issue_id IN (SELECT id FROM subcontract_issue_orders WHERE subcontract_order_id IN (SELECT id FROM subcontract_orders WHERE project_code LIKE %s OR cabinet_no LIKE %s))", (like, like, like, like))
+    delete_if_table(cur, "subcontract_issue_orders", "subcontract_order_id IN (SELECT id FROM subcontract_orders WHERE project_code LIKE %s OR cabinet_no LIKE %s)", (like, like))
+    delete_if_table(cur, "subcontract_orders", "project_code LIKE %s OR cabinet_no LIKE %s OR order_no LIKE %s", (like, like, like))
+    delete_if_table(cur, "work_order_cost_lines", "work_order_id IN (SELECT id FROM work_orders WHERE project_code LIKE %s OR cabinet_no LIKE %s) OR source_no LIKE %s", (like, like, like))
+    delete_if_table(cur, "work_order_costs", "work_order_id IN (SELECT id FROM work_orders WHERE project_code LIKE %s OR cabinet_no LIKE %s)", (like, like))
+    delete_if_table(cur, "stock_transactions", "reference_no LIKE %s OR project_code LIKE %s OR cabinet_no LIKE %s", (like, like, like))
+    delete_if_table(cur, "sales_shipment_items", "shipment_id IN (SELECT id FROM sales_shipments WHERE project_code LIKE %s OR cabinet_no LIKE %s)", (like, like))
+    delete_if_table(cur, "sales_shipments", "project_code LIKE %s OR cabinet_no LIKE %s OR shipment_no LIKE %s", (like, like, like))
+    delete_if_table(cur, "sales_order_items", "order_id IN (SELECT id FROM sales_orders WHERE project_code LIKE %s OR cabinet_no LIKE %s)", (like, like))
+    delete_if_table(cur, "sales_orders", "project_code LIKE %s OR cabinet_no LIKE %s OR order_no LIKE %s", (like, like, like))
+    delete_if_table(cur, "wo_material_items", "wo_id IN (SELECT id FROM work_orders WHERE project_code LIKE %s OR cabinet_no LIKE %s)", (like, like))
+    delete_if_table(cur, "work_orders", "project_code LIKE %s OR cabinet_no LIKE %s OR wo_no LIKE %s", (like, like, like))
+    delete_if_table(cur, "cabinet_masters", "project_code LIKE %s OR cabinet_no LIKE %s", (like, like))
     delete_if_table(cur, "project_masters", "project_code LIKE %s OR source_order_no LIKE %s", (like, like))
     delete_if_table(cur, "inventory_balances", "product_id IN (SELECT id FROM products WHERE code LIKE %s)", (like,))
     delete_if_table(cur, "inventory", "product_id IN (SELECT id FROM products WHERE code LIKE %s)", (like,))
@@ -342,7 +342,7 @@ def ensure_warehouse(cur):
 def prepare_fixture():
     suffix = str(int(time.time() * 1000))
     project_code = f"{PREFIX}-PRJ-{suffix}"
-    serial_no = f"{PREFIX}-SN-{suffix}"
+    cabinet_no = f"{PREFIX}-SN-{suffix}"
     conn = connect_db(db_config())
     try:
         with conn.cursor() as cur:
@@ -427,9 +427,9 @@ def prepare_fixture():
             )
             insert_dynamic(
                 cur,
-                "machine_serial_masters",
+                "cabinet_masters",
                 {
-                    "serial_no": serial_no,
+                    "cabinet_no": cabinet_no,
                     "project_id": project_id,
                     "project_code": project_code,
                     "customer_id": customer_id,
@@ -454,7 +454,7 @@ def prepare_fixture():
                     "warehouse_id": warehouse_id,
                     "location_id": location_id,
                     "project_code": project_code,
-                    "serial_no": serial_no,
+                    "cabinet_no": cabinet_no,
                     "planned_start_date": date.today(),
                     "planned_end_date": date.today(),
                     "remark": PREFIX,
@@ -469,7 +469,7 @@ def prepare_fixture():
                     warehouse_id,
                     location_id,
                     project_code,
-                    serial_no,
+                    cabinet_no,
                     suffix,
                 )
             seed_initial_inventory(
@@ -480,7 +480,7 @@ def prepare_fixture():
                 warehouse_id,
                 None,
                 project_code,
-                serial_no,
+                cabinet_no,
                 suffix,
             )
             seed_initial_inventory(
@@ -491,7 +491,7 @@ def prepare_fixture():
                 warehouse_id,
                 None,
                 project_code,
-                serial_no,
+                cabinet_no,
                 suffix,
             )
             conn.commit()
@@ -507,7 +507,7 @@ def prepare_fixture():
         "warehouse_id": warehouse_id,
         "location_id": location_id,
         "project_code": project_code,
-        "serial_no": serial_no,
+        "cabinet_no": cabinet_no,
     }
 
 
@@ -540,7 +540,7 @@ def run_sales_delivery_loop(client, fixture):
             ("delivery_date", date.today().isoformat()),
             ("warehouse_id", str(fixture["warehouse_id"])),
             ("project_code", fixture["project_code"]),
-            ("serial_no", fixture["serial_no"]),
+            ("cabinet_no", fixture["cabinet_no"]),
             ("remark", "phase5 sales_delivery_loop"),
             ("status", "pending"),
             ("product_id[]", str(fixture["fg_id"])),
@@ -553,8 +553,8 @@ def run_sales_delivery_loop(client, fixture):
         follow_redirects=True,
     )
     order_id = latest_id(
-        "SELECT id FROM sales_orders WHERE project_code=%s AND serial_no=%s ORDER BY id DESC LIMIT 1",
-        (fixture["project_code"], fixture["serial_no"]),
+        "SELECT id FROM sales_orders WHERE project_code=%s AND cabinet_no=%s ORDER BY id DESC LIMIT 1",
+        (fixture["project_code"], fixture["cabinet_no"]),
     )
     submit = client.post(f"/sales/{order_id}/submit", follow_redirects=True)
     audit = client.post(f"/sales/{order_id}/audit", follow_redirects=True)
@@ -573,8 +573,8 @@ def run_sales_delivery_loop(client, fixture):
         (order_id,),
     )
     service_card_id = latest_id(
-        "SELECT id FROM machine_service_cards WHERE sales_order_id=%s AND serial_no=%s ORDER BY id DESC LIMIT 1",
-        (order_id, fixture["serial_no"]),
+        "SELECT id FROM machine_service_cards WHERE sales_order_id=%s AND cabinet_no=%s ORDER BY id DESC LIMIT 1",
+        (order_id, fixture["cabinet_no"]),
     )
     return {
         "create_response": response,
@@ -595,7 +595,7 @@ def run_outsourcing_loop(client, fixture):
             "order_date": date.today().isoformat(),
             "required_date": date.today().isoformat(),
             "project_code": fixture["project_code"],
-            "serial_no": fixture["serial_no"],
+            "cabinet_no": fixture["cabinet_no"],
             "remark": "phase5 outsourcing_loop",
             "product_id[]": [str(fixture["subcontract_product_id"])],
             "quantity[]": ["2"],
@@ -605,13 +605,13 @@ def run_outsourcing_loop(client, fixture):
             "location[]": [str(fixture["location_id"] or "")],
             "lot_no[]": [""],
             "line_project_code[]": [fixture["project_code"]],
-            "line_serial_no[]": [fixture["serial_no"]],
+            "line_cabinet_no[]": [fixture["cabinet_no"]],
         },
         follow_redirects=True,
     )
     subcontract_order_id = latest_id(
-        "SELECT id FROM subcontract_orders WHERE project_code=%s AND serial_no=%s ORDER BY id DESC LIMIT 1",
-        (fixture["project_code"], fixture["serial_no"]),
+        "SELECT id FROM subcontract_orders WHERE project_code=%s AND cabinet_no=%s ORDER BY id DESC LIMIT 1",
+        (fixture["project_code"], fixture["cabinet_no"]),
     )
     issue = client.post(
         "/subcontract_issue/new",
@@ -676,7 +676,7 @@ def run_service_loop(client, fixture, service_card_id):
             "item_name": "phase5 installation acceptance",
             "result": "通过",
             "project_code": fixture["project_code"],
-            "serial_no": fixture["serial_no"],
+            "cabinet_no": fixture["cabinet_no"],
             "remark": "phase5 service_loop acceptance",
         },
         follow_redirects=True,
@@ -697,7 +697,7 @@ def run_service_loop(client, fixture, service_card_id):
             "warehouse_id": str(fixture["warehouse_id"]),
             "location_id": str(fixture["location_id"] or ""),
             "project_code": fixture["project_code"],
-            "serial_no": fixture["serial_no"],
+            "cabinet_no": fixture["cabinet_no"],
             "remark": "phase5 service_loop order",
         },
         follow_redirects=True,
@@ -736,7 +736,7 @@ def run_service_loop(client, fixture, service_card_id):
             "warehouse_id": str(fixture["warehouse_id"]),
             "location_id": str(fixture["location_id"] or ""),
             "project_code": fixture["project_code"],
-            "serial_no": fixture["serial_no"],
+            "cabinet_no": fixture["cabinet_no"],
             "remark": "phase5 service_loop rma",
         },
         follow_redirects=True,
@@ -851,19 +851,19 @@ def main() -> int:
             conn.commit()
             shipment_count = scalar(cur, "SELECT COUNT(*) FROM sales_shipments WHERE order_id=%s", (sales["sales_order_id"],))
             shipment_lines = scalar(cur, "SELECT COUNT(*) FROM sales_shipment_items WHERE shipment_id=%s", (sales["shipment_id"],))
-            receivable_count = scalar(cur, "SELECT COUNT(*) FROM customer_receivables WHERE source_type='sales_order' AND source_id=%s AND project_code=%s AND serial_no=%s", (sales["sales_order_id"], fixture["project_code"], fixture["serial_no"]))
-            sales_stock = scalar(cur, "SELECT COUNT(*) FROM stock_transactions WHERE reference_no IN (SELECT shipment_no FROM sales_shipments WHERE id=%s) AND project_code=%s AND serial_no=%s", (sales["shipment_id"], fixture["project_code"], fixture["serial_no"]))
-            service_card_count = scalar(cur, "SELECT COUNT(*) FROM machine_service_cards WHERE id=%s AND project_code=%s AND serial_no=%s", (sales["service_card_id"], fixture["project_code"], fixture["serial_no"]))
+            receivable_count = scalar(cur, "SELECT COUNT(*) FROM customer_receivables WHERE source_type='sales_order' AND source_id=%s AND project_code=%s AND cabinet_no=%s", (sales["sales_order_id"], fixture["project_code"], fixture["cabinet_no"]))
+            sales_stock = scalar(cur, "SELECT COUNT(*) FROM stock_transactions WHERE reference_no IN (SELECT shipment_no FROM sales_shipments WHERE id=%s) AND project_code=%s AND cabinet_no=%s", (sales["shipment_id"], fixture["project_code"], fixture["cabinet_no"]))
+            service_card_count = scalar(cur, "SELECT COUNT(*) FROM machine_service_cards WHERE id=%s AND project_code=%s AND cabinet_no=%s", (sales["service_card_id"], fixture["project_code"], fixture["cabinet_no"]))
 
-            issue_stock = scalar(cur, "SELECT COUNT(*) FROM stock_transactions WHERE transaction_type='subcontract_issue' AND serial_no=%s", (fixture["serial_no"],))
-            receive_stock = scalar(cur, "SELECT COUNT(*) FROM stock_transactions WHERE transaction_type='subcontract_receive' AND serial_no=%s", (fixture["serial_no"],))
-            payable_count = scalar(cur, "SELECT COUNT(*) FROM supplier_payables WHERE doc_type='subcontract_receive' AND doc_id=%s AND project_code=%s AND serial_no=%s", (outsourcing["receive_id"], fixture["project_code"], fixture["serial_no"]))
+            issue_stock = scalar(cur, "SELECT COUNT(*) FROM stock_transactions WHERE transaction_type='subcontract_issue' AND cabinet_no=%s", (fixture["cabinet_no"],))
+            receive_stock = scalar(cur, "SELECT COUNT(*) FROM stock_transactions WHERE transaction_type='subcontract_receive' AND cabinet_no=%s", (fixture["cabinet_no"],))
+            payable_count = scalar(cur, "SELECT COUNT(*) FROM supplier_payables WHERE doc_type='subcontract_receive' AND doc_id=%s AND project_code=%s AND cabinet_no=%s", (outsourcing["receive_id"], fixture["project_code"], fixture["cabinet_no"]))
             cost = one(cur, "SELECT subcontract_cost, total_cost FROM work_order_costs WHERE work_order_id=%s ORDER BY id DESC LIMIT 1", (fixture["work_order_id"],)) or {}
             cost_lines = scalar(cur, "SELECT COUNT(*) FROM work_order_cost_lines WHERE work_order_id=%s AND source_type=%s", (fixture["work_order_id"], "委外成本"))
 
-            acceptance_count = scalar(cur, "SELECT COUNT(*) FROM machine_service_acceptance_checks WHERE id=%s AND project_code=%s AND serial_no=%s", (service["acceptance_id"], fixture["project_code"], fixture["serial_no"]))
-            service_order_count = scalar(cur, "SELECT COUNT(*) FROM machine_service_orders WHERE id=%s AND service_card_id=%s AND project_code=%s AND serial_no=%s", (service["service_order_id"], sales["service_card_id"], fixture["project_code"], fixture["serial_no"]))
-            rma_count = scalar(cur, "SELECT COUNT(*) FROM machine_service_rmas WHERE id=%s AND order_id=%s AND project_code=%s AND serial_no=%s", (service["rma_id"], service["service_order_id"], fixture["project_code"], fixture["serial_no"]))
+            acceptance_count = scalar(cur, "SELECT COUNT(*) FROM machine_service_acceptance_checks WHERE id=%s AND project_code=%s AND cabinet_no=%s", (service["acceptance_id"], fixture["project_code"], fixture["cabinet_no"]))
+            service_order_count = scalar(cur, "SELECT COUNT(*) FROM machine_service_orders WHERE id=%s AND service_card_id=%s AND project_code=%s AND cabinet_no=%s", (service["service_order_id"], sales["service_card_id"], fixture["project_code"], fixture["cabinet_no"]))
+            rma_count = scalar(cur, "SELECT COUNT(*) FROM machine_service_rmas WHERE id=%s AND order_id=%s AND project_code=%s AND cabinet_no=%s", (service["rma_id"], service["service_order_id"], fixture["project_code"], fixture["cabinet_no"]))
 
             event_types, events = project_event_types(sales["sales_order_id"])
 

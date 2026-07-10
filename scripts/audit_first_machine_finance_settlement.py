@@ -26,7 +26,7 @@ def get_db_config():
 def load_trial_values():
     values = {
         "project_code": "PJ-GT-TRIAL-20260526-001",
-        "serial_no": "SN-GT-TRIAL-20260526-001",
+        "cabinet_no": "SN-GT-TRIAL-20260526-001",
     }
     if not TEMPLATE.exists():
         return values
@@ -38,7 +38,7 @@ def load_trial_values():
             if actual.startswith("PJ-GT-"):
                 values["project_code"] = actual
             elif actual.startswith("SN-GT-"):
-                values["serial_no"] = actual
+                values["cabinet_no"] = actual
     return values
 
 
@@ -59,7 +59,7 @@ def main():
     os.environ.setdefault("WTF_CSRF_ENABLED", "0")
     values = load_trial_values()
     project_code = values["project_code"]
-    serial_no = values["serial_no"]
+    cabinet_no = values["cabinet_no"]
     checks = []
 
     conn = connect_db(get_db_config())
@@ -67,22 +67,22 @@ def main():
         with conn.cursor() as cur:
             sales_order = fetch_one(
                 cur,
-                "SELECT * FROM sales_orders WHERE project_code=%s AND serial_no=%s ORDER BY id DESC LIMIT 1",
-                (project_code, serial_no),
+                "SELECT * FROM sales_orders WHERE project_code=%s AND cabinet_no=%s ORDER BY id DESC LIMIT 1",
+                (project_code, cabinet_no),
             )
             purchase_order = fetch_one(
                 cur,
-                "SELECT * FROM purchase_orders WHERE project_code=%s AND serial_no=%s ORDER BY id DESC LIMIT 1",
-                (project_code, serial_no),
+                "SELECT * FROM purchase_orders WHERE project_code=%s AND cabinet_no=%s ORDER BY id DESC LIMIT 1",
+                (project_code, cabinet_no),
             )
             receivable_before = fetch_one(
                 cur,
                 """
                 SELECT COUNT(*) AS lines, COALESCE(SUM(balance),0) AS balance
                 FROM customer_receivables
-                WHERE project_code=%s AND serial_no=%s
+                WHERE project_code=%s AND cabinet_no=%s
                 """,
-                (project_code, serial_no),
+                (project_code, cabinet_no),
             )
             payable_before = fetch_one(
                 cur,
@@ -90,9 +90,9 @@ def main():
                 SELECT COUNT(*) AS lines, COALESCE(SUM(sp.balance),0) AS balance
                 FROM supplier_payables sp
                 JOIN purchase_orders po ON po.id=sp.doc_id AND sp.doc_type='purchase_order'
-                WHERE po.project_code=%s AND po.serial_no=%s
+                WHERE po.project_code=%s AND po.cabinet_no=%s
                 """,
-                (project_code, serial_no),
+                (project_code, cabinet_no),
             )
             checks.append(("sales_order_ready", bool(sales_order), sales_order.get("order_no") if sales_order else "missing"))
             checks.append(("purchase_order_ready", bool(purchase_order), purchase_order.get("order_no") if purchase_order else "missing"))
@@ -139,9 +139,9 @@ def main():
                 SELECT COUNT(*) AS lines, COALESCE(SUM(received_amount),0) AS received_amount,
                        COALESCE(SUM(balance),0) AS balance
                 FROM customer_receivables
-                WHERE project_code=%s AND serial_no=%s
+                WHERE project_code=%s AND cabinet_no=%s
                 """,
-                (project_code, serial_no),
+                (project_code, cabinet_no),
             )
             receipt = fetch_one(
                 cur,
@@ -149,9 +149,9 @@ def main():
                 SELECT COUNT(*) AS lines, COALESCE(SUM(r.amount),0) AS amount
                 FROM customer_receipts r
                 JOIN customer_receivables cr ON cr.customer_id=r.customer_id
-                WHERE cr.project_code=%s AND cr.serial_no=%s
+                WHERE cr.project_code=%s AND cr.cabinet_no=%s
                 """,
-                (project_code, serial_no),
+                (project_code, cabinet_no),
             )
             payable_after = fetch_one(
                 cur,
@@ -160,9 +160,9 @@ def main():
                        COALESCE(SUM(sp.balance),0) AS balance
                 FROM supplier_payables sp
                 JOIN purchase_orders po ON po.id=sp.doc_id AND sp.doc_type='purchase_order'
-                WHERE po.project_code=%s AND po.serial_no=%s
+                WHERE po.project_code=%s AND po.cabinet_no=%s
                 """,
-                (project_code, serial_no),
+                (project_code, cabinet_no),
             )
             payment = fetch_one(
                 cur,
@@ -170,9 +170,9 @@ def main():
                 SELECT COUNT(*) AS lines, COALESCE(SUM(pay.amount),0) AS amount
                 FROM supplier_payments pay
                 JOIN purchase_orders po ON po.supplier_id=pay.supplier_id
-                WHERE po.project_code=%s AND po.serial_no=%s
+                WHERE po.project_code=%s AND po.cabinet_no=%s
                 """,
-                (project_code, serial_no),
+                (project_code, cabinet_no),
             )
             checks.append(("receivable_received_amount_positive", receivable_after.get("received_amount", 0) > 0, receivable_after.get("received_amount")))
             checks.append(("customer_receipt_traceable", int(receipt.get("lines") or 0) >= 1, receipt.get("amount")))
@@ -183,10 +183,10 @@ def main():
 
     if login.status_code == 302:
         page_expectations = [
-            (f"/receivables?keyword={project_code}", [project_code, serial_no]),
+            (f"/receivables?keyword={project_code}", [project_code, cabinet_no]),
             (f"/payables?keyword={purchase_order['order_no'] if purchase_order else project_code}", [purchase_order["order_no"] if purchase_order else "PO"]),
             (f"/finance?keyword={project_code}", []),
-            (f"/projects?keyword={project_code}", [project_code, serial_no]),
+            (f"/projects?keyword={project_code}", [project_code, cabinet_no]),
         ]
         for path, expected in page_expectations:
             response = client.get(path)
@@ -200,7 +200,7 @@ def main():
     print("first_machine_finance_settlement_audit=ok" if not failures else "first_machine_finance_settlement_audit=failed")
     print(f"checked_items={len(checks)}")
     print(f"project_code={project_code}")
-    print(f"serial_no={serial_no}")
+    print(f"cabinet_no={cabinet_no}")
     for name, ok, detail in checks:
         print(f"{'ok' if ok else 'failed'} | {name} | {detail}")
     return 1 if failures else 0

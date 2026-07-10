@@ -24,7 +24,7 @@
                 <option value="">请选择生产工单</option>
                 {% for wo in work_orders %}
                 <option value="{{ wo.id }}" {% if work_order_id|string == wo.id|string %}selected{% endif %}>
-                    {{ wo.wo_no|clean_text }} / {{ wo.product_name|clean_text or '-' }} / {{ wo.specification|clean_text or '-' }} / {{ wo.product_unit|clean_text or '-' }} / 项目 {{ wo.project_code|clean_text or '-' }} / 机号 {{ wo.serial_no|clean_text or '-' }} / 待完工 {{ wo.remaining_qty|qty }}
+                    {{ wo.wo_no|clean_text }} / {{ wo.product_name|clean_text or '-' }} / {{ wo.specification|clean_text or '-' }} / {{ wo.product_unit|clean_text or '-' }} / 项目 {{ wo.project_code|clean_text or '-' }} / 柜号 {{ wo.cabinet_no|clean_text or '-' }} / 待完工 {{ wo.remaining_qty|qty }}
                 </option>
                 {% endfor %}
             </select>
@@ -46,7 +46,7 @@
             <div class="col-md-3"><strong>工单：</strong>{{ order.wo_no|clean_text }}</div>
             <div class="col-md-3"><strong>产品：</strong>{{ order.product_code|clean_text or order.product_id }} / {{ order.product_name|clean_text or '-' }} / {{ order.specification|clean_text or '-' }} / {{ order.product_unit|clean_text or '-' }}</div>
             <div class="col-md-3"><strong>项目号：</strong>{{ order.project_code|clean_text or '-' }}</div>
-            <div class="col-md-3"><strong>机号：</strong>{{ order.serial_no|clean_text or '-' }}</div>
+            <div class="col-md-3"><strong>柜号：</strong>{{ order.cabinet_no|clean_text or '-' }}</div>
             <div class="col-md-3"><strong>计划数量：</strong>{{ order.quantity|qty }}</div>
             <div class="col-md-3"><strong>已完工：</strong>{{ completed_qty|qty }}</div>
             <div class="col-md-3"><strong>待完工：</strong>{{ remaining_qty|qty }}</div>
@@ -109,8 +109,8 @@
                 <input class="form-control" name="lot_no" value="{{ (doc.lot_no if doc else order.lot_no)|clean_text if (doc and doc.lot_no) or (order and order.lot_no) else '' }}">
             </div>
             <div class="col-md-3">
-                <label class="form-label">机号</label>
-                <input class="form-control" name="serial_no" value="{{ (doc.serial_no if doc else order.serial_no)|clean_text if (doc and doc.serial_no) or (order and order.serial_no) else '' }}">
+                <label class="form-label">柜号</label>
+                <input class="form-control" name="cabinet_no" value="{{ (doc.cabinet_no if doc else order.cabinet_no)|clean_text if (doc and doc.cabinet_no) or (order and order.cabinet_no) else '' }}">
             </div>
             <div class="col-12">
                 <label class="form-label">备注</label>

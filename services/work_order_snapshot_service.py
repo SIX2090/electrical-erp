@@ -100,7 +100,7 @@ def _load_routing_header(query_one, order):
           AND (%s IS NULL OR etc.product_id=%s)
           AND (%s IS NULL OR etc.bom_id=%s)
           AND (COALESCE(%s, '')='' OR COALESCE(etc.project_code, '')=COALESCE(%s, ''))
-          AND (COALESCE(%s, '')='' OR COALESCE(etc.serial_no, '')=COALESCE(%s, ''))
+          AND (COALESCE(%s, '')='' OR COALESCE(etc.cabinet_no, '')=COALESCE(%s, ''))
         ORDER BY etc.confirm_date DESC NULLS LAST, etc.id DESC
         LIMIT 1
         """,
@@ -111,8 +111,8 @@ def _load_routing_header(query_one, order):
             order.get("bom_id"),
             order.get("project_code"),
             order.get("project_code"),
-            order.get("serial_no"),
-            order.get("serial_no"),
+            order.get("cabinet_no"),
+            order.get("cabinet_no"),
         ),
     )
     if routing:
@@ -155,18 +155,18 @@ def _load_drawings(query_rows, order):
         SELECT d.id AS drawing_id, d.drawing_no, d.version, d.status,
                d.effective_date, d.obsolete_date, d.release_no, d.approved_by,
                d.approval_date, d.file_location, d.checksum,
-               dl.product_id, dl.bom_id, dl.project_code, dl.serial_no, dl.usage_scope
+               dl.product_id, dl.bom_id, dl.project_code, dl.cabinet_no, dl.usage_scope
         FROM engineering_drawings d
         LEFT JOIN engineering_drawing_links dl ON dl.drawing_id=d.id
         WHERE d.status='released'
           AND (
                 dl.product_id=%s OR dl.bom_id=%s
                 OR (COALESCE(%s, '')<>'' AND COALESCE(dl.project_code, '')=COALESCE(%s, ''))
-                OR (COALESCE(%s, '')<>'' AND COALESCE(dl.serial_no, '')=COALESCE(%s, ''))
+                OR (COALESCE(%s, '')<>'' AND COALESCE(dl.cabinet_no, '')=COALESCE(%s, ''))
           )
         ORDER BY
           CASE
-            WHEN COALESCE(dl.serial_no, '')=COALESCE(%s, '') AND COALESCE(dl.project_code, '')=COALESCE(%s, '') THEN 100
+            WHEN COALESCE(dl.cabinet_no, '')=COALESCE(%s, '') AND COALESCE(dl.project_code, '')=COALESCE(%s, '') THEN 100
             WHEN dl.bom_id=%s THEN 80
             WHEN dl.product_id=%s THEN 60
             ELSE 10
@@ -179,9 +179,9 @@ def _load_drawings(query_rows, order):
             order.get("bom_id"),
             order.get("project_code"),
             order.get("project_code"),
-            order.get("serial_no"),
-            order.get("serial_no"),
-            order.get("serial_no"),
+            order.get("cabinet_no"),
+            order.get("cabinet_no"),
+            order.get("cabinet_no"),
             order.get("project_code"),
             order.get("bom_id"),
             order.get("product_id"),
@@ -239,7 +239,7 @@ def create_work_order_execution_snapshot(
         snapshot_event=WORK_ORDER_EXECUTION_SNAPSHOT_EVENT,
         snapshot_by=snapshot_by,
         project_code=order.get("project_code"),
-        serial_no=order.get("serial_no"),
+        cabinet_no=order.get("cabinet_no"),
         header_payload=snapshot["header_payload"],
         lines_payload=snapshot["lines_payload"],
         trace_context_payload=snapshot["trace_context_payload"],

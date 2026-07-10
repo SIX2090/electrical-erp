@@ -62,7 +62,7 @@ def ensure_schema(cur):
         "ALTER TABLE production_completion_orders ADD COLUMN IF NOT EXISTS warehouse_id INTEGER",
         "ALTER TABLE production_completion_orders ADD COLUMN IF NOT EXISTS location_id INTEGER",
         "ALTER TABLE production_completion_orders ADD COLUMN IF NOT EXISTS lot_no VARCHAR(120)",
-        "ALTER TABLE production_completion_orders ADD COLUMN IF NOT EXISTS serial_no VARCHAR(120)",
+        "ALTER TABLE production_completion_orders ADD COLUMN IF NOT EXISTS cabinet_no VARCHAR(120)",
         "ALTER TABLE production_completion_orders ADD COLUMN IF NOT EXISTS project_code VARCHAR(120)",
         "ALTER TABLE production_completion_orders ADD COLUMN IF NOT EXISTS status VARCHAR(40) DEFAULT '草稿'",
         "ALTER TABLE production_completion_orders ADD COLUMN IF NOT EXISTS remark TEXT",
@@ -124,7 +124,7 @@ def create_test_data(cur):
         """
         INSERT INTO work_orders
             (wo_no, wo_date, product_id, warehouse_id, location_id, quantity, status,
-             project_code, serial_no, planned_start_date, planned_end_date, remark)
+             project_code, cabinet_no, planned_start_date, planned_end_date, remark)
         VALUES (%s, CURRENT_DATE, %s, %s, %s, %s, %s, %s, %s, CURRENT_DATE, CURRENT_DATE + INTERVAL '1 day', %s)
         RETURNING id
         """,
@@ -154,7 +154,7 @@ def create_test_data(cur):
         INSERT INTO quality_inspection_records
             (inspection_no, product_id, inspection_type, inspection_date, sample_size,
              passed_quantity, failed_quantity, inspection_result, status, source_document_type,
-             source_document_id, project_code, serial_no, conclusion)
+             source_document_id, project_code, cabinet_no, conclusion)
         VALUES (%s, %s, %s, CURRENT_DATE, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """,
         (
@@ -210,7 +210,7 @@ def main() -> int:
                 "warehouse_id": str(warehouse_id or ""),
                 "location_id": str(location_id or ""),
                 "lot_no": f"{PREFIX}-LOT",
-                "serial_no": f"{PREFIX}-SN",
+                "cabinet_no": f"{PREFIX}-SN",
                 "remark": "完工入库全流程测试",
                 "save_action": "draft",
             },

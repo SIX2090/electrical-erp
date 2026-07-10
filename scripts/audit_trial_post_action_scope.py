@@ -52,27 +52,27 @@ def load_trial_ids():
         with conn.cursor() as cur:
             sales_order = fetch_one(
                 cur,
-                "SELECT id FROM sales_orders WHERE project_code=%s AND serial_no=%s ORDER BY id DESC LIMIT 1",
+                "SELECT id FROM sales_orders WHERE project_code=%s AND cabinet_no=%s ORDER BY id DESC LIMIT 1",
                 (PROJECT_CODE, SERIAL_NO),
             )
             purchase_order = fetch_one(
                 cur,
-                "SELECT id FROM purchase_orders WHERE project_code=%s AND serial_no=%s ORDER BY id DESC LIMIT 1",
+                "SELECT id FROM purchase_orders WHERE project_code=%s AND cabinet_no=%s ORDER BY id DESC LIMIT 1",
                 (PROJECT_CODE, SERIAL_NO),
             )
             work_order = fetch_one(
                 cur,
-                "SELECT id FROM work_orders WHERE project_code=%s AND serial_no=%s ORDER BY id DESC LIMIT 1",
+                "SELECT id FROM work_orders WHERE project_code=%s AND cabinet_no=%s ORDER BY id DESC LIMIT 1",
                 (PROJECT_CODE, SERIAL_NO),
             )
             service_order = fetch_one(
                 cur,
-                "SELECT id FROM machine_service_orders WHERE project_code=%s AND serial_no=%s ORDER BY id DESC LIMIT 1",
+                "SELECT id FROM machine_service_orders WHERE project_code=%s AND cabinet_no=%s ORDER BY id DESC LIMIT 1",
                 (PROJECT_CODE, SERIAL_NO),
             )
             receivable = fetch_one(
                 cur,
-                "SELECT id FROM customer_receivables WHERE project_code=%s AND serial_no=%s ORDER BY id DESC LIMIT 1",
+                "SELECT id FROM customer_receivables WHERE project_code=%s AND cabinet_no=%s ORDER BY id DESC LIMIT 1",
                 (PROJECT_CODE, SERIAL_NO),
             )
             payable = fetch_one(
@@ -81,7 +81,7 @@ def load_trial_ids():
                 SELECT sp.id
                 FROM supplier_payables sp
                 JOIN purchase_orders po ON po.id=sp.doc_id AND sp.doc_type='purchase_order'
-                WHERE po.project_code=%s AND po.serial_no=%s
+                WHERE po.project_code=%s AND po.cabinet_no=%s
                 ORDER BY sp.id DESC
                 LIMIT 1
                 """,
@@ -202,7 +202,7 @@ def main():
     print("trial_post_action_scope_audit=ok" if not failures else "trial_post_action_scope_audit=failed")
     print(f"checked_items={len(checks)}")
     print(f"project_code={PROJECT_CODE}")
-    print(f"serial_no={SERIAL_NO}")
+    print(f"cabinet_no={SERIAL_NO}")
     for name, ok, detail in checks:
         print(f"{'ok' if ok else 'failed'} | {name} | {detail}")
     return 1 if failures else 0

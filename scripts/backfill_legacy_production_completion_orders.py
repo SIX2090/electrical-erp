@@ -50,7 +50,7 @@ def ensure_schema(cur):
             warehouse_id INTEGER,
             location_id INTEGER,
             lot_no VARCHAR(120),
-            serial_no VARCHAR(120),
+            cabinet_no VARCHAR(120),
             project_code VARCHAR(120),
             status VARCHAR(40) DEFAULT '已过账',
             remark TEXT,
@@ -72,7 +72,7 @@ def ensure_schema(cur):
         "ALTER TABLE production_completion_orders ADD COLUMN IF NOT EXISTS warehouse_id INTEGER",
         "ALTER TABLE production_completion_orders ADD COLUMN IF NOT EXISTS location_id INTEGER",
         "ALTER TABLE production_completion_orders ADD COLUMN IF NOT EXISTS lot_no VARCHAR(120)",
-        "ALTER TABLE production_completion_orders ADD COLUMN IF NOT EXISTS serial_no VARCHAR(120)",
+        "ALTER TABLE production_completion_orders ADD COLUMN IF NOT EXISTS cabinet_no VARCHAR(120)",
         "ALTER TABLE production_completion_orders ADD COLUMN IF NOT EXISTS project_code VARCHAR(120)",
         "ALTER TABLE production_completion_orders ADD COLUMN IF NOT EXISTS status VARCHAR(40) DEFAULT '已过账'",
         "ALTER TABLE production_completion_orders ADD COLUMN IF NOT EXISTS remark TEXT",
@@ -102,7 +102,7 @@ def fetch_missing(cur, limit):
     cur.execute(
         """
         SELECT wc.id, wo.wo_no, wc.wo_id, wc.product_id, wc.qty, wc.complete_date,
-               wo.project_code, wo.serial_no, wo.warehouse_id
+               wo.project_code, wo.cabinet_no, wo.warehouse_id
         FROM wo_complete_items wc
         LEFT JOIN work_orders wo ON wo.id=wc.wo_id
         WHERE NOT EXISTS (
@@ -123,7 +123,7 @@ def insert_missing(cur):
         """
         INSERT INTO production_completion_orders
             (completion_no, completion_date, work_order_id, product_id, quantity, failed_quantity,
-             unit_cost, warehouse_id, location_id, lot_no, serial_no, project_code, status, remark,
+             unit_cost, warehouse_id, location_id, lot_no, cabinet_no, project_code, status, remark,
              posted_at, wo_complete_item_id, created_at, updated_at)
         SELECT
             'PC-HIST-' || wc.id::text,
@@ -136,7 +136,7 @@ def insert_missing(cur):
             wo.warehouse_id,
             NULL,
             NULL,
-            wo.serial_no,
+            wo.cabinet_no,
             wo.project_code,
             '已过账',
             '历史完工关联单；库存已由历史完工记录产生，本脚本不重复过账。',

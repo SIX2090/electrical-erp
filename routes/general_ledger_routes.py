@@ -45,7 +45,7 @@ def register_general_ledger_routes(app, query_db, _login_required):
             'start_date': request.args.get('start_date'),
             'end_date': request.args.get('end_date'),
             'project_code': request.args.get('project_code'),
-            'serial_no': request.args.get('serial_no')
+            'cabinet_no': request.args.get('cabinet_no')
         }
 
         rows = []

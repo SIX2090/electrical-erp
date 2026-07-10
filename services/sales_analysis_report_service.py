@@ -23,8 +23,8 @@ REPORT_META = {
         "title": "销售日报",
         "subtitle": "按日期汇总新增订单、发货、开票和收款金额。",
     },
-    "project-serial-gross-margin": {
-        "title": "项目/机号销售毛利分析",
+    "project-cabinet-gross-margin": {
+        "title": "项目/柜号销售毛利分析",
         "subtitle": "经营毛利/发货成本口径；成本不完整时标注成本未核准。",
     },
 }
@@ -113,9 +113,9 @@ def get_price_execution_analysis(query_db, args=None):
         params,
         filters,
         "so.order_date",
-        ("so.order_no", "c.name", "p.code", "p.name", "so.project_code", "so.serial_no"),
+        ("so.order_no", "c.name", "p.code", "p.name", "so.project_code", "so.cabinet_no"),
         "so.status",
-        ("so.project_code", "so.serial_no", "soi.line_project_code", "soi.line_serial_no"),
+        ("so.project_code", "so.cabinet_no", "soi.line_project_code", "soi.line_cabinet_no"),
     )
     sql = f"""
         WITH latest_customer_price AS (
@@ -150,7 +150,7 @@ def get_price_execution_analysis(query_db, args=None):
             so.order_date,
             c.name AS customer_name,
             COALESCE(so.project_code, soi.line_project_code) AS project_code,
-            COALESCE(so.serial_no, soi.line_serial_no) AS serial_no,
+            COALESCE(so.cabinet_no, soi.line_cabinet_no) AS cabinet_no,
             p.code AS product_code,
             COALESCE(p.name, soi.material_name) AS product_name,
             p.specification,
@@ -208,7 +208,7 @@ def get_price_execution_analysis(query_db, args=None):
             {"key": "order_date", "label": "订单日期"},
             {"key": "customer_name", "label": "客户"},
             {"key": "project_code", "label": "项目号"},
-            {"key": "serial_no", "label": "机号"},
+            {"key": "cabinet_no", "label": "柜号"},
             {"key": "product_code", "label": "物料编码"},
             {"key": "product_name", "label": "物料名称"},
             {"key": "specification", "label": "规格"},
@@ -234,9 +234,9 @@ def get_delivery_delay_analysis(query_db, args=None):
         params,
         filters,
         "COALESCE(so.delivery_date, so.order_date)",
-        ("so.order_no", "c.name", "so.project_code", "so.serial_no", "p.code", "p.name"),
+        ("so.order_no", "c.name", "so.project_code", "so.cabinet_no", "p.code", "p.name"),
         "so.status",
-        ("so.project_code", "so.serial_no", "soi.line_project_code", "soi.line_serial_no"),
+        ("so.project_code", "so.cabinet_no", "soi.line_project_code", "soi.line_cabinet_no"),
     )
     sql = f"""
         WITH order_qty AS (
@@ -268,7 +268,7 @@ def get_delivery_delay_analysis(query_db, args=None):
             shipped.last_shipment_date,
             c.name AS customer_name,
             so.project_code,
-            so.serial_no,
+            so.cabinet_no,
             first_item.product_code,
             first_item.product_name,
             COALESCE(order_qty.order_qty, 0) AS order_qty,
@@ -325,7 +325,7 @@ def get_delivery_delay_analysis(query_db, args=None):
             {"key": "last_shipment_date", "label": "末次发货"},
             {"key": "customer_name", "label": "客户"},
             {"key": "project_code", "label": "项目号"},
-            {"key": "serial_no", "label": "机号"},
+            {"key": "cabinet_no", "label": "柜号"},
             {"key": "order_qty", "label": "订单数量", "align": "right"},
             {"key": "shipped_qty", "label": "已发数量", "align": "right"},
             {"key": "open_qty", "label": "未交数量", "align": "right"},
@@ -482,7 +482,7 @@ def get_sales_daily(query_db, args=None):
     }
 
 
-def get_project_serial_gross_margin(query_db, args=None):
+def get_project_cabinet_gross_margin(query_db, args=None):
     filters = build_filters(args)
     where = ["COALESCE(ss.status, '') NOT IN %s"]
     params = [VOID_STATUSES]
@@ -491,14 +491,14 @@ def get_project_serial_gross_margin(query_db, args=None):
         params,
         filters,
         "ss.shipment_date",
-        ("ss.shipment_no", "so.order_no", "c.name", "p.code", "p.name", "ss.project_code", "ss.serial_no"),
+        ("ss.shipment_no", "so.order_no", "c.name", "p.code", "p.name", "ss.project_code", "ss.cabinet_no"),
         "ss.status",
-        ("ss.project_code", "ss.serial_no", "so.project_code", "so.serial_no"),
+        ("ss.project_code", "ss.cabinet_no", "so.project_code", "so.cabinet_no"),
     )
     sql = f"""
         SELECT
             COALESCE(NULLIF(ss.project_code, ''), NULLIF(so.project_code, ''), '(未填项目号)') AS project_code,
-            COALESCE(NULLIF(ss.serial_no, ''), NULLIF(so.serial_no, ''), '(未填机号)') AS serial_no,
+            COALESCE(NULLIF(ss.cabinet_no, ''), NULLIF(so.cabinet_no, ''), '(未填柜号)') AS cabinet_no,
             c.name AS customer_name,
             MIN(ss.shipment_date) AS first_shipment_date,
             MAX(ss.shipment_date) AS last_shipment_date,
@@ -520,9 +520,9 @@ def get_project_serial_gross_margin(query_db, args=None):
         {_where_clause(where)}
         GROUP BY
             COALESCE(NULLIF(ss.project_code, ''), NULLIF(so.project_code, ''), '(未填项目号)'),
-            COALESCE(NULLIF(ss.serial_no, ''), NULLIF(so.serial_no, ''), '(未填机号)'),
+            COALESCE(NULLIF(ss.cabinet_no, ''), NULLIF(so.cabinet_no, ''), '(未填柜号)'),
             c.name
-        ORDER BY sales_revenue DESC, project_code, serial_no
+        ORDER BY sales_revenue DESC, project_code, cabinet_no
         LIMIT 500
     """
     rows = query_db(sql, tuple(params))
@@ -539,11 +539,11 @@ def get_project_serial_gross_margin(query_db, args=None):
             {"label": "销售收入", "value": _money(sum(as_decimal_safe(row.get("sales_revenue")) for row in rows)), "hint": "发货行销售金额"},
             {"label": "发货成本", "value": _money(sum(as_decimal_safe(row.get("shipment_cost")) for row in rows)), "hint": "发货行成本口径"},
             {"label": "经营毛利", "value": _money(sum(as_decimal_safe(row.get("gross_margin")) for row in rows)), "hint": "销售收入 - 发货成本"},
-            {"label": "成本未核准项", "value": sum(1 for row in rows if row.get("cost_status") == "成本未核准"), "hint": "存在成本为空的项目/机号"},
+            {"label": "成本未核准项", "value": sum(1 for row in rows if row.get("cost_status") == "成本未核准"), "hint": "存在成本为空的项目/柜号"},
         ],
         "columns": [
             {"key": "project_code", "label": "项目号"},
-            {"key": "serial_no", "label": "机号"},
+            {"key": "cabinet_no", "label": "柜号"},
             {"key": "customer_name", "label": "客户"},
             {"key": "first_shipment_date", "label": "首发日期"},
             {"key": "last_shipment_date", "label": "末发日期"},
@@ -566,7 +566,7 @@ REPORT_BUILDERS = {
     "delivery-delay-analysis": get_delivery_delay_analysis,
     "operation-snapshot": get_operation_snapshot,
     "daily": get_sales_daily,
-    "project-serial-gross-margin": get_project_serial_gross_margin,
+    "project-cabinet-gross-margin": get_project_cabinet_gross_margin,
 }
 
 

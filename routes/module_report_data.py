@@ -97,23 +97,23 @@ def _build_inventory_report_config(query_rows, as_decimal, money_metric, qty_met
     balance_where, balance_params, filters = report_where_from_args(
         request_args,
         "COALESCE(ib.updated_at::date, CURRENT_DATE)",
-        ("p.code", "p.name", "p.specification", "w.name", "l.code", "l.name", "ib.lot_no", "ib.serial_no", "ib.project_code"),
+        ("p.code", "p.name", "p.specification", "w.name", "l.code", "l.name", "ib.lot_no", "ib.cabinet_no", "ib.project_code"),
         None,
-        ("ib.project_code", "ib.serial_no"),
+        ("ib.project_code", "ib.cabinet_no"),
     )
     tx_where, tx_params, _ = report_where_from_args(
         request_args,
         "COALESCE(st.transaction_date::date, st.created_at::date, CURRENT_DATE)",
-        ("p.code", "p.name", "p.specification", "w.name", "l.code", "l.name", "st.reference_no", "st.lot_no", "st.serial_no", "st.project_code"),
+        ("p.code", "p.name", "p.specification", "w.name", "l.code", "l.name", "st.reference_no", "st.lot_no", "st.cabinet_no", "st.project_code"),
         None,
-        ("st.project_code", "st.serial_no"),
+        ("st.project_code", "st.cabinet_no"),
     )
     batch_where, batch_params, _ = report_where_from_args(
         request_args,
         "COALESCE(bt.updated_at::date, CURRENT_DATE)",
-        ("p.code", "p.name", "p.specification", "w.name", "bt.location", "bt.lot_no", "bt.serial_no", "bt.project_code", "bt.source_order_no"),
+        ("p.code", "p.name", "p.specification", "w.name", "bt.location", "bt.lot_no", "bt.cabinet_no", "bt.project_code", "bt.source_order_no"),
         None,
-        ("bt.project_code", "bt.serial_no"),
+        ("bt.project_code", "bt.cabinet_no"),
     )
     date_start = filters.get("date_start") or "1900-01-01"
     date_end = filters.get("date_end") or "2999-12-31"
@@ -177,7 +177,7 @@ def _build_inventory_report_config(query_rows, as_decimal, money_metric, qty_met
                st.reference_no, st.source_type, st.transaction_type,
                p.code AS product_code, p.name AS product_name, p.specification,
                w.name AS warehouse_name, l.code AS location_code, l.name AS location_name,
-               st.project_code, st.lot_no, st.serial_no,
+               st.project_code, st.lot_no, st.cabinet_no,
                CASE WHEN COALESCE(st.quantity,0) >= 0 THEN COALESCE(st.quantity,0) ELSE 0 END AS inbound_qty,
                CASE WHEN COALESCE(st.quantity,0) < 0 THEN ABS(COALESCE(st.quantity,0)) ELSE 0 END AS outbound_qty,
                COALESCE(st.quantity,0) AS net_qty,
@@ -200,7 +200,7 @@ def _build_inventory_report_config(query_rows, as_decimal, money_metric, qty_met
                st.reference_no, st.source_type, st.transaction_type,
                p.code AS product_code, p.name AS product_name, p.specification,
                w.name AS warehouse_name, l.code AS location_code, l.name AS location_name,
-               st.project_code, st.lot_no, st.serial_no,
+               st.project_code, st.lot_no, st.cabinet_no,
                CASE WHEN COALESCE(st.quantity,0) >= 0 THEN COALESCE(st.quantity,0) ELSE 0 END AS inbound_qty,
                CASE WHEN COALESCE(st.quantity,0) < 0 THEN ABS(COALESCE(st.quantity,0)) ELSE 0 END AS outbound_qty,
                COALESCE(st.quantity,0) AS net_qty,
@@ -247,7 +247,7 @@ def _build_inventory_report_config(query_rows, as_decimal, money_metric, qty_met
         WITH tx AS (
             SELECT st.product_id, st.warehouse_id, st.location_id,
                    COALESCE(st.lot_no, '') AS lot_no,
-                   COALESCE(st.serial_no, '') AS serial_no,
+                   COALESCE(st.cabinet_no, '') AS cabinet_no,
                    COALESCE(st.project_code, '') AS project_code,
                    SUM(CASE WHEN COALESCE(st.transaction_date::date, st.created_at::date, CURRENT_DATE) < %s THEN COALESCE(st.quantity,0) ELSE 0 END) AS opening_qty,
                    SUM(CASE WHEN COALESCE(st.transaction_date::date, st.created_at::date, CURRENT_DATE) BETWEEN %s AND %s AND COALESCE(st.quantity,0) >= 0 THEN COALESCE(st.quantity,0) ELSE 0 END) AS inbound_qty,
@@ -259,31 +259,31 @@ def _build_inventory_report_config(query_rows, as_decimal, money_metric, qty_met
             LEFT JOIN locations l ON l.id=st.location_id
             {tx_where}
             GROUP BY st.product_id, st.warehouse_id, st.location_id,
-                     COALESCE(st.lot_no, ''), COALESCE(st.serial_no, ''), COALESCE(st.project_code, '')
+                     COALESCE(st.lot_no, ''), COALESCE(st.cabinet_no, ''), COALESCE(st.project_code, '')
         ),
         purchase_pending AS (
             SELECT poi.product_id,
                    COALESCE(po.project_code, '') AS project_code,
-                   COALESCE(po.serial_no, '') AS serial_no,
+                   COALESCE(po.cabinet_no, '') AS cabinet_no,
                    SUM(GREATEST(COALESCE(poi.quantity,0)-COALESCE(poi.received_qty,0),0)) AS purchase_pending_qty
             FROM purchase_order_items poi
             JOIN purchase_orders po ON po.id=poi.order_id
             WHERE COALESCE(po.status,'') NOT IN ('已关闭','已作废','已取消','closed','void','cancelled','canceled')
-            GROUP BY poi.product_id, COALESCE(po.project_code, ''), COALESCE(po.serial_no, '')
+            GROUP BY poi.product_id, COALESCE(po.project_code, ''), COALESCE(po.cabinet_no, '')
         ),
         sales_pending AS (
             SELECT soi.product_id,
                    COALESCE(so.project_code, '') AS project_code,
-                   COALESCE(so.serial_no, '') AS serial_no,
+                   COALESCE(so.cabinet_no, '') AS cabinet_no,
                    SUM(GREATEST(COALESCE(soi.quantity,0)-COALESCE(soi.shipped_qty,0),0)) AS sales_pending_qty
             FROM sales_order_items soi
             JOIN sales_orders so ON so.id=soi.order_id
             WHERE COALESCE(so.status,'') NOT IN ('已关闭','已作废','已取消','closed','void','cancelled','canceled')
-            GROUP BY soi.product_id, COALESCE(so.project_code, ''), COALESCE(so.serial_no, '')
+            GROUP BY soi.product_id, COALESCE(so.project_code, ''), COALESCE(so.cabinet_no, '')
         )
         SELECT p.code AS product_code, p.name AS product_name, p.specification,
                w.name AS warehouse_name, l.code AS location_code, l.name AS location_name,
-               tx.project_code, tx.lot_no, tx.serial_no,
+               tx.project_code, tx.lot_no, tx.cabinet_no,
                tx.opening_qty, tx.inbound_qty, tx.outbound_qty,
                (COALESCE(tx.opening_qty,0) + COALESCE(tx.inbound_qty,0) - COALESCE(tx.outbound_qty,0)) AS closing_qty,
                COALESCE(purchase_pending.purchase_pending_qty, 0) AS purchase_pending_qty,
@@ -296,11 +296,11 @@ def _build_inventory_report_config(query_rows, as_decimal, money_metric, qty_met
         LEFT JOIN locations l ON l.id=tx.location_id
         LEFT JOIN purchase_pending ON purchase_pending.product_id=tx.product_id
             AND purchase_pending.project_code=tx.project_code
-            AND purchase_pending.serial_no=tx.serial_no
+            AND purchase_pending.cabinet_no=tx.cabinet_no
         LEFT JOIN sales_pending ON sales_pending.product_id=tx.product_id
             AND sales_pending.project_code=tx.project_code
-            AND sales_pending.serial_no=tx.serial_no
-        ORDER BY p.code, w.name, l.code, tx.lot_no, tx.serial_no
+            AND sales_pending.cabinet_no=tx.cabinet_no
+        ORDER BY p.code, w.name, l.code, tx.lot_no, tx.cabinet_no
         LIMIT 300
         """,
         (date_start, date_start, date_end, date_start, date_end) + tx_params,
@@ -311,7 +311,7 @@ def _build_inventory_report_config(query_rows, as_decimal, money_metric, qty_met
         WITH tx AS (
             SELECT st.product_id, st.warehouse_id, st.location_id,
                    COALESCE(st.lot_no, '') AS lot_no,
-                   COALESCE(st.serial_no, '') AS serial_no,
+                   COALESCE(st.cabinet_no, '') AS cabinet_no,
                    COALESCE(st.project_code, '') AS project_code,
                    SUM(CASE WHEN COALESCE(st.transaction_date::date, st.created_at::date, CURRENT_DATE) < %s THEN COALESCE(st.quantity,0) ELSE 0 END) AS opening_qty,
                    SUM(CASE WHEN COALESCE(st.transaction_date::date, st.created_at::date, CURRENT_DATE) < %s THEN COALESCE(st.quantity,0) * COALESCE(st.unit_cost,0) ELSE 0 END) AS opening_amount,
@@ -326,11 +326,11 @@ def _build_inventory_report_config(query_rows, as_decimal, money_metric, qty_met
             LEFT JOIN locations l ON l.id=st.location_id
             {tx_where}
             GROUP BY st.product_id, st.warehouse_id, st.location_id,
-                     COALESCE(st.lot_no, ''), COALESCE(st.serial_no, ''), COALESCE(st.project_code, '')
+                     COALESCE(st.lot_no, ''), COALESCE(st.cabinet_no, ''), COALESCE(st.project_code, '')
         )
         SELECT p.code AS product_code, p.name AS product_name, p.specification,
                w.name AS warehouse_name, l.code AS location_code, l.name AS location_name,
-               tx.project_code, tx.lot_no, tx.serial_no,
+               tx.project_code, tx.lot_no, tx.cabinet_no,
                tx.opening_qty, tx.opening_amount,
                tx.inbound_qty, tx.inbound_amount,
                tx.outbound_qty, tx.outbound_amount,
@@ -341,7 +341,7 @@ def _build_inventory_report_config(query_rows, as_decimal, money_metric, qty_met
         LEFT JOIN products p ON p.id=tx.product_id
         LEFT JOIN warehouses w ON w.id=tx.warehouse_id
         LEFT JOIN locations l ON l.id=tx.location_id
-        ORDER BY p.code, w.name, l.code, tx.project_code, tx.lot_no, tx.serial_no
+        ORDER BY p.code, w.name, l.code, tx.project_code, tx.lot_no, tx.cabinet_no
         LIMIT 300
         """,
         (
@@ -408,16 +408,16 @@ def _build_inventory_report_config(query_rows, as_decimal, money_metric, qty_met
         WITH last_tx AS (
             SELECT product_id, warehouse_id, location_id,
                    COALESCE(lot_no, '') AS lot_no,
-                   COALESCE(serial_no, '') AS serial_no,
+                   COALESCE(cabinet_no, '') AS cabinet_no,
                    COALESCE(project_code, '') AS project_code,
                    MAX(COALESCE(transaction_date::date, created_at::date)) AS last_transaction_date
             FROM stock_transactions
             GROUP BY product_id, warehouse_id, location_id,
-                     COALESCE(lot_no, ''), COALESCE(serial_no, ''), COALESCE(project_code, '')
+                     COALESCE(lot_no, ''), COALESCE(cabinet_no, ''), COALESCE(project_code, '')
         )
         SELECT p.code AS product_code, p.name AS product_name, p.specification,
                w.name AS warehouse_name, l.code AS location_code, l.name AS location_name,
-               ib.project_code, ib.lot_no, ib.serial_no,
+               ib.project_code, ib.lot_no, ib.cabinet_no,
                ib.quantity AS closing_qty, ib.locked_qty, ib.unit_cost,
                COALESCE(ib.quantity,0) * COALESCE(ib.unit_cost,0) AS stock_amount,
                last_tx.last_transaction_date,
@@ -435,7 +435,7 @@ def _build_inventory_report_config(query_rows, as_decimal, money_metric, qty_met
             AND COALESCE(last_tx.warehouse_id,0)=COALESCE(ib.warehouse_id,0)
             AND COALESCE(last_tx.location_id,0)=COALESCE(ib.location_id,0)
             AND last_tx.lot_no=COALESCE(ib.lot_no,'')
-            AND last_tx.serial_no=COALESCE(ib.serial_no,'')
+            AND last_tx.cabinet_no=COALESCE(ib.cabinet_no,'')
             AND last_tx.project_code=COALESCE(ib.project_code,'')
         {balance_where}
         ORDER BY stock_amount DESC NULLS LAST, p.code
@@ -450,7 +450,7 @@ def _build_inventory_report_config(query_rows, as_decimal, money_metric, qty_met
         WITH tx AS (
             SELECT product_id, warehouse_id, location_id,
                    COALESCE(lot_no, '') AS lot_no,
-                   COALESCE(serial_no, '') AS serial_no,
+                   COALESCE(cabinet_no, '') AS cabinet_no,
                    COALESCE(project_code, '') AS project_code,
                    COUNT(*) AS transaction_count,
                    MIN(COALESCE(transaction_date::date, created_at::date)) AS first_transaction_date,
@@ -459,9 +459,9 @@ def _build_inventory_report_config(query_rows, as_decimal, money_metric, qty_met
                    SUM(CASE WHEN COALESCE(quantity,0) < 0 THEN ABS(COALESCE(quantity,0)) ELSE 0 END) AS outbound_qty
             FROM stock_transactions
             GROUP BY product_id, warehouse_id, location_id,
-                     COALESCE(lot_no, ''), COALESCE(serial_no, ''), COALESCE(project_code, '')
+                     COALESCE(lot_no, ''), COALESCE(cabinet_no, ''), COALESCE(project_code, '')
         )
-        SELECT bt.lot_no, bt.serial_no, bt.project_code,
+        SELECT bt.lot_no, bt.cabinet_no, bt.project_code,
                p.code AS product_code, p.name AS product_name, p.specification,
                w.name AS warehouse_name, COALESCE(l.code, bt.location) AS location_code,
                bt.quantity_available AS closing_qty,
@@ -478,7 +478,7 @@ def _build_inventory_report_config(query_rows, as_decimal, money_metric, qty_met
             AND COALESCE(tx.warehouse_id,0)=COALESCE(bt.warehouse_id,0)
             AND COALESCE(tx.location_id,0)=COALESCE(bt.location_id,0)
             AND tx.lot_no=COALESCE(bt.lot_no,'')
-            AND tx.serial_no=COALESCE(bt.serial_no,'')
+            AND tx.cabinet_no=COALESCE(bt.cabinet_no,'')
             AND tx.project_code=COALESCE(bt.project_code,'')
         {batch_where}
         ORDER BY bt.updated_at DESC NULLS LAST, bt.id DESC
@@ -491,7 +491,7 @@ def _build_inventory_report_config(query_rows, as_decimal, money_metric, qty_met
         f"""
         SELECT p.code AS product_code, p.name AS product_name, p.specification,
                w.name AS warehouse_name, l.code AS location_code, l.name AS location_name,
-               ib.project_code, ib.lot_no, ib.serial_no,
+               ib.project_code, ib.lot_no, ib.cabinet_no,
                ib.quantity AS stock_qty,
                COALESCE(ib.locked_qty,0) AS locked_qty,
                COALESCE(ib.quantity,0) - COALESCE(ib.locked_qty,0) AS available_qty,
@@ -503,7 +503,7 @@ def _build_inventory_report_config(query_rows, as_decimal, money_metric, qty_met
         LEFT JOIN warehouses w ON w.id=ib.warehouse_id
         LEFT JOIN locations l ON l.id=ib.location_id
         {balance_where}
-        ORDER BY p.code, w.name, l.code, ib.lot_no, ib.serial_no
+        ORDER BY p.code, w.name, l.code, ib.lot_no, ib.cabinet_no
         LIMIT 300
         """,
         balance_params,
@@ -514,7 +514,7 @@ def _build_inventory_report_config(query_rows, as_decimal, money_metric, qty_met
         WITH tx AS (
             SELECT product_id, warehouse_id, location_id,
                    COALESCE(lot_no, '') AS lot_no,
-                   COALESCE(serial_no, '') AS serial_no,
+                   COALESCE(cabinet_no, '') AS cabinet_no,
                    COALESCE(project_code, '') AS project_code,
                    SUM(CASE WHEN COALESCE(transaction_date::date, created_at::date, CURRENT_DATE) BETWEEN %s AND %s AND COALESCE(quantity,0) >= 0 THEN COALESCE(quantity,0) ELSE 0 END) AS inbound_qty,
                    SUM(CASE WHEN COALESCE(transaction_date::date, created_at::date, CURRENT_DATE) BETWEEN %s AND %s AND COALESCE(quantity,0) >= 0 THEN COALESCE(quantity,0) * COALESCE(unit_cost,0) ELSE 0 END) AS inbound_amount,
@@ -523,11 +523,11 @@ def _build_inventory_report_config(query_rows, as_decimal, money_metric, qty_met
                    MAX(COALESCE(transaction_date::date, created_at::date)) AS last_transaction_date
             FROM stock_transactions
             GROUP BY product_id, warehouse_id, location_id,
-                     COALESCE(lot_no, ''), COALESCE(serial_no, ''), COALESCE(project_code, '')
+                     COALESCE(lot_no, ''), COALESCE(cabinet_no, ''), COALESCE(project_code, '')
         )
         SELECT p.code AS product_code, p.name AS product_name, p.specification,
                w.name AS warehouse_name, l.code AS location_code, l.name AS location_name,
-               ib.project_code, ib.lot_no, ib.serial_no,
+               ib.project_code, ib.lot_no, ib.cabinet_no,
                COALESCE(tx.inbound_qty,0) AS inbound_qty,
                COALESCE(tx.inbound_amount,0) AS inbound_amount,
                COALESCE(tx.outbound_qty,0) AS outbound_qty,
@@ -547,7 +547,7 @@ def _build_inventory_report_config(query_rows, as_decimal, money_metric, qty_met
             AND COALESCE(tx.warehouse_id,0)=COALESCE(ib.warehouse_id,0)
             AND COALESCE(tx.location_id,0)=COALESCE(ib.location_id,0)
             AND tx.lot_no=COALESCE(ib.lot_no,'')
-            AND tx.serial_no=COALESCE(ib.serial_no,'')
+            AND tx.cabinet_no=COALESCE(ib.cabinet_no,'')
             AND tx.project_code=COALESCE(ib.project_code,'')
         {balance_where}
         ORDER BY closing_amount DESC NULLS LAST, p.code, w.name, l.code
@@ -626,7 +626,7 @@ def _build_inventory_report_config(query_rows, as_decimal, money_metric, qty_met
         ("project-occupation",),
         f"""
         SELECT COALESCE(ib.project_code,'') AS project_code,
-               COALESCE(ib.serial_no,'') AS serial_no,
+               COALESCE(ib.cabinet_no,'') AS cabinet_no,
                p.code AS product_code, p.name AS product_name, p.specification,
                w.name AS warehouse_name, l.code AS location_code,
                SUM(COALESCE(ib.quantity,0)) AS stock_qty,
@@ -637,9 +637,9 @@ def _build_inventory_report_config(query_rows, as_decimal, money_metric, qty_met
         LEFT JOIN warehouses w ON w.id=ib.warehouse_id
         LEFT JOIN locations l ON l.id=ib.location_id
         {balance_where}
-        GROUP BY COALESCE(ib.project_code,''), COALESCE(ib.serial_no,''), p.code, p.name, p.specification, w.name, l.code
-        HAVING COALESCE(ib.project_code,'') <> '' OR COALESCE(ib.serial_no,'') <> ''
-        ORDER BY stock_amount DESC NULLS LAST, project_code, serial_no
+        GROUP BY COALESCE(ib.project_code,''), COALESCE(ib.cabinet_no,''), p.code, p.name, p.specification, w.name, l.code
+        HAVING COALESCE(ib.project_code,'') <> '' OR COALESCE(ib.cabinet_no,'') <> ''
+        ORDER BY stock_amount DESC NULLS LAST, project_code, cabinet_no
         LIMIT 300
         """,
         balance_params,
@@ -655,7 +655,7 @@ def _build_inventory_report_config(query_rows, as_decimal, money_metric, qty_met
                 STRING_AGG(DISTINCT sio.issue_no, ', ' ORDER BY sio.issue_no) AS issue_nos,
                 STRING_AGG(DISTINCT so.order_no, ', ' ORDER BY so.order_no) AS order_nos,
                 STRING_AGG(DISTINCT NULLIF(COALESCE(sil.project_code, so.project_code, ''), ''), ', ') AS project_code,
-                STRING_AGG(DISTINCT NULLIF(COALESCE(sil.serial_no, so.serial_no, ''), ''), ', ') AS serial_no,
+                STRING_AGG(DISTINCT NULLIF(COALESCE(sil.cabinet_no, so.cabinet_no, ''), ''), ', ') AS cabinet_no,
                 SUM(COALESCE(sil.quantity, 0)) AS issued_qty
             FROM subcontract_issue_lines sil
             JOIN subcontract_issue_orders sio ON sio.id=sil.issue_id
@@ -683,7 +683,7 @@ def _build_inventory_report_config(query_rows, as_decimal, money_metric, qty_met
             receive.last_receive_date,
             GREATEST(CURRENT_DATE - COALESCE(issue.first_issue_date, CURRENT_DATE), 0) AS days_outstanding,
             COALESCE(issue.project_code, '') AS project_code,
-            COALESCE(issue.serial_no, '') AS serial_no,
+            COALESCE(issue.cabinet_no, '') AS cabinet_no,
             p.code AS product_code,
             p.name AS product_name,
             p.specification,
@@ -760,7 +760,7 @@ def _build_inventory_report_config(query_rows, as_decimal, money_metric, qty_met
             COALESCE(so.material_name, p.name) AS product_name,
             COALESCE(so.material_spec, p.specification) AS specification,
             so.project_code,
-            so.serial_no,
+            so.cabinet_no,
             COALESCE(so.quantity, 0) AS order_qty,
             COALESCE(issue.issued_qty, 0) AS issued_qty,
             COALESCE(receive.received_qty, 0) AS received_qty,
@@ -795,7 +795,7 @@ def _build_inventory_report_config(query_rows, as_decimal, money_metric, qty_met
             COALESCE(sil.material_name, p.name) AS product_name,
             COALESCE(sil.material_spec, p.specification) AS specification,
             sil.project_code,
-            sil.serial_no,
+            sil.cabinet_no,
             COALESCE(sil.quantity, 0) AS issue_qty,
             0::numeric AS receive_qty,
             0::numeric AS short_qty,
@@ -820,7 +820,7 @@ def _build_inventory_report_config(query_rows, as_decimal, money_metric, qty_met
             COALESCE(srl.material_name, p.name) AS product_name,
             COALESCE(srl.material_spec, p.specification) AS specification,
             srl.project_code,
-            srl.serial_no,
+            srl.cabinet_no,
             0::numeric AS issue_qty,
             COALESCE(srl.quantity, 0) AS receive_qty,
             COALESCE(sro.short_qty, 0) AS short_qty,
@@ -847,7 +847,7 @@ def _build_inventory_report_config(query_rows, as_decimal, money_metric, qty_met
             so.order_no,
             s.name AS processor_name,
             so.project_code AS project_code,
-            so.serial_no AS serial_no,
+            so.cabinet_no AS cabinet_no,
             COALESCE(sro.total_quantity, 0) AS received_qty,
             COALESCE(sro.short_qty, 0) AS short_qty,
             COALESCE(sro.scrap_qty, 0) AS scrap_qty,
@@ -886,7 +886,7 @@ def _build_inventory_report_config(query_rows, as_decimal, money_metric, qty_met
             COALESCE(so.order_no, sro.receive_no, sp.doc_no) AS subcontract_doc_no,
             s.name AS processor_name,
             COALESCE(sp.project_code, so.project_code) AS project_code,
-            COALESCE(sp.serial_no, so.serial_no) AS serial_no,
+            COALESCE(sp.cabinet_no, so.cabinet_no) AS cabinet_no,
             COALESCE(sp.amount, 0) AS payable_amount,
             COALESCE(payment.settled_amount, sp.paid_amount, 0) AS paid_amount,
             COALESCE(sp.balance, GREATEST(COALESCE(sp.amount, 0) - COALESCE(payment.settled_amount, sp.paid_amount, 0), 0)) AS payable_balance,
@@ -912,7 +912,7 @@ def _build_inventory_report_config(query_rows, as_decimal, money_metric, qty_met
         SELECT COALESCE(st.transaction_date::date, st.created_at::date) AS transaction_date,
                st.reference_no, p.code AS product_code, p.name AS product_name, p.specification,
                w.name AS warehouse_name, l.code AS location_code,
-               st.project_code, st.lot_no, st.serial_no,
+               st.project_code, st.lot_no, st.cabinet_no,
                CASE WHEN COALESCE(st.quantity,0) > 0 THEN COALESCE(st.quantity,0) ELSE 0 END AS gain_qty,
                CASE WHEN COALESCE(st.quantity,0) < 0 THEN ABS(COALESCE(st.quantity,0)) ELSE 0 END AS loss_qty,
                COALESCE(st.unit_cost,0) AS unit_cost,
@@ -935,7 +935,7 @@ def _build_inventory_report_config(query_rows, as_decimal, money_metric, qty_met
     stock_amount = sum(as_decimal(r.get("stock_amount")) for r in fund_rows)
     return {
         "title": "库存报表",
-        "subtitle": "只读库存报表，按物料、仓库、库位、批号、机号和项目号核对明细账、收发存、资金占用和批次追溯。",
+        "subtitle": "只读库存报表，按物料、仓库、库位、批号、柜号和项目号核对明细账、收发存、资金占用和批次追溯。",
         "filters": filters,
         "metrics": [
             {"label": "流水行数", "value": len(ledger_rows), "hint": "标准库存明细账"},
@@ -944,31 +944,31 @@ def _build_inventory_report_config(query_rows, as_decimal, money_metric, qty_met
             {"label": "台账金额", "value": money_metric(account_closing_amount), "hint": "库存台账期末金额"},
             {"label": "期末数量", "value": qty_metric(closing_qty), "hint": "来自库存余额"},
             {"label": "库存金额", "value": money_metric(stock_amount), "hint": "期末数量 * 单位成本"},
-            {"label": "批次记录", "value": len(batch_rows), "hint": "批次/机号追溯"},
+            {"label": "批次记录", "value": len(batch_rows), "hint": "批次/柜号追溯"},
         ],
         "sections": [
-            {"title": "库存成本总账", "key": "inventory-cost-summary", "url": "/finance/inventory-cost/summary", "rows": inventory_cost_summary_rows, "columns": columns(("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("warehouse_name", "仓库"), ("location_code", "库位"), ("project_code", "项目号"), ("lot_no", "批号"), ("serial_no", "机号"), ("inbound_qty", "本期入库数量"), ("inbound_amount", "本期入库成本金额"), ("outbound_qty", "本期出库数量"), ("outbound_amount", "本期出库成本金额"), ("closing_qty", "期末数量"), ("locked_qty", "锁定数量"), ("available_qty", "可用数量"), ("unit_cost", "期末单位成本"), ("closing_amount", "期末库存成本金额"), ("last_transaction_date", "最后流水日期"), ("updated_at", "余额更新时间"), ("cost_basis_note", "成本依据"))},
-            {"title": "库存成本明细账", "key": "inventory-cost-detail", "url": "/finance/inventory-cost/detail", "rows": cost_detail_rows, "columns": _with_url_key(columns(("transaction_date", "日期"), ("source_doc_label", "来源单号"), ("source_type", "来源类型"), ("transaction_type", "库存动作"), ("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("warehouse_name", "仓库"), ("location_code", "库位"), ("project_code", "项目号"), ("lot_no", "批号"), ("serial_no", "机号"), ("inbound_qty", "入库数量"), ("outbound_qty", "出库数量"), ("net_qty", "结存影响数量"), ("unit_cost", "成本单价"), ("inbound_amount", "入库成本金额"), ("outbound_amount", "出库成本金额"), ("balance_impact_amount", "结存影响金额"), ("cost_basis_note", "成本依据"), ("remark", "备注")), "source_doc_label", "source_doc_url")},
-            {"title": "标准库存明细账", "key": "ledger", "url": "/inventory/reports/ledger", "rows": ledger_rows, "columns": columns(("transaction_date", "日期"), ("reference_no", "来源单号"), ("transaction_type", "类型"), ("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("warehouse_name", "仓库"), ("location_code", "库位"), ("project_code", "项目号"), ("lot_no", "批号"), ("serial_no", "机号"), ("inbound_qty", "入库"), ("outbound_qty", "出库"), ("net_qty", "结存影响"), ("unit_cost", "单位成本"), ("amount", "金额"))},
-            {"title": "库存台账", "key": "account-book", "url": "/inventory/reports/account-book", "rows": account_book_rows, "columns": columns(("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("warehouse_name", "仓库"), ("location_code", "库位"), ("project_code", "项目号"), ("lot_no", "批号"), ("serial_no", "机号"), ("opening_qty", "期初数量"), ("opening_amount", "期初金额"), ("inbound_qty", "本期入库"), ("inbound_amount", "入库金额"), ("outbound_qty", "本期出库"), ("outbound_amount", "出库金额"), ("closing_qty", "期末数量"), ("closing_amount", "期末金额"), ("avg_unit_cost", "平均成本"))},
+            {"title": "库存成本总账", "key": "inventory-cost-summary", "url": "/finance/inventory-cost/summary", "rows": inventory_cost_summary_rows, "columns": columns(("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("warehouse_name", "仓库"), ("location_code", "库位"), ("project_code", "项目号"), ("lot_no", "批号"), ("cabinet_no", "柜号"), ("inbound_qty", "本期入库数量"), ("inbound_amount", "本期入库成本金额"), ("outbound_qty", "本期出库数量"), ("outbound_amount", "本期出库成本金额"), ("closing_qty", "期末数量"), ("locked_qty", "锁定数量"), ("available_qty", "可用数量"), ("unit_cost", "期末单位成本"), ("closing_amount", "期末库存成本金额"), ("last_transaction_date", "最后流水日期"), ("updated_at", "余额更新时间"), ("cost_basis_note", "成本依据"))},
+            {"title": "库存成本明细账", "key": "inventory-cost-detail", "url": "/finance/inventory-cost/detail", "rows": cost_detail_rows, "columns": _with_url_key(columns(("transaction_date", "日期"), ("source_doc_label", "来源单号"), ("source_type", "来源类型"), ("transaction_type", "库存动作"), ("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("warehouse_name", "仓库"), ("location_code", "库位"), ("project_code", "项目号"), ("lot_no", "批号"), ("cabinet_no", "柜号"), ("inbound_qty", "入库数量"), ("outbound_qty", "出库数量"), ("net_qty", "结存影响数量"), ("unit_cost", "成本单价"), ("inbound_amount", "入库成本金额"), ("outbound_amount", "出库成本金额"), ("balance_impact_amount", "结存影响金额"), ("cost_basis_note", "成本依据"), ("remark", "备注")), "source_doc_label", "source_doc_url")},
+            {"title": "标准库存明细账", "key": "ledger", "url": "/inventory/reports/ledger", "rows": ledger_rows, "columns": columns(("transaction_date", "日期"), ("reference_no", "来源单号"), ("transaction_type", "类型"), ("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("warehouse_name", "仓库"), ("location_code", "库位"), ("project_code", "项目号"), ("lot_no", "批号"), ("cabinet_no", "柜号"), ("inbound_qty", "入库"), ("outbound_qty", "出库"), ("net_qty", "结存影响"), ("unit_cost", "单位成本"), ("amount", "金额"))},
+            {"title": "库存台账", "key": "account-book", "url": "/inventory/reports/account-book", "rows": account_book_rows, "columns": columns(("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("warehouse_name", "仓库"), ("location_code", "库位"), ("project_code", "项目号"), ("lot_no", "批号"), ("cabinet_no", "柜号"), ("opening_qty", "期初数量"), ("opening_amount", "期初金额"), ("inbound_qty", "本期入库"), ("inbound_amount", "入库金额"), ("outbound_qty", "本期出库"), ("outbound_amount", "出库金额"), ("closing_qty", "期末数量"), ("closing_amount", "期末金额"), ("avg_unit_cost", "平均成本"))},
             {"title": "库存月报表", "key": "monthly", "url": "/inventory/reports/monthly", "rows": monthly_rows, "columns": columns(("report_month", "月份"), ("opening_qty", "期初数量"), ("opening_amount", "期初金额"), ("inbound_qty", "本月入库"), ("inbound_amount", "入库金额"), ("outbound_qty", "本月出库"), ("outbound_amount", "出库金额"), ("closing_qty", "期末数量"), ("closing_amount", "期末金额"))},
-            {"title": "收发存汇总表", "key": "inout-summary", "url": "/inventory/reports/inout-summary", "rows": summary_rows, "columns": columns(("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("warehouse_name", "仓库"), ("location_code", "库位"), ("project_code", "项目号"), ("lot_no", "批号"), ("serial_no", "机号"), ("opening_qty", "期初"), ("inbound_qty", "入库"), ("outbound_qty", "出库"), ("closing_qty", "期末"), ("purchase_pending_qty", "采购未入"), ("sales_pending_qty", "销售未出"), ("avg_unit_cost", "平均成本"), ("closing_amount", "期末金额"))},
-            {"title": "库存余额表", "key": "balance", "url": "/inventory/reports/balance", "rows": balance_rows, "columns": columns(("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("warehouse_name", "仓库"), ("location_code", "库位"), ("project_code", "项目号"), ("lot_no", "批号"), ("serial_no", "机号"), ("stock_qty", "库存数量"), ("locked_qty", "锁定数量"), ("available_qty", "可用库存"), ("unit_cost", "单位成本"), ("stock_amount", "库存金额"), ("updated_at", "更新时间"))},
-            {"title": "收发存明细表", "key": "inout-detail", "url": "/inventory/reports/inout-detail", "rows": ledger_rows, "columns": columns(("transaction_date", "日期"), ("reference_no", "来源单号"), ("source_type", "来源类型"), ("transaction_type", "类型"), ("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("warehouse_name", "仓库"), ("location_code", "库位"), ("project_code", "项目号"), ("lot_no", "批号"), ("serial_no", "机号"), ("inbound_qty", "入库数量"), ("outbound_qty", "出库数量"), ("net_qty", "结存影响"), ("unit_cost", "单位成本"), ("amount", "金额"))},
-            {"title": "库位库存表", "key": "location-stock", "url": "/inventory/reports/location-stock", "rows": location_stock_rows, "columns": columns(("warehouse_name", "仓库"), ("location_code", "库位编码"), ("location_name", "库位名称"), ("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("project_code", "项目号"), ("lot_no", "批号"), ("serial_no", "机号"), ("stock_qty", "库存数量"), ("available_qty", "可用库存"), ("stock_amount", "库存金额"))},
-            {"title": "可用库存表", "key": "available-stock", "url": "/inventory/reports/available-stock", "rows": available_rows, "columns": columns(("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("warehouse_name", "仓库"), ("location_code", "库位"), ("project_code", "项目号"), ("lot_no", "批号"), ("serial_no", "机号"), ("stock_qty", "库存数量"), ("locked_qty", "锁定数量"), ("available_qty", "可用库存"))},
+            {"title": "收发存汇总表", "key": "inout-summary", "url": "/inventory/reports/inout-summary", "rows": summary_rows, "columns": columns(("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("warehouse_name", "仓库"), ("location_code", "库位"), ("project_code", "项目号"), ("lot_no", "批号"), ("cabinet_no", "柜号"), ("opening_qty", "期初"), ("inbound_qty", "入库"), ("outbound_qty", "出库"), ("closing_qty", "期末"), ("purchase_pending_qty", "采购未入"), ("sales_pending_qty", "销售未出"), ("avg_unit_cost", "平均成本"), ("closing_amount", "期末金额"))},
+            {"title": "库存余额表", "key": "balance", "url": "/inventory/reports/balance", "rows": balance_rows, "columns": columns(("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("warehouse_name", "仓库"), ("location_code", "库位"), ("project_code", "项目号"), ("lot_no", "批号"), ("cabinet_no", "柜号"), ("stock_qty", "库存数量"), ("locked_qty", "锁定数量"), ("available_qty", "可用库存"), ("unit_cost", "单位成本"), ("stock_amount", "库存金额"), ("updated_at", "更新时间"))},
+            {"title": "收发存明细表", "key": "inout-detail", "url": "/inventory/reports/inout-detail", "rows": ledger_rows, "columns": columns(("transaction_date", "日期"), ("reference_no", "来源单号"), ("source_type", "来源类型"), ("transaction_type", "类型"), ("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("warehouse_name", "仓库"), ("location_code", "库位"), ("project_code", "项目号"), ("lot_no", "批号"), ("cabinet_no", "柜号"), ("inbound_qty", "入库数量"), ("outbound_qty", "出库数量"), ("net_qty", "结存影响"), ("unit_cost", "单位成本"), ("amount", "金额"))},
+            {"title": "库位库存表", "key": "location-stock", "url": "/inventory/reports/location-stock", "rows": location_stock_rows, "columns": columns(("warehouse_name", "仓库"), ("location_code", "库位编码"), ("location_name", "库位名称"), ("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("project_code", "项目号"), ("lot_no", "批号"), ("cabinet_no", "柜号"), ("stock_qty", "库存数量"), ("available_qty", "可用库存"), ("stock_amount", "库存金额"))},
+            {"title": "可用库存表", "key": "available-stock", "url": "/inventory/reports/available-stock", "rows": available_rows, "columns": columns(("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("warehouse_name", "仓库"), ("location_code", "库位"), ("project_code", "项目号"), ("lot_no", "批号"), ("cabinet_no", "柜号"), ("stock_qty", "库存数量"), ("locked_qty", "锁定数量"), ("available_qty", "可用库存"))},
             {"title": "安全库存/短缺报表", "key": "shortage", "url": "/inventory/reports/shortage", "rows": shortage_rows, "columns": columns(("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("safety_stock", "安全库存"), ("stock_qty", "库存数量"), ("locked_qty", "锁定数量"), ("available_qty", "可用库存"), ("shortage_qty", "短缺数量"), ("default_supplier_name", "默认供应商"))},
             {"title": "库存周转率报表", "key": "turnover", "url": "/inventory/reports/turnover", "rows": turnover_rows, "columns": columns(("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("outbound_qty", "期间出库数量"), ("ending_qty", "期末库存"), ("avg_stock_qty", "平均库存"), ("turnover_times", "周转次数"), ("turnover_days", "周转天数"), ("stock_amount", "库存金额"))},
-            {"title": "项目/机号库存占用表", "key": "project-occupation", "url": "/inventory/reports/project-occupation", "rows": project_occupation_rows, "columns": columns(("project_code", "项目号"), ("serial_no", "机号"), ("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("warehouse_name", "仓库"), ("location_code", "库位"), ("stock_qty", "库存数量"), ("locked_qty", "锁定数量"), ("stock_amount", "库存金额"))},
-            {"title": "委外发出未回报表", "key": "subcontract-wip", "url": "/inventory/reports/subcontract-wip", "rows": subcontract_wip_rows, "columns": columns(("processor_name", "加工商"), ("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("issued_qty", "发出数量"), ("received_qty", "收回数量"), ("wip_qty", "在制数量"), ("issue_date", "发料日期"), ("last_receive_date", "最后收货日期"), ("days_outstanding", "未回天数"), ("status", "状态"), ("order_no", "委外单号"), ("project_code", "项目号"), ("serial_no", "机号"))},
-            {"title": "委外订单执行报表", "key": "subcontract-execution", "url": "/inventory/reports/subcontract-execution", "rows": subcontract_execution_rows, "columns": columns(("order_no", "委外单号"), ("order_date", "下单日期"), ("processor_name", "加工商"), ("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("project_code", "项目号"), ("serial_no", "机号"), ("order_qty", "委外数量"), ("issued_qty", "已发料"), ("received_qty", "已收回"), ("short_qty", "短收"), ("scrap_qty", "报废"), ("open_qty", "未完数量"), ("wip_qty", "在制数量"), ("payable_amount", "应付金额"), ("payable_balance", "应付余额"), ("status", "状态"))},
-            {"title": "委外收发明细报表", "key": "subcontract-inout-detail", "url": "/inventory/reports/subcontract-inout-detail", "rows": subcontract_inout_detail_rows, "columns": columns(("doc_date", "日期"), ("doc_no", "单号"), ("doc_action", "动作"), ("order_no", "委外单号"), ("processor_name", "加工商"), ("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("project_code", "项目号"), ("serial_no", "机号"), ("issue_qty", "发料数量"), ("receive_qty", "收回数量"), ("short_qty", "短收数量"), ("scrap_qty", "报废数量"), ("unit_cost", "单位成本"), ("amount", "金额"), ("status", "状态"))},
-            {"title": "委外短少报废差异报表", "key": "subcontract-variance", "url": "/inventory/reports/subcontract-variance", "rows": subcontract_variance_rows, "columns": columns(("receive_no", "收回单号"), ("receive_date", "收回日期"), ("order_no", "委外单号"), ("processor_name", "加工商"), ("project_code", "项目号"), ("serial_no", "机号"), ("received_qty", "收回数量"), ("short_qty", "短收数量"), ("scrap_qty", "报废数量"), ("deduction_amount", "扣款金额"), ("variance_amount", "差异金额"), ("variance_reason", "差异原因"), ("responsible_party", "责任方"), ("status", "状态"))},
-            {"title": "委外应付对账报表", "key": "subcontract-payable-reconcile", "url": "/inventory/reports/subcontract-payable-reconcile", "rows": subcontract_payable_reconcile_rows, "columns": columns(("doc_no", "应付单号"), ("doc_date", "应付日期"), ("doc_type", "来源类型"), ("subcontract_doc_no", "委外来源单号"), ("processor_name", "加工商"), ("project_code", "项目号"), ("serial_no", "机号"), ("payable_amount", "应付金额"), ("paid_amount", "已付金额"), ("payable_balance", "应付余额"), ("due_date", "到期日"), ("overdue_days", "逾期天数"), ("status", "状态"), ("finance_remark", "财务备注"))},
-            {"title": "盘点差异汇总表", "key": "check-difference", "url": "/inventory/reports/check-difference", "rows": check_difference_rows, "columns": columns(("transaction_date", "日期"), ("reference_no", "盘点/来源单"), ("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("warehouse_name", "仓库"), ("location_code", "库位"), ("project_code", "项目号"), ("lot_no", "批号"), ("serial_no", "机号"), ("gain_qty", "盘盈数量"), ("loss_qty", "盘亏数量"), ("unit_cost", "单位成本"), ("diff_amount", "差异金额"), ("remark", "说明"))},
-            {"title": "库存资金占用表", "key": "fund-occupation", "url": "/inventory/reports/fund-occupation", "rows": fund_rows, "columns": columns(("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("warehouse_name", "仓库"), ("location_code", "库位"), ("project_code", "项目号"), ("lot_no", "批号"), ("serial_no", "机号"), ("closing_qty", "期末数量"), ("locked_qty", "锁定数量"), ("unit_cost", "单位成本"), ("stock_amount", "库存金额"), ("last_transaction_date", "最后流水"), ("stagnant_days", "呆滞天数"), ("occupation_level", "占用等级"))},
-            {"title": "呆滞料分析", "key": "stagnant", "url": "/inventory/reports/fund-occupation", "rows": stagnant_rows, "columns": columns(("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("warehouse_name", "仓库"), ("location_code", "库位"), ("project_code", "项目号"), ("lot_no", "批号"), ("serial_no", "机号"), ("closing_qty", "期末数量"), ("stock_amount", "库存金额"), ("last_transaction_date", "最后流水"), ("stagnant_days", "呆滞天数"))},
-            {"title": "批次追溯报表", "key": "batch-trace", "url": "/inventory/reports/batch-trace", "rows": batch_rows, "columns": columns(("lot_no", "批号"), ("serial_no", "机号"), ("project_code", "项目号"), ("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("warehouse_name", "仓库"), ("location_code", "库位"), ("closing_qty", "期末数量"), ("inbound_qty", "入库"), ("outbound_qty", "出库"), ("transaction_count", "流水笔数"), ("first_transaction_date", "首次流水"), ("last_transaction_date", "最后流水"), ("source_order_no", "来源单号"), ("status", "状态"))},
+            {"title": "项目/柜号库存占用表", "key": "project-occupation", "url": "/inventory/reports/project-occupation", "rows": project_occupation_rows, "columns": columns(("project_code", "项目号"), ("cabinet_no", "柜号"), ("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("warehouse_name", "仓库"), ("location_code", "库位"), ("stock_qty", "库存数量"), ("locked_qty", "锁定数量"), ("stock_amount", "库存金额"))},
+            {"title": "委外发出未回报表", "key": "subcontract-wip", "url": "/inventory/reports/subcontract-wip", "rows": subcontract_wip_rows, "columns": columns(("processor_name", "加工商"), ("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("issued_qty", "发出数量"), ("received_qty", "收回数量"), ("wip_qty", "在制数量"), ("issue_date", "发料日期"), ("last_receive_date", "最后收货日期"), ("days_outstanding", "未回天数"), ("status", "状态"), ("order_no", "委外单号"), ("project_code", "项目号"), ("cabinet_no", "柜号"))},
+            {"title": "委外订单执行报表", "key": "subcontract-execution", "url": "/inventory/reports/subcontract-execution", "rows": subcontract_execution_rows, "columns": columns(("order_no", "委外单号"), ("order_date", "下单日期"), ("processor_name", "加工商"), ("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("order_qty", "委外数量"), ("issued_qty", "已发料"), ("received_qty", "已收回"), ("short_qty", "短收"), ("scrap_qty", "报废"), ("open_qty", "未完数量"), ("wip_qty", "在制数量"), ("payable_amount", "应付金额"), ("payable_balance", "应付余额"), ("status", "状态"))},
+            {"title": "委外收发明细报表", "key": "subcontract-inout-detail", "url": "/inventory/reports/subcontract-inout-detail", "rows": subcontract_inout_detail_rows, "columns": columns(("doc_date", "日期"), ("doc_no", "单号"), ("doc_action", "动作"), ("order_no", "委外单号"), ("processor_name", "加工商"), ("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("issue_qty", "发料数量"), ("receive_qty", "收回数量"), ("short_qty", "短收数量"), ("scrap_qty", "报废数量"), ("unit_cost", "单位成本"), ("amount", "金额"), ("status", "状态"))},
+            {"title": "委外短少报废差异报表", "key": "subcontract-variance", "url": "/inventory/reports/subcontract-variance", "rows": subcontract_variance_rows, "columns": columns(("receive_no", "收回单号"), ("receive_date", "收回日期"), ("order_no", "委外单号"), ("processor_name", "加工商"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("received_qty", "收回数量"), ("short_qty", "短收数量"), ("scrap_qty", "报废数量"), ("deduction_amount", "扣款金额"), ("variance_amount", "差异金额"), ("variance_reason", "差异原因"), ("responsible_party", "责任方"), ("status", "状态"))},
+            {"title": "委外应付对账报表", "key": "subcontract-payable-reconcile", "url": "/inventory/reports/subcontract-payable-reconcile", "rows": subcontract_payable_reconcile_rows, "columns": columns(("doc_no", "应付单号"), ("doc_date", "应付日期"), ("doc_type", "来源类型"), ("subcontract_doc_no", "委外来源单号"), ("processor_name", "加工商"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("payable_amount", "应付金额"), ("paid_amount", "已付金额"), ("payable_balance", "应付余额"), ("due_date", "到期日"), ("overdue_days", "逾期天数"), ("status", "状态"), ("finance_remark", "财务备注"))},
+            {"title": "盘点差异汇总表", "key": "check-difference", "url": "/inventory/reports/check-difference", "rows": check_difference_rows, "columns": columns(("transaction_date", "日期"), ("reference_no", "盘点/来源单"), ("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("warehouse_name", "仓库"), ("location_code", "库位"), ("project_code", "项目号"), ("lot_no", "批号"), ("cabinet_no", "柜号"), ("gain_qty", "盘盈数量"), ("loss_qty", "盘亏数量"), ("unit_cost", "单位成本"), ("diff_amount", "差异金额"), ("remark", "说明"))},
+            {"title": "库存资金占用表", "key": "fund-occupation", "url": "/inventory/reports/fund-occupation", "rows": fund_rows, "columns": columns(("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("warehouse_name", "仓库"), ("location_code", "库位"), ("project_code", "项目号"), ("lot_no", "批号"), ("cabinet_no", "柜号"), ("closing_qty", "期末数量"), ("locked_qty", "锁定数量"), ("unit_cost", "单位成本"), ("stock_amount", "库存金额"), ("last_transaction_date", "最后流水"), ("stagnant_days", "呆滞天数"), ("occupation_level", "占用等级"))},
+            {"title": "呆滞料分析", "key": "stagnant", "url": "/inventory/reports/fund-occupation", "rows": stagnant_rows, "columns": columns(("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("warehouse_name", "仓库"), ("location_code", "库位"), ("project_code", "项目号"), ("lot_no", "批号"), ("cabinet_no", "柜号"), ("closing_qty", "期末数量"), ("stock_amount", "库存金额"), ("last_transaction_date", "最后流水"), ("stagnant_days", "呆滞天数"))},
+            {"title": "批次追溯报表", "key": "batch-trace", "url": "/inventory/reports/batch-trace", "rows": batch_rows, "columns": columns(("lot_no", "批号"), ("cabinet_no", "柜号"), ("project_code", "项目号"), ("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("warehouse_name", "仓库"), ("location_code", "库位"), ("closing_qty", "期末数量"), ("inbound_qty", "入库"), ("outbound_qty", "出库"), ("transaction_count", "流水笔数"), ("first_transaction_date", "首次流水"), ("last_transaction_date", "最后流水"), ("source_order_no", "来源单号"), ("status", "状态"))},
         ],
     }
 
@@ -987,13 +987,13 @@ def build_module_report_config(
         where, params, filters = report_where_from_args(
             request_args,
             "so.order_date",
-            ("so.order_no", "c.name", "so.project_code", "so.serial_no"),
+            ("so.order_no", "c.name", "so.project_code", "so.cabinet_no"),
             "so.status",
-            ("so.project_code", "so.serial_no"),
+            ("so.project_code", "so.cabinet_no"),
         )
         scope_filter = request_args.get("_data_scope_filter") if hasattr(request_args, "get") else None
         if scope_filter:
-            scope_clause, scoped_params = scope_filter({"project": "so.project_code", "serial": "so.serial_no"}, params=params)
+            scope_clause, scoped_params = scope_filter({"project": "so.project_code", "cabinet": "so.cabinet_no"}, params=params)
             if scope_clause:
                 if where:
                     where += scope_clause
@@ -1002,7 +1002,7 @@ def build_module_report_config(
                 params = scoped_params
         rows = query_rows(
             f"""
-            SELECT so.order_no, so.order_date, c.name AS partner, so.project_code, so.serial_no,
+            SELECT so.order_no, so.order_date, c.name AS partner, so.project_code, so.cabinet_no,
                    so.total_amount, so.shipped_amount,
                    GREATEST(COALESCE(so.total_amount,0)-COALESCE(so.shipped_amount,0),0) AS pending_amount,
                    so.status
@@ -1017,11 +1017,11 @@ def build_module_report_config(
         receivable_scope_clause = ""
         receivable_scope_params = ()
         if scope_filter:
-            receivable_scope_clause, receivable_scope_params = scope_filter({"project": "cr.project_code", "serial": "cr.serial_no"})
+            receivable_scope_clause, receivable_scope_params = scope_filter({"project": "cr.project_code", "cabinet": "cr.cabinet_no"})
         receivable_rows = query_rows(
             f"""
             SELECT cr.source_no AS order_no, cr.receivable_date AS order_date, c.name AS partner,
-                   cr.project_code, cr.serial_no, cr.total_amount, cr.received_amount, cr.balance, cr.status,
+                   cr.project_code, cr.cabinet_no, cr.total_amount, cr.received_amount, cr.balance, cr.status,
                    cr.due_date,
                    GREATEST(CURRENT_DATE - COALESCE(cr.due_date, CURRENT_DATE), 0) AS overdue_days
             FROM customer_receivables cr
@@ -1035,11 +1035,11 @@ def build_module_report_config(
         receipt_scope_clause = ""
         receipt_scope_params = ()
         if scope_filter:
-            receipt_scope_clause, receipt_scope_params = scope_filter({"project": "r.project_code", "serial": "r.serial_no"})
+            receipt_scope_clause, receipt_scope_params = scope_filter({"project": "r.project_code", "cabinet": "r.cabinet_no"})
         receipt_rows = query_rows(
             f"""
             SELECT r.receipt_no, r.receipt_date, c.name AS partner, r.source_no,
-                   r.project_code, r.serial_no, r.amount, r.payment_method, r.status
+                   r.project_code, r.cabinet_no, r.amount, r.payment_method, r.status
             FROM customer_receipts r
             LEFT JOIN customers c ON c.id=r.customer_id
             WHERE 1=1{receipt_scope_clause}
@@ -1051,11 +1051,11 @@ def build_module_report_config(
         invoice_scope_clause = ""
         invoice_scope_params = ()
         if scope_filter:
-            invoice_scope_clause, invoice_scope_params = scope_filter({"project": "si.project_code", "serial": "si.serial_no"})
+            invoice_scope_clause, invoice_scope_params = scope_filter({"project": "si.project_code", "cabinet": "si.cabinet_no"})
         invoice_rows = query_rows(
             f"""
             SELECT si.invoice_no, si.invoice_date, c.name AS partner, si.source_no,
-                   si.project_code, si.serial_no, si.amount_with_tax, si.tax_amount, si.status
+                   si.project_code, si.cabinet_no, si.amount_with_tax, si.tax_amount, si.status
             FROM sales_invoices si
             LEFT JOIN customers c ON c.id=si.customer_id
             WHERE 1=1{invoice_scope_clause}
@@ -1067,12 +1067,12 @@ def build_module_report_config(
         return_scope_clause = ""
         return_scope_params = ()
         if scope_filter:
-            return_scope_clause, return_scope_params = scope_filter({"project": "sr.project_code", "serial": "sr.serial_no"})
+            return_scope_clause, return_scope_params = scope_filter({"project": "sr.project_code", "cabinet": "sr.cabinet_no"})
         return_rows = query_rows(
             f"""
             SELECT sr.return_no, sr.return_date, c.name AS partner,
                    COALESCE(NULLIF(sr.source_no,''), sr.source_order_no) AS source_no,
-                   sr.project_code, sr.serial_no, sr.amount_with_tax, sr.status
+                   sr.project_code, sr.cabinet_no, sr.amount_with_tax, sr.status
             FROM sales_returns sr
             LEFT JOIN customers c ON c.id=sr.customer_id
             WHERE 1=1{return_scope_clause}
@@ -1107,7 +1107,7 @@ def build_module_report_config(
         customer_rows = sorted(customer_summary.values(), key=lambda item: item["pending_amount"], reverse=True)[:50]
         return {
             "title": "销售报表",
-            "subtitle": "销售订单、发货、应收、回款、开票、退货和项目/机号执行统计。",
+            "subtitle": "销售订单、发货、应收、回款、开票、退货和项目/柜号执行统计。",
             "filters": filters,
             "metrics": [
                 {"label": "订单数", "value": len(rows), "hint": "当前筛选"},
@@ -1120,26 +1120,26 @@ def build_module_report_config(
                 {"label": "客户数", "value": len({r.get("partner") for r in rows if r.get("partner")}), "hint": "涉及客户"},
             ],
             "sections": [
-                {"title": "销售未交专题", "rows": pending_rows, "columns": columns(("order_no", "销售订单"), ("order_date", "日期"), ("partner", "客户"), ("project_code", "项目号"), ("serial_no", "机号"), ("total_amount", "含税金额"), ("shipped_amount", "已发货"), ("pending_amount", "未交"), ("status", "状态"))},
-                {"title": "应收逾期专题", "rows": overdue_receivable_rows, "columns": columns(("order_no", "来源单"), ("due_date", "到期日"), ("partner", "客户"), ("project_code", "项目号"), ("serial_no", "机号"), ("total_amount", "应收金额"), ("received_amount", "已收"), ("balance", "余额"), ("overdue_days", "逾期天数"), ("status", "状态"))},
+                {"title": "销售未交专题", "rows": pending_rows, "columns": columns(("order_no", "销售订单"), ("order_date", "日期"), ("partner", "客户"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("total_amount", "含税金额"), ("shipped_amount", "已发货"), ("pending_amount", "未交"), ("status", "状态"))},
+                {"title": "应收逾期专题", "rows": overdue_receivable_rows, "columns": columns(("order_no", "来源单"), ("due_date", "到期日"), ("partner", "客户"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("total_amount", "应收金额"), ("received_amount", "已收"), ("balance", "余额"), ("overdue_days", "逾期天数"), ("status", "状态"))},
                 {"title": "客户未交排行", "rows": customer_rows, "columns": columns(("partner", "客户"), ("order_count", "订单数"), ("total_amount", "销售金额"), ("pending_amount", "未交金额"))},
-                {"title": "客户回款明细", "rows": receipt_rows, "columns": columns(("receipt_no", "回款单"), ("receipt_date", "回款日期"), ("partner", "客户"), ("source_no", "来源单"), ("project_code", "项目号"), ("serial_no", "机号"), ("amount", "回款金额"), ("payment_method", "结算方式"), ("status", "状态"))},
-                {"title": "销售开票明细", "rows": invoice_rows, "columns": columns(("invoice_no", "发票号"), ("invoice_date", "开票日期"), ("partner", "客户"), ("source_no", "来源单"), ("project_code", "项目号"), ("serial_no", "机号"), ("amount_with_tax", "含税金额"), ("tax_amount", "税额"), ("status", "状态"))},
-                {"title": "销售退货明细", "rows": return_rows, "columns": columns(("return_no", "退货单"), ("return_date", "退货日期"), ("partner", "客户"), ("source_no", "来源单"), ("project_code", "项目号"), ("serial_no", "机号"), ("amount_with_tax", "含税金额"), ("status", "状态"))},
-                {"title": "销售执行明细", "rows": rows, "columns": columns(("order_no", "销售订单"), ("order_date", "日期"), ("partner", "客户"), ("project_code", "项目号"), ("serial_no", "机号"), ("total_amount", "含税金额"), ("shipped_amount", "已发货"), ("pending_amount", "未交"), ("status", "状态"))},
+                {"title": "客户回款明细", "rows": receipt_rows, "columns": columns(("receipt_no", "回款单"), ("receipt_date", "回款日期"), ("partner", "客户"), ("source_no", "来源单"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("amount", "回款金额"), ("payment_method", "结算方式"), ("status", "状态"))},
+                {"title": "销售开票明细", "rows": invoice_rows, "columns": columns(("invoice_no", "发票号"), ("invoice_date", "开票日期"), ("partner", "客户"), ("source_no", "来源单"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("amount_with_tax", "含税金额"), ("tax_amount", "税额"), ("status", "状态"))},
+                {"title": "销售退货明细", "rows": return_rows, "columns": columns(("return_no", "退货单"), ("return_date", "退货日期"), ("partner", "客户"), ("source_no", "来源单"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("amount_with_tax", "含税金额"), ("status", "状态"))},
+                {"title": "销售执行明细", "rows": rows, "columns": columns(("order_no", "销售订单"), ("order_date", "日期"), ("partner", "客户"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("total_amount", "含税金额"), ("shipped_amount", "已发货"), ("pending_amount", "未交"), ("status", "状态"))},
             ],
         }
     if kind == "purchase":
         where, params, filters = report_where_from_args(
             request_args,
             "po.order_date",
-            ("po.order_no", "s.name", "po.project_code", "po.serial_no"),
+            ("po.order_no", "s.name", "po.project_code", "po.cabinet_no"),
             "po.status",
-            ("po.project_code", "po.serial_no"),
+            ("po.project_code", "po.cabinet_no"),
         )
         scope_filter = request_args.get("_data_scope_filter") if hasattr(request_args, "get") else None
         if scope_filter:
-            scope_clause, scoped_params = scope_filter({"project": "po.project_code", "serial": "po.serial_no"}, params=params)
+            scope_clause, scoped_params = scope_filter({"project": "po.project_code", "cabinet": "po.cabinet_no"}, params=params)
             if scope_clause:
                 if where:
                     where += scope_clause
@@ -1148,7 +1148,7 @@ def build_module_report_config(
                 params = scoped_params
         rows = query_rows(
             f"""
-            SELECT po.order_no, po.order_date, s.name AS partner, po.project_code, po.serial_no,
+            SELECT po.order_no, po.order_date, s.name AS partner, po.project_code, po.cabinet_no,
                    po.total_amount, po.received_amount,
                    GREATEST(COALESCE(po.total_amount,0)-COALESCE(po.received_amount,0),0) AS pending_amount,
                    po.status
@@ -1190,9 +1190,9 @@ def build_module_report_config(
                 {"label": "供应商数", "value": len({r.get("partner") for r in rows if r.get("partner")}), "hint": "涉及供应商"},
             ],
             "sections": [
-                {"title": "采购未到专题", "rows": pending_rows, "columns": columns(("order_no", "采购单"), ("order_date", "日期"), ("partner", "供应商"), ("project_code", "项目号"), ("serial_no", "机号"), ("total_amount", "金额"), ("received_amount", "已收货"), ("pending_amount", "未到"), ("status", "状态"))},
+                {"title": "采购未到专题", "rows": pending_rows, "columns": columns(("order_no", "采购单"), ("order_date", "日期"), ("partner", "供应商"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("total_amount", "金额"), ("received_amount", "已收货"), ("pending_amount", "未到"), ("status", "状态"))},
                 {"title": "供应商未到排行", "rows": supplier_rows, "columns": columns(("partner", "供应商"), ("order_count", "订单数"), ("total_amount", "采购金额"), ("pending_amount", "未到金额"))},
-                {"title": "采购执行明细", "rows": rows, "columns": columns(("order_no", "采购单"), ("order_date", "日期"), ("partner", "供应商"), ("project_code", "项目号"), ("serial_no", "机号"), ("total_amount", "金额"), ("received_amount", "已收货"), ("pending_amount", "未到"), ("status", "状态"))},
+                {"title": "采购执行明细", "rows": rows, "columns": columns(("order_no", "采购单"), ("order_date", "日期"), ("partner", "供应商"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("total_amount", "金额"), ("received_amount", "已收货"), ("pending_amount", "未到"), ("status", "状态"))},
             ],
         }
     if kind == "inventory":
@@ -1200,14 +1200,14 @@ def build_module_report_config(
         where, params, filters = report_where_from_args(
             request_args,
             "COALESCE(ib.updated_at::date, CURRENT_DATE)",
-            ("p.code", "p.name", "p.specification", "w.name", "l.name", "ib.lot_no", "ib.serial_no"),
+            ("p.code", "p.name", "p.specification", "w.name", "l.name", "ib.lot_no", "ib.cabinet_no"),
             None,
-            ("ib.serial_no",),
+            ("ib.cabinet_no",),
         )
         rows = query_rows(
             f"""
             SELECT p.code AS product_code, p.name AS product_name, p.specification,
-                   w.name AS warehouse_name, l.name AS location_name, ib.lot_no, ib.serial_no,
+                   w.name AS warehouse_name, l.name AS location_name, ib.lot_no, ib.cabinet_no,
                    ib.quantity, ib.locked_qty, ib.unit_cost,
                    COALESCE(ib.quantity,0) * COALESCE(ib.unit_cost,0) AS stock_amount
             FROM inventory_balances ib
@@ -1225,7 +1225,7 @@ def build_module_report_config(
         stagnant_rows = query_rows(
             """
             SELECT p.code AS product_code, p.name AS product_name, p.specification,
-                   w.name AS warehouse_name, l.name AS location_name, ib.lot_no, ib.serial_no,
+                   w.name AS warehouse_name, l.name AS location_name, ib.lot_no, ib.cabinet_no,
                    ib.quantity, ib.unit_cost,
                    COALESCE(ib.quantity,0) * COALESCE(ib.unit_cost,0) AS stock_amount,
                    MAX(st.transaction_date) AS last_transaction_date
@@ -1235,7 +1235,7 @@ def build_module_report_config(
             LEFT JOIN locations l ON l.id=ib.location_id
             LEFT JOIN stock_transactions st ON st.product_id=ib.product_id
             WHERE COALESCE(ib.quantity,0) > 0
-            GROUP BY p.code, p.name, p.specification, w.name, l.name, ib.lot_no, ib.serial_no, ib.quantity, ib.unit_cost
+            GROUP BY p.code, p.name, p.specification, w.name, l.name, ib.lot_no, ib.cabinet_no, ib.quantity, ib.unit_cost
             ORDER BY MAX(st.transaction_date) NULLS FIRST, stock_amount DESC
             LIMIT 80
             """
@@ -1243,7 +1243,7 @@ def build_module_report_config(
         negative_rows = [row for row in rows if as_decimal(row.get("quantity")) < 0][:80]
         return {
             "title": "库存报表",
-            "subtitle": "库存余额、批次/机号、库位和库存金额统计。",
+            "subtitle": "库存余额、批次/柜号、库位和库存金额统计。",
             "filters": filters,
             "metrics": [
                 {"label": "库存行", "value": len(rows), "hint": "余额记录"},
@@ -1252,22 +1252,22 @@ def build_module_report_config(
                 {"label": "物料数", "value": len({r.get("product_code") for r in rows if r.get("product_code")}), "hint": "涉及物料"},
             ],
             "sections": [
-                {"title": "库存呆滞专题", "rows": stagnant_rows, "columns": columns(("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("warehouse_name", "仓库"), ("location_name", "库位"), ("lot_no", "批号"), ("serial_no", "机号"), ("quantity", "数量"), ("stock_amount", "金额"), ("last_transaction_date", "最后流水"))},
-                {"title": "负库存异常", "rows": negative_rows, "columns": columns(("product_code", "物料编码"), ("product_name", "物料名称"), ("warehouse_name", "仓库"), ("location_name", "库位"), ("lot_no", "批号"), ("serial_no", "机号"), ("quantity", "数量"), ("stock_amount", "金额"))},
-                {"title": "库存余额明细", "rows": rows, "columns": columns(("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("warehouse_name", "仓库"), ("location_name", "库位"), ("lot_no", "批号"), ("serial_no", "机号"), ("quantity", "数量"), ("locked_qty", "锁定"), ("stock_amount", "金额"))},
+                {"title": "库存呆滞专题", "rows": stagnant_rows, "columns": columns(("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("warehouse_name", "仓库"), ("location_name", "库位"), ("lot_no", "批号"), ("cabinet_no", "柜号"), ("quantity", "数量"), ("stock_amount", "金额"), ("last_transaction_date", "最后流水"))},
+                {"title": "负库存异常", "rows": negative_rows, "columns": columns(("product_code", "物料编码"), ("product_name", "物料名称"), ("warehouse_name", "仓库"), ("location_name", "库位"), ("lot_no", "批号"), ("cabinet_no", "柜号"), ("quantity", "数量"), ("stock_amount", "金额"))},
+                {"title": "库存余额明细", "rows": rows, "columns": columns(("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("warehouse_name", "仓库"), ("location_name", "库位"), ("lot_no", "批号"), ("cabinet_no", "柜号"), ("quantity", "数量"), ("locked_qty", "锁定"), ("stock_amount", "金额"))},
             ],
         }
     if kind == "production":
         where, params, filters = report_where_from_args(
             request_args,
             "wo.wo_date",
-            ("wo.wo_no", "p.code", "p.name", "wo.project_code", "wo.serial_no"),
+            ("wo.wo_no", "p.code", "p.name", "wo.project_code", "wo.cabinet_no"),
             "wo.status",
-            ("wo.project_code", "wo.serial_no"),
+            ("wo.project_code", "wo.cabinet_no"),
         )
         scope_filter = request_args.get("_data_scope_filter") if hasattr(request_args, "get") else None
         if scope_filter:
-            scope_clause, scoped_params = scope_filter({"project": "wo.project_code", "serial": "wo.serial_no"}, params=params)
+            scope_clause, scoped_params = scope_filter({"project": "wo.project_code", "cabinet": "wo.cabinet_no"}, params=params)
             if scope_clause:
                 if where:
                     where += scope_clause
@@ -1277,7 +1277,7 @@ def build_module_report_config(
         rows = query_rows(
             f"""
             SELECT wo.wo_no, wo.wo_date, p.code AS product_code, p.name AS product_name,
-                   wo.project_code, wo.serial_no, wo.quantity, wo.status,
+                   wo.project_code, wo.cabinet_no, wo.quantity, wo.status,
                    wo.planned_start_date, wo.planned_end_date, wo.actual_start_date, wo.actual_end_date
             FROM work_orders wo
             LEFT JOIN products p ON p.id=wo.product_id
@@ -1293,11 +1293,11 @@ def build_module_report_config(
         shortage_where = " WHERE GREATEST(COALESCE(mi.required_qty,0)-COALESCE(mi.issued_qty,0)+COALESCE(mi.returned_qty,0),0) > 0"
         shortage_params = ()
         if scope_filter:
-            scope_clause, shortage_params = scope_filter({"project": "wo.project_code", "serial": "wo.serial_no"})
+            scope_clause, shortage_params = scope_filter({"project": "wo.project_code", "cabinet": "wo.cabinet_no"})
             shortage_where += scope_clause
         shortage_rows = query_rows(
             f"""
-            SELECT wo.wo_no, wo.wo_date, wo.project_code, wo.serial_no,
+            SELECT wo.wo_no, wo.wo_date, wo.project_code, wo.cabinet_no,
                    p.code AS product_code, p.name AS product_name,
                    mi.required_qty, mi.issued_qty,
                    GREATEST(COALESCE(mi.required_qty,0)-COALESCE(mi.issued_qty,0)+COALESCE(mi.returned_qty,0),0) AS shortage_qty,
@@ -1313,7 +1313,7 @@ def build_module_report_config(
         )
         return {
             "title": "生产报表",
-            "subtitle": "生产工单、计划日期、完工状态和项目机号统计。",
+            "subtitle": "生产工单、计划日期、完工状态和项目柜号统计。",
             "filters": filters,
             "metrics": [
                 {"label": "工单数", "value": len(rows), "hint": "当前筛选"},
@@ -1322,9 +1322,9 @@ def build_module_report_config(
                 {"label": "物料数", "value": len({r.get("product_code") for r in rows if r.get("product_code")}), "hint": "涉及产品"},
             ],
             "sections": _with_section_urls([
-                {"title": "生产未完专题", "rows": open_rows, "columns": columns(("wo_no", "工单"), ("wo_date", "日期"), ("product_code", "产品编码"), ("product_name", "产品名称"), ("project_code", "项目号"), ("serial_no", "机号"), ("quantity", "数量"), ("status", "状态"), ("planned_start_date", "计划开始"), ("planned_end_date", "计划结束"))},
-                {"title": "生产缺料报表", "rows": shortage_rows, "columns": columns(("wo_no", "工单"), ("wo_date", "日期"), ("project_code", "项目号"), ("serial_no", "机号"), ("product_code", "物料编码"), ("product_name", "物料名称"), ("required_qty", "需求"), ("issued_qty", "已领"), ("shortage_qty", "缺料"), ("status", "状态"))},
-                {"title": "生产工单明细", "rows": rows, "columns": columns(("wo_no", "工单"), ("wo_date", "日期"), ("product_code", "产品编码"), ("product_name", "产品名称"), ("project_code", "项目号"), ("serial_no", "机号"), ("quantity", "数量"), ("status", "状态"), ("planned_start_date", "计划开始"), ("planned_end_date", "计划结束"))},
+                {"title": "生产未完专题", "rows": open_rows, "columns": columns(("wo_no", "工单"), ("wo_date", "日期"), ("product_code", "产品编码"), ("product_name", "产品名称"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("quantity", "数量"), ("status", "状态"), ("planned_start_date", "计划开始"), ("planned_end_date", "计划结束"))},
+                {"title": "生产缺料报表", "rows": shortage_rows, "columns": columns(("wo_no", "工单"), ("wo_date", "日期"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("product_code", "物料编码"), ("product_name", "物料名称"), ("required_qty", "需求"), ("issued_qty", "已领"), ("shortage_qty", "缺料"), ("status", "状态"))},
+                {"title": "生产工单明细", "rows": rows, "columns": columns(("wo_no", "工单"), ("wo_date", "日期"), ("product_code", "产品编码"), ("product_name", "产品名称"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("quantity", "数量"), ("status", "状态"), ("planned_start_date", "计划开始"), ("planned_end_date", "计划结束"))},
             ], (
                 "/production/reports/work-order-execution-summary",
                 "/production/reports/shortage",
@@ -1335,13 +1335,13 @@ def build_module_report_config(
         where, params, filters = report_where_from_args(
             request_args,
             "so.order_date",
-            ("so.order_no", "s.name", "p.code", "p.name", "so.project_code", "so.serial_no", "so.status"),
+            ("so.order_no", "s.name", "p.code", "p.name", "so.project_code", "so.cabinet_no", "so.status"),
             "so.status",
-            ("so.project_code", "so.serial_no"),
+            ("so.project_code", "so.cabinet_no"),
         )
         scope_filter = request_args.get("_data_scope_filter") if hasattr(request_args, "get") else None
         if scope_filter:
-            scope_clause, scoped_params = scope_filter({"project": "so.project_code", "serial": "so.serial_no"}, params=params)
+            scope_clause, scoped_params = scope_filter({"project": "so.project_code", "cabinet": "so.cabinet_no"}, params=params)
             if scope_clause:
                 if where:
                     where += scope_clause
@@ -1352,7 +1352,7 @@ def build_module_report_config(
             f"""
             SELECT so.id, so.order_no, so.order_date, s.name AS processor_name,
                    p.code AS product_code, p.name AS product_name, p.specification,
-                   so.project_code, so.serial_no,
+                   so.project_code, so.cabinet_no,
                    COALESCE(so.quantity,0) AS order_qty,
                    COALESCE(so.received_qty,0) AS received_qty,
                    COALESCE(so.shortage_qty,0) AS shortage_qty,
@@ -1374,7 +1374,7 @@ def build_module_report_config(
         issue_rows = query_rows(
             """
             SELECT sio.issue_no, sio.date AS issue_date, s.name AS processor_name,
-                   so.order_no, so.project_code, so.serial_no,
+                   so.order_no, so.project_code, so.cabinet_no,
                    COALESCE(sio.total_quantity,0) AS issued_qty,
                    sio.status, sio.posted
             FROM subcontract_issue_orders sio
@@ -1387,7 +1387,7 @@ def build_module_report_config(
         receive_rows = query_rows(
             """
             SELECT sro.receive_no, sro.date AS receive_date, s.name AS processor_name,
-                   so.order_no, so.project_code, so.serial_no,
+                   so.order_no, so.project_code, so.cabinet_no,
                    COALESCE(sro.total_quantity,0) AS received_qty,
                    COALESCE(sro.total_scrap,0)+COALESCE(sro.scrap_qty,0) AS scrap_qty,
                    COALESCE(sro.short_qty,0) AS short_qty,
@@ -1403,7 +1403,7 @@ def build_module_report_config(
         payable_rows = query_rows(
             """
             SELECT sp.doc_no, sp.doc_date, s.name AS processor_name,
-                   sp.project_code, sp.serial_no,
+                   sp.project_code, sp.cabinet_no,
                    COALESCE(sp.amount,0) AS payable_amount,
                    COALESCE(sp.paid_amount,0) AS paid_amount,
                    COALESCE(sp.balance,0) AS balance,
@@ -1439,12 +1439,12 @@ def build_module_report_config(
                 {"label": "应付余额", "value": money_metric(payable_balance), "hint": "委外应付未付款"},
             ],
             "sections": [
-                {"title": "委外订单执行明细", "rows": rows, "columns": columns(("order_no", "委外订单"), ("order_date", "日期"), ("processor_name", "加工商"), ("product_code", "物料编码"), ("product_name", "物料名称"), ("project_code", "项目号"), ("serial_no", "机号"), ("order_qty", "订单数量"), ("received_qty", "已收数量"), ("shortage_qty", "短收数量"), ("open_qty", "未回数量"), ("total_amount", "委外金额"), ("status", "状态"))},
-                {"title": "委外在制分析", "rows": wip_rows, "columns": columns(("order_no", "委外订单"), ("processor_name", "加工商"), ("product_code", "物料编码"), ("product_name", "物料名称"), ("project_code", "项目号"), ("serial_no", "机号"), ("order_qty", "订单数量"), ("received_qty", "已收数量"), ("shortage_qty", "短收数量"), ("open_qty", "未回数量"), ("required_date", "需求日期"), ("arrival_status", "到货状态"))},
-                {"title": "委外发料明细", "rows": issue_rows, "columns": columns(("issue_no", "发料单"), ("issue_date", "日期"), ("processor_name", "加工商"), ("order_no", "委外订单"), ("project_code", "项目号"), ("serial_no", "机号"), ("issued_qty", "发料数量"), ("status", "状态"), ("posted", "库存过账"))},
-                {"title": "委外收货明细", "rows": receive_rows, "columns": columns(("receive_no", "收货单"), ("receive_date", "日期"), ("processor_name", "加工商"), ("order_no", "委外订单"), ("project_code", "项目号"), ("serial_no", "机号"), ("received_qty", "收货数量"), ("scrap_qty", "报废数量"), ("short_qty", "短收数量"), ("variance_amount", "差异金额"), ("status", "状态"), ("posted", "库存过账"))},
-                {"title": "委外短收报废差异", "rows": variance_rows, "columns": columns(("receive_no", "收货单"), ("receive_date", "日期"), ("processor_name", "加工商"), ("order_no", "委外订单"), ("project_code", "项目号"), ("serial_no", "机号"), ("scrap_qty", "报废数量"), ("short_qty", "短收数量"), ("variance_amount", "差异金额"), ("status", "状态"))},
-                {"title": "委外应付对账明细", "rows": payable_rows, "columns": columns(("doc_no", "来源单据"), ("doc_date", "日期"), ("processor_name", "加工商"), ("project_code", "项目号"), ("serial_no", "机号"), ("payable_amount", "应付金额"), ("paid_amount", "已付金额"), ("balance", "未付余额"), ("status", "状态"))},
+                {"title": "委外订单执行明细", "rows": rows, "columns": columns(("order_no", "委外订单"), ("order_date", "日期"), ("processor_name", "加工商"), ("product_code", "物料编码"), ("product_name", "物料名称"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("order_qty", "订单数量"), ("received_qty", "已收数量"), ("shortage_qty", "短收数量"), ("open_qty", "未回数量"), ("total_amount", "委外金额"), ("status", "状态"))},
+                {"title": "委外在制分析", "rows": wip_rows, "columns": columns(("order_no", "委外订单"), ("processor_name", "加工商"), ("product_code", "物料编码"), ("product_name", "物料名称"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("order_qty", "订单数量"), ("received_qty", "已收数量"), ("shortage_qty", "短收数量"), ("open_qty", "未回数量"), ("required_date", "需求日期"), ("arrival_status", "到货状态"))},
+                {"title": "委外发料明细", "rows": issue_rows, "columns": columns(("issue_no", "发料单"), ("issue_date", "日期"), ("processor_name", "加工商"), ("order_no", "委外订单"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("issued_qty", "发料数量"), ("status", "状态"), ("posted", "库存过账"))},
+                {"title": "委外收货明细", "rows": receive_rows, "columns": columns(("receive_no", "收货单"), ("receive_date", "日期"), ("processor_name", "加工商"), ("order_no", "委外订单"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("received_qty", "收货数量"), ("scrap_qty", "报废数量"), ("short_qty", "短收数量"), ("variance_amount", "差异金额"), ("status", "状态"), ("posted", "库存过账"))},
+                {"title": "委外短收报废差异", "rows": variance_rows, "columns": columns(("receive_no", "收货单"), ("receive_date", "日期"), ("processor_name", "加工商"), ("order_no", "委外订单"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("scrap_qty", "报废数量"), ("short_qty", "短收数量"), ("variance_amount", "差异金额"), ("status", "状态"))},
+                {"title": "委外应付对账明细", "rows": payable_rows, "columns": columns(("doc_no", "来源单据"), ("doc_date", "日期"), ("processor_name", "加工商"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("payable_amount", "应付金额"), ("paid_amount", "已付金额"), ("balance", "未付余额"), ("status", "状态"))},
             ],
         }
     if kind == "finance":
@@ -1453,11 +1453,11 @@ def build_module_report_config(
         receivable_scope_clause = ""
         receivable_scope_params = ()
         if scope_filter:
-            receivable_scope_clause, receivable_scope_params = scope_filter({"project": "project_code", "serial": "serial_no"})
+            receivable_scope_clause, receivable_scope_params = scope_filter({"project": "project_code", "cabinet": "cabinet_no"})
         receivables = query_rows(
             f"""
             SELECT source_no AS doc_no, receivable_date AS doc_date, '应收' AS kind,
-                   total_amount, received_amount AS settled_amount, balance, status, project_code, serial_no
+                   total_amount, received_amount AS settled_amount, balance, status, project_code, cabinet_no
             FROM customer_receivables
             WHERE 1=1{receivable_scope_clause}
             ORDER BY receivable_date DESC NULLS LAST, id DESC
@@ -1468,11 +1468,11 @@ def build_module_report_config(
         payable_scope_clause = ""
         payable_scope_params = ()
         if scope_filter:
-            payable_scope_clause, payable_scope_params = scope_filter({"project": "project_code", "serial": "serial_no"})
+            payable_scope_clause, payable_scope_params = scope_filter({"project": "project_code", "cabinet": "cabinet_no"})
         payables = query_rows(
             f"""
             SELECT doc_no, doc_date, '应付' AS kind,
-                   amount AS total_amount, paid_amount AS settled_amount, balance, status, NULL AS project_code, NULL AS serial_no
+                   amount AS total_amount, paid_amount AS settled_amount, balance, status, NULL AS project_code, NULL AS cabinet_no
             FROM supplier_payables
             WHERE 1=1{payable_scope_clause}
             ORDER BY doc_date DESC NULLS LAST, id DESC
@@ -1498,14 +1498,14 @@ def build_module_report_config(
             """
             SELECT '应收' AS kind, source_no AS doc_no, receivable_date AS doc_date,
                    COALESCE(due_date, receivable_date) AS due_date,
-                   total_amount, received_amount AS settled_amount, balance, status, project_code, serial_no,
+                   total_amount, received_amount AS settled_amount, balance, status, project_code, cabinet_no,
                    CURRENT_DATE - COALESCE(due_date, receivable_date, CURRENT_DATE) AS age_days
             FROM customer_receivables
             WHERE COALESCE(balance,0) <> 0
             UNION ALL
             SELECT '应付' AS kind, doc_no, doc_date,
                    COALESCE(next_follow_up_date, doc_date) AS due_date,
-                   amount AS total_amount, paid_amount AS settled_amount, balance, status, NULL AS project_code, NULL AS serial_no,
+                   amount AS total_amount, paid_amount AS settled_amount, balance, status, NULL AS project_code, NULL AS cabinet_no,
                    CURRENT_DATE - COALESCE(next_follow_up_date, doc_date, CURRENT_DATE) AS age_days
             FROM supplier_payables
             WHERE COALESCE(balance,0) <> 0
@@ -1556,22 +1556,22 @@ def build_module_report_config(
                 {"label": "应收余额", "value": money_metric(sum_value("customer_receivables", "balance")), "hint": "客户未回款"},
             ],
             "sections": [
-                {"title": "应收应付账龄专题", "rows": aging_rows, "columns": _with_url_key(columns(("kind", "类型"), ("doc_no", "来源单"), ("doc_date", "单据日期"), ("due_date", "到期/跟进日"), ("age_days", "逾期天数"), ("aging_bucket", "账龄分层"), ("total_amount", "金额"), ("settled_amount", "已核销"), ("balance", "余额"), ("settlement_status", "核销状态"), ("status", "业务状态"), ("project_code", "项目号"), ("serial_no", "机号")), "doc_no", "detail_url")},
+                {"title": "应收应付账龄专题", "rows": aging_rows, "columns": _with_url_key(columns(("kind", "类型"), ("doc_no", "来源单"), ("doc_date", "单据日期"), ("due_date", "到期/跟进日"), ("age_days", "逾期天数"), ("aging_bucket", "账龄分层"), ("total_amount", "金额"), ("settled_amount", "已核销"), ("balance", "余额"), ("settlement_status", "核销状态"), ("status", "业务状态"), ("project_code", "项目号"), ("cabinet_no", "柜号")), "doc_no", "detail_url")},
                 {"title": "账龄区间汇总", "rows": aging_buckets, "columns": columns(("bucket", "账龄区间"), ("count", "单据数"), ("receivable_amount", "应收余额"), ("payable_amount", "应付余额"), ("amount", "余额合计"))},
-                {"title": "往来余额明细", "rows": rows, "columns": _with_url_key(columns(("kind", "类型"), ("doc_no", "来源单"), ("doc_date", "日期"), ("total_amount", "金额"), ("settled_amount", "已核销"), ("balance", "余额"), ("settlement_status", "核销状态"), ("status", "业务状态"), ("project_code", "项目号"), ("serial_no", "机号")), "doc_no", "detail_url")},
+                {"title": "往来余额明细", "rows": rows, "columns": _with_url_key(columns(("kind", "类型"), ("doc_no", "来源单"), ("doc_date", "日期"), ("total_amount", "金额"), ("settled_amount", "已核销"), ("balance", "余额"), ("settlement_status", "核销状态"), ("status", "业务状态"), ("project_code", "项目号"), ("cabinet_no", "柜号")), "doc_no", "detail_url")},
             ],
         }
     if kind == "service":
         where, params, filters = report_where_from_args(
             request_args,
             "mso.service_date",
-            ("mso.order_no", "mso.service_type", "mso.project_code", "mso.serial_no", "mso.issue_summary"),
+            ("mso.order_no", "mso.service_type", "mso.project_code", "mso.cabinet_no", "mso.issue_summary"),
             "mso.status",
-            ("mso.project_code", "mso.serial_no"),
+            ("mso.project_code", "mso.cabinet_no"),
         )
         scope_filter = request_args.get("_data_scope_filter") if hasattr(request_args, "get") else None
         if scope_filter:
-            scope_clause, scoped_params = scope_filter({"project": "mso.project_code", "serial": "mso.serial_no"}, params=params)
+            scope_clause, scoped_params = scope_filter({"project": "mso.project_code", "cabinet": "mso.cabinet_no"}, params=params)
             if scope_clause:
                 if where:
                     where += scope_clause
@@ -1580,7 +1580,7 @@ def build_module_report_config(
                 params = scoped_params
         rows = query_rows(
             f"""
-            SELECT mso.order_no, mso.service_date, mso.service_type, mso.project_code, mso.serial_no,
+            SELECT mso.order_no, mso.service_date, mso.service_type, mso.project_code, mso.cabinet_no,
                    mso.status, mso.parts_cost, mso.labor_cost, mso.travel_cost, mso.total_cost,
                    mso.billable_amount, mso.settlement_status
             FROM machine_service_orders mso
@@ -1599,7 +1599,7 @@ def build_module_report_config(
         )[:80]
         rma_rows = query_rows(
             """
-            SELECT rma_no, rma_date, project_code, serial_no, warranty_scope, responsibility_type,
+            SELECT rma_no, rma_date, project_code, cabinet_no, warranty_scope, responsibility_type,
                    internal_claim_amount, supplier_claim_amount, supplier_recovered_amount,
                    claim_status, status
             FROM machine_service_rmas
@@ -1618,9 +1618,9 @@ def build_module_report_config(
                 {"label": "未结算", "value": sum(1 for r in rows if str(r.get("settlement_status") or "") not in {"已结算", "settled"}), "hint": "结算状态"},
             ],
             "sections": [
-                {"title": "售后成本专题", "rows": cost_rows, "columns": columns(("order_no", "服务单"), ("service_date", "日期"), ("service_type", "类型"), ("project_code", "项目号"), ("serial_no", "机号"), ("parts_cost", "备件"), ("labor_cost", "人工"), ("travel_cost", "差旅"), ("total_cost", "成本"), ("billable_amount", "可收费"), ("settlement_status", "结算"))},
-                {"title": "RMA索赔专题", "rows": rma_rows, "columns": columns(("rma_no", "RMA"), ("rma_date", "日期"), ("project_code", "项目号"), ("serial_no", "机号"), ("warranty_scope", "质保"), ("responsibility_type", "责任"), ("internal_claim_amount", "内部金额"), ("supplier_claim_amount", "供应商索赔"), ("supplier_recovered_amount", "已追回"), ("claim_status", "索赔"), ("status", "状态"))},
-                {"title": "售后服务明细", "rows": rows, "columns": columns(("order_no", "服务单"), ("service_date", "日期"), ("service_type", "类型"), ("project_code", "项目号"), ("serial_no", "机号"), ("status", "状态"), ("parts_cost", "备件"), ("labor_cost", "人工"), ("travel_cost", "差旅"), ("total_cost", "成本"), ("billable_amount", "可收费"), ("settlement_status", "结算"))},
+                {"title": "售后成本专题", "rows": cost_rows, "columns": columns(("order_no", "服务单"), ("service_date", "日期"), ("service_type", "类型"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("parts_cost", "备件"), ("labor_cost", "人工"), ("travel_cost", "差旅"), ("total_cost", "成本"), ("billable_amount", "可收费"), ("settlement_status", "结算"))},
+                {"title": "RMA索赔专题", "rows": rma_rows, "columns": columns(("rma_no", "RMA"), ("rma_date", "日期"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("warranty_scope", "质保"), ("responsibility_type", "责任"), ("internal_claim_amount", "内部金额"), ("supplier_claim_amount", "供应商索赔"), ("supplier_recovered_amount", "已追回"), ("claim_status", "索赔"), ("status", "状态"))},
+                {"title": "售后服务明细", "rows": rows, "columns": columns(("order_no", "服务单"), ("service_date", "日期"), ("service_type", "类型"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("status", "状态"), ("parts_cost", "备件"), ("labor_cost", "人工"), ("travel_cost", "差旅"), ("total_cost", "成本"), ("billable_amount", "可收费"), ("settlement_status", "结算"))},
             ],
         }
     return None

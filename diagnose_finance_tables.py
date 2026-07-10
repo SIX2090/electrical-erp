@@ -29,7 +29,7 @@ def main():
     finance_tables = [
         'vouchers', 'voucher_lines', 'voucher_entries',
         'gl_accounts', 'gl_account_balances', 'chart_of_accounts',
-        'period_closing', 'project_cost_ledger', 'serial_cost_ledger',
+        'period_closing', 'project_cost_ledger', 'cabinet_cost_ledger',
         'inventory_costing', 'inventory_transactions', 'financial_report_log',
         'sales_invoices', 'sales_invoice_items',
         'purchase_invoices', 'purchase_invoice_items',

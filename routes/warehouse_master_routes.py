@@ -301,7 +301,7 @@ def render_location_detail(location_id, query_one, query_rows, columns, qty_metr
             "rows": query_rows(
                 """
                 SELECT ib.id, p.code AS product_code, p.name AS product_name, p.specification,
-                       ib.lot_no, ib.serial_no, ib.quantity, ib.locked_qty, ib.unit_cost
+                       ib.lot_no, ib.cabinet_no, ib.quantity, ib.locked_qty, ib.unit_cost
                 FROM inventory_balances ib
                 LEFT JOIN products p ON p.id=ib.product_id
                 WHERE ib.location_id=%s
@@ -310,7 +310,7 @@ def render_location_detail(location_id, query_one, query_rows, columns, qty_metr
                 """,
                 (location_id,),
             ),
-            "columns": columns(("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("lot_no", "批号"), ("serial_no", "机号"), ("quantity", "数量"), ("locked_qty", "锁定"), ("unit_cost", "单位成本")),
+            "columns": columns(("product_code", "物料编码"), ("product_name", "物料名称"), ("specification", "规格"), ("lot_no", "批号"), ("cabinet_no", "柜号"), ("quantity", "数量"), ("locked_qty", "锁定"), ("unit_cost", "单位成本")),
             "detail_base": "/inventory/detail",
         },
         {
@@ -318,7 +318,7 @@ def render_location_detail(location_id, query_one, query_rows, columns, qty_metr
             "rows": query_rows(
                 """
                 SELECT st.id, st.transaction_date, st.transaction_type, p.code AS product_code,
-                       p.name AS product_name, st.quantity, st.reference_no, st.lot_no, st.serial_no
+                       p.name AS product_name, st.quantity, st.reference_no, st.lot_no, st.cabinet_no
                 FROM stock_transactions st
                 LEFT JOIN products p ON p.id=st.product_id
                 WHERE st.location_id=%s
@@ -327,7 +327,7 @@ def render_location_detail(location_id, query_one, query_rows, columns, qty_metr
                 """,
                 (location_id,),
             ),
-            "columns": columns(("transaction_date", "日期"), ("transaction_type", "类型"), ("product_code", "物料编码"), ("product_name", "物料名称"), ("quantity", "数量"), ("reference_no", "来源"), ("lot_no", "批号"), ("serial_no", "机号")),
+            "columns": columns(("transaction_date", "日期"), ("transaction_type", "类型"), ("product_code", "物料编码"), ("product_name", "物料名称"), ("quantity", "数量"), ("reference_no", "来源"), ("lot_no", "批号"), ("cabinet_no", "柜号")),
             "detail_base": "/transactions",
         },
     ]

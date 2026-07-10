@@ -8,7 +8,7 @@
       <select name="run_id" class="form-select form-select-sm me-2" onchange="this.form.submit()">
         {% for r in runs %}
         <option value="{{ r.id }}" {% if r.id == current_run_id %}selected{% endif %}>
-          {{ r.run_no }} ({{ r.period or '-' }} / {{ r.project_code or '-' }} / {{ r.serial_no or '-' }})
+          {{ r.run_no }} ({{ r.period or '-' }} / {{ r.project_code or '-' }} / {{ r.cabinet_no or '-' }})
         </option>
         {% endfor %}
       </select>

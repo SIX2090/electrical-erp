@@ -23,7 +23,7 @@ def main():
     finance_related = []
     for i, match in enumerate(matches, 1):
         func_name = match.group(1)
-        if any(keyword in func_name.lower() for keyword in ['finance', 'voucher', 'ledger', 'invoice', 'project_cost', 'serial_cost', 'period', 'costing']):
+        if any(keyword in func_name.lower() for keyword in ['finance', 'voucher', 'ledger', 'invoice', 'project_cost', 'cabinet_cost', 'period', 'costing']):
             line_num = app_content[:match.start()].count('\n') + 1
             finance_related.append((line_num, func_name))
             print(f"  {line_num:4d}: {func_name}")

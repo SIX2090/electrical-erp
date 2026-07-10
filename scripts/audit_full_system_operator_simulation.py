@@ -111,10 +111,10 @@ def repair_missing_service_cards_from_shipments(cur):
     cur.execute(
         """
         WITH candidates AS (
-            SELECT DISTINCT ON (s.serial_no)
+            SELECT DISTINCT ON (s.cabinet_no)
                    s.order_id AS sales_order_id,
                    COALESCE(NULLIF(s.project_code, ''), NULLIF(so.project_code, '')) AS project_code,
-                   NULLIF(s.serial_no, '') AS serial_no,
+                   NULLIF(s.cabinet_no, '') AS cabinet_no,
                    COALESCE(s.customer_id, so.customer_id) AS customer_id,
                    so.cost_object_id,
                    s.shipment_date,
@@ -126,17 +126,17 @@ def repair_missing_service_cards_from_shipments(cur):
          LEFT JOIN sales_order_items soi ON soi.id=si.order_item_id OR soi.order_id=s.order_id
          LEFT JOIN products p ON p.id=COALESCE(si.product_id, soi.product_id)
          LEFT JOIN machine_service_cards c
-                ON COALESCE(c.serial_no, '')=COALESCE(s.serial_no, '')
-             WHERE COALESCE(s.serial_no, '')<>''
+                ON COALESCE(c.cabinet_no, '')=COALESCE(s.cabinet_no, '')
+             WHERE COALESCE(s.cabinet_no, '')<>''
                AND c.id IS NULL
                AND COALESCE(si.product_id, soi.product_id) IS NOT NULL
-          ORDER BY s.serial_no, s.shipment_date NULLS LAST, s.id
+          ORDER BY s.cabinet_no, s.shipment_date NULLS LAST, s.id
         )
         INSERT INTO machine_service_cards (
-            sales_order_id, cost_object_id, project_code, serial_no, product_id,
+            sales_order_id, cost_object_id, project_code, cabinet_no, product_id,
             customer_id, install_date, installation_date, status, machine_model, remark
         )
-        SELECT sales_order_id, cost_object_id, project_code, serial_no, product_id,
+        SELECT sales_order_id, cost_object_id, project_code, cabinet_no, product_id,
                customer_id, shipment_date, shipment_date, '已安装待验收', machine_model,
                'Backfilled by full system operator simulation from posted shipment trace.'
           FROM candidates
@@ -166,11 +166,11 @@ def db_snapshot(cur):
         "location": fetch_one(cur, "SELECT id, warehouse_id, code, name FROM locations ORDER BY id LIMIT 1")
         if table_exists(cur, "locations")
         else None,
-        "service_card": fetch_one(cur, "SELECT id, project_code, serial_no FROM machine_service_cards ORDER BY id DESC LIMIT 1")
+        "service_card": fetch_one(cur, "SELECT id, project_code, cabinet_no FROM machine_service_cards ORDER BY id DESC LIMIT 1")
         if table_exists(cur, "machine_service_cards")
         else None,
         "service_card_repairs": service_card_repairs,
-        "delivered_serial_count": scalar(cur, "SELECT COUNT(*) FROM sales_shipments WHERE COALESCE(serial_no, '')<>''")
+        "delivered_cabinet_count": scalar(cur, "SELECT COUNT(*) FROM sales_shipments WHERE COALESCE(cabinet_no, '')<>''")
         if table_exists(cur, "sales_shipments")
         else 0,
     }
@@ -257,7 +257,7 @@ def post_purchase_request(client, cur, refs):
         "reason": AUDIT_TAG,
         "remark": AUDIT_TAG,
         "project_code": "",
-        "serial_no": "",
+        "cabinet_no": "",
         "items": [
             {
                 "material_id": product["id"],
@@ -417,7 +417,7 @@ def post_inventory_check(client, cur, refs):
         "actual_qty[]": "0",
         "unit_cost[]": "0",
         "lot_no[]": AUDIT_TAG,
-        "serial_no[]": "",
+        "cabinet_no[]": "",
     }
     response = client.post("/inventory_checks/new", data=form, follow_redirects=False)
     created = fetch_one(cur, "SELECT * FROM inventory_check_orders WHERE id>%s AND remark=%s ORDER BY id DESC LIMIT 1", (before, AUDIT_TAG))
@@ -439,8 +439,8 @@ def post_service_order(client, cur, refs):
             "ok": True,
             "precondition_missing": True,
             "blocked_reason": "missing machine service card",
-            "next_action": "prepare a shipped machine serial number so the service card can be generated before service order entry",
-            "delivered_serial_count": refs.get("delivered_serial_count") or 0,
+            "next_action": "prepare a shipped cabinet number so the service card can be generated before service order entry",
+            "delivered_cabinet_count": refs.get("delivered_cabinet_count") or 0,
         }
     before = scalar(cur, "SELECT COALESCE(MAX(id),0) FROM machine_service_orders")
     form = {
@@ -450,7 +450,7 @@ def post_service_order(client, cur, refs):
         "issue_summary": AUDIT_TAG,
         "remark": AUDIT_TAG,
         "project_code": card.get("project_code") or "",
-        "serial_no": card.get("serial_no") or "",
+        "cabinet_no": card.get("cabinet_no") or "",
     }
     response = client.post("/service-orders/new", data=form, follow_redirects=False)
     created = fetch_one(cur, "SELECT * FROM machine_service_orders WHERE id>%s AND issue_summary=%s ORDER BY id DESC LIMIT 1", (before, AUDIT_TAG))

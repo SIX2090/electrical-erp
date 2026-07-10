@@ -16,11 +16,11 @@
 <div class="page-heading d-flex justify-content-between align-items-start gap-3">
     <div>
         <h1>{{ confirmation.confirm_no|clean_text }}</h1>
-        <p>{{ confirmation.project_code|clean_text or '-' }} / {{ confirmation.serial_no|clean_text or '-' }}</p>
+        <p>{{ confirmation.project_code|clean_text or '-' }} / {{ confirmation.cabinet_no|clean_text or '-' }}</p>
     </div>
     <div class="d-flex gap-2">
         {% if confirmation.ledger_url %}
-        <a class="btn btn-outline-primary btn-sm" href="{{ confirmation.ledger_url }}">项目/机号台账</a>
+        <a class="btn btn-outline-primary btn-sm" href="{{ confirmation.ledger_url }}">项目/柜号台账</a>
         {% endif %}
         <a class="btn btn-outline-secondary btn-sm" href="/engineering/technical-confirmations">返回列表</a>
         {% if confirmation.status != '已确认' %}
@@ -174,7 +174,7 @@
         <dt class="col-sm-2">ECN影响摘要</dt>
         <dd class="col-sm-10">{{ confirmation.ecn_impact_summary|clean_text or '-' }}</dd>
         <dt class="col-sm-2">下游影响</dt>
-        <dd class="col-sm-10">MRP缺料、齐套检查、工单用料与工艺、采购/委外准备、质检放行、发货准备、服务机号追踪、项目/机号成本追踪。</dd>
+        <dd class="col-sm-10">MRP缺料、齐套检查、工单用料与工艺、采购/委外准备、质检放行、发货准备、服务柜号追踪、项目/柜号成本追踪。</dd>
     </dl>
 </div>
 {% endblock %}

@@ -64,7 +64,7 @@
                     <th>物料编码</th>
                     <th>物料名称</th>
                     <th class="text-end">数量</th>
-                    <th>项目/机号</th>
+                    <th>项目/柜号</th>
                     <th>状态</th>
                     <th>已转单据</th>
                     <th class="text-end">操作</th>
@@ -83,7 +83,7 @@
                     <td>{{ s.material_code or '-' }}</td>
                     <td>{{ s.material_name or '-' }}</td>
                     <td class="text-end">{{ qty(s.qty) }}</td>
-                    <td>{{ s.project_code or '-' }} / {{ s.serial_no or '-' }}</td>
+                    <td>{{ s.project_code or '-' }} / {{ s.cabinet_no or '-' }}</td>
                     <td>
                         {% if s.status == 'open' %}<span class="badge bg-warning text-dark">待处理</span>
                         {% elif s.status == 'converted' %}<span class="badge bg-success">已转换</span>

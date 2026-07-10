@@ -3,7 +3,7 @@
 {% block content %}
 <div class="page-heading">
     <h1>技术确认单</h1>
-    <p>按项目号和机号锁定 BOM、图纸、工艺路线、工作中心和关键控制点。</p>
+    <p>按项目号和柜号锁定 BOM、图纸、工艺路线、工作中心和关键控制点。</p>
 </div>
 
 <div class="page-card">
@@ -14,7 +14,7 @@
         </div>
         <div class="d-flex flex-wrap gap-2">
             <form class="d-flex gap-2" method="get">
-                <input class="form-control form-control-sm" name="keyword" value="{{ request.args.get('keyword', request.args.get('q', '')) }}" placeholder="确认单/销售订单/项目号/机号/图号">
+                <input class="form-control form-control-sm" name="keyword" value="{{ request.args.get('keyword', request.args.get('q', '')) }}" placeholder="确认单/销售订单/项目号/柜号/图号">
                 <button class="btn btn-outline-primary btn-sm" type="submit"><i class="bi bi-search"></i> 查询</button>
             </form>
         </div>
@@ -25,7 +25,7 @@
             <tr>
                 <th>确认单</th>
                 <th>销售订单</th>
-                <th>项目/机号</th>
+                <th>项目/柜号</th>
                 <th>产品/机型</th>
                 <th>BOM版本</th>
                 <th>图纸版本</th>
@@ -43,7 +43,7 @@
             <tr>
                 <td><a href="/engineering/technical-confirmations/{{ row.id }}">{{ row.confirm_no|clean_text }}</a></td>
                 <td>{{ row.sales_order_no|clean_text if row.sales_order_no else '-' }}</td>
-                <td>{{ row.project_code|clean_text or '-' }} / {{ row.serial_no|clean_text or '-' }}</td>
+                <td>{{ row.project_code|clean_text or '-' }} / {{ row.cabinet_no|clean_text or '-' }}</td>
                 <td>
                     <div>{{ row.product_code|clean_text or '-' }} {{ row.product_name|clean_text or '' }}</div>
                     <div class="text-muted small">{{ row.machine_model|clean_text or '-' }}</div>

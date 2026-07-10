@@ -42,7 +42,7 @@
 
 Focus first on:
 
-- Product and project master: product family, machine model, project number, machine serial number.
+- Product and project master: product family, machine model, project number, cabinet number.
 - Technical master: material, BOM, routing, work center, outsourced process, key control point.
 - Master data: material, customer, supplier, outsourced processor, warehouse, location, unit, department, employee, category.
 - Purchase: request, order, receipt, payable.
@@ -50,7 +50,7 @@ Focus first on:
 - Inventory: inbound, outbound, transfer, adjustment, check, balance, transactions.
 - Sales: order, shipment, receivable.
 - Basic production: BOM, work order, requisition, completion/inbound when available.
-- Service: service card by machine serial number, installation acceptance, service order, RMA.
+- Service: service card by cabinet number, installation acceptance, service order, RMA.
 - Finance reconciliation: AR/AP, period close, basic financial statements.
 
 Advanced after-sale, quality, payroll, asset, logistics, marketing, custom document, and custom report features are out of scope until the core version is stable.
@@ -61,8 +61,8 @@ This project is for low-voltage switchgear and distribution automation control e
 
 Company product families include 低压抽出式开关柜, 低压固定式开关柜, 低压配电柜, 动力配电箱, 照明配电箱, 无功补偿装置, 配电自动化终端DTU, 环网柜, and 箱式变电站.
 
-Project number and cabinet serial number are the main tracking axis. They must flow through sales, BOM, purchase, inventory, outsourcing, work order, assembly, wiring, testing, shipment, on-site service, AR/AP, and cost reports.
-They are traceability fields, not universal mandatory fields. Make-to-stock production of standard distribution boxes, small-company simplified operation, and early project preparation may leave project number or cabinet serial number blank unless the system option `require_project_serial` is explicitly enabled. UI labels should show them as recommended traceability fields instead of always marking them required.
+Project number and cabinet number are the main tracking axis. They must flow through sales, BOM, purchase, inventory, outsourcing, work order, assembly, wiring, testing, shipment, on-site service, AR/AP, and cost reports.
+They are traceability fields, not universal mandatory fields. Make-to-stock production of standard distribution boxes, small-company simplified operation, and early project preparation may leave project number or cabinet number blank unless the system option `require_project_cabinet` is explicitly enabled. UI labels should show them as recommended traceability fields instead of always marking them required.
 
 Use Digiwin-style manufacturing ERP as the primary benchmark. Do not switch the product direction to generic SaaS dashboards, Kingdee-style finance-first pages, or Yonyou-style broad module expansion unless the user explicitly changes this rule.
 

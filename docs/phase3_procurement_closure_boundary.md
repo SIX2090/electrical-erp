@@ -4,7 +4,7 @@
 
 This boundary covers procurement closure from engineering-ready shortages to purchase request, purchase order, receipt/inventory, supplier payable, and project or machine ledger traceability.
 
-The loop starts after engineering readiness and MRP/kitting shortage analysis identify purchasable material shortages. It ends when purchase request execution, purchase order execution, receipt posting, inventory evidence, and supplier payable records can be reconciled by project code and machine serial number.
+The loop starts after engineering readiness and MRP/kitting shortage analysis identify purchasable material shortages. It ends when purchase request execution, purchase order execution, receipt posting, inventory evidence, and supplier payable records can be reconciled by project code and cabinet number.
 
 ## Source and Target Documents
 
@@ -32,7 +32,7 @@ Target documents and views:
 
 ## Read-Only Closure Data
 
-Project-axis procurement closure APIs expose read-only status for sales order, project code, or machine serial number. They summarize shortage line count, purchase request count, purchase order count, pending receipt quantity, purchase receipt count, supplier payable count, payable balance, blocked reason, next action, and owner role.
+Project-axis procurement closure APIs expose read-only status for sales order, project code, or cabinet number. They summarize shortage line count, purchase request count, purchase order count, pending receipt quantity, purchase receipt count, supplier payable count, payable balance, blocked reason, next action, and owner role.
 
 These APIs must not create, submit, approve, void, post, reverse, or settle any business document.
 
@@ -47,8 +47,8 @@ Automatic supplier selection, automatic purchase order generation from unready e
 The loop is accepted only when operators can verify the following:
 
 - Engineering-not-ready shortage rows are blocked from purchase request creation and show blocked reason, owner role, next action, technical confirmation link, and project ledger link.
-- Engineering-ready shortage rows can move through purchase request and purchase order without losing project code or machine serial number.
-- Purchase receipts create inventory evidence and preserve source purchase order, project code, and machine serial number.
+- Engineering-ready shortage rows can move through purchase request and purchase order without losing project code or cabinet number.
+- Purchase receipts create inventory evidence and preserve source purchase order, project code, and cabinet number.
 - Supplier payable records are traceable from purchase execution and remain visible in payable query/detail surfaces.
 - Project and machine ledger views include purchase request, purchase receipt, and supplier payable lifecycle events.
 - Read-only procurement closure APIs expose closure counts and blockers without writing procurement, inventory, or finance documents.

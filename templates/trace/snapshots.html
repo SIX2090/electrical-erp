@@ -39,7 +39,7 @@
                         <th>单据编号</th>
                         <th>快照事件</th>
                         <th>项目号</th>
-                        <th>机号</th>
+                        <th>柜号</th>
                         <th>创建时间</th>
                         <th width="80">操作</th>
                     </tr>
@@ -53,7 +53,7 @@
                         <td>{{ s.doc_no or '-' }}</td>
                         <td><span class="badge text-bg-info">{{ s.snapshot_event or '-' }}</span></td>
                         <td>{{ s.project_code or '-' }}</td>
-                        <td>{{ s.serial_no or '-' }}</td>
+                        <td>{{ s.cabinet_no or '-' }}</td>
                         <td class="text-muted small">{{ s.created_at or '-' }}</td>
                         <td>
                             <a class="btn btn-outline-primary btn-sm py-0 px-2" href="/trace/snapshots/{{ s.id }}">

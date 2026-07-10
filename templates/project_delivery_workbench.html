@@ -8,7 +8,7 @@
         <p>只保留跨部门异常入口；完整单据和明细回到各业务页面处理。</p>
     </div>
     <div class="d-flex flex-wrap gap-2">
-        <a class="btn btn-primary btn-sm" href="/projects"><i class="bi bi-kanban"></i> 项目/机号台账</a>
+        <a class="btn btn-primary btn-sm" href="/projects"><i class="bi bi-kanban"></i> 项目/柜号台账</a>
         <a class="btn btn-outline-secondary btn-sm" href="/pending-documents"><i class="bi bi-inbox"></i> 待处理单据</a>
     </div>
 </div>
@@ -47,7 +47,7 @@
             <thead>
             <tr>
                 <th>项目号</th>
-                <th>机号</th>
+                <th>柜号</th>
                 <th>卡点</th>
                 <th>责任</th>
                 <th class="text-end">操作</th>
@@ -58,7 +58,7 @@
             {% if loop.index <= 3 %}
             <tr>
                 <td>{{ row.project_code or '-' }}</td>
-                <td>{{ row.serial_no or '-' }}</td>
+                <td>{{ row.cabinet_no or '-' }}</td>
                 <td><span class="badge bg-light text-dark border">{{ row.blocked_reason }}</span></td>
                 <td>{{ row.owner }}</td>
                 <td class="text-end"><a class="btn btn-outline-primary btn-sm" href="{{ row.detail_url }}">进入台账</a></td>

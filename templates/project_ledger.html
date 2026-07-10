@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}项目/机号台账{% endblock %}
-{% block header_title %}项目/机号台账{% endblock %}
+{% block title %}项目/柜号台账{% endblock %}
+{% block header_title %}项目/柜号台账{% endblock %}
 {% block content %}
 <div class="page-heading">
-    <h1>项目/机号台账</h1>
+    <h1>项目/柜号台账</h1>
     <p>{{ subtitle }}</p>
 </div>
 
@@ -23,7 +23,7 @@
     <div class="section-title">
         <div>
             <h2>项目筛选</h2>
-            <span>按销售订单、项目号、机号、客户、风险、责任归口和首要责任过滤。</span>
+            <span>按销售订单、项目号、柜号、客户、风险、责任归口和首要责任过滤。</span>
         </div>
         <a class="btn btn-outline-primary btn-sm" href="/engineering/kitting">
             <i class="bi bi-ui-checks-grid"></i> 齐套检查
@@ -39,7 +39,7 @@
     {% set export_connector = '&' if export_prefix else '' %}
     <form class="row g-2" method="get" action="/projects">
         <div class="col-lg-3">
-            <input class="form-control" name="keyword" value="{{ filters.keyword }}" placeholder="销售订单、项目号、机号、客户">
+            <input class="form-control" name="keyword" value="{{ filters.keyword }}" placeholder="销售订单、项目号、柜号、客户">
         </div>
         <div class="col-lg-2">
             <select class="form-select" name="status">
@@ -109,7 +109,7 @@
                 <div class="project-subtitle">
                     <span>{{ row.order_no|clean_text }}</span>
                     <span>{{ row.customer_name|clean_text }}</span>
-                    <span>机号 {{ row.serial_no|clean_text }}</span>
+                    <span>柜号 {{ row.cabinet_no|clean_text }}</span>
                     <span>交期 {{ row.delivery_date or '-' }}</span>
                     <span class="status-pill {{ row.delivery_class }}">{{ row.delivery_state|clean_text }}</span>
                     <span>状态 {{ row.status|clean_text }}</span>

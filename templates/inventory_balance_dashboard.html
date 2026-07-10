@@ -24,7 +24,7 @@
     </div>
     <form class="row g-2" method="get" action="{{ back_url }}">
         <div class="col-lg-4">
-            <input class="form-control" name="keyword" value="{{ filters.keyword }}" placeholder="物料、仓库、库位、批号、机号">
+            <input class="form-control" name="keyword" value="{{ filters.keyword }}" placeholder="物料、仓库、库位、批号、柜号">
         </div>
         <div class="col-lg-2">
             <input class="form-control" name="project_code" value="{{ filters.project_code }}" placeholder="项目号">
@@ -72,7 +72,7 @@
                 <th>仓库</th>
                 <th>库位</th>
                 <th>批号</th>
-                <th>机号</th>
+                <th>柜号</th>
                 <th class="text-end">数量</th>
                 <th class="text-end">锁定</th>
                 <th class="text-end">可用</th>
@@ -94,7 +94,7 @@
                 <td>{{ row.warehouse_name|clean_text }}</td>
                 <td>{{ (row.location_code or row.location_name)|clean_text }}</td>
                 <td>{{ row.lot_no|clean_text }}</td>
-                <td>{{ row.serial_no|clean_text }}</td>
+                <td>{{ row.cabinet_no|clean_text }}</td>
                 <td class="text-end">{{ row.quantity|qty }}</td>
                 <td class="text-end">{{ row.locked_qty|qty }}</td>
                 <td class="text-end fw-semibold">{{ row.available_qty|qty }}</td>

@@ -175,7 +175,7 @@ findings=1
 batch_tracking_mismatch_rows=1
 
 failed | product_id=26 | warehouse_id=4 | location_id=2 
-       | lot_no='' | serial_no='SN-GT-TRIAL-20260526-001' 
+       | lot_no='' | cabinet_no='SN-GT-TRIAL-20260526-001' 
        | project_code='PJ-GT-TRIAL-20260526-001' 
        | batch_qty=Decimal('2.5000') 
        | balance_qty=Decimal('3.500') 

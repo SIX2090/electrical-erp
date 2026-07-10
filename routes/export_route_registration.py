@@ -22,7 +22,7 @@ EXPORT_ROUTES = [
     ("/export/departments", "departments", "departments"),
     ("/export/employees", "employees", "employees"),
     ("/export/project-masters", "project_masters", "project_masters"),
-    ("/export/machine-serial-masters", "machine_serial_masters", "machine_serial_masters"),
+    ("/export/cabinet-masters", "cabinet_masters", "cabinet_masters"),
     ("/export/product-categories", "product_categories", "product_categories"),
     ("/export/customer-categories", "customer_categories", "customer_categories"),
     ("/export/supplier-categories", "supplier_categories", "supplier_categories"),
@@ -38,11 +38,11 @@ EXPORT_ROUTES = [
 # (a) audit-logged with row counts and (b) filtered by the user's data scope.
 # Each entry maps the export table to the field_map used by row_allowed().
 SENSITIVE_EXPORTS = {
-    "sales_orders": {"project": "project_code", "serial": "serial_no", "customer": "customer_id"},
-    "purchase_orders": {"project": "project_code", "serial": "serial_no", "supplier": "supplier_id"},
-    "customer_receivables": {"project": "project_code", "serial": "serial_no", "customer": "customer_id"},
+    "sales_orders": {"project": "project_code", "cabinet": "cabinet_no", "customer": "customer_id"},
+    "purchase_orders": {"project": "project_code", "cabinet": "cabinet_no", "supplier": "supplier_id"},
+    "customer_receivables": {"project": "project_code", "cabinet": "cabinet_no", "customer": "customer_id"},
     "supplier_payables": {"supplier": "supplier_id"},
-    "purchase_requisitions": {"project": "project_code", "serial": "serial_no"},
+    "purchase_requisitions": {"project": "project_code", "cabinet": "cabinet_no"},
 }
 
 

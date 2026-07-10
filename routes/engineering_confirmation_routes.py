@@ -113,7 +113,7 @@ def _query_options(query_rows):
     return {
         "sales_orders": query_rows(
             """
-            SELECT so.id, so.order_no, so.project_code, so.serial_no, so.delivery_date,
+            SELECT so.id, so.order_no, so.project_code, so.cabinet_no, so.delivery_date,
                    c.name AS customer_name,
                    p.id AS product_id, p.code AS product_code, p.name AS product_name,
                    COALESCE(p.specification, '') AS product_specification,
@@ -135,7 +135,7 @@ def _query_options(query_rows):
             WHERE COALESCE(so.status, '') NOT IN ('已作废','作废','void','cancelled')
               AND COALESCE(so.order_no, '') NOT LIKE '%%?%%'
               AND COALESCE(so.project_code, '') NOT LIKE '%%?%%'
-              AND COALESCE(so.serial_no, '') NOT LIKE '%%?%%'
+              AND COALESCE(so.cabinet_no, '') NOT LIKE '%%?%%'
               AND COALESCE(c.name, '') NOT LIKE '%%?%%'
               AND COALESCE(p.code, '') NOT LIKE '%%?%%'
               AND COALESCE(p.name, '') NOT LIKE '%%?%%'
@@ -210,7 +210,7 @@ def _confirmation_form_state():
         "sales_order_id": _int_or_none("sales_order_id"),
         "product_id": _int_or_none("product_id"),
         "project_code": _text("project_code"),
-        "serial_no": _text("serial_no"),
+        "cabinet_no": _text("cabinet_no"),
         "machine_model": _text("machine_model"),
         "bom_id": _int_or_none("bom_id"),
         "routing_id": _int_or_none("routing_id"),
@@ -288,17 +288,17 @@ def _validate_confirmation_references(query_one, product_id, bom_id, routing_id,
     return errors
 
 
-def _resolve_current_released_drawing(query_one, product_id, bom_id, project_code, serial_no, confirm_date):
+def _resolve_current_released_drawing(query_one, product_id, bom_id, project_code, cabinet_no, confirm_date):
     project_code = (project_code or "").strip()
-    serial_no = (serial_no or "").strip()
+    cabinet_no = (cabinet_no or "").strip()
     return query_one(
         """
         WITH candidates AS (
             SELECT d.drawing_no, d.version, d.id,
                    CASE
-                       WHEN NULLIF(dl.serial_no, '')=NULLIF(%s, '') AND NULLIF(dl.project_code, '')=NULLIF(%s, '') AND (dl.bom_id=%s OR dl.product_id=%s) THEN 100
-                       WHEN NULLIF(dl.serial_no, '')=NULLIF(%s, '') AND NULLIF(dl.project_code, '')=NULLIF(%s, '') THEN 90
-                       WHEN NULLIF(dl.serial_no, '')=NULLIF(%s, '') AND dl.product_id=%s THEN 80
+                       WHEN NULLIF(dl.cabinet_no, '')=NULLIF(%s, '') AND NULLIF(dl.project_code, '')=NULLIF(%s, '') AND (dl.bom_id=%s OR dl.product_id=%s) THEN 100
+                       WHEN NULLIF(dl.cabinet_no, '')=NULLIF(%s, '') AND NULLIF(dl.project_code, '')=NULLIF(%s, '') THEN 90
+                       WHEN NULLIF(dl.cabinet_no, '')=NULLIF(%s, '') AND dl.product_id=%s THEN 80
                        WHEN NULLIF(dl.project_code, '')=NULLIF(%s, '') AND dl.product_id=%s THEN 70
                        WHEN dl.bom_id=%s THEN 60
                        WHEN dl.product_id=%s THEN 50
@@ -314,7 +314,7 @@ def _resolve_current_released_drawing(query_one, product_id, bom_id, project_cod
               AND (
                     dl.product_id=%s OR dl.bom_id=%s
                     OR (%s <> '' AND NULLIF(dl.project_code, '')=%s)
-                    OR (%s <> '' AND NULLIF(dl.serial_no, '')=%s)
+                    OR (%s <> '' AND NULLIF(dl.cabinet_no, '')=%s)
                     OR (p.drawing_no IS NOT NULL AND p.drawing_no=d.drawing_no)
               )
         )
@@ -325,9 +325,9 @@ def _resolve_current_released_drawing(query_one, product_id, bom_id, project_cod
         LIMIT 1
         """,
         (
-            serial_no, project_code, bom_id, product_id,
-            serial_no, project_code,
-            serial_no, product_id,
+            cabinet_no, project_code, bom_id, product_id,
+            cabinet_no, project_code,
+            cabinet_no, product_id,
             project_code, product_id,
             bom_id,
             product_id,
@@ -338,8 +338,8 @@ def _resolve_current_released_drawing(query_one, product_id, bom_id, project_cod
             bom_id,
             project_code,
             project_code,
-            serial_no,
-            serial_no,
+            cabinet_no,
+            cabinet_no,
         ),
     )
 
@@ -349,7 +349,7 @@ def _prefill_confirmation_from_sales_order(query_one, sales_order_id):
         return {}
     row = query_one(
         """
-        SELECT so.id AS sales_order_id, so.project_code, so.serial_no,
+        SELECT so.id AS sales_order_id, so.project_code, so.cabinet_no,
                p.id AS product_id, p.code AS product_code, p.name AS product_name,
                COALESCE(p.specification, '') AS product_specification,
                p.drawing_no,
@@ -390,7 +390,7 @@ def _prefill_confirmation_from_sales_order(query_one, sales_order_id):
     return {
         "sales_order_id": row.get("sales_order_id"),
         "project_code": row.get("project_code"),
-        "serial_no": row.get("serial_no"),
+        "cabinet_no": row.get("cabinet_no"),
         "product_id": row.get("product_id"),
         "machine_model": machine_model,
         "drawing_no": row.get("drawing_no"),
@@ -469,7 +469,7 @@ def register_engineering_confirmation_routes(
                 """
                 (
                     etc.confirm_no ILIKE %s OR so.order_no ILIKE %s OR etc.project_code ILIKE %s
-                    OR etc.serial_no ILIKE %s OR etc.machine_model ILIKE %s OR p.code ILIKE %s
+                    OR etc.cabinet_no ILIKE %s OR etc.machine_model ILIKE %s OR p.code ILIKE %s
                     OR p.name ILIKE %s OR etc.drawing_no ILIKE %s OR etc.status ILIKE %s
                 )
                 """
@@ -478,7 +478,7 @@ def register_engineering_confirmation_routes(
         where_sql = "WHERE " + " AND ".join(where) if where else ""
         rows = query_rows(
             f"""
-            SELECT etc.id, etc.confirm_no, etc.confirm_date, etc.project_code, etc.serial_no,
+            SELECT etc.id, etc.confirm_no, etc.confirm_date, etc.project_code, etc.cabinet_no,
                    etc.sales_order_id, etc.machine_model, etc.status, etc.owner, etc.next_action,
                    so.order_no AS sales_order_no,
                    p.code AS product_code, p.name AS product_name,
@@ -553,11 +553,11 @@ def register_engineering_confirmation_routes(
             product_id = form_state["product_id"]
             bom_id = form_state["bom_id"]
             project_code = form_state["project_code"]
-            serial_no = form_state["serial_no"]
+            cabinet_no = form_state["cabinet_no"]
             drawing_no = form_state["drawing_no"]
             drawing_version = form_state["drawing_version"]
             if not drawing_no or not drawing_version:
-                current_drawing = _resolve_current_released_drawing(query_one, product_id, bom_id, project_code, serial_no, confirm_date)
+                current_drawing = _resolve_current_released_drawing(query_one, product_id, bom_id, project_code, cabinet_no, confirm_date)
                 if current_drawing:
                     drawing_no = drawing_no or current_drawing.get("drawing_no")
                     drawing_version = drawing_version or current_drawing.get("version")
@@ -586,7 +586,7 @@ def register_engineering_confirmation_routes(
             row = execute_and_return(
                 """
                 INSERT INTO engineering_technical_confirmations
-                    (confirm_no, confirm_date, sales_order_id, product_id, project_code, serial_no,
+                    (confirm_no, confirm_date, sales_order_id, product_id, project_code, cabinet_no,
                      machine_model, bom_id, routing_id, work_center_id, drawing_no, drawing_version,
                      key_control_points, process_program_no, tooling_requirement, inspection_standard,
                      ecn_impact_summary, status, owner, blocked_reason, next_action, remark, created_by)
@@ -599,7 +599,7 @@ def register_engineering_confirmation_routes(
                     _int_or_none("sales_order_id"),
                     product_id,
                     project_code,
-                    serial_no,
+                    cabinet_no,
                     form_state["machine_model"],
                     bom_id,
                     form_state["routing_id"],

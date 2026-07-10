@@ -224,8 +224,8 @@ Templates with direct print/export logic that are not print-page exceptions:
 - `templates/finance/purchase_three_way_match.html`
 - `templates/finance/sales_invoice_reconciliation.html`
 - `templates/finance/sales_three_way_match.html`
-- `templates/finance/serial_cost_summary.html`
-- `templates/finance/serial_cost_variance.html`
+- `templates/finance/cabinet_cost_summary.html`
+- `templates/finance/cabinet_cost_variance.html`
 - `templates/finance/trial_balance_report.html`
 - `templates/finance/uninvoiced_sales.html`
 - `templates/finance/unreceived_purchase_invoice.html`

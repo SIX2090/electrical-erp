@@ -65,7 +65,7 @@ def fetch_summary(cur, limit):
     cur.execute(
         """
         SELECT ib.id, ib.product_id, p.code AS product_code, p.name AS product_name,
-               ib.warehouse_id, ib.location_id, ib.lot_no, ib.serial_no, ib.project_code,
+               ib.warehouse_id, ib.location_id, ib.lot_no, ib.cabinet_no, ib.project_code,
                ib.quantity, ib.unit_cost
         FROM inventory_balances ib
         LEFT JOIN products p ON p.id=ib.product_id

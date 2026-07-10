@@ -40,7 +40,7 @@ def count(cur, sql, params=()):
 
 def ensure_assembly_docs(cur, baseline):
     project_code = baseline["project_code"]
-    serial_no = baseline["serial_no"]
+    cabinet_no = baseline["cabinet_no"]
     assembly_no = f"ASM-{project_code}"
     disassembly_no = f"DIS-{project_code}"
     material_id = baseline["material1_id"]
@@ -52,18 +52,18 @@ def ensure_assembly_docs(cur, baseline):
         """
         INSERT INTO inventory_assembly_orders
             (assembly_no, doc_type, doc_date, warehouse_id, location_id, product_id, quantity,
-             unit_cost, lot_no, serial_no, project_code, status, remark, posted_at)
+             unit_cost, lot_no, cabinet_no, project_code, status, remark, posted_at)
         VALUES (%s, 'assembly', CURRENT_DATE, %s, %s, %s, 1, 120000, '', %s, %s,
                 '已过账', 'agent f assembly trace verification', NOW())
         ON CONFLICT DO NOTHING
         """,
-        (assembly_no, warehouse_id, location_id, finished_id, serial_no, project_code),
+        (assembly_no, warehouse_id, location_id, finished_id, cabinet_no, project_code),
     )
     assembly = one(cur, "SELECT id, assembly_no FROM inventory_assembly_orders WHERE assembly_no=%s AND doc_type='assembly'", (assembly_no,))
     cur.execute(
         """
         INSERT INTO inventory_assembly_items
-            (order_id, product_id, quantity, unit_cost, lot_no, serial_no, line_role, remark,
+            (order_id, product_id, quantity, unit_cost, lot_no, cabinet_no, line_role, remark,
              line_project_code, amount)
         SELECT %s, %s, 1, 100, '', %s, 'component', 'agent f assembly component',
                %s, 100
@@ -71,14 +71,14 @@ def ensure_assembly_docs(cur, baseline):
             SELECT 1 FROM inventory_assembly_items WHERE order_id=%s AND product_id=%s
         )
         """,
-        (assembly["id"], material_id, serial_no, project_code, assembly["id"], material_id),
+        (assembly["id"], material_id, cabinet_no, project_code, assembly["id"], material_id),
     )
     for tx_type, product_id, qty, unit_cost in (("组装领料", material_id, Decimal("-1"), Decimal("100")), ("组装入库", finished_id, Decimal("1"), Decimal("120000"))):
         cur.execute(
             """
             INSERT INTO stock_transactions
                 (transaction_date, transaction_type, product_id, quantity, unit_cost,
-                 reference_no, lot_no, serial_no, project_code, remark, warehouse_id,
+                 reference_no, lot_no, cabinet_no, project_code, remark, warehouse_id,
                  location_id, source_type, amount, source_doc_type, source_doc_no)
             SELECT CURRENT_DATE, %s, %s, %s, %s, %s, '', %s, %s,
                    'agent f assembly trace verification', %s, %s, 'inventory_assembly',
@@ -88,25 +88,25 @@ def ensure_assembly_docs(cur, baseline):
                 WHERE reference_no=%s AND transaction_type=%s AND product_id=%s
             )
             """,
-            (tx_type, product_id, qty, unit_cost, assembly_no, serial_no, project_code, warehouse_id, location_id, qty, unit_cost, assembly_no, assembly_no, tx_type, product_id),
+            (tx_type, product_id, qty, unit_cost, assembly_no, cabinet_no, project_code, warehouse_id, location_id, qty, unit_cost, assembly_no, assembly_no, tx_type, product_id),
         )
 
     cur.execute(
         """
         INSERT INTO inventory_assembly_orders
             (assembly_no, doc_type, doc_date, warehouse_id, location_id, product_id, quantity,
-             unit_cost, lot_no, serial_no, project_code, status, remark, posted_at)
+             unit_cost, lot_no, cabinet_no, project_code, status, remark, posted_at)
         VALUES (%s, 'disassembly', CURRENT_DATE, %s, %s, %s, 1, 120000, '', %s, %s,
                 '已过账', 'agent f disassembly trace verification', NOW())
         ON CONFLICT DO NOTHING
         """,
-        (disassembly_no, warehouse_id, location_id, finished_id, serial_no, project_code),
+        (disassembly_no, warehouse_id, location_id, finished_id, cabinet_no, project_code),
     )
     disassembly = one(cur, "SELECT id, assembly_no FROM inventory_assembly_orders WHERE assembly_no=%s AND doc_type='disassembly'", (disassembly_no,))
     cur.execute(
         """
         INSERT INTO inventory_assembly_items
-            (order_id, product_id, quantity, unit_cost, lot_no, serial_no, line_role, remark,
+            (order_id, product_id, quantity, unit_cost, lot_no, cabinet_no, line_role, remark,
              line_project_code, amount)
         SELECT %s, %s, 1, 100, '', %s, 'component', 'agent f disassembly component',
                %s, 100
@@ -114,14 +114,14 @@ def ensure_assembly_docs(cur, baseline):
             SELECT 1 FROM inventory_assembly_items WHERE order_id=%s AND product_id=%s
         )
         """,
-        (disassembly["id"], material_id, serial_no, project_code, disassembly["id"], material_id),
+        (disassembly["id"], material_id, cabinet_no, project_code, disassembly["id"], material_id),
     )
     for tx_type, product_id, qty, unit_cost in (("拆卸出库", finished_id, Decimal("-1"), Decimal("120000")), ("拆卸入库", material_id, Decimal("1"), Decimal("100"))):
         cur.execute(
             """
             INSERT INTO stock_transactions
                 (transaction_date, transaction_type, product_id, quantity, unit_cost,
-                 reference_no, lot_no, serial_no, project_code, remark, warehouse_id,
+                 reference_no, lot_no, cabinet_no, project_code, remark, warehouse_id,
                  location_id, source_type, amount, source_doc_type, source_doc_no)
             SELECT CURRENT_DATE, %s, %s, %s, %s, %s, '', %s, %s,
                    'agent f disassembly trace verification', %s, %s, 'inventory_disassembly',
@@ -131,7 +131,7 @@ def ensure_assembly_docs(cur, baseline):
                 WHERE reference_no=%s AND transaction_type=%s AND product_id=%s
             )
             """,
-            (tx_type, product_id, qty, unit_cost, disassembly_no, serial_no, project_code, warehouse_id, location_id, qty, unit_cost, disassembly_no, disassembly_no, tx_type, product_id),
+            (tx_type, product_id, qty, unit_cost, disassembly_no, cabinet_no, project_code, warehouse_id, location_id, qty, unit_cost, disassembly_no, disassembly_no, tx_type, product_id),
         )
     return assembly, disassembly
 
@@ -163,7 +163,7 @@ def main():
     os.environ.setdefault("WTF_CSRF_ENABLED", "0")
     values = load_first_machine_values(TEMPLATE)
     project_code = values["project_code"]
-    serial_no = values["serial_no"]
+    cabinet_no = values["cabinet_no"]
     checks = []
 
     conn = connect_db(db_config())
@@ -176,8 +176,8 @@ def main():
             checks.append(("work_order_baseline", bool(baseline.get("work_order_id")), baseline.get("work_order_id")))
             checks.append(("assembly_traceable", bool(assembly), assembly.get("assembly_no") if assembly else "missing"))
             checks.append(("disassembly_traceable", bool(disassembly), disassembly.get("assembly_no") if disassembly else "missing"))
-            checks.append(("assembly_stock_flow", count(cur, "SELECT COUNT(*) AS value FROM stock_transactions WHERE project_code=%s AND serial_no=%s AND reference_no=%s", (project_code, serial_no, assembly.get("assembly_no") if assembly else "")) >= 2, assembly.get("assembly_no") if assembly else "missing"))
-            checks.append(("disassembly_stock_flow", count(cur, "SELECT COUNT(*) AS value FROM stock_transactions WHERE project_code=%s AND serial_no=%s AND reference_no=%s", (project_code, serial_no, disassembly.get("assembly_no") if disassembly else "")) >= 2, disassembly.get("assembly_no") if disassembly else "missing"))
+            checks.append(("assembly_stock_flow", count(cur, "SELECT COUNT(*) AS value FROM stock_transactions WHERE project_code=%s AND cabinet_no=%s AND reference_no=%s", (project_code, cabinet_no, assembly.get("assembly_no") if assembly else "")) >= 2, assembly.get("assembly_no") if assembly else "missing"))
+            checks.append(("disassembly_stock_flow", count(cur, "SELECT COUNT(*) AS value FROM stock_transactions WHERE project_code=%s AND cabinet_no=%s AND reference_no=%s", (project_code, cabinet_no, disassembly.get("assembly_no") if disassembly else "")) >= 2, disassembly.get("assembly_no") if disassembly else "missing"))
             checks.append(("production_schedule_query_source", bool(schedule), schedule.get("schedule_no") if schedule else "missing"))
     finally:
         conn.close()
@@ -190,10 +190,10 @@ def main():
     checks.append(("admin_login", login.status_code == 302, login.status_code))
     if login.status_code == 302:
         for path, expected in [
-            (f"/assembly-orders?keyword={project_code}", [project_code, serial_no, "ASM"]),
-            (f"/disassembly-orders?keyword={project_code}", [project_code, serial_no, "DIS"]),
-            (f"/transactions?keyword={project_code}", [project_code, serial_no, "组装", "拆卸"]),
-            (f"/production-schedules?keyword={project_code}", [project_code, serial_no]),
+            (f"/assembly-orders?keyword={project_code}", [project_code, cabinet_no, "ASM"]),
+            (f"/disassembly-orders?keyword={project_code}", [project_code, cabinet_no, "DIS"]),
+            (f"/transactions?keyword={project_code}", [project_code, cabinet_no, "组装", "拆卸"]),
+            (f"/production-schedules?keyword={project_code}", [project_code, cabinet_no]),
         ]:
             response = client.get(path)
             body = response.get_data(as_text=True)
@@ -206,7 +206,7 @@ def main():
     print("agent_f_production_inventory_closure=ok" if not failures else "agent_f_production_inventory_closure=failed")
     print(f"checked_items={len(checks)}")
     print(f"project_code={project_code}")
-    print(f"serial_no={serial_no}")
+    print(f"cabinet_no={cabinet_no}")
     for name, ok, detail in checks:
         print(f"{'ok' if ok else 'failed'} | {name} | {detail}")
     return 1 if failures else 0

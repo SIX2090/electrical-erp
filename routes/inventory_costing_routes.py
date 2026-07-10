@@ -112,7 +112,7 @@ def register_inventory_costing_routes(app, query_db, execute_db, _login_required
             'start_date': request.args.get('start_date'),
             'end_date': request.args.get('end_date'),
             'project_code': request.args.get('project_code'),
-            'serial_no': request.args.get('serial_no'),
+            'cabinet_no': request.args.get('cabinet_no'),
             'transaction_type': request.args.get('transaction_type')
         }
 
@@ -183,7 +183,7 @@ def register_inventory_costing_routes(app, query_db, execute_db, _login_required
                 'quantity': data.get('quantity'),
                 'unit_cost': data.get('unit_cost'),
                 'project_code': data.get('project_code'),
-                'serial_no': data.get('serial_no'),
+                'cabinet_no': data.get('cabinet_no'),
                 'warehouse_id': data.get('warehouse_id'),
                 'costed_by': current_user_id,
                 'remark': data.get('remark')
@@ -219,7 +219,7 @@ def register_inventory_costing_routes(app, query_db, execute_db, _login_required
                 'transaction_no': data.get('transaction_no'),
                 'quantity': data.get('quantity'),
                 'project_code': data.get('project_code'),
-                'serial_no': data.get('serial_no'),
+                'cabinet_no': data.get('cabinet_no'),
                 'warehouse_id': data.get('warehouse_id'),
                 'costed_by': current_user_id,
                 'remark': data.get('remark')

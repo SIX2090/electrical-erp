@@ -12,7 +12,7 @@ def _invalid_status_sql(alias="status"):
     return f"COALESCE({alias}, '') NOT IN {INVALID_DOC_STATUSES + FINISHED_DOC_STATUSES}"
 
 
-def _engineering_ready_sql(project_expr, serial_expr):
+def _engineering_ready_sql(project_expr, cabinet_expr):
     return f"""
     EXISTS (
         SELECT 1
@@ -34,7 +34,7 @@ def _engineering_ready_sql(project_expr, serial_expr):
         ) released_drawing ON TRUE
         WHERE (
                 ({project_expr} <> '-' AND etc.project_code={project_expr})
-                OR ({serial_expr} <> '-' AND etc.serial_no={serial_expr})
+                OR ({cabinet_expr} <> '-' AND etc.cabinet_no={cabinet_expr})
               )
           AND COALESCE(etc.status, '') IN ('已确认','confirmed','released')
           AND etc.bom_id IS NOT NULL
@@ -62,10 +62,10 @@ def render_engineering_kitting_dashboard(
         """
         SELECT COUNT(*) AS value
         FROM (
-            SELECT COALESCE(project_code, ''), COALESCE(serial_no, '')
+            SELECT COALESCE(project_code, ''), COALESCE(cabinet_no, '')
             FROM mrp_requirements
             WHERE COALESCE(shortage_quantity, 0) > 0
-            GROUP BY COALESCE(project_code, ''), COALESCE(serial_no, '')
+            GROUP BY COALESCE(project_code, ''), COALESCE(cabinet_no, '')
         ) t
         """
     ) or {}
@@ -77,7 +77,7 @@ def render_engineering_kitting_dashboard(
             "value": qty_metric(sum_value("purchase_order_items", "GREATEST(COALESCE(quantity,0)-COALESCE(received_qty,0),0)")),
             "hint": "采购订单未收数量",
         },
-        {"label": "未齐套项目", "value": project_count.get("value", 0), "hint": "按项目号/机号归并"},
+        {"label": "未齐套项目", "value": project_count.get("value", 0), "hint": "按项目号/柜号归并"},
     ]
     shortcuts = [
         {"label": "MRP缺料", "url": "/production-enhance/mrp-requirements", "icon": "bi-exclamation-triangle"},
@@ -94,7 +94,7 @@ def render_engineering_kitting_dashboard(
                 WHERE (
                     NULLIF(mr.project_code, '') IS NOT NULL AND wo.project_code=mr.project_code
                 ) OR (
-                    NULLIF(mr.serial_no, '') IS NOT NULL AND wo.serial_no=mr.serial_no
+                    NULLIF(mr.cabinet_no, '') IS NOT NULL AND wo.cabinet_no=mr.cabinet_no
                 )
                 ORDER BY wo.id DESC
                 LIMIT 3
@@ -105,7 +105,7 @@ def render_engineering_kitting_dashboard(
         f"""
         SELECT MIN(mr.id) AS id,
                COALESCE(NULLIF(mr.project_code, ''), '-') AS project_code,
-               COALESCE(NULLIF(mr.serial_no, ''), '-') AS serial_no,
+               COALESCE(NULLIF(mr.cabinet_no, ''), '-') AS cabinet_no,
                COALESCE(source_wo.work_order_no, '待关联工单') AS source_work_order,
                COUNT(*) AS shortage_lines,
                COUNT(DISTINCT mr.product_id) AS material_count,
@@ -123,7 +123,7 @@ def render_engineering_kitting_dashboard(
         FROM mrp_requirements mr
         {work_order_lateral}
         WHERE COALESCE(mr.shortage_quantity, 0) > 0
-        GROUP BY COALESCE(NULLIF(mr.project_code, ''), '-'), COALESCE(NULLIF(mr.serial_no, ''), '-'), source_wo.work_order_no
+        GROUP BY COALESCE(NULLIF(mr.project_code, ''), '-'), COALESCE(NULLIF(mr.cabinet_no, ''), '-'), source_wo.work_order_no
         ORDER BY shortage_lines DESC, shortage_qty DESC
         LIMIT 30
         """
@@ -149,7 +149,7 @@ def render_engineering_kitting_dashboard(
     )
     detail_rows = query_rows(
         f"""
-        SELECT mr.id, mr.requirement_date, mr.project_code, mr.serial_no,
+        SELECT mr.id, mr.requirement_date, mr.project_code, mr.cabinet_no,
                COALESCE(source_wo.work_order_no, '待关联工单') AS source_work_order,
                p.code AS product_code, p.name AS product_name,
                mr.quantity, mr.available_quantity, mr.shortage_quantity, mr.status,
@@ -170,17 +170,17 @@ def render_engineering_kitting_dashboard(
     )
     return render_module_dashboard(
         "齐套检查",
-        "按来源工单、项目号、机号和物料缺料跟踪齐套状态；查询页只展示缺料、责任、堵点和下一步，缺料转采购进入受控采购建议。",
+        "按来源工单、项目号、柜号和物料缺料跟踪齐套状态；查询页只展示缺料、责任、堵点和下一步，缺料转采购进入受控采购建议。",
         metrics,
         shortcuts,
         [
             {
-                "title": "按项目/机号缺料",
+                "title": "按项目/柜号缺料",
                 "rows": project_rows,
                 "columns": columns(
                     ("source_work_order", "来源工单"),
                     ("project_code", "项目号"),
-                    ("serial_no", "机号"),
+                    ("cabinet_no", "柜号"),
                     ("shortage_lines", "缺料行"),
                     ("material_count", "物料数"),
                     ("shortage_qty", "缺料数量"),
@@ -214,7 +214,7 @@ def render_engineering_kitting_dashboard(
                     ("source_work_order", "来源工单"),
                     ("requirement_date", "需求日期"),
                     ("project_code", "项目号"),
-                    ("serial_no", "机号"),
+                    ("cabinet_no", "柜号"),
                     ("product_code", "物料编码"),
                     ("product_name", "物料名称"),
                     ("specification", "规格"),
@@ -238,7 +238,7 @@ def purchase_suggestion_rows(query_rows, limit=120, keyword=""):
         keyword_sql = """
               AND (
                   mr.project_code ILIKE %s
-                  OR mr.serial_no ILIKE %s
+                  OR mr.cabinet_no ILIKE %s
                   OR mp.code ILIKE %s
                   OR mp.name ILIKE %s
               )
@@ -250,7 +250,7 @@ def purchase_suggestion_rows(query_rows, limit=120, keyword=""):
         WITH mrp AS (
             SELECT mr.product_id,
                    COALESCE(NULLIF(mr.project_code, ''), '-') AS project_code,
-                   COALESCE(NULLIF(mr.serial_no, ''), '-') AS serial_no,
+                   COALESCE(NULLIF(mr.cabinet_no, ''), '-') AS cabinet_no,
                    MIN(mr.requirement_date) AS need_date,
                    MAX(NULLIF(mr.supply_mode, '')) AS supply_mode,
                    COALESCE(SUM(mr.shortage_quantity), 0) AS mrp_shortage_qty,
@@ -259,23 +259,23 @@ def purchase_suggestion_rows(query_rows, limit=120, keyword=""):
             LEFT JOIN products mp ON mp.id=mr.product_id
             WHERE COALESCE(mr.shortage_quantity, 0) > 0
             {keyword_sql}
-            GROUP BY mr.product_id, COALESCE(NULLIF(mr.project_code, ''), '-'), COALESCE(NULLIF(mr.serial_no, ''), '-')
+            GROUP BY mr.product_id, COALESCE(NULLIF(mr.project_code, ''), '-'), COALESCE(NULLIF(mr.cabinet_no, ''), '-')
         ),
         req AS (
             SELECT pri.product_id,
                    COALESCE(NULLIF(pri.project_code, ''), '-') AS project_code,
-                   COALESCE(NULLIF(pri.serial_no, ''), '-') AS serial_no,
+                   COALESCE(NULLIF(pri.cabinet_no, ''), '-') AS cabinet_no,
                    COALESCE(SUM(GREATEST(COALESCE(pri.quantity, 0), 0)), 0) AS requested_qty,
                    MAX(pr.id) AS purchase_request_id
             FROM purchase_requisition_items pri
             LEFT JOIN purchase_requisitions pr ON pr.id=pri.req_id
             WHERE {_invalid_status_sql("pr.status")}
-            GROUP BY pri.product_id, COALESCE(NULLIF(pri.project_code, ''), '-'), COALESCE(NULLIF(pri.serial_no, ''), '-')
+            GROUP BY pri.product_id, COALESCE(NULLIF(pri.project_code, ''), '-'), COALESCE(NULLIF(pri.cabinet_no, ''), '-')
         ),
         po AS (
             SELECT poi.product_id,
                    COALESCE(NULLIF(po.project_code, ''), '-') AS project_code,
-                   COALESCE(NULLIF(po.serial_no, ''), '-') AS serial_no,
+                   COALESCE(NULLIF(po.cabinet_no, ''), '-') AS cabinet_no,
                    COALESCE(SUM(GREATEST(COALESCE(poi.quantity, 0)-COALESCE(poi.received_qty, 0), 0)), 0) AS pending_po_qty,
                    MIN(po.expected_date) FILTER (
                        WHERE GREATEST(COALESCE(poi.quantity, 0)-COALESCE(poi.received_qty, 0), 0) > 0
@@ -283,7 +283,7 @@ def purchase_suggestion_rows(query_rows, limit=120, keyword=""):
             FROM purchase_order_items poi
             LEFT JOIN purchase_orders po ON po.id=poi.order_id
             WHERE {_invalid_status_sql("po.status")}
-            GROUP BY poi.product_id, COALESCE(NULLIF(po.project_code, ''), '-'), COALESCE(NULLIF(po.serial_no, ''), '-')
+            GROUP BY poi.product_id, COALESCE(NULLIF(po.project_code, ''), '-'), COALESCE(NULLIF(po.cabinet_no, ''), '-')
         ),
         best_supplier AS (
             SELECT DISTINCT ON (sp.product_id) sp.product_id, sp.supplier_id, s.name AS supplier_name,
@@ -303,7 +303,7 @@ def purchase_suggestion_rows(query_rows, limit=120, keyword=""):
                p.specification,
                COALESCE(p.unit, '') AS unit,
                mrp.project_code,
-               mrp.serial_no,
+               mrp.cabinet_no,
                COALESCE(source_wo.work_order_no, '待关联工单') AS source_work_order,
                COALESCE(mrp.supply_mode, '') AS supply_mode,
                mrp.need_date,
@@ -354,19 +354,19 @@ def purchase_suggestion_rows(query_rows, limit=120, keyword=""):
                COALESCE(best_supplier.unit_price, p.standard_price, 0) AS unit_price,
                COALESCE(best_supplier.lead_time_days, p.purchase_lead_days, 0) AS lead_time_days,
                best_supplier.supplier_item_code,
-               CASE WHEN {_engineering_ready_sql("mrp.project_code", "mrp.serial_no")} THEN TRUE ELSE FALSE END AS engineering_ready,
+               CASE WHEN {_engineering_ready_sql("mrp.project_code", "mrp.cabinet_no")} THEN TRUE ELSE FALSE END AS engineering_ready,
                latest_confirmation.id AS technical_confirmation_id,
                latest_confirmation.confirm_no AS technical_confirmation_no
         FROM mrp
-        LEFT JOIN req ON req.product_id=mrp.product_id AND req.project_code=mrp.project_code AND req.serial_no=mrp.serial_no
-        LEFT JOIN po ON po.product_id=mrp.product_id AND po.project_code=mrp.project_code AND po.serial_no=mrp.serial_no
+        LEFT JOIN req ON req.product_id=mrp.product_id AND req.project_code=mrp.project_code AND req.cabinet_no=mrp.cabinet_no
+        LEFT JOIN po ON po.product_id=mrp.product_id AND po.project_code=mrp.project_code AND po.cabinet_no=mrp.cabinet_no
         LEFT JOIN products p ON p.id=mrp.product_id
         LEFT JOIN best_supplier ON best_supplier.product_id=mrp.product_id
         LEFT JOIN LATERAL (
             SELECT etc.id, etc.confirm_no
             FROM engineering_technical_confirmations etc
             WHERE (mrp.project_code <> '-' AND etc.project_code=mrp.project_code)
-               OR (mrp.serial_no <> '-' AND etc.serial_no=mrp.serial_no)
+               OR (mrp.cabinet_no <> '-' AND etc.cabinet_no=mrp.cabinet_no)
             ORDER BY etc.confirmed_at DESC NULLS LAST, etc.id DESC
             LIMIT 1
         ) latest_confirmation ON TRUE
@@ -378,7 +378,7 @@ def purchase_suggestion_rows(query_rows, limit=120, keyword=""):
                 WHERE (
                     mrp.project_code <> '-' AND COALESCE(NULLIF(wo.project_code, ''), '-')=mrp.project_code
                 ) OR (
-                    mrp.serial_no <> '-' AND COALESCE(NULLIF(wo.serial_no, ''), '-')=mrp.serial_no
+                    mrp.cabinet_no <> '-' AND COALESCE(NULLIF(wo.cabinet_no, ''), '-')=mrp.cabinet_no
                 )
                 ORDER BY wo.id DESC
                 LIMIT 3
@@ -468,7 +468,7 @@ def render_purchase_suggestions(query_rows, as_decimal, qty_metric, money_metric
         row["project_ledger_link"] = (
             f"/projects/project/{row.get('project_code')}"
             if row.get("project_code") and row.get("project_code") != "-"
-            else (f"/projects/machine/{row.get('serial_no')}" if row.get("serial_no") and row.get("serial_no") != "-" else "/projects")
+            else (f"/projects/machine/{row.get('cabinet_no')}" if row.get("cabinet_no") and row.get("cabinet_no") != "-" else "/projects")
         )
         expected_arrival = row.get("expected_arrival_date")
         delay_days = row.get("delivery_delay_days")
@@ -591,7 +591,7 @@ def render_purchase_requisition_dashboard(
     requests = query_rows(
         """
         SELECT pr.id, pr.req_no, pr.req_date, pr.department, pr.purpose, pr.status,
-               pr.project_code, pr.serial_no,
+               pr.project_code, pr.cabinet_no,
                COUNT(pri.id) AS item_count,
                COALESCE(SUM(pri.quantity), 0) AS request_qty,
                COALESCE(SUM(pri.amount), 0) AS total_amount
@@ -605,7 +605,7 @@ def render_purchase_requisition_dashboard(
     pending_items = query_rows(
         """
         SELECT pri.id, pr.req_no, pr.req_date, p.code AS product_code, p.name AS product_name,
-               p.specification, p.unit, pri.project_code, pri.serial_no, pri.quantity,
+               p.specification, p.unit, pri.project_code, pri.cabinet_no, pri.quantity,
                COALESCE(po_items.ordered_qty, 0) AS ordered_qty,
                GREATEST(COALESCE(pri.quantity,0)-COALESCE(po_items.ordered_qty,0),0) AS remaining_qty,
                s.name AS supplier_name
@@ -636,7 +636,7 @@ def render_purchase_requisition_dashboard(
                     ("req_no", "申请单"),
                     ("req_date", "日期"),
                     ("project_code", "项目号"),
-                    ("serial_no", "机号"),
+                    ("cabinet_no", "柜号"),
                     ("item_count", "行数"),
                     ("request_qty", "数量"),
                     ("total_amount", "金额"),
@@ -654,7 +654,7 @@ def render_purchase_requisition_dashboard(
                     ("specification", "规格"),
                     ("unit", "单位"),
                     ("project_code", "项目号"),
-                    ("serial_no", "机号"),
+                    ("cabinet_no", "柜号"),
                     ("quantity", "申请"),
                     ("ordered_qty", "已下推"),
                     ("remaining_qty", "未下推"),
@@ -720,7 +720,7 @@ def render_purchase_requisition_detail(
     )
     purchase_orders = query_rows(
         """
-        SELECT po.id, po.order_no, po.order_date, po.status, po.project_code, po.serial_no,
+        SELECT po.id, po.order_no, po.order_date, po.status, po.project_code, po.cabinet_no,
                po.total_amount, s.name AS supplier_name
         FROM purchase_orders po
         LEFT JOIN suppliers s ON s.id=po.supplier_id

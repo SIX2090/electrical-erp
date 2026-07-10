@@ -699,7 +699,7 @@
                 if (/操作|动作/.test(label)) return 'action';
                 if (/数量|数|金额|单价|成本|税额|税率|余额|应收|应付|已收|已付|未入库|已入库|已发|合格|报废|账存|实盘|差异|用量|损耗|需求|库存|领料|发料|收料/.test(label)) return 'number';
                 if (/日期|时间/.test(label)) return 'date';
-                if (/编码|编号|单号|批号|项目号|机号|来源行|BOM|版本|科目编码/.test(label)) return 'code';
+                if (/编码|编号|单号|批号|项目号|柜号|来源行|BOM|版本|科目编码/.test(label)) return 'code';
                 if (/名称|物料|客户|供应商|摘要|备注|原因|说明|地址/.test(label)) return 'name';
                 if (/规格|型号|仓库|库位|单位|状态|管控|分类/.test(label)) return 'medium';
                 return 'text';

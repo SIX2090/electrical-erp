@@ -95,69 +95,69 @@ def system_option_enabled(cur, key: str) -> bool:
 
 def reference_sources(cur) -> tuple[set[str], set[str]]:
     projects: set[str] = set()
-    serials: set[str] = set()
+    cabinets: set[str] = set()
     if table_exists(cur, "project_masters"):
         cols = columns_for(cur, "project_masters")
         for col in [c for c in ("project_code", "project_no", "code") if c in cols]:
             cur.execute(f"SELECT DISTINCT NULLIF(TRIM({col}), '') AS value FROM project_masters WHERE NULLIF(TRIM({col}), '') IS NOT NULL")
             projects.update(row["value"] for row in cur.fetchall())
-    if table_exists(cur, "machine_serial_masters"):
-        cols = columns_for(cur, "machine_serial_masters")
+    if table_exists(cur, "cabinet_masters"):
+        cols = columns_for(cur, "cabinet_masters")
         for col in [c for c in ("project_code", "project_no") if c in cols]:
-            cur.execute(f"SELECT DISTINCT NULLIF(TRIM({col}), '') AS value FROM machine_serial_masters WHERE NULLIF(TRIM({col}), '') IS NOT NULL")
+            cur.execute(f"SELECT DISTINCT NULLIF(TRIM({col}), '') AS value FROM cabinet_masters WHERE NULLIF(TRIM({col}), '') IS NOT NULL")
             projects.update(row["value"] for row in cur.fetchall())
-        for col in [c for c in ("serial_no", "machine_serial_no") if c in cols]:
-            cur.execute(f"SELECT DISTINCT NULLIF(TRIM({col}), '') AS value FROM machine_serial_masters WHERE NULLIF(TRIM({col}), '') IS NOT NULL")
-            serials.update(row["value"] for row in cur.fetchall())
+        for col in [c for c in ("cabinet_no", "cabinet_no") if c in cols]:
+            cur.execute(f"SELECT DISTINCT NULLIF(TRIM({col}), '') AS value FROM cabinet_masters WHERE NULLIF(TRIM({col}), '') IS NOT NULL")
+            cabinets.update(row["value"] for row in cur.fetchall())
     if table_exists(cur, "projects"):
         cols = columns_for(cur, "projects")
         project_cols = [c for c in ("project_code", "project_no", "code") if c in cols]
-        serial_cols = [c for c in ("serial_no", "machine_serial_no") if c in cols]
+        cabinet_cols = [c for c in ("cabinet_no", "cabinet_no") if c in cols]
         for col in project_cols:
             cur.execute(f"SELECT DISTINCT NULLIF(TRIM({col}), '') AS value FROM projects WHERE NULLIF(TRIM({col}), '') IS NOT NULL")
             projects.update(row["value"] for row in cur.fetchall())
-        for col in serial_cols:
+        for col in cabinet_cols:
             cur.execute(f"SELECT DISTINCT NULLIF(TRIM({col}), '') AS value FROM projects WHERE NULLIF(TRIM({col}), '') IS NOT NULL")
-            serials.update(row["value"] for row in cur.fetchall())
+            cabinets.update(row["value"] for row in cur.fetchall())
     if table_exists(cur, "machine_service_cards"):
         cur.execute("SELECT DISTINCT NULLIF(TRIM(project_code), '') AS value FROM machine_service_cards WHERE NULLIF(TRIM(project_code), '') IS NOT NULL")
         projects.update(row["value"] for row in cur.fetchall())
-        cur.execute("SELECT DISTINCT NULLIF(TRIM(serial_no), '') AS value FROM machine_service_cards WHERE NULLIF(TRIM(serial_no), '') IS NOT NULL")
-        serials.update(row["value"] for row in cur.fetchall())
+        cur.execute("SELECT DISTINCT NULLIF(TRIM(cabinet_no), '') AS value FROM machine_service_cards WHERE NULLIF(TRIM(cabinet_no), '') IS NOT NULL")
+        cabinets.update(row["value"] for row in cur.fetchall())
     if table_exists(cur, "sales_orders"):
         cur.execute("SELECT DISTINCT NULLIF(TRIM(project_code), '') AS value FROM sales_orders WHERE NULLIF(TRIM(project_code), '') IS NOT NULL")
         projects.update(row["value"] for row in cur.fetchall())
-        cur.execute("SELECT DISTINCT NULLIF(TRIM(serial_no), '') AS value FROM sales_orders WHERE NULLIF(TRIM(serial_no), '') IS NOT NULL")
-        serials.update(row["value"] for row in cur.fetchall())
-    return projects, serials
+        cur.execute("SELECT DISTINCT NULLIF(TRIM(cabinet_no), '') AS value FROM sales_orders WHERE NULLIF(TRIM(cabinet_no), '') IS NOT NULL")
+        cabinets.update(row["value"] for row in cur.fetchall())
+    return projects, cabinets
 
 
-def count_missing_required(cur, table: str, cols: set[str], require_project_serial: bool, findings: list[Finding]) -> None:
-    if not require_project_serial:
+def count_missing_required(cur, table: str, cols: set[str], require_project_cabinet: bool, findings: list[Finding]) -> None:
+    if not require_project_cabinet:
         return
     missing_conditions = []
     if "project_code" in cols:
         missing_conditions.append("COALESCE(project_code, '')=''")
-    if "serial_no" in cols:
-        missing_conditions.append("COALESCE(serial_no, '')=''")
-    for col, code in (("project_code", "project_code"), ("serial_no", "serial_no")):
+    if "cabinet_no" in cols:
+        missing_conditions.append("COALESCE(cabinet_no, '')=''")
+    for col, code in (("project_code", "project_code"), ("cabinet_no", "cabinet_no")):
         if col not in cols:
             continue
         cur.execute(f"SELECT COUNT(*) AS c FROM {table} WHERE COALESCE({col}, '')=''", ())
         count = int(cur.fetchone()["c"])
         if count:
-            findings.append(Finding("PS-MISSING-REQUIRED", f"table={table} column={col} count={count} require_project_serial=1"))
+            findings.append(Finding("PS-MISSING-REQUIRED", f"table={table} column={col} count={count} require_project_cabinet=1"))
 
 
-def collect_orphans(cur, table: str, cols: set[str], project_refs: set[str], serial_refs: set[str], findings: list[Finding]) -> None:
+def collect_orphans(cur, table: str, cols: set[str], project_refs: set[str], cabinet_refs: set[str], findings: list[Finding]) -> None:
     if "project_code" in cols and project_refs:
         cur.execute(f"SELECT DISTINCT project_code FROM {table} WHERE COALESCE(project_code, '')<>'' LIMIT 500")
         orphan_values = sorted({row["project_code"] for row in cur.fetchall()} - project_refs)
         if orphan_values:
             findings.append(Finding("PS-ORPHAN-PROJECT", f"table={table} count={len(orphan_values)} sample={','.join(orphan_values[:5])}"))
-    if "serial_no" in cols and serial_refs:
-        cur.execute(f"SELECT DISTINCT serial_no FROM {table} WHERE COALESCE(serial_no, '')<>'' LIMIT 500")
-        orphan_values = sorted({row["serial_no"] for row in cur.fetchall()} - serial_refs)
+    if "cabinet_no" in cols and cabinet_refs:
+        cur.execute(f"SELECT DISTINCT cabinet_no FROM {table} WHERE COALESCE(cabinet_no, '')<>'' LIMIT 500")
+        orphan_values = sorted({row["cabinet_no"] for row in cur.fetchall()} - cabinet_refs)
         if orphan_values:
             findings.append(Finding("PS-ORPHAN-SERIAL", f"table={table} count={len(orphan_values)} sample={','.join(orphan_values[:5])}"))
 
@@ -186,7 +186,7 @@ def table_has_project(cur, table: str, col: str | None, project_code: str, sales
     return True
 
 
-def collect_trace_gap(cur, findings: list[Finding], require_project_serial: bool) -> None:
+def collect_trace_gap(cur, findings: list[Finding], require_project_cabinet: bool) -> None:
     if not table_exists(cur, "sales_orders"):
         return
     cur.execute(
@@ -218,37 +218,37 @@ def collect_trace_gap(cur, findings: list[Finding], require_project_serial: bool
         return
     if first_gaps:
         row, gaps = first_gaps
-        code = "PS-TRACE-GAP" if require_project_serial else "PS-TRACE-GAP-INFO"
+        code = "PS-TRACE-GAP" if require_project_cabinet else "PS-TRACE-GAP-INFO"
         findings.append(Finding(code, f"sales_order_id={row['id']} project_code={row['project_code']} missing={','.join(gaps)}"))
 
 
 def collect_findings(cur) -> tuple[bool, list[Finding]]:
-    require_project_serial = system_option_enabled(cur, "require_project_serial")
-    project_refs, serial_refs = reference_sources(cur)
+    require_project_cabinet = system_option_enabled(cur, "require_project_cabinet")
+    project_refs, cabinet_refs = reference_sources(cur)
     findings: list[Finding] = []
 
     for table in TRACE_TABLE_CANDIDATES:
         if not table_exists(cur, table):
             continue
         cols = columns_for(cur, table)
-        if not ({"project_code", "serial_no"} & cols):
+        if not ({"project_code", "cabinet_no"} & cols):
             continue
-        count_missing_required(cur, table, cols, require_project_serial, findings)
-        collect_orphans(cur, table, cols, project_refs, serial_refs, findings)
+        count_missing_required(cur, table, cols, require_project_cabinet, findings)
+        collect_orphans(cur, table, cols, project_refs, cabinet_refs, findings)
 
-    collect_trace_gap(cur, findings, require_project_serial)
-    return require_project_serial, findings
+    collect_trace_gap(cur, findings, require_project_cabinet)
+    return require_project_cabinet, findings
 
 
 def main() -> int:
     os.environ.setdefault("PG_PASSWORD", "admin")
     with connect() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            require_project_serial, findings = collect_findings(cur)
+            require_project_cabinet, findings = collect_findings(cur)
 
     blocking = [f for f in findings if f.code in {"PS-MISSING-REQUIRED", "PS-TRACE-GAP"}]
-    print("project_serial_traceability=ok" if not blocking else "project_serial_traceability=failed")
-    print(f"require_project_serial={1 if require_project_serial else 0}")
+    print("project_cabinet_traceability=ok" if not blocking else "project_cabinet_traceability=failed")
+    print(f"require_project_cabinet={1 if require_project_cabinet else 0}")
     print(f"findings={len(findings)} blocking={len(blocking)}")
     for finding in findings:
         print(f"{finding.code} | {finding.detail}")

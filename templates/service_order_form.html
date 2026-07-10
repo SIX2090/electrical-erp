@@ -28,7 +28,7 @@
     <div class="alert alert-warning" data-testid="service-order-source-blocked">
         <div class="fw-semibold">{{ source_status.blocked_reason }}</div>
         <div class="small mt-1">{{ source_status.next_action }}</div>
-        <div class="small text-muted mt-1">服务卡 {{ source_status.card_count or 0 }} 张；已发货机号 {{ source_status.delivered_serial_count or 0 }} 个；待补服务卡 {{ source_status.cards_from_shipments_missing or 0 }} 个。</div>
+        <div class="small text-muted mt-1">服务卡 {{ source_status.card_count or 0 }} 张；已发货柜号 {{ source_status.delivered_cabinet_count or 0 }} 个；待补服务卡 {{ source_status.cards_from_shipments_missing or 0 }} 个。</div>
     </div>
     {% endif %}
 
@@ -36,7 +36,7 @@
         <div class="section-title">
             <div>
                 <h2>表头</h2>
-                <span>项目号和机号是推荐追溯字段；启用强制项目号/机号时必须填写。</span>
+                <span>项目号和柜号是推荐追溯字段；启用强制项目号/柜号时必须填写。</span>
             </div>
         </div>
         <div class="row g-2">
@@ -49,7 +49,7 @@
                 <select class="form-select form-select-sm" name="service_card_id" id="serviceCardSelect" required {% if mode != 'edit' and not service_cards %}disabled{% endif %}>
                     <option value="">请选择</option>
                     {% for card in service_cards %}
-                    <option value="{{ card.id }}" data-project="{{ card.project_code or '' }}" data-serial="{{ card.serial_no or '' }}" data-customer="{{ card.customer_name or '' }}" data-machine="{{ card.machine_model or '' }}" {% if selected_card_id == card.id %}selected{% endif %}>{{ card.serial_no or card.id }} / {{ card.project_code or '-' }} / {{ card.customer_name or '-' }} / {{ card.machine_model or '-' }}</option>
+                    <option value="{{ card.id }}" data-project="{{ card.project_code or '' }}" data-cabinet="{{ card.cabinet_no or '' }}" data-customer="{{ card.customer_name or '' }}" data-machine="{{ card.machine_model or '' }}" {% if selected_card_id == card.id %}selected{% endif %}>{{ card.cabinet_no or card.id }} / {{ card.project_code or '-' }} / {{ card.customer_name or '-' }} / {{ card.machine_model or '-' }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -66,7 +66,7 @@
             <div class="col-md-3"><label class="form-label">客户</label><input class="form-control form-control-sm" id="customerName" readonly></div>
             <div class="col-md-3"><label class="form-label">机型</label><input class="form-control form-control-sm" id="machineModel" readonly></div>
             <div class="col-md-3"><label class="form-label">项目号 <span class="text-muted small">建议</span></label><input class="form-control form-control-sm" name="project_code" id="projectCode" value="{{ form_order.project_code or '' }}"></div>
-            <div class="col-md-3"><label class="form-label">机号 <span class="text-muted small">建议</span></label><input class="form-control form-control-sm" name="serial_no" id="serialNo" value="{{ form_order.serial_no or '' }}"></div>
+            <div class="col-md-3"><label class="form-label">柜号 <span class="text-muted small">建议</span></label><input class="form-control form-control-sm" name="cabinet_no" id="serialNo" value="{{ form_order.cabinet_no or '' }}"></div>
             <div class="col-md-3">
                 <label class="form-label">计费类型</label>
                 {% set billing_type = form_order.billing_type or '保内' %}
@@ -92,7 +92,7 @@
     function fillFromCard() {
         const data = select.selectedOptions[0] ? select.selectedOptions[0].dataset : {};
         if (!projectCode.value) projectCode.value = data.project || '';
-        if (!serialNo.value) serialNo.value = data.serial || '';
+        if (!serialNo.value) serialNo.value = data.cabinet || '';
         customerName.value = data.customer || '';
         machineModel.value = data.machine || '';
     }

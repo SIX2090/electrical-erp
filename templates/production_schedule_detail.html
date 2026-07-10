@@ -30,8 +30,8 @@
         <dd class="col-sm-4">{{ row.status_display|clean_text or '-' }}</dd>
         <dt class="col-sm-2">来源工单</dt>
         <dd class="col-sm-4">{{ row.wo_no|clean_text or row.work_order_id or '-' }}</dd>
-        <dt class="col-sm-2">项目号 / 机号</dt>
-        <dd class="col-sm-4">{{ row.project_code|clean_text or '-' }} / {{ row.serial_no|clean_text or '-' }}</dd>
+        <dt class="col-sm-2">项目号 / 柜号</dt>
+        <dd class="col-sm-4">{{ row.project_code|clean_text or '-' }} / {{ row.cabinet_no|clean_text or '-' }}</dd>
         <dt class="col-sm-2">工作中心</dt>
         <dd class="col-sm-4">{{ row.work_center_code|clean_text or '' }} {{ row.work_center_name|clean_text or row.work_center_id or '-' }}</dd>
         <dt class="col-sm-2">计划日期</dt>

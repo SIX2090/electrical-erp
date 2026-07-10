@@ -126,12 +126,12 @@ set PG_PASSWORD=admin && .venv\Scripts\python.exe scripts\audit_inventory_balanc
 
 | 任务 | 说明 |
 |---|---|
-| 追溯图谱 | /trace/project/ 和 /trace/serial/ 实现前向/后向追溯图 |
+| 追溯图谱 | /trace/project/ 和 /trace/cabinet/ 实现前向/后向追溯图 |
 | 文档追溯 | /trace/document// 从任意单据展开上下游关联 |
 | 完整性扫描 | /trace/integrity/scan 写入缺失链接发现，支持逐条修复 |
 | 追溯完整性得分 | 按项目维度评估采购/生产/发货/服务各环节覆盖率 |
 
-当前风险：`require_project_serial=0`，追溯字段非强制。建议上线稳定后逐步开启强制校验。
+当前风险：`require_project_cabinet=0`，追溯字段非强制。建议上线稳定后逐步开启强制校验。
 
 ---
 
@@ -142,7 +142,7 @@ set PG_PASSWORD=admin && .venv\Scripts\python.exe scripts\audit_inventory_balanc
 | 任务 | 说明 |
 |---|---|
 | 成本归集运行 | /cost/run 按期间+项目+序列号归集材料/人工/制造费用/外协/服务/质检成本 |
-| 成本构成报表 | /cost/project/ 和 /cost/serial/ 只读汇总视图 |
+| 成本构成报表 | /cost/project/ 和 /cost/cabinet/ 只读汇总视图 |
 | 成本对账 | 业务成本 vs 库存成本 vs 总账成本三维比对 |
 | 差异分析 | 标准成本 vs 实际成本差异（为后期预算控制做基础）|
 

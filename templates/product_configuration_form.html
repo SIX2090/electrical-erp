@@ -36,7 +36,7 @@
 <form method="post" class="page-card">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="alert alert-info py-2 mb-3">
-        <div class="fw-semibold">录入顺序：选择来源销售订单或报价单 → 补齐客户、项目号、机号、产品/机型 → 填选配明细 → 保存草稿 → 在详情页提交工程确认。</div>
+        <div class="fw-semibold">录入顺序：选择来源销售订单或报价单 → 补齐客户、项目号、柜号、产品/机型 → 填选配明细 → 保存草稿 → 在详情页提交工程确认。</div>
         <div class="small text-muted mt-1">选配明细只记录客户配置和工程影响，不直接生成采购、生产、库存或财务单据。必选项必须勾选；互斥组选中的同组项目只能保留一项；需要进入项目 BOM 的行要选择关联物料和 BOM 影响。</div>
     </div>
     {% if form_errors %}
@@ -81,11 +81,11 @@
                 <option value="{{ order.id }}" {% if config.sales_order_id == order.id %}selected{% endif %}
                         data-customer-id="{{ order.customer_id or '' }}"
                         data-project-code="{{ order.project_code or '' }}"
-                        data-serial-no="{{ order.serial_no or '' }}"
+                        data-serial-no="{{ order.cabinet_no or '' }}"
                         data-product-id="{{ order.product_id or '' }}"
                         data-product-family="{{ order.product_family or '' }}"
                         data-machine-model="{{ [order.product_code, order.product_name, order.product_specification]|select|join(' / ') }}">
-                    {{ order.order_no }} - {{ order.customer_name or '-' }} - {{ order.project_code or '-' }} / {{ order.serial_no or '-' }}
+                    {{ order.order_no }} - {{ order.customer_name or '-' }} - {{ order.project_code or '-' }} / {{ order.cabinet_no or '-' }}
                 </option>
                 {% endfor %}
             </select>
@@ -98,8 +98,8 @@
                 <option value="{{ quote.id }}" {% if config.quotation_id == quote.id %}selected{% endif %}
                         data-customer-id="{{ quote.customer_id or '' }}"
                         data-project-code="{{ quote.project_code or '' }}"
-                        data-serial-no="{{ quote.serial_no or '' }}">
-                    {{ quote.quote_no }} - {{ quote.customer_name or '-' }} - {{ quote.project_code or '-' }} / {{ quote.serial_no or '-' }}
+                        data-serial-no="{{ quote.cabinet_no or '' }}">
+                    {{ quote.quote_no }} - {{ quote.customer_name or '-' }} - {{ quote.project_code or '-' }} / {{ quote.cabinet_no or '-' }}
                 </option>
                 {% endfor %}
             </select>
@@ -119,8 +119,8 @@
             <input class="form-control" name="project_code" id="projectCode" value="{{ config.project_code or '' }}" placeholder="推荐填写，用于后续追溯">
         </div>
         <div class="col-md-4">
-            <label class="form-label">机号</label>
-            <input class="form-control" name="serial_no" id="serialNo" value="{{ config.serial_no or '' }}" placeholder="推荐填写，用于后续追溯">
+            <label class="form-label">柜号</label>
+            <input class="form-control" name="cabinet_no" id="serialNo" value="{{ config.cabinet_no or '' }}" placeholder="推荐填写，用于后续追溯">
         </div>
 
         <div class="col-md-4">
@@ -178,7 +178,7 @@
         </div>
         <div class="col-md-4">
             <label class="form-label">下游影响</label>
-            <textarea class="form-control" name="downstream_impact" rows="2">{{ config.downstream_impact or '影响项目BOM、工艺准备、MRP齐套、采购委外需求、项目机号成本测算；本页不直接生成采购、生产、库存或财务单据。' }}</textarea>
+            <textarea class="form-control" name="downstream_impact" rows="2">{{ config.downstream_impact or '影响项目BOM、工艺准备、MRP齐套、采购委外需求、项目柜号成本测算；本页不直接生成采购、生产、库存或财务单据。' }}</textarea>
         </div>
         <div class="col-12">
             <label class="form-label">备注</label>

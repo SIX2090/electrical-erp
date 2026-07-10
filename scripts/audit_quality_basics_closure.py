@@ -31,7 +31,7 @@ def cleanup(cur):
     cur.execute(
         """
         DELETE FROM quality_inspection_records
-        WHERE inspection_no LIKE %s OR project_code LIKE %s OR serial_no LIKE %s
+        WHERE inspection_no LIKE %s OR project_code LIKE %s OR cabinet_no LIKE %s
         """,
         (f"{PREFIX}%", f"{PREFIX}%", f"{PREFIX}%"),
     )
@@ -87,7 +87,7 @@ def main():
             "product_id": str(product["id"]),
             "product_name": product["name"],
             "project_code": f"{PREFIX}-PJ",
-            "serial_no": f"{PREFIX}-SN",
+            "cabinet_no": f"{PREFIX}-SN",
             "batch_no": f"{PREFIX}-LOT",
             "inspector": "quality audit",
             "sample_size": "10",

@@ -24,7 +24,7 @@ def main():
     checks = [
         check(
             "workbench_no_full_balance_list",
-            "库存余额" not in dashboard and "最近库存流水" not in dashboard and "批次/机号结余" not in dashboard,
+            "库存余额" not in dashboard and "最近库存流水" not in dashboard and "批次/柜号结余" not in dashboard,
             "库存工作台不得渲染完整库存明细、流水或批次列表",
         ),
         check(

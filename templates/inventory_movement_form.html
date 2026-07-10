@@ -14,7 +14,7 @@
     {'label': '工具', 'type': 'dropdown', 'items': [
         {'label': '库存明细', 'type': 'link', 'href': '/inventory/detail'},
         {'label': '库存流水', 'type': 'link', 'href': '/transactions'},
-        {'label': '批次/机号追溯', 'type': 'link', 'href': '/batch/tracking'}
+        {'label': '批次/柜号追溯', 'type': 'link', 'href': '/batch/tracking'}
     ]}
 ], aria_label=title ~ '录入工具栏') }}
 <div id="doc-nav-config" data-list-url="{{ list_url }}" style="display:none"></div>
@@ -29,7 +29,7 @@
             {% elif request.args.get('return_type') == 'purchase_return' %}
             采购退货出库用于采购退货发出，每行必须选择仓库、库位；保存后在详情页审核过账。
             {% else %}
-            手工出入库单据，按来源单号、项目号、机号、批号、仓库和库位写入库存流水。
+            手工出入库单据，按来源单号、项目号、柜号、批号、仓库和库位写入库存流水。
             {% endif %}
         </div>
     </div>
@@ -97,7 +97,7 @@
                     <th style="min-width: 130px;" data-column-key="unit_cost" data-column-label="{{ '期初单位成本' if is_material_opening else '库存成本单价' }}" title="{{ '期初可录入单位成本' if is_material_opening else '由系统按物料库存成本或标准成本带出' }}"><span class="grid-header-text">{{ '期初单位成本' if is_material_opening else '库存成本单价' }}</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
                     <th style="min-width: 120px;" data-column-key="cost_amount" data-column-label="{{ '期初金额' if is_material_opening else '成本金额' }}"><span class="grid-header-text">{{ '期初金额' if is_material_opening else '成本金额' }}</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
                     <th style="min-width: 120px;" data-column-key="lot_no" data-column-label="批号"><span class="grid-header-text">批号</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
-                    <th style="min-width: 130px;" data-column-key="serial_no" data-column-label="机号"><span class="grid-header-text">机号</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                    <th style="min-width: 130px;" data-column-key="cabinet_no" data-column-label="柜号"><span class="grid-header-text">柜号</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
                     <th style="min-width: 130px;" data-column-key="line_project_code" data-column-label="项目号"><span class="grid-header-text">项目号</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
                     <th style="min-width: 160px;" data-column-key="line_usage" data-column-label="{{ '期初依据' if is_material_opening else ('出库原因' if not is_inbound else '入库原因') }}"><span class="grid-header-text">{{ '期初依据' if is_material_opening else ('出库原因' if not is_inbound else '入库原因') }}</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
                     <th style="min-width: 150px;" data-column-key="source_document_no" data-column-label="{{ '盘点/旧系统单号' if is_material_opening else '来源单据' }}"><span class="grid-header-text">{{ '盘点/旧系统单号' if is_material_opening else '来源单据' }}</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
@@ -131,7 +131,7 @@
                     </td>
                     <td data-column-key="cost_amount"><input class="form-control form-control-sm js-cost-amount text-end" name="cost_amount_display[]" value="0.00" readonly></td>
                     <td data-column-key="lot_no"><input class="form-control form-control-sm" name="lot_no[]"></td>
-                    <td data-column-key="serial_no"><input class="form-control form-control-sm" name="serial_no[]"></td>
+                    <td data-column-key="cabinet_no"><input class="form-control form-control-sm" name="cabinet_no[]"></td>
                     <td data-column-key="line_project_code"><input class="form-control form-control-sm js-line-project-code" name="line_project_code[]" placeholder="留空使用表头项目号"></td>
                     <td data-column-key="line_usage"><input class="form-control form-control-sm" name="usage_reason[]" placeholder="{{ '上线期初/盘点表/旧系统余额' if is_material_opening else ('出库用途/原因' if not is_inbound else '入库用途/原因') }}"></td>
                     <td data-column-key="source_document_no"><input class="form-control form-control-sm" name="source_doc_no[]" placeholder="{{ '盘点单号或旧系统单号' if is_material_opening else '来源单号' }}"></td>

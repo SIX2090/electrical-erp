@@ -27,7 +27,7 @@
                     {% for order in orders %}
                     <option value="{{ order.id }}" {% if selected_source_id|string == order.id|string %}selected{% endif %}>
                         {{ order.order_no }} / {{ order.partner_name or '-' }} / 待处理 {{ order.pending_qty }}
-                        {% if order.project_code or order.serial_no %} / {{ order.project_code or '-' }} / {{ order.serial_no or '-' }}{% endif %}
+                        {% if order.project_code or order.cabinet_no %} / {{ order.project_code or '-' }} / {{ order.cabinet_no or '-' }}{% endif %}
                     </option>
                     {% endfor %}
                 </select>
@@ -78,7 +78,7 @@
                         <th class="text-end">未税金额</th>
                         <th>批号</th>
                         <th>项目号</th>
-                        <th>机号</th>
+                        <th>柜号</th>
                     </tr>
                     </thead>
                     <tbody>
@@ -100,7 +100,7 @@
                         <td><input class="form-control form-control-sm text-end js-line-amount" readonly></td>
                         <td><input class="form-control form-control-sm" value="{{ item.lot_no or '' }}" readonly></td>
                         <td><input class="form-control form-control-sm" value="{{ item.line_project_code or '' }}" readonly></td>
-                        <td><input class="form-control form-control-sm" value="{{ item.line_serial_no or '' }}" readonly></td>
+                        <td><input class="form-control form-control-sm" value="{{ item.line_cabinet_no or '' }}" readonly></td>
                     </tr>
                     {% endfor %}
                     {% if not items %}

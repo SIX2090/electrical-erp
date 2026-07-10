@@ -79,7 +79,7 @@ def ensure_schema(cur):
         "ALTER TABLE production_completion_orders ADD COLUMN IF NOT EXISTS warehouse_id INTEGER",
         "ALTER TABLE production_completion_orders ADD COLUMN IF NOT EXISTS location_id INTEGER",
         "ALTER TABLE production_completion_orders ADD COLUMN IF NOT EXISTS lot_no VARCHAR(120)",
-        "ALTER TABLE production_completion_orders ADD COLUMN IF NOT EXISTS serial_no VARCHAR(120)",
+        "ALTER TABLE production_completion_orders ADD COLUMN IF NOT EXISTS cabinet_no VARCHAR(120)",
         "ALTER TABLE production_completion_orders ADD COLUMN IF NOT EXISTS project_code VARCHAR(120)",
         "ALTER TABLE production_completion_orders ADD COLUMN IF NOT EXISTS status VARCHAR(40) DEFAULT '草稿'",
         "ALTER TABLE production_completion_orders ADD COLUMN IF NOT EXISTS remark TEXT",
@@ -106,22 +106,22 @@ def cleanup(cur):
             cur.execute(
                 """
                 DELETE FROM stock_transactions
-                WHERE reference_no LIKE %s OR source_doc_no LIKE %s OR lot_no LIKE %s OR serial_no LIKE %s
+                WHERE reference_no LIKE %s OR source_doc_no LIKE %s OR lot_no LIKE %s OR cabinet_no LIKE %s
                 """,
                 (f"{PREFIX}%", f"{PREFIX}%", f"{PREFIX}%", f"{PREFIX}%"),
             )
         else:
             cur.execute(
-                "DELETE FROM stock_transactions WHERE reference_no LIKE %s OR lot_no LIKE %s OR serial_no LIKE %s",
+                "DELETE FROM stock_transactions WHERE reference_no LIKE %s OR lot_no LIKE %s OR cabinet_no LIKE %s",
                 (f"{PREFIX}%", f"{PREFIX}%", f"{PREFIX}%"),
             )
-    delete_if_table(cur, "wo_complete_items", "source_doc_no LIKE %s OR lot_no LIKE %s OR serial_no LIKE %s", (f"{PREFIX}%", f"{PREFIX}%", f"{PREFIX}%"))
-    delete_if_table(cur, "production_completion_orders", "completion_no LIKE %s OR project_code LIKE %s OR serial_no LIKE %s", (f"{PREFIX}%", f"{PREFIX}%", f"{PREFIX}%"))
-    delete_if_table(cur, "quality_inspection_records", "inspection_no LIKE %s OR project_code LIKE %s OR serial_no LIKE %s", (f"{PREFIX}%", f"{PREFIX}%", f"{PREFIX}%"))
+    delete_if_table(cur, "wo_complete_items", "source_doc_no LIKE %s OR lot_no LIKE %s OR cabinet_no LIKE %s", (f"{PREFIX}%", f"{PREFIX}%", f"{PREFIX}%"))
+    delete_if_table(cur, "production_completion_orders", "completion_no LIKE %s OR project_code LIKE %s OR cabinet_no LIKE %s", (f"{PREFIX}%", f"{PREFIX}%", f"{PREFIX}%"))
+    delete_if_table(cur, "quality_inspection_records", "inspection_no LIKE %s OR project_code LIKE %s OR cabinet_no LIKE %s", (f"{PREFIX}%", f"{PREFIX}%", f"{PREFIX}%"))
     delete_if_table(cur, "wo_material_items", "wo_id IN (SELECT id FROM work_orders WHERE wo_no LIKE %s)", (f"{PREFIX}%",))
     delete_if_table(cur, "work_order_processes", "work_order_id IN (SELECT id FROM work_orders WHERE wo_no LIKE %s)", (f"{PREFIX}%",))
-    delete_if_table(cur, "mrp_requirements", "work_order_id IN (SELECT id FROM work_orders WHERE wo_no LIKE %s) OR project_code LIKE %s OR serial_no LIKE %s", (f"{PREFIX}%", f"{PREFIX}%", f"{PREFIX}%"))
-    delete_if_table(cur, "work_orders", "wo_no LIKE %s OR project_code LIKE %s OR serial_no LIKE %s", (f"{PREFIX}%", f"{PREFIX}%", f"{PREFIX}%"))
+    delete_if_table(cur, "mrp_requirements", "work_order_id IN (SELECT id FROM work_orders WHERE wo_no LIKE %s) OR project_code LIKE %s OR cabinet_no LIKE %s", (f"{PREFIX}%", f"{PREFIX}%", f"{PREFIX}%"))
+    delete_if_table(cur, "work_orders", "wo_no LIKE %s OR project_code LIKE %s OR cabinet_no LIKE %s", (f"{PREFIX}%", f"{PREFIX}%", f"{PREFIX}%"))
     delete_if_table(cur, "inventory_balances", "product_id IN (SELECT id FROM products WHERE code LIKE %s)", (f"{PREFIX}%",))
     delete_if_table(cur, "inventory", "product_id IN (SELECT id FROM products WHERE code LIKE %s)", (f"{PREFIX}%",))
     delete_if_table(cur, "batch_tracking", "product_id IN (SELECT id FROM products WHERE code LIKE %s)", (f"{PREFIX}%",))
@@ -171,9 +171,9 @@ def ensure_trace_master(cur):
         )
         row = cur.fetchone()
         project_id = row["id"] if row else None
-    if has_table(cur, "machine_serial_masters") and has_column(cur, "machine_serial_masters", "serial_no"):
+    if has_table(cur, "cabinet_masters") and has_column(cur, "cabinet_masters", "cabinet_no"):
         values = {
-            "serial_no": SERIAL_NO,
+            "cabinet_no": SERIAL_NO,
             "project_id": project_id,
             "project_code": PROJECT_CODE,
             "product_family": "verification",
@@ -182,14 +182,14 @@ def ensure_trace_master(cur):
             "status": "enabled",
             "remark": "production completion verification trace reference",
         }
-        cols = [name for name in values if has_column(cur, "machine_serial_masters", name)]
-        assignments = [f"{name}=EXCLUDED.{name}" for name in cols if name != "serial_no"]
+        cols = [name for name in values if has_column(cur, "cabinet_masters", name)]
+        assignments = [f"{name}=EXCLUDED.{name}" for name in cols if name != "cabinet_no"]
         cur.execute(
             f"""
-            INSERT INTO machine_serial_masters ({','.join(cols)})
+            INSERT INTO cabinet_masters ({','.join(cols)})
             VALUES ({','.join(['%s'] * len(cols))})
-            ON CONFLICT (serial_no) DO UPDATE
-            SET {','.join(assignments) if assignments else 'serial_no=EXCLUDED.serial_no'}, updated_at=CURRENT_TIMESTAMP
+            ON CONFLICT (cabinet_no) DO UPDATE
+            SET {','.join(assignments) if assignments else 'cabinet_no=EXCLUDED.cabinet_no'}, updated_at=CURRENT_TIMESTAMP
             """,
             [values[name] for name in cols],
         )
@@ -216,7 +216,7 @@ def create_test_data(cur):
         """
         INSERT INTO work_orders
             (wo_no, wo_date, product_id, warehouse_id, location_id, quantity, status,
-             project_code, serial_no, planned_start_date, planned_end_date, remark)
+             project_code, cabinet_no, planned_start_date, planned_end_date, remark)
         VALUES (%s, CURRENT_DATE, %s, %s, %s, %s, %s, %s, %s, CURRENT_DATE, CURRENT_DATE + INTERVAL '1 day', %s)
         RETURNING id
         """,
@@ -247,7 +247,7 @@ def create_test_data(cur):
             INSERT INTO quality_inspection_records
                 (inspection_no, product_id, inspection_type, inspection_date, sample_size,
                  passed_quantity, failed_quantity, inspection_result, status, source_document_type,
-                 source_document_id, project_code, serial_no, conclusion)
+                 source_document_id, project_code, cabinet_no, conclusion)
             VALUES (%s, %s, %s, CURRENT_DATE, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
@@ -332,7 +332,7 @@ def main() -> int:
                 "warehouse_id": str(warehouse_id or ""),
                 "location_id": str(location_id or ""),
                 "lot_no": LOT_NO,
-                "serial_no": SERIAL_NO,
+                "cabinet_no": SERIAL_NO,
                 "remark": "完工闭环验证",
                 "save_action": "draft",
             },
@@ -350,7 +350,7 @@ def main() -> int:
             add_check(checks, "draft_created", bool(doc_id), f"id={doc_id} no={completion_no}")
             add_check(checks, "draft_status", doc.get("status") == "草稿", doc.get("status"))
             add_check(checks, "trace_project_copied", doc.get("project_code") == PROJECT_CODE, doc.get("project_code"))
-            add_check(checks, "trace_serial_copied", doc.get("serial_no") == SERIAL_NO, doc.get("serial_no"))
+            add_check(checks, "trace_cabinet_copied", doc.get("cabinet_no") == SERIAL_NO, doc.get("cabinet_no"))
         conn.commit()
     finally:
         conn.close()
@@ -384,7 +384,7 @@ def main() -> int:
             legacy = cur.fetchone() or {}
             add_check(checks, "legacy_source_doc_type", legacy.get("source_doc_type") == "production_completion", legacy.get("source_doc_type"))
             add_check(checks, "legacy_qty", dec(legacy.get("qty")) == EXPECTED_QTY, legacy.get("qty"))
-            add_check(checks, "legacy_trace_serial", legacy.get("serial_no") == SERIAL_NO, legacy.get("serial_no"))
+            add_check(checks, "legacy_trace_cabinet", legacy.get("cabinet_no") == SERIAL_NO, legacy.get("cabinet_no"))
             stock_qty = scalar(cur, stock_sum_sql(cur), (completion_no, completion_no))
             add_check(checks, "posted_stock_net_qty", dec(stock_qty) == EXPECTED_QTY, stock_qty)
             tx_type = scalar(cur, "SELECT transaction_type FROM stock_transactions WHERE reference_no=%s ORDER BY id DESC LIMIT 1", (completion_no,))
@@ -394,7 +394,7 @@ def main() -> int:
                 """
                 SELECT COALESCE(SUM(quantity),0)
                 FROM inventory_balances
-                WHERE product_id=%s AND COALESCE(project_code,'')=%s AND COALESCE(serial_no,'')=%s
+                WHERE product_id=%s AND COALESCE(project_code,'')=%s AND COALESCE(cabinet_no,'')=%s
                 """,
                 (product_id, PROJECT_CODE, SERIAL_NO),
             )
@@ -437,7 +437,7 @@ def main() -> int:
                 """
                 SELECT COALESCE(SUM(quantity),0)
                 FROM inventory_balances
-                WHERE product_id=%s AND COALESCE(project_code,'')=%s AND COALESCE(serial_no,'')=%s
+                WHERE product_id=%s AND COALESCE(project_code,'')=%s AND COALESCE(cabinet_no,'')=%s
                 """,
                 (product_id, PROJECT_CODE, SERIAL_NO),
             )

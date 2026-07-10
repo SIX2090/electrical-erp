@@ -29,9 +29,9 @@ KEY_TABLES = [
 SYSTEM_OPTION_CHECKS = [
     ("negative_stock_block", "禁止负库存"),
     ("allow_negative_stock", "允许负库存"),
-    ("batch_serial_control", "批号/机号追溯"),
+    ("batch_cabinet_control", "批号/柜号追溯"),
     ("document_approval_flow", "单据审批流"),
-    ("require_project_serial", "项目号/机号规则"),
+    ("require_project_cabinet", "项目号/柜号规则"),
 ]
 
 
@@ -56,7 +56,7 @@ def _system_option_row(safe_rows, table_columns, key):
 
 
 ROUTE_CHECKS = [
-    {"id": 1, "path": "/projects", "route_label": "项目/机号台账"},
+    {"id": 1, "path": "/projects", "route_label": "项目/柜号台账"},
     {"id": 2, "path": "/engineering/kitting", "route_label": "工程齐套"},
     {"id": 3, "path": "/procurement/suggestions", "route_label": "采购建议"},
     {"id": 4, "path": "/purchase_request", "route_label": "采购申请"},

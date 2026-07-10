@@ -54,7 +54,7 @@ def check_trace_integrity(query_db) -> List[Dict[str, Any]]:
     """Scan business documents for missing trace links and traceability fields.
 
     Returns a list of finding dicts. Each finding has:
-    finding_type, doc_type, doc_id, doc_no, project_code, serial_no, description, severity.
+    finding_type, doc_type, doc_id, doc_no, project_code, cabinet_no, description, severity.
     """
     findings: List[Dict[str, Any]] = []
 
@@ -64,7 +64,7 @@ def check_trace_integrity(query_db) -> List[Dict[str, Any]]:
         """
         SELECT ss.id, ss.shipment_no, ss.order_id,
                COALESCE(ss.project_code, so.project_code) AS project_code,
-               COALESCE(ss.serial_no, so.serial_no) AS serial_no
+               COALESCE(ss.cabinet_no, so.cabinet_no) AS cabinet_no
         FROM sales_shipments ss
         JOIN sales_orders so ON so.id=ss.order_id
         WHERE ss.order_id IS NOT NULL
@@ -85,7 +85,7 @@ def check_trace_integrity(query_db) -> List[Dict[str, Any]]:
             "doc_id": row.get("id"),
             "doc_no": row.get("shipment_no"),
             "project_code": row.get("project_code"),
-            "serial_no": row.get("serial_no"),
+            "cabinet_no": row.get("cabinet_no"),
             "description": f"销售发货单 {row.get('shipment_no') or ''} 缺少到销售订单的追溯链接",
             "severity": "warning",
         })
@@ -96,7 +96,7 @@ def check_trace_integrity(query_db) -> List[Dict[str, Any]]:
         """
         SELECT pr.id, pr.receipt_no, pr.order_id,
                COALESCE(pr.project_code, po.project_code) AS project_code,
-               COALESCE(pr.serial_no, po.serial_no) AS serial_no
+               COALESCE(pr.cabinet_no, po.cabinet_no) AS cabinet_no
         FROM purchase_receipts pr
         JOIN purchase_orders po ON po.id=pr.order_id
         WHERE pr.order_id IS NOT NULL
@@ -117,7 +117,7 @@ def check_trace_integrity(query_db) -> List[Dict[str, Any]]:
             "doc_id": row.get("id"),
             "doc_no": row.get("receipt_no"),
             "project_code": row.get("project_code"),
-            "serial_no": row.get("serial_no"),
+            "cabinet_no": row.get("cabinet_no"),
             "description": f"采购入库单 {row.get('receipt_no') or ''} 缺少到采购订单的追溯链接",
             "severity": "warning",
         })
@@ -128,7 +128,7 @@ def check_trace_integrity(query_db) -> List[Dict[str, Any]]:
         """
         SELECT pc.id, pc.completion_no, pc.work_order_id,
                COALESCE(pc.project_code, wo.project_code) AS project_code,
-               COALESCE(pc.serial_no, wo.serial_no) AS serial_no
+               COALESCE(pc.cabinet_no, wo.cabinet_no) AS cabinet_no
         FROM production_completion_orders pc
         JOIN work_orders wo ON wo.id=pc.work_order_id
         WHERE pc.work_order_id IS NOT NULL
@@ -149,7 +149,7 @@ def check_trace_integrity(query_db) -> List[Dict[str, Any]]:
             "doc_id": row.get("id"),
             "doc_no": row.get("completion_no"),
             "project_code": row.get("project_code"),
-            "serial_no": row.get("serial_no"),
+            "cabinet_no": row.get("cabinet_no"),
             "description": f"完工入库单 {row.get('completion_no') or ''} 缺少到生产工单的追溯链接",
             "severity": "warning",
         })
@@ -160,7 +160,7 @@ def check_trace_integrity(query_db) -> List[Dict[str, Any]]:
         """
         SELECT pl.id, COALESCE(pl.doc_no, pl.pick_no) AS doc_no, pl.work_order_id,
                COALESCE(pl.project_code, wo.project_code) AS project_code,
-               COALESCE(pl.serial_no, wo.serial_no) AS serial_no
+               COALESCE(pl.cabinet_no, wo.cabinet_no) AS cabinet_no
         FROM pick_lists pl
         JOIN work_orders wo ON wo.id=pl.work_order_id
         WHERE pl.work_order_id IS NOT NULL
@@ -181,7 +181,7 @@ def check_trace_integrity(query_db) -> List[Dict[str, Any]]:
             "doc_id": row.get("id"),
             "doc_no": row.get("doc_no"),
             "project_code": row.get("project_code"),
-            "serial_no": row.get("serial_no"),
+            "cabinet_no": row.get("cabinet_no"),
             "description": f"生产领料单 {row.get('doc_no') or ''} 缺少到生产工单的追溯链接",
             "severity": "warning",
         })
@@ -212,24 +212,24 @@ def check_trace_integrity(query_db) -> List[Dict[str, Any]]:
             "doc_id": row.get("id"),
             "doc_no": row.get("voucher_no"),
             "project_code": None,
-            "serial_no": None,
+            "cabinet_no": None,
             "description": f"凭证 {row.get('voucher_no') or ''} 缺少到来源单据的追溯链接",
             "severity": "warning",
         })
 
     # 6. Documents missing project_code when source has one
     findings.extend(_find_missing_traceability_field(query_db, field="project_code"))
-    # 7. Documents missing serial_no when source has one
-    findings.extend(_find_missing_traceability_field(query_db, field="serial_no"))
+    # 7. Documents missing cabinet_no when source has one
+    findings.extend(_find_missing_traceability_field(query_db, field="cabinet_no"))
 
     return findings
 
 
 def _find_missing_traceability_field(query_db, *, field: str) -> List[Dict[str, Any]]:
-    """Find downstream documents whose source has a project_code/serial_no but the
+    """Find downstream documents whose source has a project_code/cabinet_no but the
     downstream document itself does not."""
     results: List[Dict[str, Any]] = []
-    field_label = "项目号" if field == "project_code" else "机号"
+    field_label = "项目号" if field == "project_code" else "柜号"
     specs = [
         (
             "sales_shipments",
@@ -286,7 +286,7 @@ def _find_missing_traceability_field(query_db, *, field: str) -> List[Dict[str, 
                 "doc_id": row.get("id"),
                 "doc_no": row.get("doc_no"),
                 "project_code": row.get("source_value") if field == "project_code" else None,
-                "serial_no": row.get("source_value") if field == "serial_no" else None,
+                "cabinet_no": row.get("source_value") if field == "cabinet_no" else None,
                 "description": (
                     f"{_label(target_type)} {row.get('doc_no') or ''} 缺少{field_label}，"
                     f"来源{_label(source_type)}的{field_label}为 {row.get('source_value') or ''}"
@@ -315,7 +315,7 @@ def save_findings(query_db, execute_db, findings: List[Dict[str, Any]]) -> int:
                 item.get("doc_id"),
                 item.get("doc_no"),
                 item.get("project_code"),
-                item.get("serial_no"),
+                item.get("cabinet_no"),
                 item.get("description"),
                 item.get("severity", "warning"),
             )
@@ -325,7 +325,7 @@ def save_findings(query_db, execute_db, findings: List[Dict[str, Any]]) -> int:
     execute_db(
         f"""
         INSERT INTO trace_integrity_findings
-            (finding_type, doc_type, doc_id, doc_no, project_code, serial_no,
+            (finding_type, doc_type, doc_id, doc_no, project_code, cabinet_no,
              description, severity)
         VALUES {placeholders}
         """,
@@ -348,7 +348,7 @@ def get_findings(
         params.append(severity)
     where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
     sql = f"""
-        SELECT id, finding_type, doc_type, doc_id, doc_no, project_code, serial_no,
+        SELECT id, finding_type, doc_type, doc_id, doc_no, project_code, cabinet_no,
                description, severity, status, created_at
         FROM trace_integrity_findings
         {where}
@@ -384,26 +384,26 @@ def resolve_finding(query_db, execute_db, finding_id: int) -> bool:
 
 
 def trace_completeness_score(
-    query_db, project_code: Optional[str] = None, serial_no: Optional[str] = None
+    query_db, project_code: Optional[str] = None, cabinet_no: Optional[str] = None
 ) -> Dict[str, Any]:
     """Calculate trace completeness percentage.
 
     Completeness = (documents with trace links / total traceable documents) * 100.
 
-    When project_code or serial_no is provided, the score is scoped to that
-    project/serial. Otherwise it is computed across all traceable documents.
+    When project_code or cabinet_no is provided, the score is scoped to that
+    project/cabinet. Otherwise it is computed across all traceable documents.
     """
     project_code = _clean_text(project_code)
-    serial_no = _clean_text(serial_no)
+    cabinet_no = _clean_text(cabinet_no)
 
     scope_clauses: List[str] = []
     scope_params: List[Any] = []
     if project_code:
         scope_clauses.append("project_code=%s")
         scope_params.append(project_code)
-    if serial_no:
-        scope_clauses.append("serial_no=%s")
-        scope_params.append(serial_no)
+    if cabinet_no:
+        scope_clauses.append("cabinet_no=%s")
+        scope_params.append(cabinet_no)
     scope_sql = (" AND " + " AND ".join(scope_clauses)) if scope_clauses else ""
 
     # Total traceable documents: count rows from each business table that have
@@ -463,7 +463,7 @@ def trace_completeness_score(
         "linked_documents": linked_count,
         "score": score,
         "project_code": project_code,
-        "serial_no": serial_no,
+        "cabinet_no": cabinet_no,
     }
 
 
@@ -646,7 +646,7 @@ def backfill_trace_links(query_db, execute_db, *, execute_and_return=None,
 
     Returns a summary dict with:
     - links_inserted: 新建的 trace_links 行数
-    - fields_backfilled: 回填 project_code/serial_no 的行数
+    - fields_backfilled: 回填 project_code/cabinet_no 的行数
     - findings_resolved: 标记为 resolved 的 finding 数量
     - details: 按类别分组的明细
     """
@@ -665,7 +665,7 @@ def backfill_trace_links(query_db, execute_db, *, execute_and_return=None,
                    t.{fk_field} AS source_id,
                    s.{source_no_field} AS source_no,
                    COALESCE(t.project_code, s.project_code) AS project_code,
-                   COALESCE(t.serial_no, s.serial_no) AS serial_no
+                   COALESCE(t.cabinet_no, s.cabinet_no) AS cabinet_no
             FROM {target_table} t
             JOIN {source_table} s ON s.id=t.{fk_field}
             WHERE t.{fk_field} IS NOT NULL
@@ -696,7 +696,7 @@ def backfill_trace_links(query_db, execute_db, *, execute_and_return=None,
                     link_type=link_type,
                     link_strength="hard",
                     project_code=row.get("project_code"),
-                    serial_no=row.get("serial_no"),
+                    cabinet_no=row.get("cabinet_no"),
                     created_by=created_by,
                     created_event="trace_backfill",
                     execute_and_return=execute_and_return,
@@ -766,9 +766,9 @@ def backfill_trace_links(query_db, execute_db, *, execute_and_return=None,
             "target_type": "voucher",
         })
 
-    # 2. 回填缺失的 project_code / serial_no 字段
-    for field in ("project_code", "serial_no"):
-        field_label = "项目号" if field == "project_code" else "机号"
+    # 2. 回填缺失的 project_code / cabinet_no 字段
+    for field in ("project_code", "cabinet_no"):
+        field_label = "项目号" if field == "project_code" else "柜号"
         for (target_table, target_type, no_field, fk_field,
              source_table, source_type) in _FIELD_BACKFILL_SPECS:
             rows = _rows(
@@ -827,7 +827,7 @@ def backfill_trace_links(query_db, execute_db, *, execute_and_return=None,
                   'missing_pick_wo_link',
                   'missing_voucher_source_link',
                   'missing_project_code',
-                  'missing_serial_no'
+                  'missing_cabinet_no'
               )
             """,
         )

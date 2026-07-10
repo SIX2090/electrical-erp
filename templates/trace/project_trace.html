@@ -52,7 +52,7 @@
                         <th>下游单号</th>
                         <th>链接类型</th>
                         <th>项目号</th>
-                        <th>机号</th>
+                        <th>柜号</th>
                         <th>创建时间</th>
                     </tr>
                 </thead>
@@ -70,7 +70,7 @@
                         <td>{{ link.target_doc_no or '-' }}</td>
                         <td><span class="badge text-bg-light border">{{ link.link_type }}</span></td>
                         <td>{{ link.project_code or '-' }}</td>
-                        <td>{{ link.serial_no or '-' }}</td>
+                        <td>{{ link.cabinet_no or '-' }}</td>
                         <td class="text-muted small">{{ link.created_at or '-' }}</td>
                     </tr>
                     {% endfor %}

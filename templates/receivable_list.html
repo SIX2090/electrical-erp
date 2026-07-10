@@ -31,7 +31,7 @@
 <div class="page-card erp-list-card mb-3">
     <form class="row g-2" method="get" action="/receivables" data-list-filter-form>
         <div class="col-lg-6">
-            <input class="form-control" name="keyword" value="{{ filters.keyword }}" placeholder="来源单、客户、项目号、机号、备注">
+            <input class="form-control" name="keyword" value="{{ filters.keyword }}" placeholder="来源单、客户、项目号、柜号、备注">
         </div>
         <div class="col-lg-3">
             <select class="form-select" name="status">
@@ -65,7 +65,7 @@
                 <th>客户</th>
                 <th>应收日期</th>
                 <th>账期/到期</th>
-                <th>项目/机号</th>
+                <th>项目/柜号</th>
                 <th class="text-end">应收金额</th>
                 <th class="text-end">已收</th>
                 <th class="text-end">未收余额</th>
@@ -82,7 +82,7 @@
                 <td>{{ row.customer_name|clean_text }}<div class="text-muted small">{{ row.contact_person or '' }} {{ row.customer_phone or '' }}</div></td>
                 <td>{{ row.receivable_date or '-' }}</td>
                 <td>{{ row.collection_term }}</td>
-                <td>{{ row.project_code|clean_text }} / {{ row.serial_no|clean_text }}</td>
+                <td>{{ row.project_code|clean_text }} / {{ row.cabinet_no|clean_text }}</td>
                 <td class="text-end">{{ row.total_amount|money }}</td>
                 <td class="text-end">{{ row.received_amount|money }}</td>
                 <td class="text-end fw-semibold">{{ row.balance|money }}</td>

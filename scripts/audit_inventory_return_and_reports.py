@@ -49,7 +49,7 @@ def main():
             ("/inventory/outbound?return_type=purchase_return", ("入库退货出库", "库位", "保存并过账")),
             ("/inventory/reports/ledger", ("标准库存明细账", "入库", "出库", "结存影响")),
             ("/inventory/reports/inout-summary", ("收发存汇总表", "期初", "入库", "出库", "期末")),
-            ("/inventory/reports/batch-trace", ("批次追溯报表", "批号", "机号", "流水")),
+            ("/inventory/reports/batch-trace", ("批次追溯报表", "批号", "柜号", "流水")),
         ]
         for path, markers in page_cases:
             response = client.get(path)

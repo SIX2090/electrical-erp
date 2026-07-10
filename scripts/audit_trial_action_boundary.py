@@ -38,7 +38,7 @@ ACTION_CASES = {
     },
     "work_order_complete": {
         "path": f"/work-orders/{MISSING_ID}/complete",
-        "data": {"quantity": "1", "serial_no": "SN-ACTION-BOUNDARY"},
+        "data": {"quantity": "1", "cabinet_no": "SN-ACTION-BOUNDARY"},
         "allowed": {"pilot_production", "pilot_admin"},
         "forbidden": {"pilot_sales", "pilot_purchase", "pilot_warehouse", "pilot_service", "pilot_finance"},
         "allowed_status": {302, 303},

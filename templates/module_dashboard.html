@@ -130,7 +130,7 @@
                 {% set value = row.get(column.key) %}
                 {% if column.key in ['next_step', 'blocked_reason', 'owner', 'owner_role', 'responsible_role', 'downstream_impact'] %}
                 <td class="small">{{ value|clean_text }}</td>
-                {% elif column.key in ['project_code', 'serial_no', 'project_no', 'machine_serial_no'] %}
+                {% elif column.key in ['project_code', 'cabinet_no', 'project_no', 'cabinet_no'] %}
                 <td class="fw-semibold">{{ value|clean_text }}</td>
                 {% elif column.key in ['status', 'execution_status', 'risk_level', 'blocked_status'] %}
                 <td><span class="badge bg-light text-dark border">{{ value|clean_text }}</span></td>

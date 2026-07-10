@@ -31,7 +31,7 @@ def register_invoice_reconciliation_routes(app, query_db, _login_required):
             'customer_id': request.args.get('customer_id'),
             'order_no': request.args.get('order_no'),
             'project_code': request.args.get('project_code'),
-            'serial_no': request.args.get('serial_no'),
+            'cabinet_no': request.args.get('cabinet_no'),
             'start_date': request.args.get('start_date'),
             'end_date': request.args.get('end_date'),
             'has_variance': request.args.get('has_variance', '0')
@@ -67,7 +67,7 @@ def register_invoice_reconciliation_routes(app, query_db, _login_required):
             'supplier_id': request.args.get('supplier_id'),
             'order_no': request.args.get('order_no'),
             'project_code': request.args.get('project_code'),
-            'serial_no': request.args.get('serial_no'),
+            'cabinet_no': request.args.get('cabinet_no'),
             'start_date': request.args.get('start_date'),
             'end_date': request.args.get('end_date'),
             'has_variance': request.args.get('has_variance', '0')

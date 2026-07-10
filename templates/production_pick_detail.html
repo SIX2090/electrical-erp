@@ -17,8 +17,8 @@
     {'label': '复制', 'type': 'button', 'button_type': 'submit', 'form': 'copyForm', 'icon': 'bi-copy', 'title': '复制为新的草稿单据'},
     {'label': '工具', 'type': 'dropdown', 'items': [
         {'label': '来源工单', 'type': 'link', 'href': '/work-orders/' ~ doc.work_order_id if doc.work_order_id else '#', 'disabled': not doc.work_order_id},
-        {'label': '库存流水', 'type': 'link', 'href': '/transactions?keyword=' ~ ((doc.doc_no or doc.pick_no or doc.project_code or doc.serial_no)|urlencode)},
-        {'label': '成本追溯', 'type': 'link', 'href': '/finance/reports/project-cost?keyword=' ~ ((doc.project_code or doc.serial_no or doc.doc_no or doc.pick_no)|urlencode)}
+        {'label': '库存流水', 'type': 'link', 'href': '/transactions?keyword=' ~ ((doc.doc_no or doc.pick_no or doc.project_code or doc.cabinet_no)|urlencode)},
+        {'label': '成本追溯', 'type': 'link', 'href': '/finance/reports/project-cost?keyword=' ~ ((doc.project_code or doc.cabinet_no or doc.doc_no or doc.pick_no)|urlencode)}
     ]},
     {'type': 'nav', 'items': [
         {'label': '首张', 'event': 'doc-nav-first', 'icon': 'bi-chevron-double-left'},
@@ -41,7 +41,7 @@
         <div class="col-md-3"><strong>领料单号：</strong>{{ doc.doc_no|clean_text or doc.pick_no|clean_text or '-' }}</div>
         <div class="col-md-3"><strong>日期：</strong>{{ doc.doc_date or '-' }}</div>
         <div class="col-md-3"><strong>项目号：</strong>{{ doc.project_code|clean_text or '-' }}</div>
-        <div class="col-md-3"><strong>机号：</strong>{{ doc.serial_no|clean_text or '-' }}</div>
+        <div class="col-md-3"><strong>柜号：</strong>{{ doc.cabinet_no|clean_text or '-' }}</div>
         <div class="col-md-3"><strong>仓库：</strong>{{ doc.warehouse_name|clean_text or '-' }}</div>
         {% if location_management_enabled %}<div class="col-md-3"><strong>库位：</strong>{{ doc.location_name|clean_text or doc.location_code|clean_text or '-' }}</div>{% endif %}
         <div class="col-md-9"><strong>备注：</strong>{{ doc.remark|clean_text or '-' }}</div>
@@ -85,7 +85,7 @@
                     <th>库位</th>
                     <th>批号</th>
                     <th>项目号</th>
-                    <th>机号</th>
+                    <th>柜号</th>
                     <th>来源行</th>
                 </tr>
             </thead>
@@ -103,7 +103,7 @@
                 <td>{{ line.location_name|clean_text or doc.location_name|clean_text or '-' }}</td>
                 <td>{{ line.lot_no|clean_text or '-' }}</td>
                 <td>{{ line.line_project_code|clean_text or doc.project_code|clean_text or '-' }}</td>
-                <td>{{ line.serial_no|clean_text or '-' }}</td>
+                <td>{{ line.cabinet_no|clean_text or '-' }}</td>
                 <td>{{ line.source_line_no|clean_text or '-' }}</td>
             </tr>
             {% else %}
@@ -118,8 +118,8 @@
     <h2 class="h6 mb-2">关联追溯</h2>
     <div class="d-flex flex-wrap gap-2">
         {% if doc.work_order_id %}<a class="btn btn-outline-primary btn-sm" href="/work-orders/{{ doc.work_order_id }}">查看来源工单</a>{% endif %}
-        <a class="btn btn-outline-secondary btn-sm" href="/transactions?keyword={{ (doc.doc_no or doc.pick_no or doc.project_code or doc.serial_no)|urlencode }}">库存流水</a>
-        <a class="btn btn-outline-secondary btn-sm" href="/finance/reports/project-cost?keyword={{ (doc.project_code or doc.serial_no or doc.doc_no or doc.pick_no)|urlencode }}">成本追溯</a>
+        <a class="btn btn-outline-secondary btn-sm" href="/transactions?keyword={{ (doc.doc_no or doc.pick_no or doc.project_code or doc.cabinet_no)|urlencode }}">库存流水</a>
+        <a class="btn btn-outline-secondary btn-sm" href="/finance/reports/project-cost?keyword={{ (doc.project_code or doc.cabinet_no or doc.doc_no or doc.pick_no)|urlencode }}">成本追溯</a>
     </div>
 </div>
 {% endblock %}

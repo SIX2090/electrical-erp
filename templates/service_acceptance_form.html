@@ -35,7 +35,7 @@
         <div class="section-title">
             <div>
                 <h2>验收表头</h2>
-                <span>选择服务档案后自动带出项目号、机号、客户和机型。</span>
+                <span>选择服务档案后自动带出项目号、柜号、客户和机型。</span>
             </div>
         </div>
         <div class="row g-2">
@@ -48,7 +48,7 @@
                 <select class="form-select form-select-sm" name="service_card_id" id="serviceCardSelect" required {% if mode != 'edit' and not service_cards %}disabled{% endif %}>
                     <option value="">请选择</option>
                     {% for card in service_cards %}
-                    <option value="{{ card.id }}" data-project="{{ card.project_code or '' }}" data-serial="{{ card.serial_no or '' }}" data-customer="{{ card.customer_name or '' }}" data-machine="{{ card.machine_model or '' }}" {% if selected_card_id == card.id %}selected{% endif %}>{{ card.serial_no or card.id }} / {{ card.project_code or '-' }} / {{ card.customer_name or '-' }} / {{ card.machine_model or '-' }}</option>
+                    <option value="{{ card.id }}" data-project="{{ card.project_code or '' }}" data-cabinet="{{ card.cabinet_no or '' }}" data-customer="{{ card.customer_name or '' }}" data-machine="{{ card.machine_model or '' }}" {% if selected_card_id == card.id %}selected{% endif %}>{{ card.cabinet_no or card.id }} / {{ card.project_code or '-' }} / {{ card.customer_name or '-' }} / {{ card.machine_model or '-' }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -65,7 +65,7 @@
             <div class="col-md-3"><label class="form-label">客户</label><input class="form-control form-control-sm" id="customerName" readonly></div>
             <div class="col-md-3"><label class="form-label">机型</label><input class="form-control form-control-sm" id="machineModel" readonly></div>
             <div class="col-md-3"><label class="form-label">项目号 <span class="text-muted small">建议</span></label><input class="form-control form-control-sm" name="project_code" id="projectCode" value="{{ form_acceptance.project_code or '' }}"></div>
-            <div class="col-md-3"><label class="form-label">机号 <span class="text-muted small">建议</span></label><input class="form-control form-control-sm" name="serial_no" id="serialNo" value="{{ form_acceptance.serial_no or '' }}"></div>
+            <div class="col-md-3"><label class="form-label">柜号 <span class="text-muted small">建议</span></label><input class="form-control form-control-sm" name="cabinet_no" id="serialNo" value="{{ form_acceptance.cabinet_no or '' }}"></div>
             <div class="col-md-8"><label class="form-label">验收项目 <span class="text-danger">*</span></label><input class="form-control form-control-sm" name="item_name" value="{{ form_acceptance.item_name or '' }}" required></div>
             <div class="col-md-4">
                 <label class="form-label">验收结果</label>
@@ -88,7 +88,7 @@
     function fillFromCard() {
         const data = select.selectedOptions[0] ? select.selectedOptions[0].dataset : {};
         if (!projectCode.value) projectCode.value = data.project || '';
-        if (!serialNo.value) serialNo.value = data.serial || '';
+        if (!serialNo.value) serialNo.value = data.cabinet || '';
         customerName.value = data.customer || '';
         machineModel.value = data.machine || '';
     }

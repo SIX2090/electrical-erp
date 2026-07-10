@@ -26,7 +26,7 @@ def get_db_config():
 def load_trial_values():
     values = {
         "project_code": "PJ-GT-TRIAL-20260526-001",
-        "serial_no": "SN-GT-TRIAL-20260526-001",
+        "cabinet_no": "SN-GT-TRIAL-20260526-001",
         "product_code": "GT-RD-TRIAL-001",
         "material_code": "MAT-GT-DRUM-TRIAL-001",
     }
@@ -42,7 +42,7 @@ def load_trial_values():
             if actual.startswith("PJ-GT-"):
                 values["project_code"] = actual
             elif actual.startswith("SN-GT-"):
-                values["serial_no"] = actual
+                values["cabinet_no"] = actual
             elif actual.startswith("GT-") and "TRIAL" in actual:
                 values["product_code"] = actual
             elif actual.startswith("MAT-GT-") and "TRIAL" in actual and values["material_code"] == "MAT-GT-DRUM-TRIAL-001":
@@ -82,17 +82,17 @@ def ensure_supplier(cur):
 
 def ensure_subcontract_order(cur, values):
     project_code = values["project_code"]
-    serial_no = values["serial_no"]
+    cabinet_no = values["cabinet_no"]
     order = fetch_one(
         cur,
         """
         SELECT *
         FROM subcontract_orders
-        WHERE project_code=%s AND serial_no=%s
+        WHERE project_code=%s AND cabinet_no=%s
         ORDER BY id DESC
         LIMIT 1
         """,
-        (project_code, serial_no),
+        (project_code, cabinet_no),
     )
     if order:
         return order
@@ -108,11 +108,11 @@ def ensure_subcontract_order(cur, values):
         """
         SELECT id, warehouse_id, cost_object_id
         FROM work_orders
-        WHERE project_code=%s AND serial_no=%s
+        WHERE project_code=%s AND cabinet_no=%s
         ORDER BY id DESC
         LIMIT 1
         """,
-        (project_code, serial_no),
+        (project_code, cabinet_no),
     )
     unit_price = product.get("standard_price") or 800
     if unit_price <= 0:
@@ -122,7 +122,7 @@ def ensure_subcontract_order(cur, values):
         INSERT INTO subcontract_orders
             (order_no, supplier_id, order_date, required_date, status, total_amount,
              tax_amount, total_tax_amount, remark, parent_work_order_id, warehouse_id,
-             cost_object_id, project_code, serial_no, product_id, quantity, unit_price,
+             cost_object_id, project_code, cabinet_no, product_id, quantity, unit_price,
              updated_at)
         VALUES
             (%s, %s, CURRENT_DATE, CURRENT_DATE + INTERVAL '5 days', %s, %s,
@@ -140,7 +140,7 @@ def ensure_subcontract_order(cur, values):
             work_order.get("warehouse_id") if work_order else None,
             work_order.get("cost_object_id") if work_order else None,
             project_code,
-            serial_no,
+            cabinet_no,
             product["id"],
             unit_price,
         ),
@@ -265,7 +265,7 @@ def main():
     os.environ.setdefault("WTF_CSRF_ENABLED", "0")
     values = load_trial_values()
     project_code = values["project_code"]
-    serial_no = values["serial_no"]
+    cabinet_no = values["cabinet_no"]
     checks = []
 
     conn = connect_db(get_db_config())
@@ -288,7 +288,7 @@ def main():
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT sc.id, sc.order_no, sc.project_code, sc.serial_no,
+                SELECT sc.id, sc.order_no, sc.project_code, sc.cabinet_no,
                        COALESCE(sc.quantity, 0) AS ordered_qty,
                        COALESCE(issue_sum.issued_qty, 0) AS issued_qty,
                        COALESCE(receive_sum.received_qty, 0) AS received_qty,
@@ -314,14 +314,14 @@ def main():
                     WHERE sp.doc_type='subcontract_order'
                       AND (sp.doc_id=sc.id OR sp.doc_no=sc.order_no)
                 ) payable_sum ON TRUE
-                WHERE sc.project_code=%s AND sc.serial_no=%s
+                WHERE sc.project_code=%s AND sc.cabinet_no=%s
                 ORDER BY sc.id DESC
                 LIMIT 1
                 """,
-                (project_code, serial_no),
+                (project_code, cabinet_no),
             )
             summary = cur.fetchone() or {}
-            checks.append(("subcontract_trace_project_serial", bool(summary), summary.get("order_no") if summary else "missing"))
+            checks.append(("subcontract_trace_project_cabinet", bool(summary), summary.get("order_no") if summary else "missing"))
             checks.append(("subcontract_issued_qty_positive", summary.get("issued_qty", 0) > 0, summary.get("issued_qty")))
             checks.append(("subcontract_received_qty_positive", summary.get("received_qty", 0) > 0, summary.get("received_qty")))
             checks.append(("subcontract_payable_amount_positive", summary.get("payable_amount", 0) > 0, summary.get("payable_amount")))
@@ -336,12 +336,12 @@ def main():
                         SELECT COUNT(*) AS value
                         FROM subcontract_issue_orders sio
                         JOIN subcontract_orders sc ON sc.id=sio.subcontract_order_id
-                        WHERE sc.project_code=%s AND sc.serial_no=%s
+                        WHERE sc.project_code=%s AND sc.cabinet_no=%s
                         """,
-                        (project_code, serial_no),
+                        (project_code, cabinet_no),
                     )
                     >= 1,
-                    "project/serial",
+                    "project/cabinet",
                 )
             )
             checks.append(
@@ -353,12 +353,12 @@ def main():
                         SELECT COUNT(*) AS value
                         FROM subcontract_receive_orders sro
                         JOIN subcontract_orders sc ON sc.id=sro.subcontract_order_id
-                        WHERE sc.project_code=%s AND sc.serial_no=%s
+                        WHERE sc.project_code=%s AND sc.cabinet_no=%s
                         """,
-                        (project_code, serial_no),
+                        (project_code, cabinet_no),
                     )
                     >= 1,
-                    "project/serial",
+                    "project/cabinet",
                 )
             )
     finally:
@@ -380,25 +380,25 @@ def main():
                     """
                     SELECT id
                     FROM sales_orders
-                    WHERE project_code=%s AND serial_no=%s
+                    WHERE project_code=%s AND cabinet_no=%s
                     ORDER BY id DESC
                     LIMIT 1
                     """,
-                    (project_code, serial_no),
+                    (project_code, cabinet_no),
                 )
                 if sales_order:
                     project_detail_path = f"/projects/{sales_order['id']}"
         finally:
             conn.close()
         page_expectations = [
-            (f"/subcontract?keyword={project_code}", [project_code, serial_no, "OS-GT-TRIAL-20260526-001"]),
+            (f"/subcontract?keyword={project_code}", [project_code, cabinet_no, "OS-GT-TRIAL-20260526-001"]),
             (f"/subcontract_issue?keyword=OS-GT-TRIAL-20260526-001", ["OS-GT-TRIAL-20260526-001"]),
             (f"/subcontract_receive?keyword=OS-GT-TRIAL-20260526-001", ["OS-GT-TRIAL-20260526-001"]),
             (f"/payables?keyword=OS-GT-TRIAL-20260526-001", ["OS-GT-TRIAL-20260526-001"]),
-            (f"/projects?keyword={project_code}", [project_code, serial_no]),
+            (f"/projects?keyword={project_code}", [project_code, cabinet_no]),
         ]
         if project_detail_path:
-            page_expectations.append((project_detail_path, [project_code, serial_no, "OS-GT-TRIAL-20260526-001"]))
+            page_expectations.append((project_detail_path, [project_code, cabinet_no, "OS-GT-TRIAL-20260526-001"]))
         else:
             checks.append(("project_detail_found", False, "missing sales order"))
         for path, expected in page_expectations:
@@ -413,7 +413,7 @@ def main():
     print("first_machine_subcontract_closure_audit=ok" if not failures else "first_machine_subcontract_closure_audit=failed")
     print(f"checked_items={len(checks)}")
     print(f"project_code={project_code}")
-    print(f"serial_no={serial_no}")
+    print(f"cabinet_no={cabinet_no}")
     for name, ok, detail in checks:
         print(f"{'ok' if ok else 'failed'} | {name} | {detail}")
     return 1 if failures else 0

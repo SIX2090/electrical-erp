@@ -122,7 +122,7 @@ def register_production_operation_routes(app, deps):
         extra_sql = " AND ".join(extra_filters)
         return safe_rows(
             f"""
-            SELECT id, wo_no, project_code, serial_no, status
+            SELECT id, wo_no, project_code, cabinet_no, status
             FROM work_orders
             WHERE COALESCE(status,'') NOT IN ('已关闭','已完工','已完成','已作废','已取消','closed','completed','void','cancelled','canceled')
               AND {extra_sql}
@@ -403,7 +403,7 @@ def register_production_operation_routes(app, deps):
                 INSERT INTO operation_reports
                     (report_no, work_order_id, work_order_process_id, routing_operation_id, report_type, report_date,
                      status, operator_id, work_center_id, start_time, end_time, labor_hours, equipment_hours,
-                     good_qty, rework_qty, scrap_qty, blocked_reason, next_action, downstream_impact, project_code, serial_no,
+                     good_qty, rework_qty, scrap_qty, blocked_reason, next_action, downstream_impact, project_code, cabinet_no,
                      remark, submitted_by, submitted_at)
                 VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,NOW())
                 RETURNING id, report_no
@@ -429,7 +429,7 @@ def register_production_operation_routes(app, deps):
                     form_text("next_action", next_action_for_type(report_type)),
                     form_text("downstream_impact", execution_downstream_impact(report_type)),
                     wo.get("project_code"),
-                    wo.get("serial_no"),
+                    wo.get("cabinet_no"),
                     form_text("remark"),
                     session.get("user_id"),
                 ),
@@ -484,7 +484,7 @@ def register_production_operation_routes(app, deps):
             SET work_order_id=%s, work_order_process_id=%s, routing_operation_id=%s,
                 report_type=%s, report_date=%s, operator_id=%s, work_center_id=%s,
                 labor_hours=%s, equipment_hours=%s, good_qty=%s, rework_qty=%s, scrap_qty=%s,
-                blocked_reason=%s, next_action=%s, downstream_impact=%s, project_code=%s, serial_no=%s, remark=%s
+                blocked_reason=%s, next_action=%s, downstream_impact=%s, project_code=%s, cabinet_no=%s, remark=%s
             WHERE id=%s
             """,
             (
@@ -504,7 +504,7 @@ def register_production_operation_routes(app, deps):
                 form_text("next_action", next_action_for_type(report_type)),
                 form_text("downstream_impact", execution_downstream_impact(report_type)),
                 wo.get("project_code"),
-                wo.get("serial_no"),
+                wo.get("cabinet_no"),
                 form_text("remark"),
                 report_id,
             ),
@@ -607,7 +607,7 @@ def register_production_operation_routes(app, deps):
         ensure_schema()
         rows = safe_rows(
             """
-            SELECT wop.*, wo.wo_no, wo.project_code, wo.serial_no,
+            SELECT wop.*, wo.wo_no, wo.project_code, wo.cabinet_no,
                    wc.code AS work_center_code, wc.name AS work_center_name,
                    COALESCE(wop.wip_quantity, GREATEST(COALESCE(wop.planned_quantity,0)-COALESCE(wop.good_quantity,0)-COALESCE(wop.scrap_quantity,0),0)) AS open_wip_qty
             FROM work_order_processes wop

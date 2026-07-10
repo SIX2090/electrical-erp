@@ -63,7 +63,7 @@ def _add_common_shipment_filters(where, params, filters, date_expression="ss.shi
         params.append(filters["customer_id"])
     _add_text_filter(where, params, "c.name", filters.get("customer_name"))
     _add_text_filter(where, params, "COALESCE(ss.project_code, so.project_code)", filters.get("project_code"))
-    _add_text_filter(where, params, "COALESCE(ss.serial_no, so.serial_no)", filters.get("serial_no"))
+    _add_text_filter(where, params, "COALESCE(ss.cabinet_no, so.cabinet_no)", filters.get("cabinet_no"))
     _add_text_filter(where, params, "COALESCE(ss.shipment_no, '')", filters.get("shipment_no"))
     _add_text_filter(where, params, "COALESCE(so.order_no, ss.source_no, '')", filters.get("order_no"))
     if filters.get("status"):
@@ -90,7 +90,7 @@ def _base_filter_state(filters, report_type):
         "customer_name": filters.get("customer_name") or "",
         "product_keyword": filters.get("product_keyword") or "",
         "project_code": filters.get("project_code") or "",
-        "serial_no": filters.get("serial_no") or "",
+        "cabinet_no": filters.get("cabinet_no") or "",
         "shipment_no": filters.get("shipment_no") or "",
         "order_no": filters.get("order_no") or "",
         "status": filters.get("status") or "",
@@ -173,7 +173,7 @@ def query_shipment_execution_detail(query_db, filters=None):
             so.delivery_date,
             c.name AS customer_name,
             COALESCE(ss.project_code, so.project_code) AS project_code,
-            COALESCE(ss.serial_no, so.serial_no) AS serial_no,
+            COALESCE(ss.cabinet_no, so.cabinet_no) AS cabinet_no,
             ssi.id AS line_id,
             p.code AS product_code,
             p.name AS product_name,
@@ -260,7 +260,7 @@ def query_shipment_execution_detail(query_db, filters=None):
         ("order_no", "销售订单", {"url_key": "order_url"}),
         ("customer_name", "客户", {}),
         ("project_code", "项目号", {}),
-        ("serial_no", "机号", {}),
+        ("cabinet_no", "柜号", {}),
         ("product_code", "物料编码", {}),
         ("product_name", "物料名称", {}),
         ("specification", "规格型号", {}),
@@ -327,7 +327,7 @@ def query_shipped_goods_detail(query_db, filters=None):
             COALESCE(so.order_no, ss.source_no) AS order_no,
             c.name AS customer_name,
             COALESCE(ss.project_code, so.project_code) AS project_code,
-            COALESCE(ss.serial_no, so.serial_no) AS serial_no,
+            COALESCE(ss.cabinet_no, so.cabinet_no) AS cabinet_no,
             p.code AS product_code,
             p.name AS product_name,
             p.specification,
@@ -405,7 +405,7 @@ def query_shipped_goods_detail(query_db, filters=None):
         ("order_no", "销售订单", {"url_key": "order_url"}),
         ("customer_name", "客户", {}),
         ("project_code", "项目号", {}),
-        ("serial_no", "机号", {}),
+        ("cabinet_no", "柜号", {}),
         ("product_code", "物料编码", {}),
         ("product_name", "物料名称", {}),
         ("specification", "规格型号", {}),
@@ -432,7 +432,7 @@ def query_shipped_goods_summary(query_db, filters=None):
     """Issued goods summary by product.
 
     The summary uses the same settlement basis as shipped goods detail and
-    groups by product/project/serial/customer when filter values are present.
+    groups by product/project/cabinet/customer when filter values are present.
     """
     detail = query_shipped_goods_detail(query_db, filters)
     buckets = {}
@@ -444,7 +444,7 @@ def query_shipped_goods_summary(query_db, filters=None):
             row.get("unit") or "",
             row.get("customer_name") or "",
             row.get("project_code") or "",
-            row.get("serial_no") or "",
+            row.get("cabinet_no") or "",
         )
         bucket = buckets.setdefault(
             key,
@@ -455,7 +455,7 @@ def query_shipped_goods_summary(query_db, filters=None):
                 "unit": row.get("unit"),
                 "customer_name": row.get("customer_name"),
                 "project_code": row.get("project_code"),
-                "serial_no": row.get("serial_no"),
+                "cabinet_no": row.get("cabinet_no"),
                 "shipment_count": 0,
                 "period_shipped_qty": Decimal("0"),
                 "period_shipped_amount": Decimal("0"),
@@ -497,7 +497,7 @@ def query_shipped_goods_summary(query_db, filters=None):
         ("unit", "基本单位", {}),
         ("customer_name", "客户", {}),
         ("project_code", "项目号", {}),
-        ("serial_no", "机号", {}),
+        ("cabinet_no", "柜号", {}),
         ("shipment_count", "发货行数", {"align": "right"}),
         ("period_shipped_qty", "本期发出数量", {"align": "right", "format": "qty"}),
         ("period_shipped_amount", "本期发出金额", {"align": "right", "format": "money"}),

@@ -33,7 +33,7 @@ def render_purchase_receipt_dashboard(
     params = []
     if keyword:
         where_parts.append(
-            "(pr.receipt_no ILIKE %s OR po.order_no ILIKE %s OR s.name ILIKE %s OR pr.project_code ILIKE %s OR pr.serial_no ILIKE %s)"
+            "(pr.receipt_no ILIKE %s OR po.order_no ILIKE %s OR s.name ILIKE %s OR pr.project_code ILIKE %s OR pr.cabinet_no ILIKE %s)"
         )
         params.extend([f"%{keyword}%"] * 5)
     if status:
@@ -95,7 +95,7 @@ def render_purchase_receipt_dashboard(
     statuses = _operator_clean_rows(statuses, "status")
     receipts = query_rows(
         f"""
-        SELECT pr.id, pr.receipt_no, pr.receipt_date, pr.status, pr.project_code, pr.serial_no,
+        SELECT pr.id, pr.receipt_no, pr.receipt_date, pr.status, pr.project_code, pr.cabinet_no,
                po.order_no, po.id AS order_id, s.name AS supplier_name, w.name AS warehouse_name,
                COALESCE(SUM(pri.quantity), 0) AS received_qty,
                COALESCE(SUM(pri.quantity * COALESCE(pri.unit_cost, 0)), 0) AS received_amount,
@@ -126,14 +126,14 @@ def render_purchase_receipt_dashboard(
         """,
         tuple(params),
     )
-    receipts = _operator_clean_rows(receipts, "receipt_no", "order_no", "supplier_name", "project_code", "serial_no")
+    receipts = _operator_clean_rows(receipts, "receipt_no", "order_no", "supplier_name", "project_code", "cabinet_no")
     for row in receipts:
         row["qc_state_label"] = "质检待检" if row.get("qc_pending_count") else ("质检已检" if row.get("qc_checked_count") else "未建质检")
         row["stock_state_label"] = "已入库记账" if row.get("stock_txn_count") else "未见库存流水"
     pending_orders = query_rows(
         """
         SELECT po.id, po.order_no, po.order_date, po.expected_date, po.status,
-               po.project_code, po.serial_no, s.name AS supplier_name,
+               po.project_code, po.cabinet_no, s.name AS supplier_name,
                COALESCE(SUM(poi.quantity), 0) AS ordered_qty,
                COALESCE(SUM(poi.received_qty), 0) AS received_qty,
                COALESCE(SUM(GREATEST(COALESCE(poi.quantity, 0) - COALESCE(poi.received_qty, 0), 0)), 0) AS pending_qty,
@@ -149,12 +149,12 @@ def render_purchase_receipt_dashboard(
         """,
         (receivable_status_params,),
     )
-    pending_orders = _operator_clean_rows(pending_orders, "order_no", "supplier_name", "project_code", "serial_no", "status")
+    pending_orders = _operator_clean_rows(pending_orders, "order_no", "supplier_name", "project_code", "cabinet_no", "status")
     recent_transactions = query_rows(
         """
         SELECT st.id, st.transaction_date, st.transaction_type, st.reference_no,
                p.code AS product_code, p.name AS product_name, st.quantity, st.unit_cost,
-               st.lot_no, st.serial_no
+               st.lot_no, st.cabinet_no
         FROM stock_transactions st
         LEFT JOIN products p ON p.id=st.product_id
         WHERE st.reference_no IN (SELECT receipt_no FROM purchase_receipts ORDER BY id DESC LIMIT 200)
@@ -162,7 +162,7 @@ def render_purchase_receipt_dashboard(
         LIMIT 30
         """
     )
-    recent_transactions = _operator_clean_rows(recent_transactions, "reference_no", "product_code", "product_name", "serial_no")
+    recent_transactions = _operator_clean_rows(recent_transactions, "reference_no", "product_code", "product_name", "cabinet_no")
     return render_template(
         "purchase_receipt_dashboard.html",
         title="采购入库单",
@@ -232,7 +232,7 @@ def render_purchase_receipt_detail(
     total_qty = sum((as_decimal(row.get("quantity")) for row in items), Decimal("0"))
     total_amount = sum((receipt_display_amount(row) for row in items), Decimal("0"))
     project_code = receipt.get("project_code")
-    serial_no = receipt.get("serial_no")
+    cabinet_no = receipt.get("cabinet_no")
     context = {
         "back_url": back_url,
         "receipt": receipt,
@@ -247,7 +247,7 @@ def render_purchase_receipt_detail(
             """
             SELECT st.id, st.transaction_date, st.transaction_type, p.code AS product_code,
                    p.name AS product_name, p.specification, p.unit, st.quantity, st.unit_cost, st.reference_no,
-                   st.lot_no, st.serial_no, st.location, w.name AS warehouse_name
+                   st.lot_no, st.cabinet_no, st.location, w.name AS warehouse_name
             FROM stock_transactions st
             LEFT JOIN products p ON p.id=st.product_id
             LEFT JOIN warehouses w ON w.id=st.warehouse_id
@@ -271,11 +271,11 @@ def render_purchase_receipt_detail(
             """
             SELECT id, receipt_no, receipt_date, status
             FROM purchase_receipts
-            WHERE id<>%s AND ((%s IS NOT NULL AND project_code=%s) OR (%s IS NOT NULL AND serial_no=%s))
+            WHERE id<>%s AND ((%s IS NOT NULL AND project_code=%s) OR (%s IS NOT NULL AND cabinet_no=%s))
             ORDER BY id DESC
             LIMIT 20
             """,
-            (receipt_id, project_code, project_code, serial_no, serial_no),
+            (receipt_id, project_code, project_code, cabinet_no, cabinet_no),
         ),
         "attachments": document_attachments("purchase_receipt", receipt_id),
         "activity_logs": document_activity_logs("purchase_receipt", receipt),
@@ -335,7 +335,7 @@ def render_purchase_receipt_print(receipt_id, query_one, query_rows, as_decimal)
             ("来源采购订单", receipt.get("order_no")),
             ("仓库", receipt.get("warehouse_name")),
             ("项目号", receipt.get("project_code")),
-            ("机号", receipt.get("serial_no")),
+            ("柜号", receipt.get("cabinet_no")),
         ],
         "columns": [
             ("product_code", "物料编码", ""),
@@ -361,7 +361,7 @@ def render_purchase_receipt_print(receipt_id, query_one, query_rows, as_decimal)
     doc["contact_person"] = receipt.get("contact_person")
     doc["partner_phone"] = receipt.get("supplier_phone")
     doc["project_code"] = receipt.get("project_code")
-    doc["serial_no"] = receipt.get("serial_no")
+    doc["cabinet_no"] = receipt.get("cabinet_no")
     doc["warehouse_name"] = receipt.get("warehouse_name")
     template_grid = build_template_grid_for_document("purchase_receipt", doc, query_one)
     return render_template("document_print.html", doc=doc, template_grid=template_grid)

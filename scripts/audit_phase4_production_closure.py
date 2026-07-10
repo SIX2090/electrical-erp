@@ -33,7 +33,7 @@ def main() -> int:
     permissions = read("services/pilot_permissions.py")
 
     closure_routes = [
-        "/api/project-machine-ledger/machine/<path:serial_no>/production-closure",
+        "/api/project-machine-ledger/machine/<path:cabinet_no>/production-closure",
         "/api/project-machine-ledger/project/<path:project_code>/production-closure",
         "/api/project-machine-ledger/order/<int:order_id>/production-closure",
     ]

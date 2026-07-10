@@ -130,7 +130,7 @@ def build_requirement_lines(product_ids, quantities, unit_costs, remarks, order,
             "location_id": _as_int(_list_value(extra_fields.get("location_id", []), idx)),
             "lot_no": _list_value(extra_fields.get("lot_no", []), idx),
             "line_project_code": _list_value(extra_fields.get("line_project_code", []), idx, order.get("project_code") or ""),
-            "line_serial_no": _list_value(extra_fields.get("line_serial_no", []), idx, order.get("serial_no") or ""),
+            "line_cabinet_no": _list_value(extra_fields.get("line_cabinet_no", []), idx, order.get("cabinet_no") or ""),
         })
     return lines
 
@@ -159,7 +159,7 @@ def build_extra_material_lines(product_ids, quantities, unit_costs, lot_nos, rem
                 "source_line_no": _list_value(extra_fields.get("source_line_no", []), idx),
                 "location_id": _as_int(_list_value(extra_fields.get("location_id", []), idx)),
                 "line_project_code": _list_value(extra_fields.get("line_project_code", []), idx),
-                "line_serial_no": _list_value(extra_fields.get("line_serial_no", []), idx),
+                "line_cabinet_no": _list_value(extra_fields.get("line_cabinet_no", []), idx),
             }
         )
     return lines
@@ -189,7 +189,7 @@ def build_bom_requirement_line(row, order, query_one):
         "location_id": order.get("location_id"),
         "source_line_no": bom_requirement_source_line(row),
         "line_project_code": order.get("project_code"),
-        "line_serial_no": order.get("serial_no"),
+        "line_cabinet_no": order.get("cabinet_no"),
         "material_code": row.get("material_code") or "",
         "material_name": row.get("material_name") or "",
         "material_spec": row.get("material_spec") or "",

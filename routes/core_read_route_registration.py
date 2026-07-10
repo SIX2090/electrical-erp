@@ -142,7 +142,7 @@ def register_core_read_routes(
         "/inventory/reports/check-difference-detail",
         "/inventory/reports/cost-ledger",
         "/inventory/reports/cost-detail",
-        "/inventory/reports/project-serial-cost",
+        "/inventory/reports/project-cabinet-cost",
         "/inventory/reports/exceptions",
     }
     inventory_subcontract_report_paths = {

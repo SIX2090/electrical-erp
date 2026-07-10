@@ -3,7 +3,7 @@
 {% block content %}
 <div class="page-heading">
     <h1>新增技术确认单</h1>
-    <p>技术部确认项目/机号使用的 BOM、图纸、工艺路线、工作中心和关键控制点。</p>
+    <p>技术部确认项目/柜号使用的 BOM、图纸、工艺路线、工作中心和关键控制点。</p>
 </div>
 
 <form method="post" class="page-card">
@@ -42,16 +42,16 @@
         <div class="col-md-6">
             <label class="form-label">来源销售订单</label>
             <select class="form-select" name="sales_order_id" id="salesOrderSelect">
-                <option value="">手工填写项目/机号</option>
+                <option value="">手工填写项目/柜号</option>
                 {% for order in options.sales_orders %}
                 <option value="{{ order.id }}" {% if confirmation.sales_order_id == order.id %}selected{% endif %}
                         data-project-code="{{ order.project_code or '' }}"
-                        data-serial-no="{{ order.serial_no or '' }}"
+                        data-serial-no="{{ order.cabinet_no or '' }}"
                         data-product-id="{{ order.product_id or '' }}"
                         data-machine-model="{{ [order.product_code, order.product_name, order.product_specification]|select|join(' / ') }}"
                         data-drawing-no="{{ order.drawing_no or '' }}"
                         data-drawing-version="{{ order.drawing_version or '' }}">
-                    {{ order.order_no }} - {{ order.customer_name or '-' }} - {{ order.project_code or '-' }} / {{ order.serial_no or '-' }}
+                    {{ order.order_no }} - {{ order.customer_name or '-' }} - {{ order.project_code or '-' }} / {{ order.cabinet_no or '-' }}
                 </option>
                 {% endfor %}
             </select>
@@ -61,8 +61,8 @@
             <input class="form-control" name="project_code" id="projectCode" value="{{ confirmation.project_code or '' }}" required>
         </div>
         <div class="col-md-3">
-            <label class="form-label">机号</label>
-            <input class="form-control" name="serial_no" id="serialNo" value="{{ confirmation.serial_no or '' }}" required>
+            <label class="form-label">柜号</label>
+            <input class="form-control" name="cabinet_no" id="serialNo" value="{{ confirmation.cabinet_no or '' }}" required>
         </div>
 
         <div class="col-md-6">

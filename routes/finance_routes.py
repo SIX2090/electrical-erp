@@ -574,7 +574,7 @@ def _insert_auto_voucher(query_one, execute_db, execute_and_return, *, source_ty
             """
             INSERT INTO voucher_lines
                 (voucher_id, line_no, account_id, summary, debit_amount, credit_amount,
-                 project_code, serial_no, partner_type, partner_id, source_type, source_id, source_no)
+                 project_code, cabinet_no, partner_type, partner_id, source_type, source_id, source_no)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             """,
             (
@@ -585,7 +585,7 @@ def _insert_auto_voucher(query_one, execute_db, execute_and_return, *, source_ty
                 debit,
                 credit,
                 line.get("project_code"),
-                line.get("serial_no"),
+                line.get("cabinet_no"),
                 line.get("partner_type"),
                 line.get("partner_id"),
                 source_type,
@@ -597,7 +597,7 @@ def _insert_auto_voucher(query_one, execute_db, execute_and_return, *, source_ty
             """
             INSERT INTO general_ledger
                 (voucher_id, account_id, account_code, account_name, entry_date, period_year, period_month,
-                 debit_amount, credit_amount, summary, project_code, serial_no, voucher_no,
+                 debit_amount, credit_amount, summary, project_code, cabinet_no, voucher_no,
                  source_type, source_id, source_no)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             """,
@@ -613,7 +613,7 @@ def _insert_auto_voucher(query_one, execute_db, execute_and_return, *, source_ty
                 credit,
                 line.get("summary") or summary,
                 line.get("project_code"),
-                line.get("serial_no"),
+                line.get("cabinet_no"),
                 voucher_no,
                 source_type,
                 source_id,
@@ -623,32 +623,32 @@ def _insert_auto_voucher(query_one, execute_db, execute_and_return, *, source_ty
     return voucher_id
 
 
-def _post_customer_receipt_voucher(query_one, execute_db, execute_and_return, *, receipt_id, receipt_no, doc_date, amount, applied_amount, project_code, serial_no, customer_id):
+def _post_customer_receipt_voucher(query_one, execute_db, execute_and_return, *, receipt_id, receipt_no, doc_date, amount, applied_amount, project_code, cabinet_no, customer_id):
     bank = _account_for_mapping(query_one, execute_and_return, "bank", "1002", "\u94f6\u884c\u5b58\u6b3e")
     ar = _account_for_mapping(query_one, execute_and_return, "accounts_receivable", "1122", "\u5e94\u6536\u8d26\u6b3e")
     advance = _account_for_mapping(query_one, execute_and_return, "advance_receipt", "2203", "\u9884\u6536\u8d26\u6b3e")
     lines = [
-        {"account": bank, "debit_amount": amount, "credit_amount": 0, "project_code": project_code, "serial_no": serial_no, "partner_type": "customer", "partner_id": customer_id},
+        {"account": bank, "debit_amount": amount, "credit_amount": 0, "project_code": project_code, "cabinet_no": cabinet_no, "partner_type": "customer", "partner_id": customer_id},
     ]
     if applied_amount > 0:
-        lines.append({"account": ar, "debit_amount": 0, "credit_amount": applied_amount, "project_code": project_code, "serial_no": serial_no, "partner_type": "customer", "partner_id": customer_id})
+        lines.append({"account": ar, "debit_amount": 0, "credit_amount": applied_amount, "project_code": project_code, "cabinet_no": cabinet_no, "partner_type": "customer", "partner_id": customer_id})
     unapplied = max(as_decimal(amount) - as_decimal(applied_amount), Decimal("0"))
     if unapplied > 0:
-        lines.append({"account": advance, "debit_amount": 0, "credit_amount": unapplied, "project_code": project_code, "serial_no": serial_no, "partner_type": "customer", "partner_id": customer_id})
+        lines.append({"account": advance, "debit_amount": 0, "credit_amount": unapplied, "project_code": project_code, "cabinet_no": cabinet_no, "partner_type": "customer", "partner_id": customer_id})
     return _insert_auto_voucher(query_one, execute_db, execute_and_return, source_type="customer_receipt", source_id=receipt_id, source_no=receipt_no, doc_date=doc_date, summary=f"\u5ba2\u6237\u6536\u6b3e {receipt_no}", lines=lines)
 
 
-def _post_supplier_payment_voucher(query_one, execute_db, execute_and_return, *, payment_id, payment_no, doc_date, amount, applied_amount, project_code, serial_no, supplier_id):
+def _post_supplier_payment_voucher(query_one, execute_db, execute_and_return, *, payment_id, payment_no, doc_date, amount, applied_amount, project_code, cabinet_no, supplier_id):
     bank = _account_for_mapping(query_one, execute_and_return, "bank", "1002", "\u94f6\u884c\u5b58\u6b3e")
     ap = _account_for_mapping(query_one, execute_and_return, "accounts_payable", "2202", "\u5e94\u4ed8\u8d26\u6b3e")
     prepayment = _account_for_mapping(query_one, execute_and_return, "prepayment", "1123", "\u9884\u4ed8\u8d26\u6b3e")
     lines = []
     if applied_amount > 0:
-        lines.append({"account": ap, "debit_amount": applied_amount, "credit_amount": 0, "project_code": project_code, "serial_no": serial_no, "partner_type": "supplier", "partner_id": supplier_id})
+        lines.append({"account": ap, "debit_amount": applied_amount, "credit_amount": 0, "project_code": project_code, "cabinet_no": cabinet_no, "partner_type": "supplier", "partner_id": supplier_id})
     unapplied = max(as_decimal(amount) - as_decimal(applied_amount), Decimal("0"))
     if unapplied > 0:
-        lines.append({"account": prepayment, "debit_amount": unapplied, "credit_amount": 0, "project_code": project_code, "serial_no": serial_no, "partner_type": "supplier", "partner_id": supplier_id})
-    lines.append({"account": bank, "debit_amount": 0, "credit_amount": amount, "project_code": project_code, "serial_no": serial_no, "partner_type": "supplier", "partner_id": supplier_id})
+        lines.append({"account": prepayment, "debit_amount": unapplied, "credit_amount": 0, "project_code": project_code, "cabinet_no": cabinet_no, "partner_type": "supplier", "partner_id": supplier_id})
+    lines.append({"account": bank, "debit_amount": 0, "credit_amount": amount, "project_code": project_code, "cabinet_no": cabinet_no, "partner_type": "supplier", "partner_id": supplier_id})
     return _insert_auto_voucher(query_one, execute_db, execute_and_return, source_type="supplier_payment", source_id=payment_id, source_no=payment_no, doc_date=doc_date, summary=f"\u4f9b\u5e94\u5546\u4ed8\u6b3e {payment_no}", lines=lines)
 
 
@@ -722,7 +722,7 @@ def build_period_close_checks(query_one, year, month, payload):
             "item": "库存成本检查",
             "basis": "库存成本余额来自 inventory_balances.quantity * unit_cost，库存成本明细可查看库存流水来源单。",
             "result": f"库存成本余额 {money_metric(payload['summary']['inventory_cost_balance'])}。",
-            "action": "结账前检查负库存、异常成本和项目/机号库存占用。",
+            "action": "结账前检查负库存、异常成本和项目/柜号库存占用。",
         },
         {
             "item": "凭证草稿追溯检查",
@@ -1541,7 +1541,7 @@ def render_finance_dashboard(query_one, query_rows, count_rows, money_metric, co
     ]
     receivables = query_rows(
         """
-        SELECT cr.id, cr.source_no, cr.receivable_date, cr.due_date, cr.project_code, cr.serial_no,
+        SELECT cr.id, cr.source_no, cr.receivable_date, cr.due_date, cr.project_code, cr.cabinet_no,
                c.name AS customer_name, cr.total_amount, cr.received_amount, cr.balance, cr.status
         FROM customer_receivables cr
         LEFT JOIN customers c ON c.id=cr.customer_id
@@ -1557,7 +1557,7 @@ def render_finance_dashboard(query_one, query_rows, count_rows, money_metric, co
         row["downstream_impact"] = "影响现金流、账龄、项目毛利和期间结账"
     payables = query_rows(
         """
-        SELECT sp.id, sp.doc_no, sp.doc_date, sp.project_code, sp.serial_no,
+        SELECT sp.id, sp.doc_no, sp.doc_date, sp.project_code, sp.cabinet_no,
                s.name AS supplier_name, sp.amount, sp.paid_amount, sp.balance, sp.status
         FROM supplier_payables sp
         LEFT JOIN suppliers s ON s.id=sp.supplier_id
@@ -1601,7 +1601,7 @@ def render_finance_dashboard(query_one, query_rows, count_rows, money_metric, co
                     ("source_no", "来源"),
                     ("customer_name", "客户"),
                     ("project_code", "项目号"),
-                    ("serial_no", "机号"),
+                    ("cabinet_no", "柜号"),
                     ("receivable_date", "日期"),
                     ("due_date", "到期日"),
                     ("total_amount", "应收"),
@@ -1621,7 +1621,7 @@ def render_finance_dashboard(query_one, query_rows, count_rows, money_metric, co
                     ("doc_no", "来源"),
                     ("supplier_name", "供应商"),
                     ("project_code", "项目号"),
-                    ("serial_no", "机号"),
+                    ("cabinet_no", "柜号"),
                     ("doc_date", "日期"),
                     ("amount", "应付"),
                     ("paid_amount", "已付"),
@@ -1692,7 +1692,7 @@ def render_receivable_detail(
 
     settlements = query_rows(
         """
-        SELECT s.id, r.receipt_no, r.receipt_date, r.source_no, r.project_code, r.serial_no,
+        SELECT s.id, r.receipt_no, r.receipt_date, r.source_no, r.project_code, r.cabinet_no,
                s.applied_amount, r.amount AS receipt_amount, r.payment_method, r.bank_account,
                r.status, s.created_at
         FROM customer_receipt_settlements s
@@ -1705,7 +1705,7 @@ def render_receivable_detail(
     )
     receipts = query_rows(
         """
-        SELECT id, receipt_no, receipt_date, source_no, project_code, serial_no,
+        SELECT id, receipt_no, receipt_date, source_no, project_code, cabinet_no,
                amount, payment_method, bank_account, status, remark
         FROM customer_receipts
         WHERE customer_id=%s
@@ -1713,7 +1713,7 @@ def render_receivable_detail(
             receivable_id=%s OR source_id=%s OR source_no=%s
             OR (%s IS NOT NULL AND cost_object_id=%s)
             OR (%s IS NOT NULL AND project_code=%s)
-            OR (%s IS NOT NULL AND serial_no=%s)
+            OR (%s IS NOT NULL AND cabinet_no=%s)
           )
         ORDER BY receipt_date DESC NULLS LAST, id DESC
         LIMIT 30
@@ -1727,18 +1727,18 @@ def render_receivable_detail(
             receivable.get("cost_object_id"),
             receivable.get("project_code"),
             receivable.get("project_code"),
-            receivable.get("serial_no"),
-            receivable.get("serial_no"),
+            receivable.get("cabinet_no"),
+            receivable.get("cabinet_no"),
         ),
     )
     sales_orders = query_rows(
         """
-        SELECT id, order_no, order_date, project_code, serial_no, total_amount, shipped_amount, status
+        SELECT id, order_no, order_date, project_code, cabinet_no, total_amount, shipped_amount, status
         FROM sales_orders
         WHERE id=%s OR order_no=%s
            OR (%s IS NOT NULL AND cost_object_id=%s)
            OR (%s IS NOT NULL AND project_code=%s)
-           OR (%s IS NOT NULL AND serial_no=%s)
+           OR (%s IS NOT NULL AND cabinet_no=%s)
         ORDER BY id DESC
         LIMIT 20
         """,
@@ -1749,8 +1749,8 @@ def render_receivable_detail(
             receivable.get("cost_object_id"),
             receivable.get("project_code"),
             receivable.get("project_code"),
-            receivable.get("serial_no"),
-            receivable.get("serial_no"),
+            receivable.get("cabinet_no"),
+            receivable.get("cabinet_no"),
         ),
     )
     return render_template(
@@ -1778,7 +1778,7 @@ def render_receivable_detail(
                     ("order_no", "销售订单"),
                     ("order_date", "日期"),
                     ("project_code", "项目号"),
-                    ("serial_no", "机号"),
+                    ("cabinet_no", "柜号"),
                     ("total_amount", "金额"),
                     ("shipped_amount", "已发货"),
                     ("status", "状态"),
@@ -1791,7 +1791,7 @@ def render_receivable_detail(
                     ("receipt_no", "回款单"),
                     ("source_no", "来源单"),
                     ("project_code", "项目号"),
-                    ("serial_no", "机号"),
+                    ("cabinet_no", "柜号"),
                     ("receipt_date", "日期"),
                     ("applied_amount", "核销金额"),
                     ("receipt_amount", "回款金额"),
@@ -1807,7 +1807,7 @@ def render_receivable_detail(
                     ("receipt_no", "回款单"),
                     ("source_no", "来源单"),
                     ("project_code", "项目号"),
-                    ("serial_no", "机号"),
+                    ("cabinet_no", "柜号"),
                     ("receipt_date", "日期"),
                     ("amount", "金额"),
                     ("status", "状态"),
@@ -1866,7 +1866,7 @@ def render_payable_detail(
     )
     purchase_orders = query_rows(
         """
-        SELECT id, order_no, order_date, project_code, serial_no, total_amount, received_amount, status
+        SELECT id, order_no, order_date, project_code, cabinet_no, total_amount, received_amount, status
         FROM purchase_orders
         WHERE id=%s OR order_no=%s
         ORDER BY id DESC
@@ -1876,7 +1876,7 @@ def render_payable_detail(
     )
     subcontract_orders = query_rows(
         """
-        SELECT id, order_no, order_date, project_code, serial_no, total_amount, status
+        SELECT id, order_no, order_date, project_code, cabinet_no, total_amount, status
         FROM subcontract_orders
         WHERE id=%s OR order_no=%s
         ORDER BY id DESC
@@ -1909,7 +1909,7 @@ def render_payable_detail(
                     ("order_no", "采购单"),
                     ("order_date", "日期"),
                     ("project_code", "项目号"),
-                    ("serial_no", "机号"),
+                    ("cabinet_no", "柜号"),
                     ("total_amount", "金额"),
                     ("received_amount", "已收货"),
                     ("status", "状态"),
@@ -1922,7 +1922,7 @@ def render_payable_detail(
                     ("order_no", "委外单"),
                     ("order_date", "日期"),
                     ("project_code", "项目号"),
-                    ("serial_no", "机号"),
+                    ("cabinet_no", "柜号"),
                     ("total_amount", "加工费"),
                     ("status", "状态"),
                 ),
@@ -2808,12 +2808,12 @@ def post_voucher_to_gl(voucher_id, query_one, query_rows, execute_db, log_action
         execute_db(
             """INSERT INTO general_ledger (voucher_id, account_id, account_code, account_name,
                entry_date, period_year, period_month, debit_amount, credit_amount, summary,
-               project_code, serial_no, voucher_no, source_type, source_id, source_no)
+               project_code, cabinet_no, voucher_no, source_type, source_id, source_no)
                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
             (voucher_id, line["account_id"], line.get("account_code"), line.get("account_name"),
              voucher["voucher_date"], voucher.get("period_year"), voucher.get("period_month"),
              line["debit_amount"], line["credit_amount"], line.get("summary"),
-             line.get("project_code"), line.get("serial_no"), voucher["voucher_no"],
+             line.get("project_code"), line.get("cabinet_no"), voucher["voucher_no"],
              voucher.get("source_type"), voucher.get("source_id"), voucher.get("source_no")),
         )
 
@@ -2989,7 +2989,7 @@ def _cash_bank_journal_entry_no(prefix, source_no, line_no, line_count):
     return f"{prefix}-{source_no}-{line_no}" if line_count > 1 else f"{prefix}-{source_no}"
 
 
-def _upsert_cash_bank_journal_for_funds(query_one, execute_db, *, source_type, source_id, source_no, doc_date, direction, amount, bank_account, partner_type, partner_name, project_code, serial_no, summary, created_by):
+def _upsert_cash_bank_journal_for_funds(query_one, execute_db, *, source_type, source_id, source_no, doc_date, direction, amount, bank_account, partner_type, partner_name, project_code, cabinet_no, summary, created_by):
     _upsert_cash_bank_journal_for_funds_lines(
         query_one,
         execute_db,
@@ -3002,13 +3002,13 @@ def _upsert_cash_bank_journal_for_funds(query_one, execute_db, *, source_type, s
         partner_type=partner_type,
         partner_name=partner_name,
         project_code=project_code,
-        serial_no=serial_no,
+        cabinet_no=cabinet_no,
         summary=summary,
         created_by=created_by,
     )
 
 
-def _upsert_cash_bank_journal_for_funds_lines(query_one, execute_db, *, source_type, source_id, source_no, doc_date, direction, fund_lines, partner_type, partner_name, project_code, serial_no, summary, created_by):
+def _upsert_cash_bank_journal_for_funds_lines(query_one, execute_db, *, source_type, source_id, source_no, doc_date, direction, fund_lines, partner_type, partner_name, project_code, cabinet_no, summary, created_by):
     execute_db("DELETE FROM cash_bank_journal_entries WHERE source_type=%s AND source_no=%s", (source_type, source_no))
     prefix = "CBR" if direction == "in" else "CBP"
     active_lines = [line for line in (fund_lines or []) if as_decimal(line.get("amount")) > 0]
@@ -3032,12 +3032,12 @@ def _upsert_cash_bank_journal_for_funds_lines(query_one, execute_db, *, source_t
             """
             INSERT INTO cash_bank_journal_entries
                 (account_id, entry_date, entry_no, source_type, source_no, direction, amount,
-                 partner_type, partner_name, project_code, serial_no, summary, status, created_by,
+                 partner_type, partner_name, project_code, cabinet_no, summary, status, created_by,
                  source_id)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'confirmed',%s,%s)
             ON CONFLICT DO NOTHING
             """,
-            (account_id, doc_date, entry_no, source_type, source_no, direction, amount, partner_type, partner_name, project_code, serial_no, line_summary, created_by, source_id),
+            (account_id, doc_date, entry_no, source_type, source_no, direction, amount, partner_type, partner_name, project_code, cabinet_no, line_summary, created_by, source_id),
         )
 
 
@@ -3211,20 +3211,20 @@ def render_cash_bank_journal(query_rows):
     if filters["keyword"]:
         clause, clause_params = cash_bank_keyword_clause(
             filters["keyword"],
-            ["j.entry_no", "j.source_no", "j.partner_name", "j.project_code", "j.serial_no", "j.summary", "a.account_name"],
+            ["j.entry_no", "j.source_no", "j.partner_name", "j.project_code", "j.cabinet_no", "j.summary", "a.account_name"],
         )
         journal_where.append(clause.replace(" AND ", "", 1))
         params.extend(clause_params)
     journal_rows = query_rows(
         f"""
         SELECT j.id, j.entry_date, j.entry_no, j.source_type, j.source_no, j.direction,
-               j.amount, j.balance_after, j.partner_type, j.partner_name, j.project_code, j.serial_no,
+               j.amount, j.balance_after, j.partner_type, j.partner_name, j.project_code, j.cabinet_no,
                j.summary, j.status, a.account_code, a.account_name, a.account_type,
                cr.id AS receipt_id, cr.receipt_no, cr.source_no AS receipt_source_no,
-               cr.project_code AS receipt_project_code, cr.serial_no AS receipt_serial_no,
+               cr.project_code AS receipt_project_code, cr.cabinet_no AS receipt_cabinet_no,
                c.name AS customer_name,
                sp.id AS payment_id, sp.payment_no, sp.source_no AS payment_source_no,
-               sp.project_code AS payment_project_code, sp.serial_no AS payment_serial_no,
+               sp.project_code AS payment_project_code, sp.cabinet_no AS payment_cabinet_no,
                s.name AS supplier_name
         FROM cash_bank_journal_entries j
         LEFT JOIN cash_bank_accounts a ON a.id=j.account_id
@@ -3257,7 +3257,7 @@ def render_cash_bank_journal(query_rows):
     if filters["keyword"]:
         clause, clause_params = cash_bank_keyword_clause(
             filters["keyword"],
-            ["doc_no", "source_no", "partner_name", "project_code", "serial_no", "bank_account", "summary"],
+            ["doc_no", "source_no", "partner_name", "project_code", "cabinet_no", "bank_account", "summary"],
         )
         legacy_filters.append(clause.replace(" AND ", "", 1))
         legacy_params.extend(clause_params)
@@ -3268,14 +3268,14 @@ def render_cash_bank_journal(query_rows):
         FROM (
             SELECT cr.id, cr.receipt_date AS doc_date, cr.receipt_no AS doc_no,
                    'customer_receipt' AS source_type, cr.source_no, 'in' AS direction,
-                   cr.amount, c.name AS partner_name, cr.project_code, cr.serial_no,
+                   cr.amount, c.name AS partner_name, cr.project_code, cr.cabinet_no,
                    cr.bank_account, cr.payment_method, cr.remark AS summary, cr.status
             FROM customer_receipts cr
             LEFT JOIN customers c ON c.id=cr.customer_id
             UNION ALL
             SELECT sp.id, sp.payment_date AS doc_date, sp.payment_no AS doc_no,
                    'supplier_payment' AS source_type, NULL::VARCHAR AS source_no, 'out' AS direction,
-                   sp.amount, s.name AS partner_name, NULL::VARCHAR AS project_code, NULL::VARCHAR AS serial_no,
+                   sp.amount, s.name AS partner_name, NULL::VARCHAR AS project_code, NULL::VARCHAR AS cabinet_no,
                    sp.bank_account, sp.payment_method, sp.remark AS summary, sp.status
             FROM supplier_payments sp
             LEFT JOIN suppliers s ON s.id=sp.supplier_id
@@ -3298,7 +3298,7 @@ def render_cash_bank_journal(query_rows):
             item["partner_name"] = item.get("partner_name") or item.get("customer_name")
             item["partner_type_label"] = "客户"
             item["project_code"] = item.get("project_code") or item.get("receipt_project_code")
-            item["serial_no"] = item.get("serial_no") or item.get("receipt_serial_no")
+            item["cabinet_no"] = item.get("cabinet_no") or item.get("receipt_cabinet_no")
         elif item.get("source_type") in ap_source_types:
             item["source_id"] = item.get("payment_id")
             item["source_doc_no"] = item.get("payment_no") or item.get("source_no")
@@ -3306,7 +3306,7 @@ def render_cash_bank_journal(query_rows):
             item["partner_name"] = item.get("partner_name") or item.get("supplier_name")
             item["partner_type_label"] = "供应商"
             item["project_code"] = item.get("project_code") or item.get("payment_project_code")
-            item["serial_no"] = item.get("serial_no") or item.get("payment_serial_no")
+            item["cabinet_no"] = item.get("cabinet_no") or item.get("payment_cabinet_no")
         else:
             item["source_id"] = None
             item["source_doc_no"] = item.get("source_no")
@@ -3549,7 +3549,7 @@ def render_invoice_matching_report():
 
 def render_output_tax_report():
     rows = _finance_workflow_rows(
-        ("销项", "销售发票登记列表", "/finance/sales-invoices", "按客户、项目号、机号和税率追踪销项税", "已接入"),
+        ("销项", "销售发票登记列表", "/finance/sales-invoices", "按客户、项目号、柜号和税率追踪销项税", "已接入"),
         ("销项", "销售收款核对", "/finance/reports/sales-collection-reconciliation", "核对订单、开票、应收和收款差异", "已接入"),
     )
     return _render_finance_workflow_page("销项发票明细", "销售发票和销项税内部登记明细入口；不包含税控开票、申报和抵扣操作。", rows)
@@ -3603,7 +3603,7 @@ def render_bank_reconciliation_report(query_rows):
         FROM (
             SELECT j.entry_date, j.entry_no, j.source_type, j.source_no, j.direction, j.amount,
                    a.account_code, a.account_name, a.status AS account_status,
-                   j.partner_name, j.project_code, j.serial_no, j.summary,
+                   j.partner_name, j.project_code, j.cabinet_no, j.summary,
                    CASE
                        WHEN j.account_id IS NULL THEN 'missing account'
                        WHEN a.id IS NULL THEN 'account master missing'
@@ -3641,7 +3641,7 @@ def render_bank_reconciliation_report(query_rows):
     recent_rows = query_rows(
         """
         SELECT j.entry_date, j.entry_no, j.source_type, j.source_no, j.direction, j.amount,
-               a.account_code, a.account_name, j.partner_name, j.project_code, j.serial_no,
+               a.account_code, a.account_name, j.partner_name, j.project_code, j.cabinet_no,
                j.summary, j.status
         FROM cash_bank_journal_entries j
         JOIN cash_bank_accounts a ON a.id=j.account_id
@@ -3672,8 +3672,8 @@ def render_bank_reconciliation_report(query_rows):
         ],
         [
             {"title": "Bank Account Balance Check", "rows": account_rows, "columns": _columns(("account_code", "Account Code"), ("account_name", "Account Name"), ("currency", "Currency"), ("opening_balance", "Opening Balance"), ("income_amount", "Income Amount"), ("expense_amount", "Expense Amount"), ("current_balance", "System Balance"), ("calculated_balance", "Calculated Balance"), ("balance_diff", "Difference"), ("journal_count", "Entry Count"), ("last_entry_date", "Last Entry Date"), ("status_label", "Account Status"), ("reconcile_status", "Reconcile Status"), ("next_step", "Next Step"))},
-            {"title": "Bank Journal Exceptions", "rows": exception_rows, "columns": _columns(("entry_date", "Date"), ("entry_no", "Entry No"), ("source_label", "Source Type"), ("source_no", "Source No"), ("account_name", "Bank Account"), ("direction_label", "Direction"), ("amount", "Amount"), ("partner_name", "Partner"), ("project_code", "Project Code"), ("serial_no", "Serial No"), ("reconcile_status", "Exception"), ("next_step", "Next Step"))},
-            {"title": "Recent Bank Journal", "rows": recent_rows, "columns": _columns(("entry_date", "Date"), ("entry_no", "Entry No"), ("source_label", "Source Type"), ("source_no", "Source No"), ("account_name", "Bank Account"), ("direction_label", "Direction"), ("amount", "Amount"), ("partner_name", "Partner"), ("project_code", "Project Code"), ("serial_no", "Serial No"), ("status", "Status"), ("summary", "Summary"))},
+            {"title": "Bank Journal Exceptions", "rows": exception_rows, "columns": _columns(("entry_date", "Date"), ("entry_no", "Entry No"), ("source_label", "Source Type"), ("source_no", "Source No"), ("account_name", "Bank Account"), ("direction_label", "Direction"), ("amount", "Amount"), ("partner_name", "Partner"), ("project_code", "Project Code"), ("cabinet_no", "Serial No"), ("reconcile_status", "Exception"), ("next_step", "Next Step"))},
+            {"title": "Recent Bank Journal", "rows": recent_rows, "columns": _columns(("entry_date", "Date"), ("entry_no", "Entry No"), ("source_label", "Source Type"), ("source_no", "Source No"), ("account_name", "Bank Account"), ("direction_label", "Direction"), ("amount", "Amount"), ("partner_name", "Partner"), ("project_code", "Project Code"), ("cabinet_no", "Serial No"), ("status", "Status"), ("summary", "Summary"))},
         ],
         actions=actions,
     )
@@ -3708,7 +3708,7 @@ def render_voucher_generation_preview(query_rows):
                    si.invoice_date AS doc_date,
                    COALESCE(si.amount_with_tax, si.amount, 0) AS amount,
                    si.project_code,
-                   si.serial_no,
+                   si.cabinet_no,
                    COALESCE(si.status,'') AS source_status,
                    'debit AR, credit revenue/tax' AS voucher_rule,
                    'sales invoice voucher preview' AS preview_basis,
@@ -3729,7 +3729,7 @@ def render_voucher_generation_preview(query_rows):
                    pi.invoice_date AS doc_date,
                    COALESCE(pi.amount_with_tax, pi.amount, 0) AS amount,
                    pi.project_code,
-                   pi.serial_no,
+                   pi.cabinet_no,
                    COALESCE(pi.status,'') AS source_status,
                    'debit inventory/expense/tax, credit AP' AS voucher_rule,
                    'purchase invoice voucher preview' AS preview_basis,
@@ -3750,7 +3750,7 @@ def render_voucher_generation_preview(query_rows):
                    cr.receipt_date AS doc_date,
                    COALESCE(cr.amount,0) AS amount,
                    cr.project_code,
-                   cr.serial_no,
+                   cr.cabinet_no,
                    COALESCE(cr.status,'') AS source_status,
                    'debit bank, credit AR/advance receipt' AS voucher_rule,
                    'customer receipt voucher preview' AS preview_basis,
@@ -3771,7 +3771,7 @@ def render_voucher_generation_preview(query_rows):
                    sp.payment_date AS doc_date,
                    COALESCE(sp.amount,0) AS amount,
                    sp.project_code,
-                   sp.serial_no,
+                   sp.cabinet_no,
                    COALESCE(sp.status,'') AS source_status,
                    'debit AP/prepayment, credit bank' AS voucher_rule,
                    'supplier payment voucher preview' AS preview_basis,
@@ -3817,8 +3817,8 @@ def render_voucher_generation_preview(query_rows):
             {"label": "Pending Amount", "value": money_metric(total_pending_amount), "hint": "source amount preview"},
         ],
         [
-            {"title": "Pending Voucher Sources", "rows": pending_rows, "columns": _columns(("source_label", "Source Type"), ("source_no", "Source No"), ("doc_date", "Date"), ("amount", "Amount"), ("project_code", "Project Code"), ("serial_no", "Serial No"), ("source_status", "Source Status"), ("voucher_rule", "Voucher Rule"), ("voucher_state", "Voucher State"), ("next_step", "Next Step"))},
-            {"title": "Generated Voucher Sources", "rows": generated_rows, "columns": _columns(("source_label", "Source Type"), ("source_no", "Source No"), ("doc_date", "Date"), ("amount", "Amount"), ("voucher_no", "Voucher No"), ("voucher_status", "Voucher Status"), ("total_debit", "Debit"), ("total_credit", "Credit"), ("balance_state", "Balance State"), ("project_code", "Project Code"), ("serial_no", "Serial No"))},
+            {"title": "Pending Voucher Sources", "rows": pending_rows, "columns": _columns(("source_label", "Source Type"), ("source_no", "Source No"), ("doc_date", "Date"), ("amount", "Amount"), ("project_code", "Project Code"), ("cabinet_no", "Serial No"), ("source_status", "Source Status"), ("voucher_rule", "Voucher Rule"), ("voucher_state", "Voucher State"), ("next_step", "Next Step"))},
+            {"title": "Generated Voucher Sources", "rows": generated_rows, "columns": _columns(("source_label", "Source Type"), ("source_no", "Source No"), ("doc_date", "Date"), ("amount", "Amount"), ("voucher_no", "Voucher No"), ("voucher_status", "Voucher Status"), ("total_debit", "Debit"), ("total_credit", "Credit"), ("balance_state", "Balance State"), ("project_code", "Project Code"), ("cabinet_no", "Serial No"))},
             {"title": "Unbalanced Generated Vouchers", "rows": unbalanced_rows, "columns": _columns(("source_label", "Source Type"), ("source_no", "Source No"), ("voucher_no", "Voucher No"), ("total_debit", "Debit"), ("total_credit", "Credit"), ("balance_state", "Balance State"), ("next_step", "Next Step"))},
         ],
         actions=actions,
@@ -3838,7 +3838,7 @@ def render_finance_settings_overview():
 def render_inventory_accounting_home():
     rows = _finance_workflow_rows(
         ("存货核算", "存货核算首页", "/finance/inventory-accounting", "库存数量、成本和金额核对入口", "只读导航"),
-        ("存货核算", "库存成本总账", "/finance/inventory-cost/summary", "按物料/仓库/项目/机号汇总库存成本", "已接入"),
+        ("存货核算", "库存成本总账", "/finance/inventory-cost/summary", "按物料/仓库/项目/柜号汇总库存成本", "已接入"),
         ("存货核算", "库存成本明细账", "/finance/inventory-cost/detail", "按库存流水追踪入库和出库成本", "已接入"),
         ("存货核算", "存货与总账对账", "/finance/inventory-reconciliation", "对比库存成本和财务科目余额", "只读检查"),
     )
@@ -3858,11 +3858,11 @@ def render_inventory_reconciliation_report():
 def render_cost_management_home():
     rows = _finance_workflow_rows(
         ("项目成本", "项目成本台账", "/finance/project-costs", "按项目号汇总材料、委外、售后和收入", "已接入"),
-        ("机号成本", "机号成本台账", "/finance/serial-costs", "按机号汇总单台设备实际成本", "已接入"),
+        ("柜号成本", "柜号成本台账", "/finance/cabinet-costs", "按柜号汇总单台设备实际成本", "已接入"),
         ("生产成本", "生产工单成本", "/finance/work-order-costs", "衔接生产领料、报工、完工入库", "只读导航"),
-        ("毛利分析", "项目/机号毛利", "/finance/reports/project-profit", "收入、成本和毛利率核对", "只读导航"),
+        ("毛利分析", "项目/柜号毛利", "/finance/reports/project-profit", "收入、成本和毛利率核对", "只读导航"),
     )
-    return _render_finance_workflow_page("成本管理首页", "围绕项目号、机号、生产工单和委外加工组织成本核算入口。", rows)
+    return _render_finance_workflow_page("成本管理首页", "围绕项目号、柜号、生产工单和委外加工组织成本核算入口。", rows)
 
 
 def _fund_analysis_filters(default_date_field="date"):
@@ -3893,7 +3893,7 @@ def _fund_flow_rows(query_rows, source_types=None, limit=500):
         params.append(filters["partner_type"])
     if filters["keyword"]:
         pattern = f"%{filters['keyword']}%"
-        where.append("(j.entry_no ILIKE %s OR j.source_no ILIKE %s OR j.partner_name ILIKE %s OR j.project_code ILIKE %s OR j.serial_no ILIKE %s OR j.summary ILIKE %s OR a.account_name ILIKE %s)")
+        where.append("(j.entry_no ILIKE %s OR j.source_no ILIKE %s OR j.partner_name ILIKE %s OR j.project_code ILIKE %s OR j.cabinet_no ILIKE %s OR j.summary ILIKE %s OR a.account_name ILIKE %s)")
         params.extend([pattern] * 7)
     if source_types:
         placeholders = ",".join(["%s"] * len(source_types))
@@ -3906,7 +3906,7 @@ def _fund_flow_rows(query_rows, source_types=None, limit=500):
                j.direction, j.amount,
                CASE WHEN j.direction='in' THEN j.amount ELSE 0 END AS income_amount,
                CASE WHEN j.direction='out' THEN j.amount ELSE 0 END AS expense_amount,
-               j.balance_after, j.partner_type, j.partner_name, j.project_code, j.serial_no,
+               j.balance_after, j.partner_type, j.partner_name, j.project_code, j.cabinet_no,
                j.summary, j.status, a.account_code, a.account_name, a.currency
         FROM cash_bank_journal_entries j
         LEFT JOIN cash_bank_accounts a ON a.id=j.account_id
@@ -3937,7 +3937,7 @@ def _fund_flow_rows(query_rows, source_types=None, limit=500):
             legacy_params.append(filters["partner_type"])
         if filters["keyword"]:
             pattern = f"%{filters['keyword']}%"
-            legacy_where.append("(doc_no ILIKE %s OR source_no ILIKE %s OR partner_name ILIKE %s OR project_code ILIKE %s OR serial_no ILIKE %s OR summary ILIKE %s OR account_name ILIKE %s)")
+            legacy_where.append("(doc_no ILIKE %s OR source_no ILIKE %s OR partner_name ILIKE %s OR project_code ILIKE %s OR cabinet_no ILIKE %s OR summary ILIKE %s OR account_name ILIKE %s)")
             legacy_params.extend([pattern] * 7)
         if source_types:
             placeholders = ",".join(["%s"] * len(source_types))
@@ -3953,7 +3953,7 @@ def _fund_flow_rows(query_rows, source_types=None, limit=500):
                        CASE WHEN COALESCE(r.fund_direction,'in')='in' THEN r.amount ELSE 0 END AS income_amount,
                        CASE WHEN COALESCE(r.fund_direction,'in')='out' THEN r.amount ELSE 0 END AS expense_amount,
                        NULL::NUMERIC AS balance_after, 'customer' AS partner_type, c.name AS partner_name,
-                       r.project_code, r.serial_no, r.remark AS summary, r.status,
+                       r.project_code, r.cabinet_no, r.remark AS summary, r.status,
                        NULL::VARCHAR AS account_code, COALESCE(r.bank_account, r.payment_method, '-') AS account_name, 'CNY' AS currency
                 FROM customer_receipts r
                 LEFT JOIN customers c ON c.id=r.customer_id
@@ -3963,7 +3963,7 @@ def _fund_flow_rows(query_rows, source_types=None, limit=500):
                        CASE WHEN COALESCE(p.fund_direction,'out')='in' THEN p.amount ELSE 0 END AS income_amount,
                        CASE WHEN COALESCE(p.fund_direction,'out')='out' THEN p.amount ELSE 0 END AS expense_amount,
                        NULL::NUMERIC AS balance_after, 'supplier' AS partner_type, s.name AS partner_name,
-                       p.project_code, p.serial_no, p.remark AS summary, p.status,
+                       p.project_code, p.cabinet_no, p.remark AS summary, p.status,
                        NULL::VARCHAR AS account_code, COALESCE(p.bank_account, p.payment_method, '-') AS account_name, 'CNY' AS currency
                 FROM supplier_payments p
                 LEFT JOIN suppliers s ON s.id=p.supplier_id
@@ -3996,7 +3996,7 @@ def render_enterprise_income_expense_detail_report(query_rows):
         item["net_amount"] += as_decimal(row.get("net_amount"))
     return _render_finance_report(
         "企业收支明细表",
-        "按资金账户、来源单据、往来单位、项目号和机号列示企业资金流入流出；本页只查询和导出，不登记收付款。",
+        "按资金账户、来源单据、往来单位、项目号和柜号列示企业资金流入流出；本页只查询和导出，不登记收付款。",
         [
             {"label": "收入合计", "value": money_metric(total_income), "hint": "当前筛选"},
             {"label": "支出合计", "value": money_metric(total_expense), "hint": "当前筛选"},
@@ -4004,7 +4004,7 @@ def render_enterprise_income_expense_detail_report(query_rows):
         ],
         [
             {"title": "收支类别汇总", "rows": list(summary.values()), "columns": _columns(("source_label", "来源类别"), ("doc_count", "单据数"), ("income_amount", "收入金额"), ("expense_amount", "支出金额"), ("net_amount", "净流入"))},
-            {"title": "企业收支明细", "rows": rows, "columns": _columns(("doc_date", "日期"), ("doc_no", "流水号"), ("source_label", "来源类别"), ("source_no", "来源单据"), ("account_name", "资金账户"), ("partner_type_label", "往来类型"), ("partner_name", "往来单位"), ("project_code", "项目号"), ("serial_no", "机号"), ("income_amount", "收入金额"), ("expense_amount", "支出金额"), ("balance_after", "账户余额"), ("summary", "摘要"))},
+            {"title": "企业收支明细", "rows": rows, "columns": _columns(("doc_date", "日期"), ("doc_no", "流水号"), ("source_label", "来源类别"), ("source_no", "来源单据"), ("account_name", "资金账户"), ("partner_type_label", "往来类型"), ("partner_name", "往来单位"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("income_amount", "收入金额"), ("expense_amount", "支出金额"), ("balance_after", "账户余额"), ("summary", "摘要"))},
         ],
     )
 
@@ -4029,7 +4029,7 @@ def render_account_income_expense_detail_report(query_rows):
         ],
         [
             {"title": "账户汇总", "rows": list(accounts.values()), "columns": _columns(("account_name", "资金账户"), ("currency", "币别"), ("doc_count", "流水数"), ("income_amount", "收入金额"), ("expense_amount", "支出金额"), ("net_amount", "净流入"))},
-            {"title": "账户收支明细", "rows": rows, "columns": _columns(("doc_date", "日期"), ("account_name", "资金账户"), ("doc_no", "流水号"), ("source_label", "来源类别"), ("source_no", "来源单据"), ("direction_label", "方向"), ("income_amount", "收入金额"), ("expense_amount", "支出金额"), ("balance_after", "账户余额"), ("partner_name", "往来单位"), ("project_code", "项目号"), ("serial_no", "机号"), ("summary", "摘要"))},
+            {"title": "账户收支明细", "rows": rows, "columns": _columns(("doc_date", "日期"), ("account_name", "资金账户"), ("doc_no", "流水号"), ("source_label", "来源类别"), ("source_no", "来源单据"), ("direction_label", "方向"), ("income_amount", "收入金额"), ("expense_amount", "支出金额"), ("balance_after", "账户余额"), ("partner_name", "往来单位"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("summary", "摘要"))},
         ],
     )
 
@@ -4050,7 +4050,7 @@ def render_other_income_expense_detail_report(query_rows):
             {"label": "其他收入", "value": money_metric(sum(as_decimal(r.get("income_amount")) for r in rows)), "hint": "含退款流入"},
             {"label": "其他支出", "value": money_metric(sum(as_decimal(r.get("expense_amount")) for r in rows)), "hint": "含退款流出"},
         ],
-        [{"title": "其他收支明细", "rows": rows, "columns": _columns(("doc_date", "日期"), ("doc_no", "单据号"), ("source_label", "单据类型"), ("account_name", "资金账户"), ("partner_name", "往来单位"), ("direction_label", "方向"), ("income_amount", "收入金额"), ("expense_amount", "支出金额"), ("project_code", "项目号"), ("serial_no", "机号"), ("summary", "摘要"), ("status", "状态"))}],
+        [{"title": "其他收支明细", "rows": rows, "columns": _columns(("doc_date", "日期"), ("doc_no", "单据号"), ("source_label", "单据类型"), ("account_name", "资金账户"), ("partner_name", "往来单位"), ("direction_label", "方向"), ("income_amount", "收入金额"), ("expense_amount", "支出金额"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("summary", "摘要"), ("status", "状态"))}],
     )
 
 
@@ -4136,7 +4136,7 @@ def render_account_aging_analysis_report(query_rows):
         """
         SELECT '应收' AS account_type, cr.source_no AS doc_no, cr.receivable_date AS doc_date,
                COALESCE(cr.due_date, cr.receivable_date) AS due_date, c.name AS partner_name,
-               cr.project_code, cr.serial_no, cr.balance,
+               cr.project_code, cr.cabinet_no, cr.balance,
                CURRENT_DATE - COALESCE(cr.due_date, cr.receivable_date, CURRENT_DATE) AS age_days,
                cr.status
         FROM customer_receivables cr
@@ -4145,7 +4145,7 @@ def render_account_aging_analysis_report(query_rows):
         UNION ALL
         SELECT '应付' AS account_type, sp.doc_no, sp.doc_date,
                COALESCE(sp.next_follow_up_date, sp.doc_date) AS due_date, s.name AS partner_name,
-               sp.project_code, sp.serial_no, sp.balance,
+               sp.project_code, sp.cabinet_no, sp.balance,
                CURRENT_DATE - COALESCE(sp.next_follow_up_date, sp.doc_date, CURRENT_DATE) AS age_days,
                sp.status
         FROM supplier_payables sp
@@ -4172,7 +4172,7 @@ def render_account_aging_analysis_report(query_rows):
         ],
         [
             {"title": "账龄区间汇总", "rows": list(bucket_rows.values()), "columns": _columns(("account_type", "往来类型"), ("aging_bucket", "账龄区间"), ("doc_count", "单据数"), ("balance", "余额"))},
-            {"title": "账龄明细", "rows": rows, "columns": _columns(("account_type", "往来类型"), ("doc_no", "来源单据"), ("doc_date", "单据日期"), ("due_date", "到期/跟进日"), ("partner_name", "往来单位"), ("project_code", "项目号"), ("serial_no", "机号"), ("balance", "余额"), ("age_days", "逾期天数"), ("aging_bucket", "账龄区间"), ("status", "状态"))},
+            {"title": "账龄明细", "rows": rows, "columns": _columns(("account_type", "往来类型"), ("doc_no", "来源单据"), ("doc_date", "单据日期"), ("due_date", "到期/跟进日"), ("partner_name", "往来单位"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("balance", "余额"), ("age_days", "逾期天数"), ("aging_bucket", "账龄区间"), ("status", "状态"))},
         ],
     )
 
@@ -4180,23 +4180,23 @@ def render_account_aging_analysis_report(query_rows):
 def render_project_capital_occupation_report(query_rows):
     rows = query_rows(
         """
-        SELECT COALESCE(project_code,'') AS project_code, COALESCE(serial_no,'') AS serial_no,
+        SELECT COALESCE(project_code,'') AS project_code, COALESCE(cabinet_no,'') AS cabinet_no,
                SUM(receivable_balance) AS receivable_balance,
                SUM(payable_balance) AS payable_balance,
                SUM(receivable_balance) - SUM(payable_balance) AS net_occupation,
                COUNT(*) AS source_count
         FROM (
-            SELECT cr.project_code, cr.serial_no, COALESCE(cr.balance,0) AS receivable_balance, 0::NUMERIC AS payable_balance
+            SELECT cr.project_code, cr.cabinet_no, COALESCE(cr.balance,0) AS receivable_balance, 0::NUMERIC AS payable_balance
             FROM customer_receivables cr
             WHERE COALESCE(cr.balance,0)>0
             UNION ALL
-            SELECT sp.project_code, sp.serial_no, 0::NUMERIC AS receivable_balance, COALESCE(sp.balance,0) AS payable_balance
+            SELECT sp.project_code, sp.cabinet_no, 0::NUMERIC AS receivable_balance, COALESCE(sp.balance,0) AS payable_balance
             FROM supplier_payables sp
             WHERE COALESCE(sp.balance,0)>0
         ) t
-        WHERE COALESCE(project_code,'')<>'' OR COALESCE(serial_no,'')<>''
-        GROUP BY COALESCE(project_code,''), COALESCE(serial_no,'')
-        ORDER BY ABS(SUM(receivable_balance) - SUM(payable_balance)) DESC, project_code, serial_no
+        WHERE COALESCE(project_code,'')<>'' OR COALESCE(cabinet_no,'')<>''
+        GROUP BY COALESCE(project_code,''), COALESCE(cabinet_no,'')
+        ORDER BY ABS(SUM(receivable_balance) - SUM(payable_balance)) DESC, project_code, cabinet_no
         LIMIT 300
         """
     )
@@ -4205,13 +4205,13 @@ def render_project_capital_occupation_report(query_rows):
         row["next_step"] = "跟进回款和项目结算" if as_decimal(row.get("net_occupation")) > 0 else "结合付款计划安排"
     return _render_finance_report(
         "项目资金占用表",
-        "按项目号和机号汇总未收应收、未付应付和净资金占用，用于项目现金流复核；不在本页收款或付款。",
+        "按项目号和柜号汇总未收应收、未付应付和净资金占用，用于项目现金流复核；不在本页收款或付款。",
         [
-            {"label": "项目/机号数", "value": len(rows), "hint": "当前范围"},
+            {"label": "项目/柜号数", "value": len(rows), "hint": "当前范围"},
             {"label": "应收未收", "value": money_metric(sum(as_decimal(r.get("receivable_balance")) for r in rows)), "hint": "客户未回款"},
             {"label": "净占用", "value": money_metric(sum(as_decimal(r.get("net_occupation")) for r in rows)), "hint": "应收-应付"},
         ],
-        [{"title": "项目资金占用", "rows": rows, "columns": _columns(("project_code", "项目号"), ("serial_no", "机号"), ("receivable_balance", "应收未收"), ("payable_balance", "应付未付"), ("net_occupation", "净资金占用"), ("source_count", "来源单据数"), ("capital_status", "资金状态"), ("next_step", "下一步"))}],
+        [{"title": "项目资金占用", "rows": rows, "columns": _columns(("project_code", "项目号"), ("cabinet_no", "柜号"), ("receivable_balance", "应收未收"), ("payable_balance", "应付未付"), ("net_occupation", "净资金占用"), ("source_count", "来源单据数"), ("capital_status", "资金状态"), ("next_step", "下一步"))}],
     )
 
 
@@ -4221,19 +4221,19 @@ def render_receivable_detail_report(query_rows):
     where = _finance_report_date_where("cr.receivable_date", filters, params)
     if filters["keyword"]:
         pattern = f"%{filters['keyword']}%"
-        where.append("(cr.source_no ILIKE %s OR c.name ILIKE %s OR cr.project_code ILIKE %s OR cr.serial_no ILIKE %s)")
+        where.append("(cr.source_no ILIKE %s OR c.name ILIKE %s OR cr.project_code ILIKE %s OR cr.cabinet_no ILIKE %s)")
         params.extend([pattern] * 4)
     if filters["status"]:
         where.append("COALESCE(cr.status,'')=%s")
         params.append(filters["status"])
     if filters["project"]:
         pattern = f"%{filters['project']}%"
-        where.append("(cr.project_code ILIKE %s OR cr.serial_no ILIKE %s)")
+        where.append("(cr.project_code ILIKE %s OR cr.cabinet_no ILIKE %s)")
         params.extend([pattern, pattern])
     rows = query_rows(
         f"""
         SELECT cr.id, cr.source_no, cr.receivable_date, cr.due_date, c.name AS customer_name,
-               cr.project_code, cr.serial_no, cr.total_amount, cr.received_amount,
+               cr.project_code, cr.cabinet_no, cr.total_amount, cr.received_amount,
                COALESCE(rs.settled_amount,0) AS settled_detail_amount,
                cr.balance, cr.status,
                CURRENT_DATE - COALESCE(cr.due_date, cr.receivable_date, CURRENT_DATE) AS age_days,
@@ -4261,13 +4261,13 @@ def render_receivable_detail_report(query_rows):
         row["settlement_status"] = _settlement_status(row.get("total_amount"), row.get("received_amount"), row.get("balance"))
     return _render_finance_report(
         "应收账款明细表",
-        "按客户、来源单据、项目号、机号、到期日和核销状态查询应收明细；只读报表，不登记收款或核销。",
+        "按客户、来源单据、项目号、柜号、到期日和核销状态查询应收明细；只读报表，不登记收款或核销。",
         [
             {"label": "明细行数", "value": len(rows), "hint": "最多 500 行"},
             {"label": "应收金额", "value": money_metric(sum(as_decimal(r.get("total_amount")) for r in rows)), "hint": "当前筛选"},
             {"label": "未收余额", "value": money_metric(sum(as_decimal(r.get("balance")) for r in rows)), "hint": "当前筛选"},
         ],
-        [{"title": "应收账款明细", "rows": rows, "columns": _columns(("source_no", "来源单据"), ("receivable_date", "应收日期"), ("due_date", "到期日"), ("customer_name", "客户"), ("project_code", "项目号"), ("serial_no", "机号"), ("total_amount", "应收金额"), ("received_amount", "已收金额"), ("balance", "未收余额"), ("aging_bucket", "账龄区间"), ("settlement_status", "核销状态"), ("status", "业务状态"), ("next_step", "下一步"))}],
+        [{"title": "应收账款明细", "rows": rows, "columns": _columns(("source_no", "来源单据"), ("receivable_date", "应收日期"), ("due_date", "到期日"), ("customer_name", "客户"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("total_amount", "应收金额"), ("received_amount", "已收金额"), ("balance", "未收余额"), ("aging_bucket", "账龄区间"), ("settlement_status", "核销状态"), ("status", "业务状态"), ("next_step", "下一步"))}],
     )
 
 
@@ -4277,19 +4277,19 @@ def render_payable_detail_report(query_rows):
     where = _finance_report_date_where("sp.doc_date", filters, params)
     if filters["keyword"]:
         pattern = f"%{filters['keyword']}%"
-        where.append("(sp.doc_no ILIKE %s OR s.name ILIKE %s OR sp.project_code ILIKE %s OR sp.serial_no ILIKE %s)")
+        where.append("(sp.doc_no ILIKE %s OR s.name ILIKE %s OR sp.project_code ILIKE %s OR sp.cabinet_no ILIKE %s)")
         params.extend([pattern] * 4)
     if filters["status"]:
         where.append("COALESCE(sp.status,'')=%s")
         params.append(filters["status"])
     if filters["project"]:
         pattern = f"%{filters['project']}%"
-        where.append("(sp.project_code ILIKE %s OR sp.serial_no ILIKE %s)")
+        where.append("(sp.project_code ILIKE %s OR sp.cabinet_no ILIKE %s)")
         params.extend([pattern, pattern])
     rows = query_rows(
         f"""
         SELECT sp.id, sp.doc_no, sp.doc_date, COALESCE(sp.next_follow_up_date, sp.doc_date) AS due_date,
-               s.name AS supplier_name, sp.project_code, sp.serial_no, sp.amount,
+               s.name AS supplier_name, sp.project_code, sp.cabinet_no, sp.amount,
                sp.paid_amount, COALESCE(ps.settled_amount,0) AS settled_detail_amount,
                sp.balance, sp.status,
                CURRENT_DATE - COALESCE(sp.next_follow_up_date, sp.doc_date, CURRENT_DATE) AS age_days,
@@ -4317,27 +4317,27 @@ def render_payable_detail_report(query_rows):
         row["settlement_status"] = _settlement_status(row.get("amount"), row.get("paid_amount"), row.get("balance"))
     return _render_finance_report(
         "应付账款明细表",
-        "按供应商、来源单据、项目号、机号、跟进日和核销状态查询应付明细；只读报表，不登记付款或核销。",
+        "按供应商、来源单据、项目号、柜号、跟进日和核销状态查询应付明细；只读报表，不登记付款或核销。",
         [
             {"label": "明细行数", "value": len(rows), "hint": "最多 500 行"},
             {"label": "应付金额", "value": money_metric(sum(as_decimal(r.get("amount")) for r in rows)), "hint": "当前筛选"},
             {"label": "未付余额", "value": money_metric(sum(as_decimal(r.get("balance")) for r in rows)), "hint": "当前筛选"},
         ],
-        [{"title": "应付账款明细", "rows": rows, "columns": _columns(("doc_no", "来源单据"), ("doc_date", "应付日期"), ("due_date", "跟进日"), ("supplier_name", "供应商"), ("project_code", "项目号"), ("serial_no", "机号"), ("amount", "应付金额"), ("paid_amount", "已付金额"), ("balance", "未付余额"), ("aging_bucket", "账龄区间"), ("settlement_status", "核销状态"), ("status", "业务状态"), ("next_step", "下一步"))}],
+        [{"title": "应付账款明细", "rows": rows, "columns": _columns(("doc_no", "来源单据"), ("doc_date", "应付日期"), ("due_date", "跟进日"), ("supplier_name", "供应商"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("amount", "应付金额"), ("paid_amount", "已付金额"), ("balance", "未付余额"), ("aging_bucket", "账龄区间"), ("settlement_status", "核销状态"), ("status", "业务状态"), ("next_step", "下一步"))}],
     )
 
 
 def render_receivable_summary_report(query_rows):
     rows = query_rows(
         """
-        SELECT c.name AS customer_name, cr.project_code, cr.serial_no,
+        SELECT c.name AS customer_name, cr.project_code, cr.cabinet_no,
                COUNT(*) AS doc_count, SUM(cr.total_amount) AS total_amount,
                SUM(cr.received_amount) AS received_amount, SUM(cr.balance) AS balance,
                MIN(cr.due_date) AS earliest_due_date,
                SUM(CASE WHEN COALESCE(cr.balance,0)>0 AND cr.due_date < CURRENT_DATE THEN 1 ELSE 0 END) AS overdue_count
         FROM customer_receivables cr
         LEFT JOIN customers c ON c.id=cr.customer_id
-        GROUP BY c.name, cr.project_code, cr.serial_no
+        GROUP BY c.name, cr.project_code, cr.cabinet_no
         ORDER BY SUM(cr.balance) DESC NULLS LAST, c.name
         LIMIT 300
         """
@@ -4346,27 +4346,27 @@ def render_receivable_summary_report(query_rows):
         row["next_step"] = "逾期优先催收" if as_decimal(row.get("overdue_count")) > 0 else "按余额和到期日跟进"
     return _render_finance_report(
         "应收账款汇总表",
-        "按客户、项目号和机号汇总应收发生、已收和余额；用于回款计划和项目资金占用核对。",
+        "按客户、项目号和柜号汇总应收发生、已收和余额；用于回款计划和项目资金占用核对。",
         [
-            {"label": "汇总行数", "value": len(rows), "hint": "客户/项目/机号"},
+            {"label": "汇总行数", "value": len(rows), "hint": "客户/项目/柜号"},
             {"label": "应收余额", "value": money_metric(sum(as_decimal(r.get("balance")) for r in rows)), "hint": "当前列表"},
             {"label": "逾期组数", "value": sum(1 for r in rows if as_decimal(r.get("overdue_count")) > 0), "hint": "存在逾期应收"},
         ],
-        [{"title": "应收汇总", "rows": rows, "columns": _columns(("customer_name", "客户"), ("project_code", "项目号"), ("serial_no", "机号"), ("doc_count", "单据数"), ("total_amount", "应收金额"), ("received_amount", "已收金额"), ("balance", "未收余额"), ("earliest_due_date", "最早到期日"), ("overdue_count", "逾期笔数"), ("next_step", "下一步"))}],
+        [{"title": "应收汇总", "rows": rows, "columns": _columns(("customer_name", "客户"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("doc_count", "单据数"), ("total_amount", "应收金额"), ("received_amount", "已收金额"), ("balance", "未收余额"), ("earliest_due_date", "最早到期日"), ("overdue_count", "逾期笔数"), ("next_step", "下一步"))}],
     )
 
 
 def render_payable_summary_report(query_rows):
     rows = query_rows(
         """
-        SELECT s.name AS supplier_name, sp.project_code, sp.serial_no,
+        SELECT s.name AS supplier_name, sp.project_code, sp.cabinet_no,
                COUNT(*) AS doc_count, SUM(sp.amount) AS amount,
                SUM(sp.paid_amount) AS paid_amount, SUM(sp.balance) AS balance,
                MIN(COALESCE(sp.next_follow_up_date, sp.doc_date)) AS earliest_due_date,
                SUM(CASE WHEN COALESCE(sp.balance,0)>0 AND COALESCE(sp.next_follow_up_date, sp.doc_date) < CURRENT_DATE THEN 1 ELSE 0 END) AS overdue_count
         FROM supplier_payables sp
         LEFT JOIN suppliers s ON s.id=sp.supplier_id
-        GROUP BY s.name, sp.project_code, sp.serial_no
+        GROUP BY s.name, sp.project_code, sp.cabinet_no
         ORDER BY SUM(sp.balance) DESC NULLS LAST, s.name
         LIMIT 300
         """
@@ -4375,19 +4375,19 @@ def render_payable_summary_report(query_rows):
         row["next_step"] = "逾期优先确认付款安排" if as_decimal(row.get("overdue_count")) > 0 else "按账期和资金计划跟进"
     return _render_finance_report(
         "应付账款汇总表",
-        "按供应商、项目号和机号汇总应付发生、已付和余额；用于付款计划和供应商对账。",
+        "按供应商、项目号和柜号汇总应付发生、已付和余额；用于付款计划和供应商对账。",
         [
-            {"label": "汇总行数", "value": len(rows), "hint": "供应商/项目/机号"},
+            {"label": "汇总行数", "value": len(rows), "hint": "供应商/项目/柜号"},
             {"label": "应付余额", "value": money_metric(sum(as_decimal(r.get("balance")) for r in rows)), "hint": "当前列表"},
             {"label": "逾期组数", "value": sum(1 for r in rows if as_decimal(r.get("overdue_count")) > 0), "hint": "存在逾期应付"},
         ],
-        [{"title": "应付汇总", "rows": rows, "columns": _columns(("supplier_name", "供应商"), ("project_code", "项目号"), ("serial_no", "机号"), ("doc_count", "单据数"), ("amount", "应付金额"), ("paid_amount", "已付金额"), ("balance", "未付余额"), ("earliest_due_date", "最早跟进日"), ("overdue_count", "逾期笔数"), ("next_step", "下一步"))}],
+        [{"title": "应付汇总", "rows": rows, "columns": _columns(("supplier_name", "供应商"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("doc_count", "单据数"), ("amount", "应付金额"), ("paid_amount", "已付金额"), ("balance", "未付余额"), ("earliest_due_date", "最早跟进日"), ("overdue_count", "逾期笔数"), ("next_step", "下一步"))}],
     )
 
 def render_payment_request_statistics_report(query_rows):
     rows = query_rows(
         """
-        SELECT s.name AS supplier_name, sp.project_code, sp.serial_no,
+        SELECT s.name AS supplier_name, sp.project_code, sp.cabinet_no,
                CASE
                    WHEN COALESCE(sp.balance,0)<=0 THEN '已结清'
                    WHEN COALESCE(sp.next_follow_up_date, sp.doc_date) < CURRENT_DATE THEN '已逾期'
@@ -4403,7 +4403,7 @@ def render_payment_request_statistics_report(query_rows):
         FROM supplier_payables sp
         LEFT JOIN suppliers s ON s.id=sp.supplier_id
         WHERE COALESCE(sp.balance,0)>0
-        GROUP BY s.name, sp.project_code, sp.serial_no,
+        GROUP BY s.name, sp.project_code, sp.cabinet_no,
                  CASE
                    WHEN COALESCE(sp.balance,0)<=0 THEN '已结清'
                    WHEN COALESCE(sp.next_follow_up_date, sp.doc_date) < CURRENT_DATE THEN '已逾期'
@@ -4416,13 +4416,13 @@ def render_payment_request_statistics_report(query_rows):
     )
     return _render_finance_report(
         "付款申请统计表",
-        "按供应商、项目号、机号和付款紧急程度统计应付余额；付款申请单仍保持隐藏，不在报表页生成申请。",
+        "按供应商、项目号、柜号和付款紧急程度统计应付余额；付款申请单仍保持隐藏，不在报表页生成申请。",
         [
             {"label": "统计行数", "value": len(rows), "hint": "最多 300 行"},
             {"label": "建议付款金额", "value": money_metric(sum(as_decimal(r.get("request_amount")) for r in rows)), "hint": "未付余额"},
             {"label": "逾期组数", "value": sum(1 for r in rows if r.get("request_bucket") == "已逾期"), "hint": "优先处理"},
         ],
-        [{"title": "付款申请统计", "rows": rows, "columns": _columns(("supplier_name", "供应商"), ("project_code", "项目号"), ("serial_no", "机号"), ("request_bucket", "付款分类"), ("payable_count", "应付笔数"), ("payable_amount", "应付金额"), ("paid_amount", "已付金额"), ("request_amount", "建议付款金额"), ("earliest_due_date", "最早跟进日"), ("next_step", "下一步"))}],
+        [{"title": "付款申请统计", "rows": rows, "columns": _columns(("supplier_name", "供应商"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("request_bucket", "付款分类"), ("payable_count", "应付笔数"), ("payable_amount", "应付金额"), ("paid_amount", "已付金额"), ("request_amount", "建议付款金额"), ("earliest_due_date", "最早跟进日"), ("next_step", "下一步"))}],
     )
 
 
@@ -4430,7 +4430,7 @@ def render_receivable_warning_report(query_rows):
     rows = query_rows(
         """
         SELECT cr.id, cr.source_no, cr.receivable_date, cr.due_date, c.name AS customer_name,
-               cr.project_code, cr.serial_no, cr.total_amount, cr.received_amount, cr.balance,
+               cr.project_code, cr.cabinet_no, cr.total_amount, cr.received_amount, cr.balance,
                CURRENT_DATE - COALESCE(cr.due_date, cr.receivable_date, CURRENT_DATE) AS age_days,
                CASE
                    WHEN cr.due_date IS NOT NULL AND cr.due_date < CURRENT_DATE THEN '逾期预警'
@@ -4462,7 +4462,7 @@ def render_receivable_warning_report(query_rows):
             {"label": "预警余额", "value": money_metric(sum(as_decimal(r.get("balance")) for r in rows)), "hint": "当前列表"},
             {"label": "高风险", "value": sum(1 for r in rows if r.get("warning_level") == "高"), "hint": "已逾期"},
         ],
-        [{"title": "应收预警", "rows": rows, "columns": _columns(("warning_level", "预警等级"), ("warning_type", "预警类型"), ("source_no", "来源单据"), ("receivable_date", "应收日期"), ("due_date", "到期日"), ("customer_name", "客户"), ("project_code", "项目号"), ("serial_no", "机号"), ("balance", "未收余额"), ("age_days", "逾期天数"), ("aging_bucket", "账龄区间"), ("next_step", "下一步"))}],
+        [{"title": "应收预警", "rows": rows, "columns": _columns(("warning_level", "预警等级"), ("warning_type", "预警类型"), ("source_no", "来源单据"), ("receivable_date", "应收日期"), ("due_date", "到期日"), ("customer_name", "客户"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("balance", "未收余额"), ("age_days", "逾期天数"), ("aging_bucket", "账龄区间"), ("next_step", "下一步"))}],
     )
 
 
@@ -4470,7 +4470,7 @@ def render_payable_warning_report(query_rows):
     rows = query_rows(
         """
         SELECT sp.id, sp.doc_no, sp.doc_date, COALESCE(sp.next_follow_up_date, sp.doc_date) AS due_date,
-               s.name AS supplier_name, sp.project_code, sp.serial_no, sp.amount, sp.paid_amount, sp.balance,
+               s.name AS supplier_name, sp.project_code, sp.cabinet_no, sp.amount, sp.paid_amount, sp.balance,
                CURRENT_DATE - COALESCE(sp.next_follow_up_date, sp.doc_date, CURRENT_DATE) AS age_days,
                CASE
                    WHEN COALESCE(sp.next_follow_up_date, sp.doc_date) < CURRENT_DATE THEN '逾期预警'
@@ -4500,7 +4500,7 @@ def render_payable_warning_report(query_rows):
             {"label": "预警余额", "value": money_metric(sum(as_decimal(r.get("balance")) for r in rows)), "hint": "当前列表"},
             {"label": "高风险", "value": sum(1 for r in rows if r.get("warning_level") == "高"), "hint": "已逾期"},
         ],
-        [{"title": "应付预警", "rows": rows, "columns": _columns(("warning_level", "预警等级"), ("warning_type", "预警类型"), ("doc_no", "来源单据"), ("doc_date", "应付日期"), ("due_date", "跟进日"), ("supplier_name", "供应商"), ("project_code", "项目号"), ("serial_no", "机号"), ("balance", "未付余额"), ("age_days", "逾期天数"), ("aging_bucket", "账龄区间"), ("next_step", "下一步"))}],
+        [{"title": "应付预警", "rows": rows, "columns": _columns(("warning_level", "预警等级"), ("warning_type", "预警类型"), ("doc_no", "来源单据"), ("doc_date", "应付日期"), ("due_date", "跟进日"), ("supplier_name", "供应商"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("balance", "未付余额"), ("age_days", "逾期天数"), ("aging_bucket", "账龄区间"), ("next_step", "下一步"))}],
     )
 
 
@@ -4508,7 +4508,7 @@ def render_bad_debt_reserve_balance_report(query_rows):
     rows = query_rows(
         """
         SELECT cr.id, cr.source_no, cr.receivable_date, cr.due_date, c.name AS customer_name,
-               cr.project_code, cr.serial_no, cr.total_amount, cr.received_amount, cr.balance,
+               cr.project_code, cr.cabinet_no, cr.total_amount, cr.received_amount, cr.balance,
                CURRENT_DATE - COALESCE(cr.due_date, cr.receivable_date, CURRENT_DATE) AS age_days,
                cr.status
         FROM customer_receivables cr
@@ -4546,7 +4546,7 @@ def render_bad_debt_reserve_balance_report(query_rows):
         ],
         [
             {"title": "账龄汇总", "rows": bucket_rows, "columns": _columns(("aging_bucket", "账龄区间"), ("doc_count", "单据数"), ("receivable_balance", "应收余额"), ("reserve_balance", "建议准备余额"))},
-            {"title": "坏账准备明细", "rows": rows, "columns": _columns(("source_no", "来源单据"), ("receivable_date", "应收日期"), ("due_date", "到期日"), ("customer_name", "客户"), ("project_code", "项目号"), ("serial_no", "机号"), ("balance", "应收余额"), ("age_days", "逾期天数"), ("aging_bucket", "账龄区间"), ("reserve_rate", "建议比例"), ("reserve_balance", "建议准备余额"), ("next_step", "下一步"))},
+            {"title": "坏账准备明细", "rows": rows, "columns": _columns(("source_no", "来源单据"), ("receivable_date", "应收日期"), ("due_date", "到期日"), ("customer_name", "客户"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("balance", "应收余额"), ("age_days", "逾期天数"), ("aging_bucket", "账龄区间"), ("reserve_rate", "建议比例"), ("reserve_balance", "建议准备余额"), ("next_step", "下一步"))},
         ],
     )
 
@@ -4555,17 +4555,17 @@ def render_auto_settlement_schemes(query_rows):
     rows = [
         {
             "scheme_no": "AR-MATCH-001",
-            "scheme_name": "客户收款按客户+项目+机号匹配",
+            "scheme_name": "客户收款按客户+项目+柜号匹配",
             "settlement_type": "应收收款",
-            "match_basis": "客户、项目号、机号、未收余额",
+            "match_basis": "客户、项目号、柜号、未收余额",
             "status": "启用建议",
             "next_step": "进入智能收款核对建议，人工确认后到收款单处理",
         },
         {
             "scheme_no": "AP-MATCH-001",
-            "scheme_name": "供应商付款按供应商+项目+机号匹配",
+            "scheme_name": "供应商付款按供应商+项目+柜号匹配",
             "settlement_type": "应付付款",
-            "match_basis": "供应商、项目号、机号、未付余额",
+            "match_basis": "供应商、项目号、柜号、未付余额",
             "status": "启用建议",
             "next_step": "进入智能付款核对建议，人工确认后到付款单处理",
         },
@@ -4634,7 +4634,7 @@ def render_manual_settlement_console(query_rows):
     unapplied_receipts = query_rows(
         """
         SELECT r.id, r.receipt_no AS doc_no, r.receipt_date AS doc_date, c.name AS partner_name,
-               r.project_code, r.serial_no, r.amount,
+               r.project_code, r.cabinet_no, r.amount,
                GREATEST(COALESCE(r.amount,0)-COALESCE(SUM(s.applied_amount),0),0) AS unapplied_amount,
                '到收款单详情补充应收核销明细' AS next_step
         FROM customer_receipts r
@@ -4650,7 +4650,7 @@ def render_manual_settlement_console(query_rows):
     unapplied_payments = query_rows(
         """
         SELECT p.id, p.payment_no AS doc_no, p.payment_date AS doc_date, s.name AS partner_name,
-               p.project_code, p.serial_no, p.amount,
+               p.project_code, p.cabinet_no, p.amount,
                GREATEST(COALESCE(p.amount,0)-COALESCE(SUM(ps.applied_amount),0),0) AS unapplied_amount,
                '到付款单详情补充应付核销明细' AS next_step
         FROM supplier_payments p
@@ -4678,24 +4678,24 @@ def render_manual_settlement_console(query_rows):
             {"label": "现金银行流水", "href": "/finance/cash-bank/journal"},
         ],
         sections=[
-            {"title": "未清应收", "rows": open_receivables, "columns": _columns(("source_no", "来源单据"), ("receivable_date", "应收日期"), ("partner_name", "客户"), ("project_code", "项目号"), ("serial_no", "机号"), ("total_amount", "应收金额"), ("received_amount", "已收金额"), ("balance", "未收余额"), ("status", "状态"))},
-            {"title": "未分配收款", "rows": unapplied_receipts, "columns": _columns(("doc_no", "收款单"), ("doc_date", "日期"), ("partner_name", "客户"), ("project_code", "项目号"), ("serial_no", "机号"), ("amount", "收款金额"), ("unapplied_amount", "未分配金额"), ("next_step", "下一步"))},
-            {"title": "未清应付", "rows": open_payables, "columns": _columns(("doc_no", "来源单据"), ("doc_date", "应付日期"), ("partner_name", "供应商"), ("project_code", "项目号"), ("serial_no", "机号"), ("amount", "应付金额"), ("paid_amount", "已付金额"), ("balance", "未付余额"), ("status", "状态"))},
-            {"title": "未分配付款", "rows": unapplied_payments, "columns": _columns(("doc_no", "付款单"), ("doc_date", "日期"), ("partner_name", "供应商"), ("project_code", "项目号"), ("serial_no", "机号"), ("amount", "付款金额"), ("unapplied_amount", "未分配金额"), ("next_step", "下一步"))},
+            {"title": "未清应收", "rows": open_receivables, "columns": _columns(("source_no", "来源单据"), ("receivable_date", "应收日期"), ("partner_name", "客户"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("total_amount", "应收金额"), ("received_amount", "已收金额"), ("balance", "未收余额"), ("status", "状态"))},
+            {"title": "未分配收款", "rows": unapplied_receipts, "columns": _columns(("doc_no", "收款单"), ("doc_date", "日期"), ("partner_name", "客户"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("amount", "收款金额"), ("unapplied_amount", "未分配金额"), ("next_step", "下一步"))},
+            {"title": "未清应付", "rows": open_payables, "columns": _columns(("doc_no", "来源单据"), ("doc_date", "应付日期"), ("partner_name", "供应商"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("amount", "应付金额"), ("paid_amount", "已付金额"), ("balance", "未付余额"), ("status", "状态"))},
+            {"title": "未分配付款", "rows": unapplied_payments, "columns": _columns(("doc_no", "付款单"), ("doc_date", "日期"), ("partner_name", "供应商"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("amount", "付款金额"), ("unapplied_amount", "未分配金额"), ("next_step", "下一步"))},
         ],
     )
 
 
 def render_smart_collection_queue(query_rows):
     keyword = (request.args.get("keyword") or "").strip()
-    clause, params = _counterparty_keyword_filter("cr", ("source_no", "project_code", "serial_no", "status"), keyword)
+    clause, params = _counterparty_keyword_filter("cr", ("source_no", "project_code", "cabinet_no", "status"), keyword)
     if keyword:
         clause = clause[:-1] + " OR COALESCE(c.name,'') ILIKE %s)"
         params.append(f"%{keyword}%")
     rows = query_rows(
         f"""
         SELECT cr.id, cr.source_no, cr.receivable_date, cr.due_date, c.name AS partner_name,
-               cr.project_code, cr.serial_no, cr.total_amount, cr.received_amount, cr.balance,
+               cr.project_code, cr.cabinet_no, cr.total_amount, cr.received_amount, cr.balance,
                CASE
                    WHEN cr.due_date IS NOT NULL AND cr.due_date < CURRENT_DATE THEN '逾期优先催收并核对回单'
                    WHEN cr.due_date IS NOT NULL THEN '按到期日安排收款'
@@ -4713,26 +4713,26 @@ def render_smart_collection_queue(query_rows):
     return render_template(
         "finance_counterparty_tools.html",
         title="智能收款",
-        subtitle="按客户、项目号、机号和到期日生成收款建议；不自动创建收款单。",
+        subtitle="按客户、项目号、柜号和到期日生成收款建议；不自动创建收款单。",
         metrics=[
             {"label": "建议行数", "value": len(rows), "hint": "最多 200 行"},
             {"label": "待收金额", "value": money_metric(sum(as_decimal(row.get("balance")) for row in rows)), "hint": "当前筛选"},
             {"label": "处理方式", "value": "人工登记", "hint": "跳转收款单"},
         ],
-        sections=[{"title": "收款建议", "rows": rows, "columns": _columns(("source_no", "来源单据"), ("receivable_date", "应收日期"), ("due_date", "到期日"), ("partner_name", "客户"), ("project_code", "项目号"), ("serial_no", "机号"), ("total_amount", "应收金额"), ("received_amount", "已收金额"), ("balance", "待收金额"), ("match_advice", "建议"))}],
+        sections=[{"title": "收款建议", "rows": rows, "columns": _columns(("source_no", "来源单据"), ("receivable_date", "应收日期"), ("due_date", "到期日"), ("partner_name", "客户"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("total_amount", "应收金额"), ("received_amount", "已收金额"), ("balance", "待收金额"), ("match_advice", "建议"))}],
     )
 
 
 def render_smart_payment_queue(query_rows):
     keyword = (request.args.get("keyword") or "").strip()
-    clause, params = _counterparty_keyword_filter("sp", ("doc_no", "project_code", "serial_no", "status"), keyword)
+    clause, params = _counterparty_keyword_filter("sp", ("doc_no", "project_code", "cabinet_no", "status"), keyword)
     if keyword:
         clause = clause[:-1] + " OR COALESCE(s.name,'') ILIKE %s)"
         params.append(f"%{keyword}%")
     rows = query_rows(
         f"""
         SELECT sp.id, sp.doc_no, sp.doc_date, COALESCE(sp.next_follow_up_date, sp.doc_date) AS due_date,
-               s.name AS partner_name, sp.project_code, sp.serial_no, sp.amount, sp.paid_amount, sp.balance,
+               s.name AS partner_name, sp.project_code, sp.cabinet_no, sp.amount, sp.paid_amount, sp.balance,
                CASE
                    WHEN sp.next_follow_up_date IS NOT NULL AND sp.next_follow_up_date < CURRENT_DATE THEN '跟进日已过，确认付款安排'
                    WHEN sp.next_follow_up_date IS NOT NULL THEN '按跟进日安排付款'
@@ -4750,13 +4750,13 @@ def render_smart_payment_queue(query_rows):
     return render_template(
         "finance_counterparty_tools.html",
         title="智能付款",
-        subtitle="按供应商、项目号、机号和付款跟进日生成付款建议；不自动创建付款单。",
+        subtitle="按供应商、项目号、柜号和付款跟进日生成付款建议；不自动创建付款单。",
         metrics=[
             {"label": "建议行数", "value": len(rows), "hint": "最多 200 行"},
             {"label": "待付金额", "value": money_metric(sum(as_decimal(row.get("balance")) for row in rows)), "hint": "当前筛选"},
             {"label": "处理方式", "value": "人工登记", "hint": "跳转付款单"},
         ],
-        sections=[{"title": "付款建议", "rows": rows, "columns": _columns(("doc_no", "来源单据"), ("doc_date", "应付日期"), ("due_date", "跟进日"), ("partner_name", "供应商"), ("project_code", "项目号"), ("serial_no", "机号"), ("amount", "应付金额"), ("paid_amount", "已付金额"), ("balance", "待付金额"), ("match_advice", "建议"))}],
+        sections=[{"title": "付款建议", "rows": rows, "columns": _columns(("doc_no", "来源单据"), ("doc_date", "应付日期"), ("due_date", "跟进日"), ("partner_name", "供应商"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("amount", "应付金额"), ("paid_amount", "已付金额"), ("balance", "待付金额"), ("match_advice", "建议"))}],
     )
 
 
@@ -4811,7 +4811,7 @@ def render_statement_history(query_rows):
         """
         SELECT '客户' AS partner_type, c.name AS partner_name, r.receipt_no AS doc_no,
                r.receipt_date AS doc_date, COALESCE(SUM(s.applied_amount),0) AS settled_amount,
-               r.project_code, r.serial_no, '收款核销记录' AS statement_basis
+               r.project_code, r.cabinet_no, '收款核销记录' AS statement_basis
         FROM customer_receipts r
         LEFT JOIN customers c ON c.id=r.customer_id
         LEFT JOIN customer_receipt_settlements s ON s.receipt_id=r.id
@@ -4819,7 +4819,7 @@ def render_statement_history(query_rows):
         UNION ALL
         SELECT '供应商' AS partner_type, sup.name AS partner_name, p.payment_no AS doc_no,
                p.payment_date AS doc_date, COALESCE(SUM(ps.applied_amount),0) AS settled_amount,
-               p.project_code, p.serial_no, '付款核销记录' AS statement_basis
+               p.project_code, p.cabinet_no, '付款核销记录' AS statement_basis
         FROM supplier_payments p
         LEFT JOIN suppliers sup ON sup.id=p.supplier_id
         LEFT JOIN supplier_payment_settlements ps ON ps.payment_id=p.id
@@ -4837,14 +4837,14 @@ def render_statement_history(query_rows):
             {"label": "核销金额", "value": money_metric(sum(as_decimal(row.get("settled_amount")) for row in rows)), "hint": "当前列表"},
             {"label": "来源", "value": "收付款", "hint": "核销明细"},
         ],
-        sections=[{"title": "历史对账", "rows": rows, "columns": _columns(("partner_type", "类型"), ("partner_name", "往来单位"), ("doc_no", "收付款单"), ("doc_date", "日期"), ("project_code", "项目号"), ("serial_no", "机号"), ("settled_amount", "核销金额"), ("statement_basis", "依据"))}],
+        sections=[{"title": "历史对账", "rows": rows, "columns": _columns(("partner_type", "类型"), ("partner_name", "往来单位"), ("doc_no", "收付款单"), ("doc_date", "日期"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("settled_amount", "核销金额"), ("statement_basis", "依据"))}],
     )
 
 
 def render_statement_templates():
     rows = [
-        {"template_no": "CUST-STMT", "template_name": "客户对账函", "partner_type": "客户", "basis": "应收余额、收款核销、项目号、机号", "status": "启用", "next_step": "从客户对账单导出后线下确认"},
-        {"template_no": "SUP-STMT", "template_name": "供应商对账函", "partner_type": "供应商", "basis": "应付余额、付款核销、项目号、机号", "status": "启用", "next_step": "从供应商对账单导出后线下确认"},
+        {"template_no": "CUST-STMT", "template_name": "客户对账函", "partner_type": "客户", "basis": "应收余额、收款核销、项目号、柜号", "status": "启用", "next_step": "从客户对账单导出后线下确认"},
+        {"template_no": "SUP-STMT", "template_name": "供应商对账函", "partner_type": "供应商", "basis": "应付余额、付款核销、项目号、柜号", "status": "启用", "next_step": "从供应商对账单导出后线下确认"},
         {"template_no": "CP-MATCH", "template_name": "客商匹配确认函", "partner_type": "客商", "basis": "同名客户/供应商应收应付净额", "status": "启用", "next_step": "从客商匹配对账单复核"},
     ]
     return render_template(
@@ -4896,7 +4896,7 @@ def _open_receivables(query_rows, customer_id=None):
         f"""
         SELECT cr.id, cr.source_type, cr.source_id, cr.source_no, cr.receivable_date,
                cr.due_date, cr.customer_id, c.name AS partner_name, cr.total_amount,
-               cr.received_amount, cr.balance, cr.project_code, cr.serial_no,
+               cr.received_amount, cr.balance, cr.project_code, cr.cabinet_no,
                cr.cost_object_id, cr.status
         FROM customer_receivables cr
         LEFT JOIN customers c ON c.id=cr.customer_id
@@ -4918,7 +4918,7 @@ def _open_payables(query_rows, supplier_id=None):
         f"""
         SELECT sp.id, sp.payable_no, sp.doc_type, sp.doc_id, sp.doc_no, sp.source_no, sp.doc_date,
                sp.supplier_id, s.name AS partner_name, sp.amount,
-               sp.paid_amount, sp.balance, sp.cost_object_id, sp.project_code, sp.serial_no, sp.status
+               sp.paid_amount, sp.balance, sp.cost_object_id, sp.project_code, sp.cabinet_no, sp.status
         FROM supplier_payables sp
         LEFT JOIN suppliers s ON s.id=sp.supplier_id
         WHERE {' AND '.join(where)}
@@ -4939,7 +4939,7 @@ def render_payable_list(query_rows, money_metric_func):
     if keyword:
         pattern = f"%{keyword}%"
         where.append(
-            "(sp.payable_no ILIKE %s OR sp.doc_no ILIKE %s OR sp.source_no ILIKE %s OR s.name ILIKE %s OR sp.project_code ILIKE %s OR sp.serial_no ILIKE %s OR sp.finance_remark ILIKE %s)"
+            "(sp.payable_no ILIKE %s OR sp.doc_no ILIKE %s OR sp.source_no ILIKE %s OR s.name ILIKE %s OR sp.project_code ILIKE %s OR sp.cabinet_no ILIKE %s OR sp.finance_remark ILIKE %s)"
         )
         params.extend([pattern] * 7)
     if status:
@@ -4955,7 +4955,7 @@ def render_payable_list(query_rows, money_metric_func):
         f"""
         SELECT sp.id, sp.payable_no, sp.doc_type, sp.doc_id, sp.doc_no, sp.source_no, sp.doc_date,
                sp.supplier_id, s.name AS supplier_name, s.contact_person, s.phone AS supplier_phone,
-               sp.project_code, sp.serial_no, sp.amount, sp.paid_amount, sp.balance,
+               sp.project_code, sp.cabinet_no, sp.amount, sp.paid_amount, sp.balance,
                sp.status, sp.next_follow_up_date,
                CASE
                    WHEN sp.next_follow_up_date IS NOT NULL THEN sp.next_follow_up_date::VARCHAR
@@ -4992,7 +4992,7 @@ def render_payable_list(query_rows, money_metric_func):
     return render_template(
         "payable_list.html",
         title="应付账款列表",
-        subtitle="按供应商、来源单、项目号、机号、账期和未付余额展示应付，不在采购工作台渲染完整应付清单。",
+        subtitle="按供应商、来源单、项目号、柜号、账期和未付余额展示应付，不在采购工作台渲染完整应付清单。",
         rows=rows,
         statuses=statuses,
         filters={"keyword": keyword, "status": status, "date_from": date_from, "date_to": date_to},
@@ -5010,7 +5010,7 @@ def render_receivable_list(query_rows, money_metric_func):
     if keyword:
         pattern = f"%{keyword}%"
         where.append(
-            "(cr.receivable_no ILIKE %s OR cr.source_no ILIKE %s OR c.name ILIKE %s OR cr.project_code ILIKE %s OR cr.serial_no ILIKE %s OR cr.remark ILIKE %s)"
+            "(cr.receivable_no ILIKE %s OR cr.source_no ILIKE %s OR c.name ILIKE %s OR cr.project_code ILIKE %s OR cr.cabinet_no ILIKE %s OR cr.remark ILIKE %s)"
         )
         params.extend([pattern] * 6)
     if status:
@@ -5027,7 +5027,7 @@ def render_receivable_list(query_rows, money_metric_func):
         SELECT cr.id, cr.receivable_no, cr.source_type, cr.source_id, cr.source_no, cr.receivable_date,
                cr.due_date, cr.customer_id, c.name AS customer_name,
                c.contact_person, c.phone AS customer_phone,
-               cr.project_code, cr.serial_no, cr.total_amount, cr.received_amount,
+               cr.project_code, cr.cabinet_no, cr.total_amount, cr.received_amount,
                cr.balance, cr.status,
                CASE
                    WHEN cr.due_date IS NOT NULL THEN cr.due_date::VARCHAR
@@ -5064,7 +5064,7 @@ def render_receivable_list(query_rows, money_metric_func):
     return render_template(
         "receivable_list.html",
         title="应收账款列表",
-        subtitle="按客户、来源单、项目号、机号、到期日和未收余额展示应收；回款登记从收款单入口进入。",
+        subtitle="按客户、来源单、项目号、柜号、到期日和未收余额展示应收；回款登记从收款单入口进入。",
         rows=rows,
         statuses=statuses,
         filters={"keyword": keyword, "status": status, "date_from": date_from, "date_to": date_to},
@@ -5090,7 +5090,7 @@ def render_receivable_payable_workbench(query_one, query_rows):
     receivables = query_rows(
         """
         SELECT cr.id, cr.source_no AS doc_no, cr.receivable_date AS doc_date, cr.due_date,
-               c.name AS partner_name, cr.project_code, cr.serial_no,
+               c.name AS partner_name, cr.project_code, cr.cabinet_no,
                cr.total_amount, cr.received_amount AS settled_amount, cr.balance, cr.status,
                CASE
                    WHEN cr.due_date IS NOT NULL AND cr.due_date < CURRENT_DATE THEN '已逾期，优先催收并核对争议'
@@ -5109,7 +5109,7 @@ def render_receivable_payable_workbench(query_one, query_rows):
     payables = query_rows(
         """
         SELECT sp.id, sp.doc_no, sp.doc_date, COALESCE(sp.next_follow_up_date, sp.doc_date) AS due_date,
-               s.name AS partner_name, sp.project_code, sp.serial_no,
+               s.name AS partner_name, sp.project_code, sp.cabinet_no,
                sp.amount AS total_amount, sp.paid_amount AS settled_amount, sp.balance, sp.status,
                CASE
                    WHEN sp.next_follow_up_date IS NOT NULL AND sp.next_follow_up_date < CURRENT_DATE THEN '跟进日已过，确认付款安排'
@@ -5151,12 +5151,12 @@ def render_customer_receipt_list(query_rows, receipt_kind="customer_receipt"):
     params.append(receipt_kind)
     if keyword:
         pattern = f"%{keyword}%"
-        where.append("(r.receipt_no ILIKE %s OR c.name ILIKE %s OR r.source_no ILIKE %s OR r.project_code ILIKE %s OR r.serial_no ILIKE %s OR r.remark ILIKE %s)")
+        where.append("(r.receipt_no ILIKE %s OR c.name ILIKE %s OR r.source_no ILIKE %s OR r.project_code ILIKE %s OR r.cabinet_no ILIKE %s OR r.remark ILIKE %s)")
         params.extend([pattern] * 6)
     rows = query_rows(
         f"""
         SELECT r.id, r.receipt_no, r.receipt_date, c.name AS customer_name,
-               r.source_no, r.project_code, r.serial_no, r.amount,
+               r.source_no, r.project_code, r.cabinet_no, r.amount,
                COALESCE(SUM(s.applied_amount),0) AS settled_amount,
                GREATEST(COALESCE(r.amount,0)-COALESCE(SUM(s.applied_amount),0),0) AS unapplied_amount,
                COALESCE(STRING_AGG(DISTINCT cr.source_no, ' / ') FILTER (WHERE cr.source_no IS NOT NULL), r.source_no, '-') AS settlement_sources,
@@ -5172,7 +5172,7 @@ def render_customer_receipt_list(query_rows, receipt_kind="customer_receipt"):
         LEFT JOIN customer_receipt_settlements s ON s.receipt_id=r.id
         LEFT JOIN customer_receivables cr ON cr.id=s.receivable_id
         WHERE {' AND '.join(where)}
-        GROUP BY r.id, r.receipt_no, r.receipt_date, c.name, r.source_no, r.project_code, r.serial_no, r.amount, r.payment_method, r.bank_account, r.status
+        GROUP BY r.id, r.receipt_no, r.receipt_date, c.name, r.source_no, r.project_code, r.cabinet_no, r.amount, r.payment_method, r.bank_account, r.status
         ORDER BY r.receipt_date DESC NULLS LAST, r.id DESC
         LIMIT 300
         """,
@@ -5183,7 +5183,7 @@ def render_customer_receipt_list(query_rows, receipt_kind="customer_receipt"):
         title=config["list_title"],
         subtitle=config["subtitle"],
         rows=rows,
-        columns=[("receipt_no", config["label"]), ("receipt_date", "单据日期"), ("customer_name", "客户"), ("settlement_sources", "核销应收来源"), ("settlement_count", "核销笔数"), ("project_code", "项目号"), ("serial_no", "机号"), ("amount", config["amount_label"]), ("settled_amount", "已核销"), ("unapplied_amount", "未分配"), ("status", "状态"), ("next_step", "下一步")],
+        columns=[("receipt_no", config["label"]), ("receipt_date", "单据日期"), ("customer_name", "客户"), ("settlement_sources", "核销应收来源"), ("settlement_count", "核销笔数"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("amount", config["amount_label"]), ("settled_amount", "已核销"), ("unapplied_amount", "未分配"), ("status", "状态"), ("next_step", "下一步")],
         new_url=config["new_url"],
         detail_base=config["detail_base"],
         edit_base=config["detail_base"],
@@ -5200,12 +5200,12 @@ def render_supplier_payment_list(query_rows, payment_kind="supplier_payment"):
     params.append(payment_kind)
     if keyword:
         pattern = f"%{keyword}%"
-        where.append("(p.payment_no ILIKE %s OR s.name ILIKE %s OR p.source_no ILIKE %s OR p.project_code ILIKE %s OR p.serial_no ILIKE %s OR p.remark ILIKE %s)")
+        where.append("(p.payment_no ILIKE %s OR s.name ILIKE %s OR p.source_no ILIKE %s OR p.project_code ILIKE %s OR p.cabinet_no ILIKE %s OR p.remark ILIKE %s)")
         params.extend([pattern] * 6)
     rows = query_rows(
         f"""
         SELECT p.id, p.payment_no, p.payment_date, s.name AS supplier_name,
-               p.source_no, p.project_code, p.serial_no, p.amount,
+               p.source_no, p.project_code, p.cabinet_no, p.amount,
                COALESCE(SUM(ps.applied_amount),0) AS settled_amount,
                GREATEST(COALESCE(p.amount,0)-COALESCE(SUM(ps.applied_amount),0),0) AS unapplied_amount,
                p.payment_method, p.bank_account, p.status,
@@ -5218,7 +5218,7 @@ def render_supplier_payment_list(query_rows, payment_kind="supplier_payment"):
         LEFT JOIN suppliers s ON s.id=p.supplier_id
         LEFT JOIN supplier_payment_settlements ps ON ps.payment_id=p.id
         WHERE {' AND '.join(where)}
-        GROUP BY p.id, p.payment_no, p.payment_date, s.name, p.source_no, p.project_code, p.serial_no, p.amount, p.payment_method, p.bank_account, p.status
+        GROUP BY p.id, p.payment_no, p.payment_date, s.name, p.source_no, p.project_code, p.cabinet_no, p.amount, p.payment_method, p.bank_account, p.status
         ORDER BY p.payment_date DESC NULLS LAST, p.id DESC
         LIMIT 300
         """,
@@ -5229,7 +5229,7 @@ def render_supplier_payment_list(query_rows, payment_kind="supplier_payment"):
         title=config["list_title"],
         subtitle=config["subtitle"],
         rows=rows,
-        columns=[("payment_no", config["label"]), ("payment_date", "单据日期"), ("supplier_name", "供应商"), ("source_no", "来源单"), ("project_code", "项目号"), ("serial_no", "机号"), ("amount", config["amount_label"]), ("settled_amount", "已核销"), ("unapplied_amount", "未分配"), ("status", "状态"), ("next_step", "下一步")],
+        columns=[("payment_no", config["label"]), ("payment_date", "单据日期"), ("supplier_name", "供应商"), ("source_no", "来源单"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("amount", config["amount_label"]), ("settled_amount", "已核销"), ("unapplied_amount", "未分配"), ("status", "状态"), ("next_step", "下一步")],
         new_url=config["new_url"],
         detail_base=config["detail_base"],
         edit_base=config["detail_base"],
@@ -5280,7 +5280,7 @@ def render_customer_receipt_entry(query_rows, doc=None, settlements=None, receip
                         "received_amount": settlement.get("received_amount"),
                         "balance": as_decimal(settlement.get("balance")) + as_decimal(settlement.get("applied_amount")),
                         "project_code": settlement.get("project_code"),
-                        "serial_no": settlement.get("serial_no"),
+                        "cabinet_no": settlement.get("cabinet_no"),
                         "status": settlement.get("status"),
                     }
                 )
@@ -5324,7 +5324,7 @@ def render_customer_receipt_entry(query_rows, doc=None, settlements=None, receip
         source_rows=rows,
         selected_ids=settlement_ids or ({int(selected_id)} if selected_id.isdigit() else set()),
         settlement_values={row.get("receivable_id"): row.get("applied_amount") for row in settlements},
-        source_columns=[("source_type", "来源类型"), ("source_no", "来源单"), ("partner_name", "客户"), ("receivable_date", "应收日期"), ("due_date", "到期日"), ("project_code", "项目号"), ("serial_no", "机号"), ("total_amount", "应收金额"), ("received_amount", "已收"), ("balance", "未收余额"), ("status", "状态")],
+        source_columns=[("source_type", "来源类型"), ("source_no", "来源单"), ("partner_name", "客户"), ("receivable_date", "应收日期"), ("due_date", "到期日"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("total_amount", "应收金额"), ("received_amount", "已收"), ("balance", "未收余额"), ("status", "状态")],
         funds_kind="receipt",
         document_label=config["label"],
         new_document_label=config["new_label"],
@@ -5376,7 +5376,7 @@ def render_supplier_payment_entry(query_rows, doc=None, settlements=None, paymen
                         "paid_amount": settlement.get("paid_amount"),
                         "balance": as_decimal(settlement.get("balance")) + as_decimal(settlement.get("applied_amount")),
                         "project_code": settlement.get("project_code"),
-                        "serial_no": settlement.get("serial_no"),
+                        "cabinet_no": settlement.get("cabinet_no"),
                         "status": settlement.get("status"),
                     }
                 )
@@ -5751,20 +5751,20 @@ def post_customer_receipt(query_one, query_rows, execute_db, execute_and_return,
         return redirect(f"{config['new_url']}?customer_id={customer_id}")
     first_source = next((row for row in source_rows if applied_by_id.get(row["id"], Decimal("0")) > 0), {})
     form_project_code = (request.form.get("project_code") or "").strip()
-    form_serial_no = (request.form.get("serial_no") or "").strip()
+    form_cabinet_no = (request.form.get("cabinet_no") or "").strip()
     receipt_project_code = first_source.get("project_code") or form_project_code
-    receipt_serial_no = first_source.get("serial_no") or form_serial_no
+    receipt_cabinet_no = first_source.get("cabinet_no") or form_cabinet_no
     receipt_no = next_doc_no(config["prefix"], "customer_receipts", "receipt_no")
     receipt = execute_and_return(
         """
         INSERT INTO customer_receipts
             (receipt_no, receipt_date, customer_id, amount, payment_method, bank_account,
              remark, created_by, source_type, source_id, source_no, receivable_id,
-             cost_object_id, project_code, serial_no, status, receipt_kind, fund_direction)
+             cost_object_id, project_code, cabinet_no, status, receipt_kind, fund_direction)
         VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'已确认',%s,%s)
         RETURNING id, receipt_no
         """,
-        (receipt_no, request.form.get("receipt_date") or date.today().isoformat(), int(customer_id), amount, receipt_lines[0].get("payment_method"), receipt_lines[0].get("bank_account"), (request.form.get("remark") or "").strip(), session.get("user_id"), first_source.get("source_type") or config["source_type"], first_source.get("source_id"), first_source.get("source_no"), first_source.get("id"), first_source.get("cost_object_id"), receipt_project_code, receipt_serial_no, receipt_kind, config["direction"]),
+        (receipt_no, request.form.get("receipt_date") or date.today().isoformat(), int(customer_id), amount, receipt_lines[0].get("payment_method"), receipt_lines[0].get("bank_account"), (request.form.get("remark") or "").strip(), session.get("user_id"), first_source.get("source_type") or config["source_type"], first_source.get("source_id"), first_source.get("source_no"), first_source.get("id"), first_source.get("cost_object_id"), receipt_project_code, receipt_cabinet_no, receipt_kind, config["direction"]),
     )
     receipt_id = returned_id(receipt)
     for line in receipt_lines:
@@ -5807,7 +5807,7 @@ def post_customer_receipt(query_one, query_rows, execute_db, execute_and_return,
         partner_type="客户",
         partner_name=partner_name,
         project_code=receipt_project_code,
-        serial_no=receipt_serial_no,
+        cabinet_no=receipt_cabinet_no,
         summary=f"{config['cash_summary']} {receipt_no}，核销 {total_applied}",
         created_by=session.get("user_id"),
     )
@@ -5858,9 +5858,9 @@ def post_supplier_payment(query_one, query_rows, execute_db, execute_and_return,
     applied_by_id = _insert_receipt_or_payment_settlements(source_rows, amount) if config["settlement_enabled"] else {}
     first_source = next((row for row in source_rows if applied_by_id.get(row["id"], Decimal("0")) > 0), source_rows[0] if source_rows else {})
     form_project_code = (request.form.get("project_code") or "").strip()
-    form_serial_no = (request.form.get("serial_no") or "").strip()
+    form_cabinet_no = (request.form.get("cabinet_no") or "").strip()
     payment_project_code = first_source.get("project_code") or form_project_code
-    payment_serial_no = first_source.get("serial_no") or form_serial_no
+    payment_cabinet_no = first_source.get("cabinet_no") or form_cabinet_no
     supplier = query_one("SELECT name FROM suppliers WHERE id=%s", (int(supplier_id),)) or {}
     payment_no = next_doc_no(config["prefix"], "supplier_payments", "payment_no")
     doc_date = request.form.get("payment_date") or date.today().isoformat()
@@ -5908,7 +5908,7 @@ def post_supplier_payment(query_one, query_rows, execute_db, execute_and_return,
         partner_type="supplier",
         partner_name=partner_name,
         project_code=payment_project_code,
-        serial_no=payment_serial_no,
+        cabinet_no=payment_cabinet_no,
         summary=f"{config['cash_summary']} {payment_no}, settled {total_applied}",
         created_by=session.get("user_id"),
     )
@@ -5917,13 +5917,13 @@ def post_supplier_payment(query_one, query_rows, execute_db, execute_and_return,
     execute_db(
         """
         UPDATE supplier_payments
-        SET cost_object_id=%s, project_code=%s, serial_no=%s, settled_amount=%s, unapplied_amount=%s
+        SET cost_object_id=%s, project_code=%s, cabinet_no=%s, settled_amount=%s, unapplied_amount=%s
         WHERE id=%s
         """,
         (
             first_source.get("cost_object_id"),
             payment_project_code,
-            payment_serial_no,
+            payment_cabinet_no,
             total_applied,
             max(amount - total_applied, Decimal("0")),
             payment_id,
@@ -5951,7 +5951,7 @@ def _customer_receipt_edit_context(receipt_id, query_one, query_rows, receipt_ki
         """
         SELECT s.receivable_id, s.applied_amount, cr.source_type, cr.source_no, c.name AS partner_name,
                cr.receivable_date, cr.due_date, cr.total_amount, cr.received_amount,
-               cr.balance, cr.project_code, cr.serial_no, cr.status
+               cr.balance, cr.project_code, cr.cabinet_no, cr.status
         FROM customer_receipt_settlements s
         JOIN customer_receivables cr ON cr.id=s.receivable_id
         LEFT JOIN customers c ON c.id=cr.customer_id
@@ -5983,7 +5983,7 @@ def _supplier_payment_edit_context(payment_id, query_one, query_rows, payment_ki
         """
         SELECT s.payable_id, s.applied_amount, sp.doc_no, sup.name AS partner_name,
                sp.doc_date, sp.amount, sp.paid_amount, sp.balance,
-               sp.project_code, sp.serial_no, sp.status
+               sp.project_code, sp.cabinet_no, sp.status
         FROM supplier_payment_settlements s
         JOIN supplier_payables sp ON sp.id=s.payable_id
         LEFT JOIN suppliers sup ON sup.id=sp.supplier_id
@@ -6184,7 +6184,7 @@ def render_customer_receipt_detail(receipt_id, query_one, query_rows, receipt_ki
     doc = query_one(
         """
         SELECT r.id, r.receipt_no, r.receipt_date, r.customer_id, r.source_no, r.project_code,
-               r.serial_no, r.amount, r.payment_method, r.bank_account, r.remark, r.status,
+               r.cabinet_no, r.amount, r.payment_method, r.bank_account, r.remark, r.status,
                r.receipt_kind, r.created_at, r.created_by, r.source_type, r.source_id,
                r.receivable_id, r.cost_object_id, r.fund_direction,
                c.name AS partner_name, c.contact_person, c.phone AS partner_phone,
@@ -6194,7 +6194,7 @@ def render_customer_receipt_detail(receipt_id, query_one, query_rows, receipt_ki
         LEFT JOIN customer_receipt_settlements s ON s.receipt_id=r.id
         WHERE r.id=%s AND COALESCE(r.receipt_kind,'customer_receipt')=%s
         GROUP BY r.id, r.receipt_no, r.receipt_date, r.customer_id, r.source_no, r.project_code,
-                 r.serial_no, r.amount, r.payment_method, r.bank_account, r.remark, r.status,
+                 r.cabinet_no, r.amount, r.payment_method, r.bank_account, r.remark, r.status,
                  r.receipt_kind, r.created_at, r.created_by, r.source_type, r.source_id,
                  r.receivable_id, r.cost_object_id, r.fund_direction,
                  c.name, c.contact_person, c.phone
@@ -6208,7 +6208,7 @@ def render_customer_receipt_detail(receipt_id, query_one, query_rows, receipt_ki
     settlements = query_rows(
         """
         SELECT s.applied_amount, cr.source_type, cr.source_no, cr.receivable_date, cr.due_date,
-               cr.total_amount, cr.balance, cr.project_code, cr.serial_no, cr.status
+               cr.total_amount, cr.balance, cr.project_code, cr.cabinet_no, cr.status
         FROM customer_receipt_settlements s
         JOIN customer_receivables cr ON cr.id=s.receivable_id
         WHERE s.receipt_id=%s
@@ -6235,7 +6235,7 @@ def render_customer_receipt_detail(receipt_id, query_one, query_rows, receipt_ki
         (receipt_id,),
     )
     logs = query_rows("SELECT username, action, target, remark, created_at FROM operation_logs WHERE target=%s ORDER BY created_at DESC, id DESC LIMIT 50", (doc.get("receipt_no"),))
-    return render_template("finance_funds_detail.html", title=config["detail_title"], list_url=config["list_url"], new_url=config["new_url"], note_url=f"{config['detail_base']}/{receipt_id}/notes", edit_url=f"{config['detail_base']}/{receipt_id}/edit", delete_url=f"{config['detail_base']}/{receipt_id}/delete", reverse_url=f"{config['detail_base']}/{receipt_id}/reverse-settlement", void_url=f"{config['detail_base']}/{receipt_id}/void", action_flags=action_flags, doc=doc, doc_no=doc.get("receipt_no"), doc_date=doc.get("receipt_date"), partner_label="客户", amount_label=config["amount_label"], settled_label="已核销", unapplied_label="未分配", receipt_lines=receipt_lines, line_section_title=config["line_section_title"], line_account_label=config["line_account_label"], line_method_label=config["method_label"], line_amount_label=config["line_amount_label"], line_remark_label=config["line_remark_label"], settlements=settlements, attachments=attachments, attachment_upload_url=f"/customer-receipts/{receipt_id}/attachments", attachment_delete_prefix=f"/customer-receipts/{receipt_id}/attachments", logs=logs, settlement_columns=[("source_type", "来源类型"), ("source_no", "应收来源"), ("receivable_date", "应收日期"), ("due_date", "到期日"), ("project_code", "项目号"), ("serial_no", "机号"), ("total_amount", "应收金额"), ("applied_amount", "本次核销"), ("balance", "当前余额"), ("status", "应收状态")])
+    return render_template("finance_funds_detail.html", title=config["detail_title"], list_url=config["list_url"], new_url=config["new_url"], note_url=f"{config['detail_base']}/{receipt_id}/notes", edit_url=f"{config['detail_base']}/{receipt_id}/edit", delete_url=f"{config['detail_base']}/{receipt_id}/delete", reverse_url=f"{config['detail_base']}/{receipt_id}/reverse-settlement", void_url=f"{config['detail_base']}/{receipt_id}/void", action_flags=action_flags, doc=doc, doc_no=doc.get("receipt_no"), doc_date=doc.get("receipt_date"), partner_label="客户", amount_label=config["amount_label"], settled_label="已核销", unapplied_label="未分配", receipt_lines=receipt_lines, line_section_title=config["line_section_title"], line_account_label=config["line_account_label"], line_method_label=config["method_label"], line_amount_label=config["line_amount_label"], line_remark_label=config["line_remark_label"], settlements=settlements, attachments=attachments, attachment_upload_url=f"/customer-receipts/{receipt_id}/attachments", attachment_delete_prefix=f"/customer-receipts/{receipt_id}/attachments", logs=logs, settlement_columns=[("source_type", "来源类型"), ("source_no", "应收来源"), ("receivable_date", "应收日期"), ("due_date", "到期日"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("total_amount", "应收金额"), ("applied_amount", "本次核销"), ("balance", "当前余额"), ("status", "应收状态")])
 
 
 def render_pending_collection_list(query_rows):
@@ -6244,12 +6244,12 @@ def render_pending_collection_list(query_rows):
     where = ["COALESCE(cr.balance,0)>0"]
     if keyword:
         pattern = f"%{keyword}%"
-        where.append("(cr.source_no ILIKE %s OR c.name ILIKE %s OR cr.project_code ILIKE %s OR cr.serial_no ILIKE %s OR cr.remark ILIKE %s)")
+        where.append("(cr.source_no ILIKE %s OR c.name ILIKE %s OR cr.project_code ILIKE %s OR cr.cabinet_no ILIKE %s OR cr.remark ILIKE %s)")
         params.extend([pattern] * 5)
     rows = query_rows(
         f"""
         SELECT cr.id, cr.source_no, cr.receivable_date, cr.due_date, c.name AS customer_name,
-               cr.project_code, cr.serial_no, cr.total_amount, cr.received_amount, cr.balance, cr.status,
+               cr.project_code, cr.cabinet_no, cr.total_amount, cr.received_amount, cr.balance, cr.status,
                CASE
                    WHEN cr.due_date IS NOT NULL AND cr.due_date < CURRENT_DATE THEN '已逾期，联系客户确认回款计划'
                    WHEN cr.due_date IS NOT NULL THEN '按到期日跟进回款'
@@ -6267,7 +6267,7 @@ def render_pending_collection_list(query_rows):
         "simple_list.html",
         title="待收款清单",
         rows=rows,
-        columns=[{"key": key, "label": label} for key, label in [("source_no", "应收来源"), ("receivable_date", "应收日期"), ("due_date", "到期日"), ("customer_name", "客户"), ("project_code", "项目号"), ("serial_no", "机号"), ("total_amount", "应收金额"), ("received_amount", "已收"), ("balance", "待收金额"), ("status", "状态"), ("next_step", "下一步")]],
+        columns=[{"key": key, "label": label} for key, label in [("source_no", "应收来源"), ("receivable_date", "应收日期"), ("due_date", "到期日"), ("customer_name", "客户"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("total_amount", "应收金额"), ("received_amount", "已收"), ("balance", "待收金额"), ("status", "状态"), ("next_step", "下一步")]],
         detail_base="/receivables",
         keyword=keyword,
     )
@@ -6279,7 +6279,7 @@ def render_merged_collection_records(query_rows):
     where = ["COALESCE(r.receipt_kind,'customer_receipt') IN ('customer_receipt','advance_receipt','other_income')"]
     if keyword:
         pattern = f"%{keyword}%"
-        where.append("(r.receipt_no ILIKE %s OR c.name ILIKE %s OR r.bank_account ILIKE %s OR r.project_code ILIKE %s OR r.serial_no ILIKE %s)")
+        where.append("(r.receipt_no ILIKE %s OR c.name ILIKE %s OR r.bank_account ILIKE %s OR r.project_code ILIKE %s OR r.cabinet_no ILIKE %s)")
         params.extend([pattern] * 5)
     rows = query_rows(
         f"""
@@ -6291,7 +6291,7 @@ def render_merged_collection_records(query_rows):
                SUM(COALESCE(l.amount, r.amount, 0)) AS amount,
                STRING_AGG(DISTINCT NULLIF(l.transaction_no,''), ' / ') AS transaction_no,
                COALESCE(MAX(r.project_code), '-') AS project_code,
-               COALESCE(MAX(r.serial_no), '-') AS serial_no
+               COALESCE(MAX(r.cabinet_no), '-') AS cabinet_no
         FROM customer_receipts r
         LEFT JOIN customers c ON c.id=r.customer_id
         LEFT JOIN customer_receipt_lines l ON l.receipt_id=r.id
@@ -6306,7 +6306,7 @@ def render_merged_collection_records(query_rows):
         "simple_list.html",
         title="合并收款记录列表",
         rows=rows,
-        columns=[{"key": key, "label": label} for key, label in [("receipt_date", "收款日期"), ("customer_name", "客户"), ("bank_account", "资金账户/票据号"), ("payment_method", "收款方式"), ("receipt_no", "关联单据"), ("document_count", "单据数"), ("amount", "合并金额"), ("transaction_no", "交易号/票据号"), ("project_code", "项目号"), ("serial_no", "机号")]],
+        columns=[{"key": key, "label": label} for key, label in [("receipt_date", "收款日期"), ("customer_name", "客户"), ("bank_account", "资金账户/票据号"), ("payment_method", "收款方式"), ("receipt_no", "关联单据"), ("document_count", "单据数"), ("amount", "合并金额"), ("transaction_no", "交易号/票据号"), ("project_code", "项目号"), ("cabinet_no", "柜号")]],
         detail_base=None,
         keyword=keyword,
     )
@@ -6324,7 +6324,7 @@ def render_receivable_bill_list(query_rows):
         f"""
         SELECT r.id, r.receipt_no, r.receipt_date, c.name AS customer_name,
                l.payment_method, l.bank_account, l.transaction_no, l.amount, l.fee_amount,
-               r.project_code, r.serial_no, r.status
+               r.project_code, r.cabinet_no, r.status
         FROM customer_receipt_lines l
         JOIN customer_receipts r ON r.id=l.receipt_id
         LEFT JOIN customers c ON c.id=r.customer_id
@@ -6338,7 +6338,7 @@ def render_receivable_bill_list(query_rows):
         "simple_list.html",
         title="应收票据",
         rows=rows,
-        columns=[{"key": key, "label": label} for key, label in [("receipt_no", "来源单据"), ("receipt_date", "登记日期"), ("customer_name", "客户"), ("payment_method", "票据类型"), ("bank_account", "资金账户/票据号"), ("transaction_no", "交易号/票据号"), ("amount", "票据金额"), ("fee_amount", "手续费"), ("project_code", "项目号"), ("serial_no", "机号"), ("status", "状态")]],
+        columns=[{"key": key, "label": label} for key, label in [("receipt_no", "来源单据"), ("receipt_date", "登记日期"), ("customer_name", "客户"), ("payment_method", "票据类型"), ("bank_account", "资金账户/票据号"), ("transaction_no", "交易号/票据号"), ("amount", "票据金额"), ("fee_amount", "手续费"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("status", "状态")]],
         detail_base=None,
         keyword=keyword,
     )
@@ -6349,7 +6349,7 @@ def render_supplier_payment_detail(payment_id, query_one, query_rows, payment_ki
     doc = query_one(
         """
         SELECT p.id, p.payment_no, p.payment_date, p.supplier_id, p.source_no, p.project_code,
-               p.serial_no, p.amount, p.payment_method, p.bank_account, p.remark, p.status,
+               p.cabinet_no, p.amount, p.payment_method, p.bank_account, p.remark, p.status,
                p.payment_kind, p.created_at, p.created_by, p.source_type, p.source_id,
                p.operator_id, p.payable_id, p.cost_object_id, p.fund_direction,
                s.name AS partner_name, s.contact_person, s.phone AS partner_phone,
@@ -6359,7 +6359,7 @@ def render_supplier_payment_detail(payment_id, query_one, query_rows, payment_ki
         LEFT JOIN supplier_payment_settlements ps ON ps.payment_id=p.id
         WHERE p.id=%s AND COALESCE(p.payment_kind,'supplier_payment')=%s
         GROUP BY p.id, p.payment_no, p.payment_date, p.supplier_id, p.source_no, p.project_code,
-                 p.serial_no, p.amount, p.payment_method, p.bank_account, p.remark, p.status,
+                 p.cabinet_no, p.amount, p.payment_method, p.bank_account, p.remark, p.status,
                  p.payment_kind, p.created_at, p.created_by, p.source_type, p.source_id,
                  p.operator_id, p.payable_id, p.cost_object_id, p.fund_direction,
                  s.name, s.contact_person, s.phone
@@ -6400,14 +6400,14 @@ def render_aging_analysis(query_rows):
         """
         SELECT '应收' AS kind, source_no AS doc_no, receivable_date AS doc_date,
                COALESCE(due_date, receivable_date) AS due_date,
-               total_amount, received_amount AS settled_amount, balance, status, project_code, serial_no,
+               total_amount, received_amount AS settled_amount, balance, status, project_code, cabinet_no,
                CURRENT_DATE - COALESCE(due_date, receivable_date, CURRENT_DATE) AS age_days
         FROM customer_receivables
         WHERE COALESCE(balance,0) <> 0
         UNION ALL
         SELECT '应付' AS kind, doc_no, doc_date,
                COALESCE(next_follow_up_date, doc_date) AS due_date,
-               amount AS total_amount, paid_amount AS settled_amount, balance, status, NULL AS project_code, NULL AS serial_no,
+               amount AS total_amount, paid_amount AS settled_amount, balance, status, NULL AS project_code, NULL AS cabinet_no,
                CURRENT_DATE - COALESCE(next_follow_up_date, doc_date, CURRENT_DATE) AS age_days
         FROM supplier_payables
         WHERE COALESCE(balance,0) <> 0
@@ -6465,13 +6465,13 @@ def render_aging_buckets_summary(query_rows):
     now = date.today()
     aging_rows = query_rows(
         """
-        SELECT '应收' AS kind, balance, project_code, serial_no,
+        SELECT '应收' AS kind, balance, project_code, cabinet_no,
                CURRENT_DATE - COALESCE(due_date, receivable_date, CURRENT_DATE) AS age_days
         FROM customer_receivables
         WHERE COALESCE(balance,0) <> 0
         UNION ALL
         SELECT '应付' AS kind, balance,
-               NULL AS project_code, NULL AS serial_no,
+               NULL AS project_code, NULL AS cabinet_no,
                CURRENT_DATE - COALESCE(next_follow_up_date, doc_date, CURRENT_DATE) AS age_days
         FROM supplier_payables
         WHERE COALESCE(balance,0) <> 0
@@ -6518,7 +6518,7 @@ def render_partner_balance_detail(query_rows):
     receivables = query_rows(
         """
         SELECT source_no AS doc_no, receivable_date AS doc_date, '应收' AS kind,
-               total_amount, received_amount AS settled_amount, balance, status, project_code, serial_no
+               total_amount, received_amount AS settled_amount, balance, status, project_code, cabinet_no
         FROM customer_receivables
         ORDER BY receivable_date DESC NULLS LAST, id DESC
         LIMIT 150
@@ -6527,7 +6527,7 @@ def render_partner_balance_detail(query_rows):
     payables = query_rows(
         """
         SELECT doc_no, doc_date, '应付' AS kind,
-               amount AS total_amount, paid_amount AS settled_amount, balance, status, project_code, serial_no
+               amount AS total_amount, paid_amount AS settled_amount, balance, status, project_code, cabinet_no
         FROM supplier_payables
         ORDER BY doc_date DESC NULLS LAST, id DESC
         LIMIT 150
@@ -7029,9 +7029,9 @@ def register_routes(app, deps):
     def finance_project_costs_standard():
         return redirect("/finance/reports/project-cost")
 
-    @app.get("/finance/serial-costs", endpoint="finance_serial_costs_standard")
+    @app.get("/finance/cabinet-costs", endpoint="finance_cabinet_costs_standard")
     @login_required
-    def finance_serial_costs_standard():
+    def finance_cabinet_costs_standard():
         return redirect("/finance/reports/machine-cost")
 
     @app.get("/finance/work-order-costs", endpoint="finance_work_order_costs_standard")
@@ -7049,9 +7049,9 @@ def register_routes(app, deps):
     def finance_project_profit_report():
         return render_cost_management_home()
 
-    @app.get("/finance/reports/serial-profit", endpoint="finance_serial_profit_report")
+    @app.get("/finance/reports/cabinet-profit", endpoint="finance_cabinet_profit_report")
     @login_required
-    def finance_serial_profit_report():
+    def finance_cabinet_profit_report():
         return render_cost_management_home()
 
     def register_ar_receipt_document_routes(receipt_kind, list_endpoint, new_endpoint, detail_endpoint, edit_endpoint, delete_endpoint, reverse_endpoint, void_endpoint, note_endpoint):

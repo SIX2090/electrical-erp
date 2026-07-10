@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}机号成本汇总{% endblock %}
+{% block title %}柜号成本汇总{% endblock %}
 
 {% block content %}
 <div class="container-fluid">
@@ -13,8 +13,8 @@
         </div>
     </div>
     <div class="page-header">
-        <h1>机号成本汇总报表</h1>
-        <p class="text-muted">按机号汇总领料、采购、委外、人工等各类成本</p>
+        <h1>柜号成本汇总报表</h1>
+        <p class="text-muted">按柜号汇总领料、采购、委外、人工等各类成本</p>
     </div>
 
     <!-- 筛选条件 -->
@@ -25,7 +25,7 @@
             </h5>
         </div>
         <div class="card-body">
-            <form method="get" action="/finance/serial-cost/summary">
+            <form method="get" action="/finance/cabinet-cost/summary">
                 <div class="row">
                     <div class="col-md-2">
                         <div class="form-group">
@@ -54,12 +54,12 @@
                     </div>
                     <div class="col-md-5">
                         <div class="form-group">
-                            <label>机号（可多选）</label>
-                            <select name="serial_nos[]" class="form-control" multiple size="1">
-                                <option value="">全部机号</option>
-                                {% for s in all_serial_nos %}
-                                <option value="{{ s.serial_no }}">
-                                    {{ s.serial_no }}{% if s.project_code %} ({{ s.project_code }}){% endif %}
+                            <label>柜号（可多选）</label>
+                            <select name="cabinet_nos[]" class="form-control" multiple size="1">
+                                <option value="">全部柜号</option>
+                                {% for s in all_cabinet_nos %}
+                                <option value="{{ s.cabinet_no }}">
+                                    {{ s.cabinet_no }}{% if s.project_code %} ({{ s.project_code }}){% endif %}
                                 </option>
                                 {% endfor %}
                             </select>
@@ -131,11 +131,11 @@
         </div>
     </div>
 
-    <!-- 机号成本汇总表 -->
+    <!-- 柜号成本汇总表 -->
     <div class="card">
         <div class="card-header">
             <h5 class="mb-0">
-                <i class="fas fa-chart-bar"></i> 机号成本汇总
+                <i class="fas fa-chart-bar"></i> 柜号成本汇总
             </h5>
         </div>
         <div class="card-body">
@@ -145,7 +145,7 @@
                     <thead class="thead-light">
                         <tr>
                             <th>序号</th>
-                            <th>机号</th>
+                            <th>柜号</th>
                             <th>项目号</th>
                             <th class="text-right">领料成本</th>
                             <th class="text-right">采购成本</th>
@@ -162,7 +162,7 @@
                         <tr>
                             <td>{{ loop.index }}</td>
                             <td>
-                                <span class="badge badge-secondary">{{ row.serial_no }}</span>
+                                <span class="badge badge-secondary">{{ row.cabinet_no }}</span>
                             </td>
                             <td>
                                 {% if row.project_code %}
@@ -183,7 +183,7 @@
                                 <span class="badge badge-primary">{{ row.cost_records }}</span>
                             </td>
                             <td>
-                                <a href="/finance/serial-cost/detail?serial_no={{ row.serial_no }}"
+                                <a href="/finance/cabinet-cost/detail?cabinet_no={{ row.cabinet_no }}"
                                    class="btn btn-sm btn-outline-primary">
                                     <i class="fas fa-list"></i> 明细
                                 </a>
@@ -210,12 +210,12 @@
 
             <div class="mt-3">
                 <small class="text-muted">
-                    共 {{ rows|length }} 个机号
+                    共 {{ rows|length }} 个柜号
                 </small>
             </div>
             {% else %}
             <div class="alert alert-info mb-0">
-                <i class="fas fa-info-circle"></i> 没有符合条件的机号成本数据
+                <i class="fas fa-info-circle"></i> 没有符合条件的柜号成本数据
             </div>
             {% endif %}
         </div>
@@ -289,12 +289,12 @@
                     </table>
                 </div>
                 <div class="col-md-6">
-                    <h6>Top 10 机号成本排名</h6>
+                    <h6>Top 10 柜号成本排名</h6>
                     <table class="table table-sm">
                         <thead>
                             <tr>
                                 <th>排名</th>
-                                <th>机号</th>
+                                <th>柜号</th>
                                 <th>项目号</th>
                                 <th class="text-right">总成本</th>
                             </tr>
@@ -304,7 +304,7 @@
                             <tr>
                                 <td>{{ loop.index }}</td>
                                 <td>
-                                    <span class="badge badge-secondary">{{ row.serial_no }}</span>
+                                    <span class="badge badge-secondary">{{ row.cabinet_no }}</span>
                                 </td>
                                 <td>
                                     {% if row.project_code %}

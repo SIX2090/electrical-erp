@@ -30,99 +30,99 @@ Source of truth: `services/schema_migrations.py` (77 migrations, 92+ `CREATE TAB
 | Employee | `employees` | id, code, name, department_id | Master data | Pre-existing |
 | Category | `categories` | id, code, name | Master data | Pre-existing |
 | Project master | `project_masters` | id, project_code (UNIQUE), project_name, customer_id, product_family, machine_model, source_order_no, owner_name, planned_delivery_date, status | Master data / traceability | Created in `20260605_001_project_machine_master` |
-| Machine serial master | `machine_serial_masters` | id, serial_no (UNIQUE), project_id, project_code, customer_id, product_id, product_family, machine_model, production_stage, service_status, warranty_start_date, warranty_end_date | Master data / traceability | Created in `20260605_001_project_machine_master` |
+| Machine cabinet master | `cabinet_masters` | id, cabinet_no (UNIQUE), project_id, project_code, customer_id, product_id, product_family, machine_model, production_stage, service_status, warranty_start_date, warranty_end_date | Master data / traceability | Created in `20260605_001_project_machine_master` |
 | Equipment | `equipment` | id, code, name, model, work_center, manufacturer, status | Master data | Created in `20260521_001_equipment_oee` |
-| Product configuration | `product_configurations` | id, project_code, serial_no, sales_order_id | Engineering | Created in `20260606_003_product_configuration_boundary` |
+| Product configuration | `product_configurations` | id, project_code, cabinet_no, sales_order_id | Engineering | Created in `20260606_003_product_configuration_boundary` |
 
 ### 1.2 Technical Master Tables
 
 | Domain | Table | Key Columns | Notes |
 |---|---|---|---|
 | BOM | `boms`, `bom_items` | Pre-existing | Referenced by work orders, ECN |
-| BOM ECN | `bom_engineering_changes` | id, project_code, serial_no | `20260605_001` |
+| BOM ECN | `bom_engineering_changes` | id, project_code, cabinet_no | `20260605_001` |
 | Routing | `routings`, `routing_operations` | Pre-existing | Referenced by work orders, operation reports |
 | Work center | `work_centers` | Pre-existing | Referenced by equipment, operation reports |
 | Engineering drawings | `engineering_drawings`, `engineering_drawing_links`, `engineering_drawing_change_logs` | drawing_no, version, lifecycle status | `20260606_001b_engineering_drawing_ledger` |
-| Engineering technical confirmation | `engineering_technical_confirmations` | id, project_code, serial_no, sales_order_id | `20260529_002` |
+| Engineering technical confirmation | `engineering_technical_confirmations` | id, project_code, cabinet_no, sales_order_id | `20260529_002` |
 
 ### 1.3 Document Tables by Module
 
 #### Purchase
 | Table | Type | Trace Fields |
 |---|---|---|
-| `purchase_requisitions` / `purchase_requisition_items` | Document entry | line_project_code, line_serial_no (items) |
-| `purchase_orders` / `purchase_order_items` | Document entry | project_code, serial_no (header), line_project_code, line_serial_no (items) |
+| `purchase_requisitions` / `purchase_requisition_items` | Document entry | line_project_code, line_cabinet_no (items) |
+| `purchase_orders` / `purchase_order_items` | Document entry | project_code, cabinet_no (header), line_project_code, line_cabinet_no (items) |
 | `purchase_receipts` | Document entry | source_type, source_no |
-| `purchase_invoices` / `purchase_invoice_items` | Finance document | project_code, serial_no, source_type, source_id, source_no, source_doc_type, source_doc_id, source_doc_no |
-| `supplier_payables` / `supplier_payable_items` | Finance | project_code, serial_no, doc_type, doc_id, doc_no, source_type, source_id, source_no, source_doc_type, source_doc_id, source_doc_no |
-| `supplier_payments` / `supplier_payment_lines` | Finance document | project_code, serial_no, source_type, source_id, source_no |
+| `purchase_invoices` / `purchase_invoice_items` | Finance document | project_code, cabinet_no, source_type, source_id, source_no, source_doc_type, source_doc_id, source_doc_no |
+| `supplier_payables` / `supplier_payable_items` | Finance | project_code, cabinet_no, doc_type, doc_id, doc_no, source_type, source_id, source_no, source_doc_type, source_doc_id, source_doc_no |
+| `supplier_payments` / `supplier_payment_lines` | Finance document | project_code, cabinet_no, source_type, source_id, source_no |
 
 #### Sales
 | Table | Type | Trace Fields |
 |---|---|---|
-| `quotation_headers` | Document entry | project_code, serial_no, source_no |
-| `sales_orders` / `sales_order_items` | Document entry | project_code, serial_no (header), line_project_code, line_serial_no (items) |
-| `sales_shipments` | Document entry | project_code, serial_no, source_type (default 'sales_order'), source_no |
-| `sales_returns` | Document entry | project_code, serial_no, source_no |
-| `sales_invoices` / `sales_invoice_items` | Finance document | project_code, serial_no, source_type, source_id, source_no, source_doc_type, source_doc_id, source_doc_no |
-| `customer_receivables` / `customer_receivable_items` | Finance | project_code, serial_no, source_type, source_id, source_no, source_doc_type, source_doc_id, source_doc_no |
-| `customer_receipts` / `customer_receipt_lines` | Finance document | project_code, serial_no, source_type, source_id, source_no |
+| `quotation_headers` | Document entry | project_code, cabinet_no, source_no |
+| `sales_orders` / `sales_order_items` | Document entry | project_code, cabinet_no (header), line_project_code, line_cabinet_no (items) |
+| `sales_shipments` | Document entry | project_code, cabinet_no, source_type (default 'sales_order'), source_no |
+| `sales_returns` | Document entry | project_code, cabinet_no, source_no |
+| `sales_invoices` / `sales_invoice_items` | Finance document | project_code, cabinet_no, source_type, source_id, source_no, source_doc_type, source_doc_id, source_doc_no |
+| `customer_receivables` / `customer_receivable_items` | Finance | project_code, cabinet_no, source_type, source_id, source_no, source_doc_type, source_doc_id, source_doc_no |
+| `customer_receipts` / `customer_receipt_lines` | Finance document | project_code, cabinet_no, source_type, source_id, source_no |
 
 #### Inventory
 | Table | Type | Trace Fields |
 |---|---|---|
-| `stock_transactions` | Transaction log | project_code, serial_no, source_type, source_doc_type, source_doc_no, source_line_no, reference_no, lot_no |
-| `inventory_balances` | Balance snapshot | project_code, lot_no, serial_no |
-| `inventory_adjustments` | Document entry | project_code, serial_no, line_project_code |
+| `stock_transactions` | Transaction log | project_code, cabinet_no, source_type, source_doc_type, source_doc_no, source_line_no, reference_no, lot_no |
+| `inventory_balances` | Balance snapshot | project_code, lot_no, cabinet_no |
+| `inventory_adjustments` | Document entry | project_code, cabinet_no, line_project_code |
 | `inventory_adjustment_orders` | Document entry | Created `20260527_004` |
 | `transfer_orders` / `transfer_order_items` | Document entry | project_code, line_project_code (items) |
 | `inventory_check_orders` / `inventory_check_order_items` | Document entry | project_code, line_project_code (items) |
-| `inventory_assembly_orders` / `inventory_assembly_items` | Document entry | serial_no, project_code, line_project_code (items) |
-| `batch_tracking` | Trace log | serial_no, project_code, lot_no |
+| `inventory_assembly_orders` / `inventory_assembly_items` | Document entry | cabinet_no, project_code, line_project_code (items) |
+| `batch_tracking` | Trace log | cabinet_no, project_code, lot_no |
 | `inventory_costing` | Cost snapshot | product_id, costing_method |
 
 #### Outsourcing
 | Table | Type | Trace Fields |
 |---|---|---|
-| `subcontract_orders` | Document entry | project_code, serial_no, line_project_code, line_serial_no, parent_work_order_id |
-| `subcontract_issue_orders` / `subcontract_issue_lines` | Document entry | project_code, serial_no (lines) |
-| `subcontract_receive_orders` / `subcontract_receive_lines` | Document entry | project_code, serial_no (lines) |
+| `subcontract_orders` | Document entry | project_code, cabinet_no, line_project_code, line_cabinet_no, parent_work_order_id |
+| `subcontract_issue_orders` / `subcontract_issue_lines` | Document entry | project_code, cabinet_no (lines) |
+| `subcontract_receive_orders` / `subcontract_receive_lines` | Document entry | project_code, cabinet_no (lines) |
 
 #### Production
 | Table | Type | Trace Fields |
 |---|---|---|
-| `work_orders` / `wo_material_items` | Document entry | project_code, serial_no, line_project_code, line_serial_no |
+| `work_orders` / `wo_material_items` | Document entry | project_code, cabinet_no, line_project_code, line_cabinet_no |
 | `wo_complete_items` | Completion line | source_doc_type |
 | `work_order_status_logs` | Status log | work_order_id |
 | `work_order_change_records` | Change log | work_order_id |
 | `production_schedules` | Dispatch | work_order_id |
-| `pick_lists` / `pick_list_items` | Document entry | doc_type, doc_no, work_order_id, project_code, serial_no, line_project_code, line_serial_no |
+| `pick_lists` / `pick_list_items` | Document entry | doc_type, doc_no, work_order_id, project_code, cabinet_no, line_project_code, line_cabinet_no |
 | `operation_reports` | Document entry | work_order_id, work_order_process_id, routing_operation_id, report_type |
-| `production_completion_orders` | Document entry | work_order_id, serial_no, project_code, wo_complete_item_id |
+| `production_completion_orders` | Document entry | work_order_id, cabinet_no, project_code, wo_complete_item_id |
 | `work_order_costs` / `work_order_cost_lines` | Cost | work_order_id |
 
 #### Service
 | Table | Type | Trace Fields |
 |---|---|---|
-| `machine_service_cards` | Master/entry | sales_order_id, project_code, serial_no, product_id, customer_id, machine_model |
-| `machine_service_orders` / `machine_service_order_items` | Document entry | project_code, serial_no (items) |
-| `machine_service_rmas` | Document entry | line_project_code, line_serial_no, product_id |
-| `machine_service_acceptance_checks` | Document entry | project_code, serial_no |
+| `machine_service_cards` | Master/entry | sales_order_id, project_code, cabinet_no, product_id, customer_id, machine_model |
+| `machine_service_orders` / `machine_service_order_items` | Document entry | project_code, cabinet_no (items) |
+| `machine_service_rmas` | Document entry | line_project_code, line_cabinet_no, product_id |
+| `machine_service_acceptance_checks` | Document entry | project_code, cabinet_no |
 | `machine_service_return_visits` | Document entry | satisfaction_score |
 
 #### Finance
 | Table | Type | Trace Fields |
 |---|---|---|
-| `vouchers` / `voucher_lines` | Accounting | source_type, source_id, source_no, project_code, serial_no |
-| `general_ledger` | Ledger | source_type, source_id, source_no, project_code, serial_no |
-| `cash_bank_accounts` / `cash_bank_journal_entries` | Cash | project_code, serial_no, source_type, source_no |
+| `vouchers` / `voucher_lines` | Accounting | source_type, source_id, source_no, project_code, cabinet_no |
+| `general_ledger` | Ledger | source_type, source_id, source_no, project_code, cabinet_no |
+| `cash_bank_accounts` / `cash_bank_journal_entries` | Cash | project_code, cabinet_no, source_type, source_no |
 | `chart_of_accounts` / `gl_account_balances` | Master | account code |
 | `accounting_periods` / `finance_period_closes` | Period | year, month, status |
 | `customer_receipt_settlements` | Settlement | receipt_id, receivable_id |
 | `supplier_payment_settlements` | Settlement | payment_id, payable_id |
-| `finance_exchange_adjustments` / `finance_exchange_adjustment_lines` | Period-end | doc_no, project_code, serial_no |
+| `finance_exchange_adjustments` / `finance_exchange_adjustment_lines` | Period-end | doc_no, project_code, cabinet_no |
 | `project_cost_ledger` | Cost | project_code (NOT NULL), source_type, source_no |
-| `serial_cost_ledger` | Cost | serial_no (NOT NULL), project_code, source_type, source_no |
+| `cabinet_cost_ledger` | Cost | cabinet_no (NOT NULL), project_code, source_type, source_no |
 
 ### 1.4 System Tables
 
@@ -133,7 +133,7 @@ Source of truth: `services/schema_migrations.py` (77 migrations, 92+ `CREATE TAB
 | `document_sequences` | Doc number generation (prefix + scope) |
 | `audit_logs` | Operation audit |
 | `operation_logs` | Request-level log |
-| `system_options` | System parameters (e.g. `require_project_serial`) |
+| `system_options` | System parameters (e.g. `require_project_cabinet`) |
 | `system_notifications` | In-app notification |
 | `schema_migrations` | Migration tracking |
 | `print_templates` | Print template registry |
@@ -150,40 +150,40 @@ The codebase uses **three different column names** for the same business concept
 |---|---|---|
 | Project number (project_code) | `project_code` (preferred, VARCHAR(120)) | 30+ tables - dominant convention |
 | Project number | `line_project_code` | Document line tables (purchase_order_items, sales_order_items, work_orders, wo_material_items, transfer_order_items, inventory_check_order_items, inventory_assembly_items, inventory_adjustments, pick_list_items, machine_service_rmas) |
-| Project number | `project_id` (INTEGER FK) | `machine_serial_masters.project_id` references `project_masters.id` |
-| Machine serial (serial_no) | `serial_no` (preferred, VARCHAR(120)) | 30+ tables - dominant convention |
-| Machine serial | `line_serial_no` | Document line tables (same set as line_project_code) |
-| Machine serial | `machine_serial_no` | NOT found in schema (only referenced in AGENTS.md narrative) |
-| Machine serial | `machine_model` | Used as a descriptive attribute, NOT a unique serial identifier |
+| Project number | `project_id` (INTEGER FK) | `cabinet_masters.project_id` references `project_masters.id` |
+| Machine cabinet (cabinet_no) | `cabinet_no` (preferred, VARCHAR(120)) | 30+ tables - dominant convention |
+| Machine cabinet | `line_cabinet_no` | Document line tables (same set as line_project_code) |
+| Machine cabinet | `cabinet_no` | NOT found in schema (only referenced in AGENTS.md narrative) |
+| Machine cabinet | `machine_model` | Used as a descriptive attribute, NOT a unique cabinet identifier |
 
 ### 2.2 Field Coverage by Module
 
-| Module | Header project_code | Header serial_no | Line project_code | Line serial_no | Gap |
+| Module | Header project_code | Header cabinet_no | Line project_code | Line cabinet_no | Gap |
 |---|---|---|---|---|---|
-| Purchase requisition | - | - | (items have warehouse_id but no line_project_code in 20260528_002) | - | **Gap: purchase_requisition_items lacks line_project_code / line_serial_no** |
+| Purchase requisition | - | - | (items have warehouse_id but no line_project_code in 20260528_002) | - | **Gap: purchase_requisition_items lacks line_project_code / line_cabinet_no** |
 | Purchase order | YES | YES | YES | YES | OK |
-| Purchase receipt | source_type only | - | - | - | **Gap: purchase_receipts lacks explicit project_code/serial_no columns** |
-| Purchase invoice | YES | YES | (items have source_doc_*) | - | **Gap: purchase_invoice_items lacks line_project_code/line_serial_no** |
+| Purchase receipt | source_type only | - | - | - | **Gap: purchase_receipts lacks explicit project_code/cabinet_no columns** |
+| Purchase invoice | YES | YES | (items have source_doc_*) | - | **Gap: purchase_invoice_items lacks line_project_code/line_cabinet_no** |
 | Sales quotation | YES | YES | - | - | **Gap: quotation line items lack trace fields** |
 | Sales order | YES | YES | YES | YES | OK |
 | Sales shipment | YES | YES | - | - | **Gap: shipment line items lack trace fields** |
 | Sales return | YES | YES | - | - | **Gap: return line items lack trace fields** |
-| Sales invoice | YES | YES | (items have source_doc_*) | - | **Gap: sales_invoice_items lacks line_project_code/line_serial_no** |
-| Inventory adjustment | YES | YES | YES (line_project_code) | - | **Gap: adjustments lack line_serial_no** |
-| Transfer order | YES | - | YES | - | **Gap: transfer lacks header serial_no and line_serial_no** |
-| Inventory check | YES | - | YES | - | **Gap: check lacks header serial_no and line_serial_no** |
-| Inventory assembly | - | YES | YES | - | **Gap: assembly lacks header project_code and line_serial_no** |
+| Sales invoice | YES | YES | (items have source_doc_*) | - | **Gap: sales_invoice_items lacks line_project_code/line_cabinet_no** |
+| Inventory adjustment | YES | YES | YES (line_project_code) | - | **Gap: adjustments lack line_cabinet_no** |
+| Transfer order | YES | - | YES | - | **Gap: transfer lacks header cabinet_no and line_cabinet_no** |
+| Inventory check | YES | - | YES | - | **Gap: check lacks header cabinet_no and line_cabinet_no** |
+| Inventory assembly | - | YES | YES | - | **Gap: assembly lacks header project_code and line_cabinet_no** |
 | Stock transaction | YES | YES | (source_line_no) | - | OK (transaction is line-level by nature) |
 | Subcontract order | YES | YES | YES | YES | OK |
-| Subcontract issue | - | - | YES (lines) | YES (lines) | **Gap: header lacks project_code/serial_no** |
-| Subcontract receive | - | - | YES (lines) | YES (lines) | **Gap: header lacks project_code/serial_no** |
+| Subcontract issue | - | - | YES (lines) | YES (lines) | **Gap: header lacks project_code/cabinet_no** |
+| Subcontract receive | - | - | YES (lines) | YES (lines) | **Gap: header lacks project_code/cabinet_no** |
 | Work order | YES | YES | YES | YES | OK |
 | Pick list | YES | YES | YES | YES | OK |
-| Operation report | - | - | - | - | **Gap: operation_reports lacks project_code/serial_no entirely** |
+| Operation report | - | - | - | - | **Gap: operation_reports lacks project_code/cabinet_no entirely** |
 | Production completion | YES | YES | - | - | OK (single-product completion) |
 | Service card | YES | YES | - | - | OK (card is machine-level) |
 | Service order | YES | YES | YES (items) | YES (items) | OK |
-| Service RMA | - | - | YES | YES | **Gap: RMA header lacks project_code/serial_no** |
+| Service RMA | - | - | YES | YES | **Gap: RMA header lacks project_code/cabinet_no** |
 | Service acceptance | YES | YES | - | - | OK |
 | Customer receivable | YES | YES | (items have source_doc_*) | - | OK (header-level sufficient) |
 | Supplier payable | YES | YES | (items have source_doc_*) | - | OK |
@@ -198,29 +198,29 @@ The codebase uses **three different column names** for the same business concept
 ### 2.3 Naming Inconsistency Findings
 
 1. **Header vs line split is inconsistent.** Some documents carry trace fields only on header (sales_shipment, sales_return, customer_receipt), others only on lines (subcontract_issue/receive, service RMA), others on both (purchase_order, sales_order, work_order, pick_list). There is no rule that says when a field belongs on header vs line.
-2. **`project_id` (INTEGER FK) vs `project_code` (VARCHAR).** `machine_serial_masters` uses both: `project_id` (FK to project_masters.id) and `project_code` (denormalized string). All other tables use only `project_code` string. This creates a dual-key ambiguity for project identity.
+2. **`project_id` (INTEGER FK) vs `project_code` (VARCHAR).** `cabinet_masters` uses both: `project_id` (FK to project_masters.id) and `project_code` (denormalized string). All other tables use only `project_code` string. This creates a dual-key ambiguity for project identity.
 3. **`source_type` vs `source_doc_type`.** Both exist. `source_type` is the older convention (sales_shipments, customer_receipts, supplier_payments, vouchers, general_ledger, cash_bank_journal_entries, stock_transactions). `source_doc_type` is the newer convention (customer_receivable_items, supplier_payable_items, sales_invoice_items, purchase_invoice_items, stock_transactions, wo_complete_items). `stock_transactions` has BOTH columns. `supplier_payables` has BOTH `doc_type` and `source_type`. This is the second-largest consistency risk.
 4. **`source_id` vs `source_doc_id`.** Same dual convention. Older tables use `source_id`, newer item tables use `source_doc_id` plus `source_doc_line_id`.
-5. **No `machine_serial_no` column exists** despite AGENTS.md narrative mentioning it. The actual column is `serial_no`. Documentation and code must align on `serial_no`.
-6. **`line_serial_no` is missing from many line tables** that have `line_project_code` (inventory adjustments, transfer orders, inventory check, inventory assembly). For machine-tool manufacturing where a single project may have multiple machine serials, line-level serial is needed when one document serves multiple machines.
+5. **No `cabinet_no` column exists** despite AGENTS.md narrative mentioning it. The actual column is `cabinet_no`. Documentation and code must align on `cabinet_no`.
+6. **`line_cabinet_no` is missing from many line tables** that have `line_project_code` (inventory adjustments, transfer orders, inventory check, inventory assembly). For machine-tool manufacturing where a single project may have multiple machine cabinets, line-level cabinet is needed when one document serves multiple machines.
 
 ### 2.4 Traceability Field Gaps Summary (P0-1 candidates, NOT to be implemented in Stage A)
 
-- purchase_requisition_items: add line_project_code, line_serial_no
-- purchase_receipts: add project_code, serial_no (header)
-- purchase_invoice_items: add line_project_code, line_serial_no
-- quotation line items: add line_project_code, line_serial_no
-- sales_shipment line items: add line_project_code, line_serial_no
-- sales_return line items: add line_project_code, line_serial_no
-- sales_invoice_items: add line_project_code, line_serial_no
-- inventory_adjustments: add line_serial_no
-- transfer_orders: add serial_no (header); transfer_order_items: add line_serial_no
-- inventory_check_orders: add serial_no (header); items: add line_serial_no
-- inventory_assembly_orders: add project_code (header); items: add line_serial_no
-- subcontract_issue_orders: add project_code, serial_no (header)
-- subcontract_receive_orders: add project_code, serial_no (header)
-- operation_reports: add project_code, serial_no
-- machine_service_rmas: add project_code, serial_no (header)
+- purchase_requisition_items: add line_project_code, line_cabinet_no
+- purchase_receipts: add project_code, cabinet_no (header)
+- purchase_invoice_items: add line_project_code, line_cabinet_no
+- quotation line items: add line_project_code, line_cabinet_no
+- sales_shipment line items: add line_project_code, line_cabinet_no
+- sales_return line items: add line_project_code, line_cabinet_no
+- sales_invoice_items: add line_project_code, line_cabinet_no
+- inventory_adjustments: add line_cabinet_no
+- transfer_orders: add cabinet_no (header); transfer_order_items: add line_cabinet_no
+- inventory_check_orders: add cabinet_no (header); items: add line_cabinet_no
+- inventory_assembly_orders: add project_code (header); items: add line_cabinet_no
+- subcontract_issue_orders: add project_code, cabinet_no (header)
+- subcontract_receive_orders: add project_code, cabinet_no (header)
+- operation_reports: add project_code, cabinet_no
+- machine_service_rmas: add project_code, cabinet_no (header)
 
 These gaps are recorded for a future P0-1 migration decision. **Stage A does not write any migration.**
 
@@ -295,7 +295,7 @@ The Chinese operator-facing label for each doc_type is maintained in the UI laye
 | `service_card` | Service card | machine_service_cards | Source for service_order, RMA; links to sales_order |
 | `service_order` | Service order | machine_service_orders | Source for stock_transaction, service_fee |
 | `service_rma` | RMA | machine_service_rmas | Source for stock_transaction |
-| `service_acceptance` | Installation acceptance | machine_service_acceptance_checks | Updates machine_serial_masters.service_status |
+| `service_acceptance` | Installation acceptance | machine_service_acceptance_checks | Updates cabinet_masters.service_status |
 
 #### Finance (prefix `finance_`)
 | doc_type | English label | Table | Direction |
@@ -314,7 +314,7 @@ The Chinese operator-facing label for each doc_type is maintained in the UI laye
 | doc_type | English label | Table |
 |---|---|---|
 | `project_master` | Project master | project_masters |
-| `machine_serial_master` | Machine serial master | machine_serial_masters |
+| `cabinet_master` | Machine cabinet master | cabinet_masters |
 
 ### 3.3 Migration Strategy for doc_type (NOT in Stage A)
 
@@ -381,7 +381,7 @@ sales_quotation (optional)
 ### 4.3 Production Loop
 
 ```
-sales_order / project_master / machine_serial_master
+sales_order / project_master / cabinet_master
     -> work_order
             -> pick_list
                     -> stock_transaction (outbound)
@@ -399,7 +399,7 @@ sales_order / project_master / machine_serial_master
 ```
 
 **Current linkage mechanism:**
-- `work_orders` carry project_code, serial_no, and (via `line_project_code`/`line_serial_no`) line-level trace.
+- `work_orders` carry project_code, cabinet_no, and (via `line_project_code`/`line_cabinet_no`) line-level trace.
 - `pick_lists.work_order_id`, `pick_list_items.wo_material_item_id`.
 - `operation_reports.work_order_id`, `work_order_process_id`.
 - `production_completion_orders.work_order_id`, `wo_complete_item_id`.
@@ -412,7 +412,7 @@ sales_order / project_master / machine_serial_master
 
 ```
 sales_order
-    -> machine_service_card (sales_order_id, serial_no)
+    -> machine_service_card (sales_order_id, cabinet_no)
             -> machine_service_acceptance_check (updates service_status)
             -> machine_service_order
                     -> stock_transaction (issue/return)
@@ -421,11 +421,11 @@ sales_order
 ```
 
 **Current linkage mechanism:**
-- `machine_service_cards.sales_order_id`, `serial_no` (unique index on pair).
-- `machine_service_orders.project_code`, `serial_no`.
-- `machine_service_rmas.line_project_code`, `line_serial_no`.
+- `machine_service_cards.sales_order_id`, `cabinet_no` (unique index on pair).
+- `machine_service_orders.project_code`, `cabinet_no`.
+- `machine_service_rmas.line_project_code`, `line_cabinet_no`.
 
-**Gap:** No explicit `service_card_id` FK on service_order or RMA. Linkage is via serial_no string match only.
+**Gap:** No explicit `service_card_id` FK on service_order or RMA. Linkage is via cabinet_no string match only.
 
 ### 4.5 Finance Posting Loop
 
@@ -433,22 +433,22 @@ sales_order
 Any business document (sales_invoice, purchase_invoice, customer_receipt, supplier_payment, exchange_adjustment, period_close)
     -> voucher (source_type, source_id, source_no)
             -> voucher_lines
-                    -> general_ledger (source_type, source_id, source_no, project_code, serial_no)
+                    -> general_ledger (source_type, source_id, source_no, project_code, cabinet_no)
 ```
 
 **Current linkage mechanism:**
 - `vouchers.source_type`, `source_id`, `source_no`.
-- `voucher_lines.source_type`, `source_id`, `source_no`, `project_code`, `serial_no`.
-- `general_ledger.source_type`, `source_id`, `source_no`, `project_code`, `serial_no`.
+- `voucher_lines.source_type`, `source_id`, `source_no`, `project_code`, `cabinet_no`.
+- `general_ledger.source_type`, `source_id`, `source_no`, `project_code`, `cabinet_no`.
 
-**Gap:** `source_type` values are not from a controlled registry (see section 3.1). GL lines inherit project_code/serial_no from voucher lines, but there is no validation that they match the originating business document.
+**Gap:** `source_type` values are not from a controlled registry (see section 3.1). GL lines inherit project_code/cabinet_no from voucher lines, but there is no validation that they match the originating business document.
 
 ### 4.6 Cost Traceability Loop
 
 ```
-project_master / machine_serial_master
+project_master / cabinet_master
     -> project_cost_ledger (project_code NOT NULL)
-    -> serial_cost_ledger (serial_no NOT NULL, project_code)
+    -> cabinet_cost_ledger (cabinet_no NOT NULL, project_code)
             sourced from:
             - stock_transactions (inventory cost)
             - work_order_costs (production cost)
@@ -458,7 +458,7 @@ project_master / machine_serial_master
 
 **Current linkage mechanism:**
 - `project_cost_ledger.source_type`, `source_no` (string reference, no `source_id`).
-- `serial_cost_ledger.source_type`, `source_no` (string reference, no `source_id`).
+- `cabinet_cost_ledger.source_type`, `source_no` (string reference, no `source_id`).
 
 **Gap:** Cost ledger has no `source_id` INTEGER FK, only `source_no` string. Cannot reliably join back to source document if doc_no is duplicated or renamed.
 
@@ -471,7 +471,7 @@ project_master / machine_serial_master
 **In scope (P0-2 traceability engine):**
 - Read-only traversal of document relationships defined in section 4.
 - Forward and reverse link discovery: given a doc_type + doc_id, return all upstream sources and downstream targets.
-- Project/serial-centric view: given a project_code or serial_no, return all documents and transactions touching it.
+- Project/serial-centric view: given a project_code or cabinet_no, return all documents and transactions touching it.
 - Snapshot capture: at the moment a document is posted/audited, capture a read-only snapshot of its header, lines, and trace context for later reconstruction.
 - Trace query API for workbench queues, exception lists, and audit (no new UI pages in Stage A).
 
@@ -498,16 +498,16 @@ project_master / machine_serial_master
 
 - **trace_links / trace_snapshots tables**: owned by the traceability engine service. No other module may INSERT/UPDATE/DELETE these tables directly.
 - **Source business documents**: remain owned by their respective modules (purchase, sales, inventory, production, service, finance). The traceability engine only reads them.
-- **project_code / serial_no values**: owned by the originating document. The traceability engine does not normalize or rewrite them; it only records what the source document carried at snapshot time.
+- **project_code / cabinet_no values**: owned by the originating document. The traceability engine does not normalize or rewrite them; it only records what the source document carried at snapshot time.
 
 ### 5.5 Upstream Source Documents
 
 The traceability engine consumes (read-only):
 - All document tables listed in section 1.3.
-- `project_masters`, `machine_serial_masters`.
+- `project_masters`, `cabinet_masters`.
 - `stock_transactions`, `inventory_balances`, `batch_tracking`.
 - `vouchers`, `voucher_lines`, `general_ledger`.
-- `project_cost_ledger`, `serial_cost_ledger`.
+- `project_cost_ledger`, `cabinet_cost_ledger`.
 
 ### 5.6 Downstream Impact
 
@@ -520,7 +520,7 @@ The traceability engine consumes (read-only):
 - Given a `sales_order` id, the engine returns all shipments, invoices, receivables, receipts, service cards, and GL lines linked to it.
 - Given a `work_order` id, the engine returns its pick lists, operation reports, completions, subcontract orders, and cost records.
 - Given a `project_code`, the engine returns all documents and transactions carrying that project_code across all modules.
-- Given a `serial_no`, the engine returns all documents and transactions carrying that serial_no, plus the machine_serial_master record.
+- Given a `cabinet_no`, the engine returns all documents and transactions carrying that cabinet_no, plus the cabinet_master record.
 - Given a `stock_transaction` id, the engine returns its source document and any downstream cost ledger entries.
 - Snapshot reconstruction: given a document id and a snapshot timestamp, the engine returns the document header, lines, and trace context as it existed at that timestamp.
 - Trace integrity audit: for every document with `source_type` + `source_id`, a corresponding `trace_links` row exists. A new audit script `scripts/audit_trace_links_integrity.py` (to be created when P0-2 is implemented, NOT in Stage A) reports any missing links.
@@ -580,7 +580,7 @@ CREATE TABLE IF NOT EXISTS trace_links (
     link_type VARCHAR(40) NOT NULL,                 -- see section 6.1 link direction rule
     link_strength VARCHAR(20) NOT NULL DEFAULT 'hard',  -- 'hard' = FK-backed, 'soft' = string match only
     project_code VARCHAR(120),                      -- denormalized from source for project-centric query
-    serial_no VARCHAR(120),                         -- denormalized from source for serial-centric query
+    cabinet_no VARCHAR(120),                         -- denormalized from source for serial-centric query
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     created_by INTEGER,                             -- user or system action that created the link
     created_event VARCHAR(80)                       -- 'post' | 'audit' | 'settle' | 'reverse' | 'void'
@@ -594,7 +594,7 @@ CREATE TABLE IF NOT EXISTS trace_links (
 CREATE INDEX IF NOT EXISTS idx_trace_links_source ON trace_links(source_doc_type, source_doc_id);
 CREATE INDEX IF NOT EXISTS idx_trace_links_target ON trace_links(target_doc_type, target_doc_id);
 CREATE INDEX IF NOT EXISTS idx_trace_links_project ON trace_links(project_code) WHERE project_code IS NOT NULL AND project_code <> '';
-CREATE INDEX IF NOT EXISTS idx_trace_links_serial ON trace_links(serial_no) WHERE serial_no IS NOT NULL AND serial_no <> '';
+CREATE INDEX IF NOT EXISTS idx_trace_links_serial ON trace_links(cabinet_no) WHERE cabinet_no IS NOT NULL AND cabinet_no <> '';
 CREATE INDEX IF NOT EXISTS idx_trace_links_source_line ON trace_links(source_doc_type, source_line_id) WHERE source_line_id IS NOT NULL;
 ```
 
@@ -642,7 +642,7 @@ CREATE TABLE IF NOT EXISTS trace_snapshots (
     snapshot_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     snapshot_by INTEGER,                            -- user id
     project_code VARCHAR(120),
-    serial_no VARCHAR(120),
+    cabinet_no VARCHAR(120),
     header_payload JSONB NOT NULL,                  -- full header row as JSON
     lines_payload JSONB NOT NULL DEFAULT '[]',      -- array of line rows as JSON
     trace_context_payload JSONB NOT NULL DEFAULT '{}',  -- summary of upstream/downstream links at snapshot time
@@ -653,7 +653,7 @@ CREATE TABLE IF NOT EXISTS trace_snapshots (
 CREATE INDEX IF NOT EXISTS idx_trace_snapshots_doc ON trace_snapshots(doc_type, doc_id);
 CREATE INDEX IF NOT EXISTS idx_trace_snapshots_doc_no ON trace_snapshots(doc_type, doc_no);
 CREATE INDEX IF NOT EXISTS idx_trace_snapshots_project ON trace_snapshots(project_code) WHERE project_code IS NOT NULL AND project_code <> '';
-CREATE INDEX IF NOT EXISTS idx_trace_snapshots_serial ON trace_snapshots(serial_no) WHERE serial_no IS NOT NULL AND serial_no <> '';
+CREATE INDEX IF NOT EXISTS idx_trace_snapshots_serial ON trace_snapshots(cabinet_no) WHERE cabinet_no IS NOT NULL AND cabinet_no <> '';
 CREATE INDEX IF NOT EXISTS idx_trace_snapshots_event ON trace_snapshots(doc_type, doc_id, snapshot_event);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_trace_snapshots_event
     ON trace_snapshots(doc_type, doc_id, snapshot_event, snapshot_at);
@@ -679,7 +679,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_trace_snapshots_event
 
 When P0-2 is implemented:
 1. Run a one-time backfill script that reads every document table's `source_type` / `source_doc_type` / `source_id` / `source_doc_id` / `source_no` / `source_doc_no` columns and inserts corresponding `trace_links` rows with `link_type='source_of'` and `link_strength='hard'` (where INTEGER FK exists) or `'soft'` (where only string match exists).
-2. For documents with `project_code` / `serial_no` but no explicit source link, insert a `source_of` link from `project_master` or `machine_serial_master` to the document.
+2. For documents with `project_code` / `cabinet_no` but no explicit source link, insert a `source_of` link from `project_master` or `cabinet_master` to the document.
 3. Do NOT backfill `trace_snapshots` for historical documents - snapshots begin from the P0-2 go-live event forward. Historical reconstruction relies on `trace_links` + live document tables.
 
 ---
@@ -689,7 +689,7 @@ When P0-2 is implemented:
 The following are explicitly excluded from P0 Stage A and P0-2 implementation unless the user issues a separate written request:
 
 1. **MRP (Material Requirements Planning)** - no BOM explosion, no net requirement calculation, no planned order generation. The traceability engine only records existing document relationships; it does not compute future requirements.
-2. **Cost engine / cost rollup** - no standard cost recompute, no actual cost allocation, no variance analysis. `project_cost_ledger` and `serial_cost_ledger` remain as-is; the traceability engine reads them but does not write them.
+2. **Cost engine / cost rollup** - no standard cost recompute, no actual cost allocation, no variance analysis. `project_cost_ledger` and `cabinet_cost_ledger` remain as-is; the traceability engine reads them but does not write them.
 3. **BOM snapshot versioning** - no BOM version freeze at work-order release, no BOM-as-of-date query. BOM ECN (`bom_engineering_changes`) remains the only change-control mechanism.
 4. **Row-level data permission (RLS)** - the traceability engine does not enforce per-user document visibility. Role-group permissions remain the only access control. Row-level enforcement is a separate security project.
 5. **New report pages** - no new operator-facing report. The trace query API is internal only.

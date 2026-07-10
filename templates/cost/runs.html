@@ -31,7 +31,7 @@
     <div class="section-title">
         <div>
             <h2>查询条件</h2>
-            <span>支持运行编号、期间、项目号、机号、状态筛选。</span>
+            <span>支持运行编号、期间、项目号、柜号、状态筛选。</span>
         </div>
         <span class="badge text-bg-light">readonly / 只读</span>
     </div>
@@ -46,7 +46,7 @@
             <input class="form-control" name="project_code" value="{{ filters.project_code }}" placeholder="项目号">
         </div>
         <div class="col-lg-2">
-            <input class="form-control" name="serial_no" value="{{ filters.serial_no }}" placeholder="机号">
+            <input class="form-control" name="cabinet_no" value="{{ filters.cabinet_no }}" placeholder="柜号">
         </div>
         <div class="col-lg-2">
             <select class="form-select" name="status">
@@ -75,7 +75,7 @@
                     <th>运行编号</th>
                     <th>期间</th>
                     <th>项目号</th>
-                    <th>机号</th>
+                    <th>柜号</th>
                     <th>工单</th>
                     <th>状态</th>
                     <th class="text-end">材料</th>
@@ -94,7 +94,7 @@
                     <td><a href="/cost/runs/{{ run.id }}">{{ run.run_no }}</a></td>
                     <td>{{ run.period or '-' }}</td>
                     <td>{{ run.project_code or '-' }}</td>
-                    <td>{{ run.serial_no or '-' }}</td>
+                    <td>{{ run.cabinet_no or '-' }}</td>
                     <td>{{ run.work_order_id or '-' }}</td>
                     <td>
                         {% if run.status == 'completed' %}

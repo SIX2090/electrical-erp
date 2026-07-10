@@ -136,9 +136,9 @@
                        placeholder="项目号" value="{{ filters.project_code or '' }}">
             </div>
             <div class="col-md-2">
-                <label class="form-label">机号</label>
-                <input type="text" name="serial_no" class="form-control"
-                       placeholder="机号" value="{{ filters.serial_no or '' }}">
+                <label class="form-label">柜号</label>
+                <input type="text" name="cabinet_no" class="form-control"
+                       placeholder="柜号" value="{{ filters.cabinet_no or '' }}">
             </div>
             <div class="col-md-3">
                 <label class="form-label">订单日期</label>
@@ -181,7 +181,7 @@
                         <th rowspan="2" style="vertical-align: middle;">订单日期</th>
                         <th rowspan="2" style="vertical-align: middle;">客户</th>
                         <th rowspan="2" style="vertical-align: middle;">项目号</th>
-                        <th rowspan="2" style="vertical-align: middle;">机号</th>
+                        <th rowspan="2" style="vertical-align: middle;">柜号</th>
                         <th rowspan="2" style="vertical-align: middle;">物料编码</th>
                         <th rowspan="2" style="vertical-align: middle;">物料名称</th>
                         <th rowspan="2" style="vertical-align: middle;">规格</th>
@@ -208,7 +208,7 @@
                         <td>{{ row.order_date }}</td>
                         <td>{{ row.customer_name }}</td>
                         <td>{{ row.project_code or '-' }}</td>
-                        <td>{{ row.serial_no or '-' }}</td>
+                        <td>{{ row.cabinet_no or '-' }}</td>
                         <td>{{ row.item_code }}</td>
                         <td>{{ row.item_name }}</td>
                         <td>{{ row.specification or '-' }}</td>

@@ -72,19 +72,19 @@ legacy_mismatch = cur.fetchone()['mismatch_count']
 cur.execute(f"""
     WITH batch AS (
         SELECT product_id, COALESCE(warehouse_id,0) AS wh, COALESCE(location_id,0) AS loc,
-               COALESCE(lot_no,'') AS lot, COALESCE(serial_no,'') AS sn, COALESCE(project_code,'') AS proj,
+               COALESCE(lot_no,'') AS lot, COALESCE(cabinet_no,'') AS sn, COALESCE(project_code,'') AS proj,
                SUM(COALESCE(quantity_available,0)) AS qty, COUNT(*) AS cnt
         FROM batch_tracking
         GROUP BY product_id, COALESCE(warehouse_id,0), COALESCE(location_id,0),
-                 COALESCE(lot_no,''), COALESCE(serial_no,''), COALESCE(project_code,'')
+                 COALESCE(lot_no,''), COALESCE(cabinet_no,''), COALESCE(project_code,'')
     ),
     balance AS (
         SELECT product_id, COALESCE(warehouse_id,0) AS wh, COALESCE(location_id,0) AS loc,
-               COALESCE(lot_no,'') AS lot, COALESCE(serial_no,'') AS sn, COALESCE(project_code,'') AS proj,
+               COALESCE(lot_no,'') AS lot, COALESCE(cabinet_no,'') AS sn, COALESCE(project_code,'') AS proj,
                SUM(COALESCE(quantity,0)) AS qty
         FROM inventory_balances
         GROUP BY product_id, COALESCE(warehouse_id,0), COALESCE(location_id,0),
-                 COALESCE(lot_no,''), COALESCE(serial_no,''), COALESCE(project_code,'')
+                 COALESCE(lot_no,''), COALESCE(cabinet_no,''), COALESCE(project_code,'')
     )
     SELECT COUNT(*) AS mismatch_count
     FROM batch b FULL OUTER JOIN balance bal
@@ -222,7 +222,7 @@ cur.execute("""
     WITH desired AS (
         SELECT product_id,
                COALESCE(warehouse_id,0) AS wh, COALESCE(location_id,0) AS loc,
-               COALESCE(lot_no,'') AS lot, COALESCE(serial_no,'') AS sn, COALESCE(project_code,'') AS proj,
+               COALESCE(lot_no,'') AS lot, COALESCE(cabinet_no,'') AS sn, COALESCE(project_code,'') AS proj,
                SUM(COALESCE(quantity,0)) AS qty,
                CASE WHEN COALESCE(SUM(quantity),0) <> 0
                    THEN COALESCE(SUM(quantity * COALESCE(unit_cost,0)) / NULLIF(SUM(quantity),0),0)
@@ -230,15 +230,15 @@ cur.execute("""
                END AS cost
         FROM inventory_balances
         GROUP BY product_id, COALESCE(warehouse_id,0), COALESCE(location_id,0),
-                 COALESCE(lot_no,''), COALESCE(serial_no,''), COALESCE(project_code,'')
+                 COALESCE(lot_no,''), COALESCE(cabinet_no,''), COALESCE(project_code,'')
     ),
     ranked AS (
         SELECT id, product_id,
                COALESCE(warehouse_id,0) AS wh, COALESCE(location_id,0) AS loc,
-               COALESCE(lot_no,'') AS lot, COALESCE(serial_no,'') AS sn, COALESCE(project_code,'') AS proj,
+               COALESCE(lot_no,'') AS lot, COALESCE(cabinet_no,'') AS sn, COALESCE(project_code,'') AS proj,
                ROW_NUMBER() OVER (
                    PARTITION BY product_id, COALESCE(warehouse_id,0), COALESCE(location_id,0),
-                                COALESCE(lot_no,''), COALESCE(serial_no,''), COALESCE(project_code,'')
+                                COALESCE(lot_no,''), COALESCE(cabinet_no,''), COALESCE(project_code,'')
                    ORDER BY id
                ) AS rn
         FROM batch_tracking
@@ -260,7 +260,7 @@ cur.execute("""
         SELECT id,
                ROW_NUMBER() OVER (
                    PARTITION BY product_id, COALESCE(warehouse_id,0), COALESCE(location_id,0),
-                                COALESCE(lot_no,''), COALESCE(serial_no,''), COALESCE(project_code,'')
+                                COALESCE(lot_no,''), COALESCE(cabinet_no,''), COALESCE(project_code,'')
                    ORDER BY id
                ) AS rn
         FROM batch_tracking
@@ -275,7 +275,7 @@ cur.execute("""
     WITH desired AS (
         SELECT product_id,
                COALESCE(warehouse_id,0) AS wh, COALESCE(location_id,0) AS loc,
-               COALESCE(lot_no,'') AS lot, COALESCE(serial_no,'') AS sn, COALESCE(project_code,'') AS proj,
+               COALESCE(lot_no,'') AS lot, COALESCE(cabinet_no,'') AS sn, COALESCE(project_code,'') AS proj,
                SUM(COALESCE(quantity,0)) AS qty,
                CASE WHEN COALESCE(SUM(quantity),0) <> 0
                    THEN COALESCE(SUM(quantity * COALESCE(unit_cost,0)) / NULLIF(SUM(quantity),0),0)
@@ -283,16 +283,16 @@ cur.execute("""
                END AS cost
         FROM inventory_balances
         GROUP BY product_id, COALESCE(warehouse_id,0), COALESCE(location_id,0),
-                 COALESCE(lot_no,''), COALESCE(serial_no,''), COALESCE(project_code,'')
+                 COALESCE(lot_no,''), COALESCE(cabinet_no,''), COALESCE(project_code,'')
     ),
     existing AS (
         SELECT DISTINCT product_id,
                COALESCE(warehouse_id,0) AS wh, COALESCE(location_id,0) AS loc,
-               COALESCE(lot_no,'') AS lot, COALESCE(serial_no,'') AS sn, COALESCE(project_code,'') AS proj
+               COALESCE(lot_no,'') AS lot, COALESCE(cabinet_no,'') AS sn, COALESCE(project_code,'') AS proj
         FROM batch_tracking
     )
     INSERT INTO batch_tracking
-        (lot_no, product_id, warehouse_id, location_id, serial_no, project_code,
+        (lot_no, product_id, warehouse_id, location_id, cabinet_no, project_code,
          quantity_in, quantity_out, quantity_available, unit_cost, source_order_no,
          status, created_at, updated_at)
     SELECT COALESCE(d.lot,''), d.product_id, NULLIF(d.wh,0), NULLIF(d.loc,0),
@@ -339,19 +339,19 @@ final_legacy = cur.fetchone()['mismatch_count']
 cur.execute(f"""
     WITH batch AS (
         SELECT product_id, COALESCE(warehouse_id,0) AS wh, COALESCE(location_id,0) AS loc,
-               COALESCE(lot_no,'') AS lot, COALESCE(serial_no,'') AS sn, COALESCE(project_code,'') AS proj,
+               COALESCE(lot_no,'') AS lot, COALESCE(cabinet_no,'') AS sn, COALESCE(project_code,'') AS proj,
                SUM(COALESCE(quantity_available,0)) AS qty, COUNT(*) AS cnt
         FROM batch_tracking
         GROUP BY product_id, COALESCE(warehouse_id,0), COALESCE(location_id,0),
-                 COALESCE(lot_no,''), COALESCE(serial_no,''), COALESCE(project_code,'')
+                 COALESCE(lot_no,''), COALESCE(cabinet_no,''), COALESCE(project_code,'')
     ),
     balance AS (
         SELECT product_id, COALESCE(warehouse_id,0) AS wh, COALESCE(location_id,0) AS loc,
-               COALESCE(lot_no,'') AS lot, COALESCE(serial_no,'') AS sn, COALESCE(project_code,'') AS proj,
+               COALESCE(lot_no,'') AS lot, COALESCE(cabinet_no,'') AS sn, COALESCE(project_code,'') AS proj,
                SUM(COALESCE(quantity,0)) AS qty
         FROM inventory_balances
         GROUP BY product_id, COALESCE(warehouse_id,0), COALESCE(location_id,0),
-                 COALESCE(lot_no,''), COALESCE(serial_no,''), COALESCE(project_code,'')
+                 COALESCE(lot_no,''), COALESCE(cabinet_no,''), COALESCE(project_code,'')
     )
     SELECT COUNT(*) AS mismatch_count
     FROM batch b FULL OUTER JOIN balance bal

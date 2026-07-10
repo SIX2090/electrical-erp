@@ -242,19 +242,19 @@ def render_project_master_form(query_one, query_rows, project_id=None):
     )
 
 
-def render_machine_serial_master_form(query_one, query_rows, machine_id=None):
-    machine = _one(query_one, "SELECT * FROM machine_serial_masters WHERE id=%s", (machine_id,)) if machine_id else None
+def render_cabinet_master_form(query_one, query_rows, machine_id=None):
+    machine = _one(query_one, "SELECT * FROM cabinet_masters WHERE id=%s", (machine_id,)) if machine_id else None
     return render_template(
         "operation_form.html",
-        title="编辑机号档案" if machine else "新增机号档案",
-        subtitle="维护整机机号、所属项目、客户、成品物料、机型和售后状态；机号用于单机成本、发货、安装和售后追溯。",
-        back_url="/machine-serial-master",
-        action_url=f"/machine-serial-master/{machine_id}/edit" if machine else "/machine-serial-master/new",
+        title="编辑柜号档案" if machine else "新增柜号档案",
+        subtitle="维护整机柜号、所属项目、客户、成品物料、机型和售后状态；柜号用于单机成本、发货、安装和售后追溯。",
+        back_url="/cabinet-master",
+        action_url=f"/cabinet-master/{machine_id}/edit" if machine else "/cabinet-master/new",
         sections=[
             {
-                "title": "机号资料",
+                "title": "柜号资料",
                 "fields": [
-                    {"name": "serial_no", "label": "机号", "required": True, "value": machine.get("serial_no") if machine else ""},
+                    {"name": "cabinet_no", "label": "柜号", "required": True, "value": machine.get("cabinet_no") if machine else ""},
                     {"name": "project_id", "label": "所属项目", "type": "select", "options": _rows(query_rows, "SELECT id, project_code || COALESCE(' / ' || NULLIF(project_name,''), '') AS name FROM project_masters ORDER BY project_code LIMIT 500"), "value": machine.get("project_id") if machine else ""},
                     {"name": "customer_id", "label": "客户", "type": "select", "options": _rows(query_rows, "SELECT id, name FROM customers WHERE COALESCE(status, '启用') NOT IN ('停用','disabled','inactive') ORDER BY name LIMIT 500"), "value": machine.get("customer_id") if machine else ""},
                     {"name": "product_id", "label": "成品物料", "type": "select", "options": _rows(query_rows, "SELECT id, code || ' / ' || name AS name FROM products ORDER BY code LIMIT 500"), "value": machine.get("product_id") if machine else ""},

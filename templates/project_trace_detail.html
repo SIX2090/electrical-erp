@@ -1,6 +1,6 @@
 {% extends "base.html" %}
-{% block title %}项目/机号台账 - {{ order.order_no if order else '' }}{% endblock %}
-{% block header_title %}项目/机号台账{% endblock %}
+{% block title %}项目/柜号台账 - {{ order.order_no if order else '' }}{% endblock %}
+{% block header_title %}项目/柜号台账{% endblock %}
 {% block content %}
 {% if not order %}
 <div class="page-card">未找到项目。</div>
@@ -12,7 +12,7 @@
 {% elif work_orders|length %}{% set active_stage = '生产' %}
 {% elif kit_summary.shortage_count or purchase_orders|length %}{% set active_stage = '齐套/采购' %}
 {% endif %}
-{% set trace_keyword = order.project_code or order.serial_no or order.order_no %}
+{% set trace_keyword = order.project_code or order.cabinet_no or order.order_no %}
 
 <div class="mb-3">
     <a class="btn btn-outline-secondary btn-sm" href="/projects"><i class="bi bi-arrow-left"></i> 返回台账</a>
@@ -22,7 +22,7 @@
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
         <div>
             <strong>项目下一步</strong>
-            <div class="text-muted small">按当前项目/机号的 BOM 齐套缺口生成采购申请，不混入其他项目缺料。</div>
+            <div class="text-muted small">按当前项目/柜号的 BOM 齐套缺口生成采购申请，不混入其他项目缺料。</div>
         </div>
         <div class="d-flex flex-wrap gap-2">
             {% if kit_summary.shortage_count %}
@@ -44,7 +44,7 @@
     <div class="project-hero-main">
         <div>
             <div class="project-kicker">项目驾驶舱</div>
-            <h1>{{ order.project_code or order.order_no }}{% if order.serial_no %} / {{ order.serial_no }}{% endif %}</h1>
+            <h1>{{ order.project_code or order.order_no }}{% if order.cabinet_no %} / {{ order.cabinet_no }}{% endif %}</h1>
         <div class="project-meta">
             <span>销售订单 {{ order.order_no }}</span>
             <span>客户 {{ order.customer_name or '-' }}</span>
@@ -194,7 +194,7 @@
     <div class="section-title">
         <div>
             <h2>生命周期事件流</h2>
-            <span>按项目号、机号和成本对象汇总已有单据，只读查看主线进展</span>
+            <span>按项目号、柜号和成本对象汇总已有单据，只读查看主线进展</span>
         </div>
         {% if project_events %}<span class="status-pill">{{ project_events|length }} 条</span>{% endif %}
     </div>

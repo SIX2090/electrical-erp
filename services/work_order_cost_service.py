@@ -136,7 +136,7 @@ def _subcontract_lines(query_rows, order, work_order_id, cost_object_id):
                sc.parent_work_order_id=%s
                OR (%s IS NOT NULL AND COALESCE(sp.cost_object_id, sc.cost_object_id)=%s)
                OR (%s IS NOT NULL AND COALESCE(sp.project_code, sc.project_code)=%s)
-               OR (%s IS NOT NULL AND COALESCE(sp.serial_no, sc.serial_no)=%s)
+               OR (%s IS NOT NULL AND COALESCE(sp.cabinet_no, sc.cabinet_no)=%s)
           )
         ORDER BY sp.id
         """,
@@ -146,8 +146,8 @@ def _subcontract_lines(query_rows, order, work_order_id, cost_object_id):
             cost_object_id,
             order.get("project_code"),
             order.get("project_code"),
-            order.get("serial_no"),
-            order.get("serial_no"),
+            order.get("cabinet_no"),
+            order.get("cabinet_no"),
         ),
     )
     if receive_rows:
@@ -181,12 +181,12 @@ def _subcontract_lines(query_rows, order, work_order_id, cost_object_id):
 
     rows = query_rows(
         """
-        SELECT id, order_no, total_amount, quantity, project_code, serial_no
+        SELECT id, order_no, total_amount, quantity, project_code, cabinet_no
         FROM subcontract_orders
         WHERE parent_work_order_id=%s
            OR (%s IS NOT NULL AND cost_object_id=%s)
            OR (%s IS NOT NULL AND project_code=%s)
-           OR (%s IS NOT NULL AND serial_no=%s)
+           OR (%s IS NOT NULL AND cabinet_no=%s)
         ORDER BY id
         """,
         (
@@ -195,8 +195,8 @@ def _subcontract_lines(query_rows, order, work_order_id, cost_object_id):
             cost_object_id,
             order.get("project_code"),
             order.get("project_code"),
-            order.get("serial_no"),
-            order.get("serial_no"),
+            order.get("cabinet_no"),
+            order.get("cabinet_no"),
         ),
     )
     lines = []
@@ -353,7 +353,7 @@ def sync_work_order_costs(query_one, query_rows, execute_db, work_order_id, sour
     ensure_work_order_cost_schema(execute_db)
     order = query_one(
         """
-        SELECT id, wo_no, product_id, project_code, serial_no, cost_object_id, quantity
+        SELECT id, wo_no, product_id, project_code, cabinet_no, cost_object_id, quantity
         FROM work_orders
         WHERE id=%s
         """,

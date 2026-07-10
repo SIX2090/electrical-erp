@@ -89,7 +89,7 @@ def _list_columns(table, preferred=None):
         "wo_no": "\u5de5\u5355\u53f7",
         "bom_no": "BOM\u7f16\u53f7",
         "project_code": "\u9879\u76ee\u53f7",
-        "serial_no": "\u673a\u53f7",
+        "cabinet_no": "\u673a\u53f7",
         "status": "\u72b6\u6001",
         "quantity": "\u6570\u91cf",
         "total_amount": "\u603b\u91d1\u989d",
@@ -114,7 +114,7 @@ def _list_columns(table, preferred=None):
             "wo_no",
             "bom_no",
             "project_code",
-            "serial_no",
+            "cabinet_no",
             "status",
             "quantity",
             "total_amount",
@@ -174,9 +174,9 @@ def _select_rows(table, preferred=None, limit=100):
     if status and "status" in table_cols:
         where_parts.append(f"COALESCE({_quote_identifier('status')}, '') ILIKE %s")
         params.append(f"%{status}%")
-    project = (request.args.get("project") or request.args.get("project_serial") or "").strip()
+    project = (request.args.get("project") or request.args.get("project_cabinet") or "").strip()
     if project:
-        project_cols = [col for col in ("project_code", "project_no", "serial_no", "machine_serial_no") if col in table_cols]
+        project_cols = [col for col in ("project_code", "project_no", "cabinet_no", "cabinet_no") if col in table_cols]
         if project_cols:
             where_parts.append("(" + " OR ".join(f"COALESCE({_quote_identifier(col)}, '') ILIKE %s" for col in project_cols) + ")")
             params.extend([f"%{project}%"] * len(project_cols))

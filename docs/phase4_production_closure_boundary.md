@@ -4,7 +4,7 @@
 
 This boundary covers production closure from Work order preparation through material issue, operation reporting, completion inbound, work order cost collection, and project and machine ledger traceability.
 
-The loop starts after engineering readiness and work order preparation are complete. It ends when issued materials, production returns, completion inbound records, stock transactions, and work order cost lines can be reconciled by work order, project code, and machine serial number.
+The loop starts after engineering readiness and work order preparation are complete. It ends when issued materials, production returns, completion inbound records, stock transactions, and work order cost lines can be reconciled by work order, project code, and cabinet number.
 
 ## Source and Target Documents
 
@@ -34,7 +34,7 @@ Target documents and views:
 
 ## Read-Only Closure Data
 
-Project-axis production closure APIs expose read-only data for sales order, project code, or machine serial number. They summarize work order count, pending issue quantity, issue document count, return document count, completion document count, cost line count, total cost, blocked reason, next action, and owner role.
+Project-axis production closure APIs expose read-only data for sales order, project code, or cabinet number. They summarize work order count, pending issue quantity, issue document count, return document count, completion document count, cost line count, total cost, blocked reason, next action, and owner role.
 
 The read-only APIs must not create, submit, audit, reverse, void, post, or delete any production, inventory, procurement, or finance document.
 
@@ -53,4 +53,4 @@ The loop is accepted only when operators can verify the following:
 - Completion inbound documents create traceable stock transactions and can be reversed through controlled document logic.
 - Work order cost collection regenerates controlled system cost lines idempotently from material issue, return, completion, subcontract, and operation-report basis.
 - Project and machine ledger views include production issue, production return, completion inbound, and work order cost lifecycle events.
-- Project code and machine serial number remain traceability fields throughout issue, return, completion, inventory, and cost views.
+- Project code and cabinet number remain traceability fields throughout issue, return, completion, inventory, and cost views.

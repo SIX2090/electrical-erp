@@ -142,7 +142,7 @@ def render_work_order_requisition_dashboard(query_rows):
         where.append(
             """
             (
-                wo.wo_no ILIKE %s OR wo.project_code ILIKE %s OR wo.serial_no ILIKE %s
+                wo.wo_no ILIKE %s OR wo.project_code ILIKE %s OR wo.cabinet_no ILIKE %s
                 OR p.code ILIKE %s OR p.name ILIKE %s
             )
             """
@@ -172,7 +172,7 @@ def render_work_order_requisition_dashboard(query_rows):
     where_sql = "WHERE " + " AND ".join(where) if where else ""
     rows = query_rows(
         f"""
-        SELECT wo.id, wo.wo_no, wo.wo_date, wo.project_code, wo.serial_no, wo.status,
+        SELECT wo.id, wo.wo_no, wo.wo_date, wo.project_code, wo.cabinet_no, wo.status,
                wo.quantity AS work_order_qty, wo.planned_end_date,
                p.code AS product_code, p.name AS product_name,
                COALESCE(pc.name, p.category, '') AS product_family,
@@ -226,7 +226,7 @@ def render_work_order_requisition_dashboard(query_rows):
                   AND (mi.warehouse_id IS NULL OR ib.warehouse_id=mi.warehouse_id)
                   AND (mi.location_id IS NULL OR ib.location_id=mi.location_id)
                   AND (COALESCE(mi.line_project_code, '')='' OR COALESCE(ib.project_code, '')=COALESCE(mi.line_project_code, ''))
-                  AND (COALESCE(mi.line_serial_no, '')='' OR COALESCE(ib.serial_no, '')=COALESCE(mi.line_serial_no, ''))
+                  AND (COALESCE(mi.line_cabinet_no, '')='' OR COALESCE(ib.cabinet_no, '')=COALESCE(mi.line_cabinet_no, ''))
             ) inv ON TRUE
             WHERE mi.wo_id=wo.id
         ) req ON TRUE
@@ -241,7 +241,7 @@ def render_work_order_requisition_dashboard(query_rows):
                   AND COALESCE(pr.status, '') NOT IN ('已关闭','已作废','已取消','closed','void','voided','cancelled','canceled')
                   AND COALESCE(pri.quantity, 0) > 0
                   AND (COALESCE(mi.line_project_code, wo.project_code, '')='' OR COALESCE(pri.project_code, pr.project_code, '')=COALESCE(mi.line_project_code, wo.project_code, ''))
-                  AND (COALESCE(mi.line_serial_no, wo.serial_no, '')='' OR COALESCE(pri.serial_no, pr.serial_no, '')=COALESCE(mi.line_serial_no, wo.serial_no, ''))
+                  AND (COALESCE(mi.line_cabinet_no, wo.cabinet_no, '')='' OR COALESCE(pri.cabinet_no, pr.cabinet_no, '')=COALESCE(mi.line_cabinet_no, wo.cabinet_no, ''))
                 UNION ALL
                 SELECT MAX(COALESCE(poi.expected_date, po.expected_date)) AS candidate_date
                 FROM wo_material_items mi
@@ -251,7 +251,7 @@ def render_work_order_requisition_dashboard(query_rows):
                   AND COALESCE(po.status, '') NOT IN ('已关闭','已作废','已取消','closed','completed','void','voided','cancelled','canceled')
                   AND GREATEST(COALESCE(poi.quantity, 0)-COALESCE(poi.received_qty, 0), 0) > 0
                   AND (COALESCE(mi.line_project_code, wo.project_code, '')='' OR COALESCE(poi.line_project_code, po.project_code, '')=COALESCE(mi.line_project_code, wo.project_code, ''))
-                  AND (COALESCE(mi.line_serial_no, wo.serial_no, '')='' OR COALESCE(poi.line_serial_no, po.serial_no, '')=COALESCE(mi.line_serial_no, wo.serial_no, ''))
+                  AND (COALESCE(mi.line_cabinet_no, wo.cabinet_no, '')='' OR COALESCE(poi.line_cabinet_no, po.cabinet_no, '')=COALESCE(mi.line_cabinet_no, wo.cabinet_no, ''))
                 UNION ALL
                 SELECT MAX(so.required_date) AS candidate_date
                 FROM wo_material_items mi
@@ -260,7 +260,7 @@ def render_work_order_requisition_dashboard(query_rows):
                   AND COALESCE(so.status, '') NOT IN ('已关闭','已作废','已取消','closed','completed','void','voided','cancelled','canceled')
                   AND GREATEST(COALESCE(so.quantity, 0)-COALESCE(so.received_qty, 0), 0) > 0
                   AND (COALESCE(mi.line_project_code, wo.project_code, '')='' OR COALESCE(so.project_code, so.line_project_code, '')=COALESCE(mi.line_project_code, wo.project_code, ''))
-                  AND (COALESCE(mi.line_serial_no, wo.serial_no, '')='' OR COALESCE(so.serial_no, so.line_serial_no, '')=COALESCE(mi.line_serial_no, wo.serial_no, ''))
+                  AND (COALESCE(mi.line_cabinet_no, wo.cabinet_no, '')='' OR COALESCE(so.cabinet_no, so.line_cabinet_no, '')=COALESCE(mi.line_cabinet_no, wo.cabinet_no, ''))
                 UNION ALL
                 SELECT MAX(child_wo.planned_end_date) AS candidate_date
                 FROM wo_material_items mi
@@ -269,7 +269,7 @@ def render_work_order_requisition_dashboard(query_rows):
                   AND COALESCE(child_wo.status, '') NOT IN ('已完工','已关闭','已完成','closed','completed','cancelled','canceled')
                   AND COALESCE(child_wo.quantity, 0) > 0
                   AND (COALESCE(mi.line_project_code, wo.project_code, '')='' OR COALESCE(child_wo.project_code, child_wo.line_project_code, '')=COALESCE(mi.line_project_code, wo.project_code, ''))
-                  AND (COALESCE(mi.line_serial_no, wo.serial_no, '')='' OR COALESCE(child_wo.serial_no, child_wo.line_serial_no, '')=COALESCE(mi.line_serial_no, wo.serial_no, ''))
+                  AND (COALESCE(mi.line_cabinet_no, wo.cabinet_no, '')='' OR COALESCE(child_wo.cabinet_no, child_wo.line_cabinet_no, '')=COALESCE(mi.line_cabinet_no, wo.cabinet_no, ''))
             ) dates
         ) commitment ON TRUE
         LEFT JOIN LATERAL (
@@ -278,7 +278,7 @@ def render_work_order_requisition_dashboard(query_rows):
             WHERE COALESCE(mr.shortage_quantity, 0) > 0
               AND (
                   (wo.project_code IS NOT NULL AND mr.project_code=wo.project_code)
-                  OR (wo.serial_no IS NOT NULL AND mr.serial_no=wo.serial_no)
+                  OR (wo.cabinet_no IS NOT NULL AND mr.cabinet_no=wo.cabinet_no)
               )
         ) mrp_shortage ON TRUE
         {where_sql}
@@ -306,7 +306,7 @@ def render_work_order_requisition_dashboard(query_rows):
         line_where.append(
             """
             (
-                wo.wo_no ILIKE %s OR wo.project_code ILIKE %s OR wo.serial_no ILIKE %s
+                wo.wo_no ILIKE %s OR wo.project_code ILIKE %s OR wo.cabinet_no ILIKE %s
                 OR p.code ILIKE %s OR p.name ILIKE %s OR p.specification ILIKE %s OR mi.remark ILIKE %s
             )
             """
@@ -317,7 +317,7 @@ def render_work_order_requisition_dashboard(query_rows):
     line_where_sql = "WHERE " + " AND ".join(line_where)
     material_lines = query_rows(
         f"""
-        SELECT wo.id AS work_order_id, wo.wo_no, wo.project_code, wo.serial_no,
+        SELECT wo.id AS work_order_id, wo.wo_no, wo.project_code, wo.cabinet_no,
                p.code AS product_code, p.name AS product_name, p.specification, p.unit,
                COALESCE(pc.name, p.category, '') AS product_family,
                bom.bom_no AS default_bom_no,
@@ -354,7 +354,7 @@ def render_work_order_requisition_dashboard(query_rows):
               AND (mi.warehouse_id IS NULL OR ib.warehouse_id=mi.warehouse_id)
               AND (mi.location_id IS NULL OR ib.location_id=mi.location_id)
               AND (COALESCE(mi.line_project_code, '')='' OR COALESCE(ib.project_code, '')=COALESCE(mi.line_project_code, ''))
-              AND (COALESCE(mi.line_serial_no, '')='' OR COALESCE(ib.serial_no, '')=COALESCE(mi.line_serial_no, ''))
+              AND (COALESCE(mi.line_cabinet_no, '')='' OR COALESCE(ib.cabinet_no, '')=COALESCE(mi.line_cabinet_no, ''))
         ) inv ON TRUE
         {line_where_sql}
         ORDER BY pending_qty DESC, wo.id DESC

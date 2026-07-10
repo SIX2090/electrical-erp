@@ -53,7 +53,7 @@ def ensure_schema(cur):
         "ALTER TABLE operation_reports ADD COLUMN IF NOT EXISTS blocked_reason TEXT",
         "ALTER TABLE operation_reports ADD COLUMN IF NOT EXISTS next_action TEXT",
         "ALTER TABLE operation_reports ADD COLUMN IF NOT EXISTS project_code VARCHAR(120)",
-        "ALTER TABLE operation_reports ADD COLUMN IF NOT EXISTS serial_no VARCHAR(120)",
+        "ALTER TABLE operation_reports ADD COLUMN IF NOT EXISTS cabinet_no VARCHAR(120)",
         "ALTER TABLE operation_reports ADD COLUMN IF NOT EXISTS remark TEXT",
         "ALTER TABLE operation_reports ADD COLUMN IF NOT EXISTS submitted_by INTEGER",
         "ALTER TABLE operation_reports ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMP",
@@ -120,7 +120,7 @@ def create_test_data(cur):
     cur.execute(
         """
         INSERT INTO work_orders
-            (wo_no, wo_date, product_id, quantity, status, project_code, serial_no,
+            (wo_no, wo_date, product_id, quantity, status, project_code, cabinet_no,
              planned_start_date, planned_end_date, remark)
         VALUES (%s, CURRENT_DATE, %s, %s, %s, %s, %s, CURRENT_DATE, CURRENT_DATE + INTERVAL '1 day', %s)
         RETURNING id

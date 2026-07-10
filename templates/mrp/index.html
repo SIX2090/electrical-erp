@@ -36,7 +36,7 @@
                 <label class="form-label small text-muted mb-1">工单</label>
                 <select class="form-select form-select-sm" name="source_id" id="mrp-source-id">
                     {% for wo in work_orders %}
-                    <option value="{{ wo.id }}">{{ wo.wo_no }} | {{ wo.product_code or '' }} {{ wo.product_name or '' }} | 项目 {{ wo.project_code or '-' }} / 机号 {{ wo.serial_no or '-' }}</option>
+                    <option value="{{ wo.id }}">{{ wo.wo_no }} | {{ wo.product_code or '' }} {{ wo.product_name or '' }} | 项目 {{ wo.project_code or '-' }} / 柜号 {{ wo.cabinet_no or '-' }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -57,8 +57,8 @@
                 <input class="form-control form-control-sm" name="project_code" placeholder="留空跟随来源">
             </div>
             <div class="col-md-2">
-                <label class="form-label small text-muted mb-1">机号</label>
-                <input class="form-control form-control-sm" name="serial_no" placeholder="留空跟随来源">
+                <label class="form-label small text-muted mb-1">柜号</label>
+                <input class="form-control form-control-sm" name="cabinet_no" placeholder="留空跟随来源">
             </div>
         </div>
         <div class="row">
@@ -86,7 +86,7 @@
                     <tr>
                         <th>运行号</th>
                         <th>来源</th>
-                        <th>项目/机号</th>
+                        <th>项目/柜号</th>
                         <th class="text-end">行数</th>
                         <th class="text-end">缺料</th>
                         <th class="text-end">齐套率</th>
@@ -98,7 +98,7 @@
                     <tr>
                         <td>{{ r.run_no }}</td>
                         <td>{{ r.source_type }} {{ r.source_no or '' }}</td>
-                        <td>{{ r.project_code or '-' }} / {{ r.serial_no or '-' }}</td>
+                        <td>{{ r.project_code or '-' }} / {{ r.cabinet_no or '-' }}</td>
                         <td class="text-end">{{ r.shortage_line_count + (r.covered_line_count if r.covered_line_count else 0) }}</td>
                         <td class="text-end">{{ r.shortage_line_count }}</td>
                         <td class="text-end">{{ percent(r.kitting_rate) }}%</td>
@@ -130,7 +130,7 @@
                         <th>建议类型</th>
                         <th>物料</th>
                         <th class="text-end">数量</th>
-                        <th>项目/机号</th>
+                        <th>项目/柜号</th>
                         <th class="text-end">操作</th>
                     </tr>
                     </thead>
@@ -140,7 +140,7 @@
                         <td><span class="badge bg-info text-dark">{{ s.suggestion_label }}</span></td>
                         <td>{{ s.material_code }} {{ s.material_name }}</td>
                         <td class="text-end">{{ qty(s.qty) }}</td>
-                        <td>{{ s.project_code or '-' }} / {{ s.serial_no or '-' }}</td>
+                        <td>{{ s.project_code or '-' }} / {{ s.cabinet_no or '-' }}</td>
                         <td class="text-end">
                             <form method="post" action="/mrp/suggestions/{{ s.id }}/convert" class="d-inline">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

@@ -25,7 +25,7 @@
     <div>
         <a class="btn btn-outline-secondary btn-sm mb-3" href="{{ back_url or '/purchase_request' }}">返回采购申请</a>
         <h1 class="h4 mb-1">{{ req.req_no }}</h1>
-        <div class="text-muted">项目号：{{ req.project_code or '-' }} / 机号：{{ req.serial_no or '-' }}</div>
+        <div class="text-muted">项目号：{{ req.project_code or '-' }} / 柜号：{{ req.cabinet_no or '-' }}</div>
         <div class="text-muted small mt-1">流程：提交 -> 审核 -> 生成采购单 -> 关闭。</div>
     </div>
     <div class="d-none">
@@ -132,7 +132,7 @@
                 {% endif %}
                 <th>物料</th>
                 <th>规格</th>
-                <th>项目/机号</th>
+                <th>项目/柜号</th>
                 <th class="text-end">申请数量</th>
                 <th class="text-end">已下推</th>
                 <th class="text-end">未下推</th>
@@ -156,7 +156,7 @@
                 {% endif %}
                 <td>{{ item.product_code or item.product_id }} / {{ item.product_name or '-' }}</td>
                 <td>{{ item.specification or '-' }}</td>
-                <td>{{ item.project_code or '-' }} / {{ item.serial_no or '-' }}</td>
+                <td>{{ item.project_code or '-' }} / {{ item.cabinet_no or '-' }}</td>
                 <td class="text-end">{{ item.quantity|qty }} {{ item.unit or '' }}</td>
                 <td class="text-end">{{ item.ordered_qty|qty }}</td>
                 <td class="text-end {% if item.remaining_qty %}fw-semibold text-primary{% endif %}">{{ remaining_qty|qty }}</td>
@@ -196,7 +196,7 @@
                 <th>日期</th>
                 <th>供应商</th>
                 <th>项目号</th>
-                <th>机号</th>
+                <th>柜号</th>
                 <th class="text-end">金额</th>
                 <th>状态</th>
             </tr>
@@ -208,7 +208,7 @@
                 <td>{{ po.order_date or '-' }}</td>
                 <td>{{ po.supplier_name or '-' }}</td>
                 <td>{{ po.project_code or '-' }}</td>
-                <td>{{ po.serial_no or '-' }}</td>
+                <td>{{ po.cabinet_no or '-' }}</td>
                 <td class="text-end">{{ po.total_amount|money }}</td>
                 <td>{{ po.status or '-' }}</td>
             </tr>

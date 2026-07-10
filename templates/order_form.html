@@ -88,22 +88,22 @@
                 {% endif %}
             </div>
             <div class="col-md-6 col-xl-4">
-                <label class="form-label">机号 <span class="text-muted small">来自机号档案</span></label>
-                <select class="form-select form-select-sm js-machine-serial-master" name="serial_no">
-                    <option value="">请选择机号档案</option>
-                    {% set current_serial_no = order.serial_no if order else '' %}
-                    {% set serial_numbers = machine_serial_options | map(attribute='serial_no') | list %}
-                    {% if current_serial_no and current_serial_no not in serial_numbers %}
-                    <option value="{{ current_serial_no }}" data-project-code="{{ current_project_code }}" selected>历史值（未建档）：{{ current_serial_no }}</option>
+                <label class="form-label">柜号 <span class="text-muted small">来自柜号档案</span></label>
+                <select class="form-select form-select-sm js-cabinet-master" name="cabinet_no">
+                    <option value="">请选择柜号档案</option>
+                    {% set current_cabinet_no = order.cabinet_no if order else '' %}
+                    {% set cabinet_numbers = cabinet_options | map(attribute='cabinet_no') | list %}
+                    {% if current_cabinet_no and current_cabinet_no not in cabinet_numbers %}
+                    <option value="{{ current_cabinet_no }}" data-project-code="{{ current_project_code }}" selected>历史值（未建档）：{{ current_cabinet_no }}</option>
                     {% endif %}
-                    {% for machine in machine_serial_options %}
-                    <option value="{{ machine.serial_no }}" data-project-code="{{ machine.project_code or '' }}" data-customer-id="{{ machine.customer_id or '' }}" {% if current_serial_no == machine.serial_no %}selected{% endif %}>
-                        {{ machine.display_name or machine.serial_no }}
+                    {% for machine in cabinet_options %}
+                    <option value="{{ machine.cabinet_no }}" data-project-code="{{ machine.project_code or '' }}" data-customer-id="{{ machine.customer_id or '' }}" {% if current_cabinet_no == machine.cabinet_no %}selected{% endif %}>
+                        {{ machine.display_name or machine.cabinet_no }}
                     </option>
                     {% endfor %}
                 </select>
-                {% if not machine_serial_options %}
-                <div class="form-text">请先在基础资料维护机号档案。</div>
+                {% if not cabinet_options %}
+                <div class="form-text">请先在基础资料维护柜号档案。</div>
                 {% endif %}
             </div>
             {% endif %}
@@ -122,8 +122,8 @@
                 <input class="form-control form-control-sm" name="project_code" value="{{ order.project_code if order else '' }}" placeholder="可留空，按项目制造时填写">
             </div>
             <div class="col-md-6 col-xl-4">
-                <label class="form-label">机号 <span class="text-muted small">建议</span></label>
-                <input class="form-control form-control-sm" name="serial_no" value="{{ order.serial_no if order else '' }}" placeholder="可留空，按单机追踪时填写">
+                <label class="form-label">柜号 <span class="text-muted small">建议</span></label>
+                <input class="form-control form-control-sm" name="cabinet_no" value="{{ order.cabinet_no if order else '' }}" placeholder="可留空，按单机追踪时填写">
             </div>
             {% endif %}
             <div class="col-12">
@@ -221,9 +221,9 @@
     const documentType = {{ document_type|tojson }};
     const partnerSelect = document.querySelector('[name="{{ partner_field }}"]');
     const projectSelect = document.querySelector('.js-project-master');
-    const machineSelect = document.querySelector('.js-machine-serial-master');
+    const machineSelect = document.querySelector('.js-cabinet-master');
     const legacyProjectInput = document.querySelector('input[name="project_code"]');
-    const legacySerialInput = document.querySelector('input[name="serial_no"]');
+    const legacySerialInput = document.querySelector('input[name="cabinet_no"]');
 
     if (projectSelect && legacyProjectInput) {
         legacyProjectInput.disabled = true;

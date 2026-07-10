@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}机号成本差异分析{% endblock %}
+{% block title %}柜号成本差异分析{% endblock %}
 
 {% block content %}
 <div class="container-fluid">
@@ -13,7 +13,7 @@
         </div>
     </div>
     <div class="page-header">
-        <h1>机号成本差异分析报表</h1>
+        <h1>柜号成本差异分析报表</h1>
         <p class="text-muted">对比BOM标准成本与实际成本，分析差异原因</p>
     </div>
 
@@ -25,7 +25,7 @@
             </h5>
         </div>
         <div class="card-body">
-            <form method="get" action="/finance/serial-cost/variance">
+            <form method="get" action="/finance/cabinet-cost/variance">
                 <div class="row">
                     <div class="col-md-2">
                         <div class="form-group">
@@ -54,12 +54,12 @@
                     </div>
                     <div class="col-md-5">
                         <div class="form-group">
-                            <label>机号（可多选）</label>
-                            <select name="serial_nos[]" class="form-control" multiple size="1">
-                                <option value="">全部机号</option>
-                                {% for s in all_serial_nos %}
-                                <option value="{{ s.serial_no }}">
-                                    {{ s.serial_no }}{% if s.project_code %} ({{ s.project_code }}){% endif %}
+                            <label>柜号（可多选）</label>
+                            <select name="cabinet_nos[]" class="form-control" multiple size="1">
+                                <option value="">全部柜号</option>
+                                {% for s in all_cabinet_nos %}
+                                <option value="{{ s.cabinet_no }}">
+                                    {{ s.cabinet_no }}{% if s.project_code %} ({{ s.project_code }}){% endif %}
                                 </option>
                                 {% endfor %}
                             </select>
@@ -137,24 +137,24 @@
         <div class="card-body">
             <div class="row text-center">
                 <div class="col-md-3">
-                    <h6>超支机号</h6>
+                    <h6>超支柜号</h6>
                     <h2 class="text-danger">{{ statistics.overrun_count }}</h2>
                     <small class="text-muted">实际 &gt; 标准</small>
                 </div>
                 <div class="col-md-3">
-                    <h6>节约机号</h6>
+                    <h6>节约柜号</h6>
                     <h2 class="text-success">{{ statistics.saving_count }}</h2>
                     <small class="text-muted">实际 &lt; 标准</small>
                 </div>
                 <div class="col-md-3">
-                    <h6>无差异机号</h6>
+                    <h6>无差异柜号</h6>
                     <h2 class="text-secondary">{{ statistics.balanced_count }}</h2>
                     <small class="text-muted">实际 = 标准</small>
                 </div>
                 <div class="col-md-3">
-                    <h6>总机号数</h6>
+                    <h6>总柜号数</h6>
                     <h2 class="text-primary">{{ statistics.total_count }}</h2>
-                    <small class="text-muted">已查询机号</small>
+                    <small class="text-muted">已查询柜号</small>
                 </div>
             </div>
         </div>
@@ -174,7 +174,7 @@
                     <thead class="thead-light">
                         <tr>
                             <th>序号</th>
-                            <th>机号</th>
+                            <th>柜号</th>
                             <th>项目号</th>
                             <th class="text-right">标准成本</th>
                             <th class="text-right">实际成本</th>
@@ -190,7 +190,7 @@
                         <tr class="{% if row.variance_type == '超支' %}table-danger{% elif row.variance_type == '节约' %}table-success{% endif %}">
                             <td>{{ loop.index }}</td>
                             <td>
-                                <span class="badge badge-secondary">{{ row.serial_no }}</span>
+                                <span class="badge badge-secondary">{{ row.cabinet_no }}</span>
                             </td>
                             <td>
                                 {% if row.project_code %}
@@ -240,7 +240,7 @@
                                 </small>
                             </td>
                             <td>
-                                <a href="/finance/serial-cost/detail?serial_no={{ row.serial_no }}"
+                                <a href="/finance/cabinet-cost/detail?cabinet_no={{ row.cabinet_no }}"
                                    class="btn btn-sm btn-outline-primary">
                                     <i class="fas fa-list"></i> 明细
                                 </a>
@@ -269,12 +269,12 @@
 
             <div class="mt-3">
                 <small class="text-muted">
-                    共 {{ rows|length }} 个机号
+                    共 {{ rows|length }} 个柜号
                 </small>
             </div>
             {% else %}
             <div class="alert alert-info mb-0">
-                <i class="fas fa-info-circle"></i> 没有符合条件的机号成本差异数据
+                <i class="fas fa-info-circle"></i> 没有符合条件的柜号成本差异数据
             </div>
             {% endif %}
         </div>
@@ -332,8 +332,8 @@
 
             <h6 class="mt-3">改进建议：</h6>
             <ul>
-                <li>对超支严重的机号进行专项分析，找出根本原因</li>
-                <li>总结节约机号的成功经验，在其他机号推广</li>
+                <li>对超支严重的柜号进行专项分析，找出根本原因</li>
+                <li>总结节约柜号的成功经验，在其他柜号推广</li>
                 <li>定期更新BOM标准成本，使其更贴近实际</li>
                 <li>建立成本差异预警机制，及时发现异常</li>
             </ul>

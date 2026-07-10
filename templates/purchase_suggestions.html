@@ -5,7 +5,7 @@
     <div>
         <h1 class="h4 mb-1">缺料转采购建议</h1>
         <div class="text-muted">
-            来源：MRP缺料/齐套查询。按来源工单、项目号、机号扣减已请购和采购未到量，并显示预计到料、责任人、堵点和项目交期影响；本页只提供受控请购入口，不在查询页直接过账。
+            来源：MRP缺料/齐套查询。按来源工单、项目号、柜号扣减已请购和采购未到量，并显示预计到料、责任人、堵点和项目交期影响；本页只提供受控请购入口，不在查询页直接过账。
         </div>
     </div>
     <div class="text-end">
@@ -19,8 +19,8 @@
 <div class="page-card mb-3">
     <form class="row g-2 align-items-end" method="get" action="/procurement/suggestions">
         <div class="col-md-5">
-            <label class="form-label small text-muted mb-1">项目/机号/物料</label>
-            <input class="form-control" name="keyword" value="{{ filters.keyword }}" placeholder="输入项目号、机号、物料编码或名称">
+            <label class="form-label small text-muted mb-1">项目/柜号/物料</label>
+            <input class="form-control" name="keyword" value="{{ filters.keyword }}" placeholder="输入项目号、柜号、物料编码或名称">
         </div>
         <div class="col-md-2 d-grid">
             <button class="btn btn-primary" type="submit">查询</button>
@@ -60,7 +60,7 @@
             <tr>
                 <th width="40"><input type="checkbox" onchange="document.querySelectorAll('.suggestion-check:not(:disabled)').forEach(cb => cb.checked = this.checked)"></th>
                 <th>来源工单</th>
-                <th>项目/机号</th>
+                <th>项目/柜号</th>
                 <th>物料</th>
                 <th>规格</th>
                 <th>需求日期</th>
@@ -84,7 +84,7 @@
             <tr>
                 <td>
                     {% if row.suggestion_status == '建议采购' and row.suggestion_qty %}
-                    <input class="form-check-input suggestion-check" type="checkbox" name="suggestion_key" value="{{ row.product_id }}|{{ row.project_code or '-' }}|{{ row.serial_no or '-' }}">
+                    <input class="form-check-input suggestion-check" type="checkbox" name="suggestion_key" value="{{ row.product_id }}|{{ row.project_code or '-' }}|{{ row.cabinet_no or '-' }}">
                     {% else %}
                     <input class="form-check-input" type="checkbox" disabled>
                     {% endif %}
@@ -92,7 +92,7 @@
                 <td>{{ row.source_work_order or '待关联工单' }}</td>
                 <td>
                     <div>{{ row.project_code or '-' }}</div>
-                    <div class="text-muted small">{{ row.serial_no or '-' }}</div>
+                    <div class="text-muted small">{{ row.cabinet_no or '-' }}</div>
                 </td>
                 <td>{{ row.product_code or row.product_id }} / {{ row.product_name or '-' }}</td>
                 <td>{{ row.specification or '-' }}</td>

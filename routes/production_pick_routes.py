@@ -131,7 +131,7 @@ def register_production_pick_routes(app, deps):
         )
         return safe_rows(
             f"""
-            SELECT wo.id, wo.wo_no, wo.project_code, wo.serial_no, wo.status,
+            SELECT wo.id, wo.wo_no, wo.project_code, wo.cabinet_no, wo.status,
                    COUNT(mi.id) AS line_count,
                    SUM(CASE WHEN {comparator} THEN 1 ELSE 0 END) AS available_quantity
             FROM work_orders wo
@@ -221,7 +221,7 @@ def register_production_pick_routes(app, deps):
             """
             INSERT INTO pick_lists
                 (doc_type, doc_no, pick_no, doc_date, pick_date, work_order_id, warehouse_id, location_id,
-                 project_code, serial_no, status, created_by, remark)
+                 project_code, cabinet_no, status, created_by, remark)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'draft',%s,%s)
             RETURNING id, doc_no
             """,
@@ -235,7 +235,7 @@ def register_production_pick_routes(app, deps):
                 header_warehouse_id,
                 header_location_id or None,
                 order.get("project_code"),
-                order.get("serial_no"),
+                order.get("cabinet_no"),
                 session.get("user_id"),
                 form_text("remark"),
             ),
@@ -253,7 +253,7 @@ def register_production_pick_routes(app, deps):
             link_type="dispatches_to",
             link_strength="hard",
             project_code=order.get("project_code"),
-            serial_no=order.get("serial_no"),
+            cabinet_no=order.get("cabinet_no"),
             created_by=session.get("user_id"),
             created_event=f"create_{doc_type}",
         )
@@ -282,7 +282,7 @@ def register_production_pick_routes(app, deps):
                 INSERT INTO pick_list_items
                     (pick_list_id, pick_id, wo_material_item_id, product_id, material_code, material_name,
                      material_spec, material_unit, quantity, posted_qty, unit_cost, warehouse_id, location_id,
-                     lot_no, serial_no, source_line_no, line_project_code, line_serial_no, remark)
+                     lot_no, cabinet_no, source_line_no, line_project_code, line_cabinet_no, remark)
                 VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 """,
                 (
@@ -299,10 +299,10 @@ def register_production_pick_routes(app, deps):
                     line_warehouse_id,
                     line_location_id or None,
                     lot_nos[idx] if idx < len(lot_nos) else row.get("lot_no"),
-                    row.get("line_serial_no") or order.get("serial_no"),
+                    row.get("line_cabinet_no") or order.get("cabinet_no"),
                     row.get("source_line_no"),
                     row.get("line_project_code") or order.get("project_code"),
-                    row.get("line_serial_no") or order.get("serial_no"),
+                    row.get("line_cabinet_no") or order.get("cabinet_no"),
                     row.get("remark") or form_text("remark"),
                 ),
             )
@@ -409,10 +409,10 @@ def register_production_pick_routes(app, deps):
             """
             UPDATE pick_lists
             SET doc_date=%s, pick_date=%s, warehouse_id=%s, location_id=%s,
-                project_code=%s, serial_no=%s, remark=%s
+                project_code=%s, cabinet_no=%s, remark=%s
             WHERE id=%s AND doc_type=%s
             """,
-            (doc_date, doc_date, header_warehouse_id, header_location_id or None, order.get("project_code"), order.get("serial_no"), form_text("remark"), doc_id, doc_type),
+            (doc_date, doc_date, header_warehouse_id, header_location_id or None, order.get("project_code"), order.get("cabinet_no"), form_text("remark"), doc_id, doc_type),
         )
         execute_db("DELETE FROM pick_list_items WHERE pick_list_id=%s OR pick_id=%s", (doc_id, doc_id))
         for source, qty, line_warehouse_id, line_location_id, lot_no in rows_to_save:
@@ -421,7 +421,7 @@ def register_production_pick_routes(app, deps):
                 INSERT INTO pick_list_items
                     (pick_list_id, pick_id, wo_material_item_id, product_id, material_code, material_name,
                      material_spec, material_unit, quantity, posted_qty, unit_cost, warehouse_id, location_id,
-                     lot_no, serial_no, source_line_no, line_project_code, line_serial_no, remark)
+                     lot_no, cabinet_no, source_line_no, line_project_code, line_cabinet_no, remark)
                 VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 """,
                 (
@@ -438,10 +438,10 @@ def register_production_pick_routes(app, deps):
                     line_warehouse_id,
                     line_location_id or None,
                     lot_no,
-                    source.get("line_serial_no") or order.get("serial_no"),
+                    source.get("line_cabinet_no") or order.get("cabinet_no"),
                     source.get("source_line_no"),
                     source.get("line_project_code") or order.get("project_code"),
-                    source.get("line_serial_no") or order.get("serial_no"),
+                    source.get("line_cabinet_no") or order.get("cabinet_no"),
                     source.get("remark") or form_text("remark"),
                 ),
             )
@@ -488,7 +488,7 @@ def register_production_pick_routes(app, deps):
         warehouse_id = line.get("warehouse_id") or doc.get("warehouse_id")
         location_id = line.get("location_id") or doc.get("location_id")
         lot_no = line.get("lot_no") or ""
-        serial_no = line.get("serial_no") or doc.get("serial_no") or ""
+        cabinet_no = line.get("cabinet_no") or doc.get("cabinet_no") or ""
         project_code = line.get("line_project_code") or doc.get("project_code") or ""
         balance = query_one(
             """
@@ -502,10 +502,10 @@ def register_production_pick_routes(app, deps):
               AND COALESCE(warehouse_id,0)=COALESCE(%s,0)
               AND COALESCE(location_id,0)=COALESCE(%s,0)
               AND COALESCE(lot_no,'')=COALESCE(%s,'')
-              AND COALESCE(serial_no,'')=COALESCE(%s,'')
+              AND COALESCE(cabinet_no,'')=COALESCE(%s,'')
               AND COALESCE(project_code,'')=COALESCE(%s,'')
             """,
-            (product_id, warehouse_id, location_id, lot_no, serial_no, project_code),
+            (product_id, warehouse_id, location_id, lot_no, cabinet_no, project_code),
         ) or {}
         qty = as_decimal(balance.get("quantity"))
         unit_cost = as_decimal(balance.get("unit_cost"))
@@ -518,13 +518,13 @@ def register_production_pick_routes(app, deps):
               AND COALESCE(warehouse_id,0)=COALESCE(%s,0)
               AND COALESCE(location_id,0)=COALESCE(%s,0)
               AND COALESCE(lot_no,'')=COALESCE(%s,'')
-              AND COALESCE(serial_no,'')=COALESCE(%s,'')
+              AND COALESCE(cabinet_no,'')=COALESCE(%s,'')
               AND COALESCE(project_code,'')=COALESCE(%s,'')
             ORDER BY id
             LIMIT 1
             FOR UPDATE
             """,
-            (product_id, warehouse_id, location_id, lot_no, serial_no, project_code),
+            (product_id, warehouse_id, location_id, lot_no, cabinet_no, project_code),
         )
         if batch:
             execute_db_fn(
@@ -543,7 +543,7 @@ def register_production_pick_routes(app, deps):
             execute_db_fn(
                 """
                 INSERT INTO batch_tracking
-                    (lot_no, product_id, warehouse_id, location_id, serial_no, project_code,
+                    (lot_no, product_id, warehouse_id, location_id, cabinet_no, project_code,
                      quantity_in, quantity_out, quantity_available, unit_cost, source_order_no,
                      status, created_at, updated_at)
                 VALUES (%s,%s,%s,%s,%s,%s,
@@ -554,7 +554,7 @@ def register_production_pick_routes(app, deps):
                     product_id,
                     warehouse_id,
                     location_id,
-                    serial_no,
+                    cabinet_no,
                     project_code,
                     mv_qty if mv_qty > 0 else Decimal("0"),
                     -mv_qty if mv_qty < 0 else Decimal("0"),
@@ -615,7 +615,7 @@ def register_production_pick_routes(app, deps):
                     warehouse_id=line.get("warehouse_id") or doc.get("warehouse_id"),
                     location_id=line.get("location_id") or doc.get("location_id"),
                     lot_no=line.get("lot_no") or "",
-                    serial_no=line.get("serial_no") or doc.get("serial_no"),
+                    cabinet_no=line.get("cabinet_no") or doc.get("cabinet_no"),
                     tx_date=doc.get("doc_date"),
                     project_code=line.get("line_project_code") or doc.get("project_code") or "",
                     query_one=query_one,
@@ -642,7 +642,7 @@ def register_production_pick_routes(app, deps):
                             link_type="posts_to",
                             link_strength="soft",
                             project_code=line.get("line_project_code") or doc.get("project_code"),
-                            serial_no=line.get("serial_no") or doc.get("serial_no"),
+                            cabinet_no=line.get("cabinet_no") or doc.get("cabinet_no"),
                             created_by=session.get("user_id"),
                             created_event="pick_list_inventory",
                         )
@@ -688,7 +688,7 @@ def register_production_pick_routes(app, deps):
                 warehouse_id=line.get("warehouse_id") or doc.get("warehouse_id"),
                 location_id=line.get("location_id") or doc.get("location_id"),
                 lot_no=line.get("lot_no") or "",
-                serial_no=line.get("serial_no") or doc.get("serial_no"),
+                cabinet_no=line.get("cabinet_no") or doc.get("cabinet_no"),
                 tx_date=doc.get("doc_date"),
                 project_code=line.get("line_project_code") or doc.get("project_code") or "",
             )
@@ -754,7 +754,7 @@ def register_production_pick_routes(app, deps):
                     warehouse_id=line.get("warehouse_id") or doc.get("warehouse_id"),
                     location_id=line.get("location_id") or doc.get("location_id"),
                     lot_no=line.get("lot_no") or "",
-                    serial_no=line.get("serial_no") or doc.get("serial_no"),
+                    cabinet_no=line.get("cabinet_no") or doc.get("cabinet_no"),
                     tx_date=doc.get("doc_date"),
                     project_code=line.get("line_project_code") or doc.get("project_code") or "",
                     query_one=query_one,
@@ -799,7 +799,7 @@ def register_production_pick_routes(app, deps):
         keyword_sql = ""
         params = [doc_type]
         if keyword:
-            keyword_sql = "AND (pl.doc_no ILIKE %s OR wo.wo_no ILIKE %s OR pl.project_code ILIKE %s OR pl.serial_no ILIKE %s)"
+            keyword_sql = "AND (pl.doc_no ILIKE %s OR wo.wo_no ILIKE %s OR pl.project_code ILIKE %s OR pl.cabinet_no ILIKE %s)"
             params.extend([f"%{keyword}%"] * 4)
         rows = safe_rows(
             f"""
@@ -909,7 +909,7 @@ def register_production_pick_routes(app, deps):
                 """
                 INSERT INTO pick_lists
                     (doc_type, doc_no, pick_no, doc_date, pick_date, work_order_id, warehouse_id, location_id,
-                     project_code, serial_no, status, created_by, remark)
+                     project_code, cabinet_no, status, created_by, remark)
                 VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'draft',%s,%s)
                 """,
                 (
@@ -922,7 +922,7 @@ def register_production_pick_routes(app, deps):
                     doc.get("warehouse_id"),
                     doc.get("location_id"),
                     doc.get("project_code"),
-                    doc.get("serial_no"),
+                    doc.get("cabinet_no"),
                     session.get("user_id") or doc.get("created_by"),
                     doc.get("remark"),
                 ),
@@ -935,7 +935,7 @@ def register_production_pick_routes(app, deps):
                     INSERT INTO pick_list_items
                         (pick_list_id, pick_id, wo_material_item_id, product_id, material_code, material_name,
                          material_spec, material_unit, quantity, posted_qty, unit_cost, warehouse_id, location_id,
-                         lot_no, serial_no, source_line_no, line_project_code, line_serial_no, remark)
+                         lot_no, cabinet_no, source_line_no, line_project_code, line_cabinet_no, remark)
                     VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,0,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                     """,
                     (
@@ -952,10 +952,10 @@ def register_production_pick_routes(app, deps):
                         line.get("warehouse_id"),
                         line.get("location_id"),
                         line.get("lot_no"),
-                        line.get("serial_no"),
+                        line.get("cabinet_no"),
                         line.get("source_line_no"),
                         line.get("line_project_code"),
-                        line.get("line_serial_no"),
+                        line.get("line_cabinet_no"),
                         line.get("remark"),
                     ),
                 )

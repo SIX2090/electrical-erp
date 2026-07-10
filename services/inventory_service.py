@@ -123,7 +123,7 @@ def _sync_legacy_inventory_from_balances(query_db, execute_db, product_id, locat
     )
 
 
-def _sync_batch_tracking_from_balance(query_db, execute_db, product_id, warehouse_id=None, location_id=None, lot_no="", serial_no="", project_code="", reference_no="", movement_qty=None) -> None:
+def _sync_batch_tracking_from_balance(query_db, execute_db, product_id, warehouse_id=None, location_id=None, lot_no="", cabinet_no="", project_code="", reference_no="", movement_qty=None) -> None:
     row = _fetch_one(
         query_db,
         """
@@ -139,9 +139,9 @@ def _sync_batch_tracking_from_balance(query_db, execute_db, product_id, warehous
           AND location_id IS NOT DISTINCT FROM %s
           AND COALESCE(project_code,'')=%s
           AND COALESCE(lot_no,'')=%s
-          AND COALESCE(serial_no,'')=%s
+          AND COALESCE(cabinet_no,'')=%s
         """,
-        (product_id, warehouse_id, location_id, project_code or "", lot_no or "", serial_no or ""),
+        (product_id, warehouse_id, location_id, project_code or "", lot_no or "", cabinet_no or ""),
     ) or {}
     quantity = _to_decimal(row.get("quantity"))
     unit_cost = _to_decimal(row.get("unit_cost"))
@@ -156,12 +156,12 @@ def _sync_batch_tracking_from_balance(query_db, execute_db, product_id, warehous
           AND location_id IS NOT DISTINCT FROM %s
           AND COALESCE(project_code,'')=%s
           AND COALESCE(lot_no,'')=%s
-          AND COALESCE(serial_no,'')=%s
+          AND COALESCE(cabinet_no,'')=%s
         ORDER BY id
         LIMIT 1
         FOR UPDATE
         """,
-        (product_id, warehouse_id, location_id, project_code or "", lot_no or "", serial_no or ""),
+        (product_id, warehouse_id, location_id, project_code or "", lot_no or "", cabinet_no or ""),
     )
     if batch:
         execute_db(
@@ -180,7 +180,7 @@ def _sync_batch_tracking_from_balance(query_db, execute_db, product_id, warehous
     execute_db(
         """
         INSERT INTO batch_tracking
-            (lot_no, product_id, warehouse_id, location_id, serial_no, project_code,
+            (lot_no, product_id, warehouse_id, location_id, cabinet_no, project_code,
              quantity_in, quantity_out, quantity_available, unit_cost, source_order_no,
              status, created_at, updated_at)
         VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'derived',NOW(),NOW())
@@ -190,7 +190,7 @@ def _sync_batch_tracking_from_balance(query_db, execute_db, product_id, warehous
             product_id,
             warehouse_id,
             location_id,
-            serial_no or None,
+            cabinet_no or None,
             project_code or None,
             mv_qty if mv_qty > 0 else Decimal("0"),
             -mv_qty if mv_qty < 0 else Decimal("0"),
@@ -201,7 +201,7 @@ def _sync_batch_tracking_from_balance(query_db, execute_db, product_id, warehous
     )
 
 
-def _ensure_inventory_balance(query_db, execute_db, product_id, lot_no="", serial_no="", warehouse_id=None, location_id=None, project_code="") -> Optional[int]:
+def _ensure_inventory_balance(query_db, execute_db, product_id, lot_no="", cabinet_no="", warehouse_id=None, location_id=None, project_code="") -> Optional[int]:
     balance = _fetch_one(
         query_db,
         """
@@ -212,11 +212,11 @@ def _ensure_inventory_balance(query_db, execute_db, product_id, lot_no="", seria
           AND location_id IS NOT DISTINCT FROM %s
           AND COALESCE(project_code,'')=%s
           AND COALESCE(lot_no,'')=%s
-          AND COALESCE(serial_no,'')=%s
+          AND COALESCE(cabinet_no,'')=%s
         ORDER BY id
         LIMIT 1
         """,
-        (product_id, warehouse_id, location_id, project_code or "", lot_no or "", serial_no or ""),
+        (product_id, warehouse_id, location_id, project_code or "", lot_no or "", cabinet_no or ""),
     )
     if balance:
         return balance["id"]
@@ -224,17 +224,17 @@ def _ensure_inventory_balance(query_db, execute_db, product_id, lot_no="", seria
         query_db,
         """
         INSERT INTO inventory_balances
-            (product_id, warehouse_id, location_id, project_code, quantity, locked_qty, unit_cost, lot_no, serial_no, updated_at)
+            (product_id, warehouse_id, location_id, project_code, quantity, locked_qty, unit_cost, lot_no, cabinet_no, updated_at)
         VALUES (%s,%s,%s,%s,0,0,0,%s,%s,NOW())
         RETURNING id
         """,
-        (product_id, warehouse_id, location_id, project_code or "", lot_no or "", serial_no or ""),
+        (product_id, warehouse_id, location_id, project_code or "", lot_no or "", cabinet_no or ""),
     )
     return _row_value(row, "id")
 
 
-def lock_inventory_balance(query_db, execute_db, product_id, lot_no="", serial_no="", warehouse_id=None, location_id=None, project_code=""):
-    balance_id = _ensure_inventory_balance(query_db, execute_db, product_id, lot_no, serial_no, warehouse_id, location_id, project_code)
+def lock_inventory_balance(query_db, execute_db, product_id, lot_no="", cabinet_no="", warehouse_id=None, location_id=None, project_code=""):
+    balance_id = _ensure_inventory_balance(query_db, execute_db, product_id, lot_no, cabinet_no, warehouse_id, location_id, project_code)
     return _fetch_one(
         query_db,
         """
@@ -256,31 +256,31 @@ def lock_inventory_balances(query_db, execute_db, balance_keys) -> list:
         if isinstance(key, dict):
             product_id = key.get("product_id")
             lot_no = key.get("lot_no") or ""
-            serial_no = key.get("serial_no") or ""
+            cabinet_no = key.get("cabinet_no") or ""
             warehouse_id = key.get("warehouse_id")
             location_id = key.get("location_id")
             project_code = key.get("project_code") or key.get("line_project_code") or ""
         else:
             product_id, *rest = key
             lot_no = rest[0] if len(rest) > 0 else ""
-            serial_no = rest[1] if len(rest) > 1 else ""
+            cabinet_no = rest[1] if len(rest) > 1 else ""
             warehouse_id = rest[2] if len(rest) > 2 else None
             location_id = rest[3] if len(rest) > 3 else None
             project_code = rest[4] if len(rest) > 4 else ""
-        normalized = (product_id, warehouse_id, location_id, project_code or "", lot_no or "", serial_no or "")
+        normalized = (product_id, warehouse_id, location_id, project_code or "", lot_no or "", cabinet_no or "")
         if normalized in seen:
             continue
         seen.add(normalized)
         normalized_keys.append(normalized)
-    for product_id, warehouse_id, location_id, project_code, lot_no, serial_no in sorted(normalized_keys, key=lambda row: tuple(str(v or "") for v in row)):
-        locked.append(lock_inventory_balance(query_db, execute_db, product_id, lot_no, serial_no, warehouse_id, location_id, project_code))
+    for product_id, warehouse_id, location_id, project_code, lot_no, cabinet_no in sorted(normalized_keys, key=lambda row: tuple(str(v or "") for v in row)):
+        locked.append(lock_inventory_balance(query_db, execute_db, product_id, lot_no, cabinet_no, warehouse_id, location_id, project_code))
     return locked
 
 
-def _sync_inventory_balance_inbound(query_db, execute_db, product_id, quantity, unit_cost, lot_no="", serial_no="", warehouse_id=None, location_id=None, project_code="") -> None:
+def _sync_inventory_balance_inbound(query_db, execute_db, product_id, quantity, unit_cost, lot_no="", cabinet_no="", warehouse_id=None, location_id=None, project_code="") -> None:
     qty = _to_decimal(quantity)
     cost = _to_decimal(unit_cost)
-    balance = lock_inventory_balance(query_db, execute_db, product_id, lot_no, serial_no, warehouse_id, location_id, project_code)
+    balance = lock_inventory_balance(query_db, execute_db, product_id, lot_no, cabinet_no, warehouse_id, location_id, project_code)
     balance_id = balance["id"]
     old_qty = _to_decimal(balance.get("quantity"))
     old_cost = _to_decimal(balance.get("unit_cost"))
@@ -301,10 +301,10 @@ def _sync_inventory_balance_inbound(query_db, execute_db, product_id, quantity, 
     )
 
 
-def _sync_inventory_balance_outbound(query_db, execute_db, product_id, quantity, unit_cost, lot_no="", serial_no="", warehouse_id=None, location_id=None, project_code="") -> None:
+def _sync_inventory_balance_outbound(query_db, execute_db, product_id, quantity, unit_cost, lot_no="", cabinet_no="", warehouse_id=None, location_id=None, project_code="") -> None:
     qty = _to_decimal(quantity)
     cost = _to_decimal(unit_cost)
-    balance = lock_inventory_balance(query_db, execute_db, product_id, lot_no, serial_no, warehouse_id, location_id, project_code)
+    balance = lock_inventory_balance(query_db, execute_db, product_id, lot_no, cabinet_no, warehouse_id, location_id, project_code)
     balance_id = balance["id"]
     if qty < 0:
         raise ValueError(f"outbound quantity must be non-negative, got {qty}")
@@ -346,7 +346,7 @@ def _sync_inventory_balance_outbound(query_db, execute_db, product_id, quantity,
         "insufficient inventory balance: "
         f"product_id={product_id}, requested={qty}, available={available}, "
         f"warehouse_id={warehouse_id or ''}, location_id={location_id or ''}, "
-        f"project_code={project_code or ''}, lot_no={lot_no or ''}, serial_no={serial_no or ''}. "
+        f"project_code={project_code or ''}, lot_no={lot_no or ''}, cabinet_no={cabinet_no or ''}. "
         "Set system option allow_negative_stock=1 only for approved legacy correction work."
     )
 
@@ -369,7 +369,7 @@ def _assert_inventory_balance_consistent(query_db, product_id) -> None:
         raise RuntimeError(f"inventory balance mismatch for product_id={product_id}: legacy inventory={legacy_qty}, inventory_balances={balance_qty}")
 
 
-def _ensure_product_balance_ready(query_db, execute_db, product_id, location="", lot_no="", serial_no="", project_code=""):
+def _ensure_product_balance_ready(query_db, execute_db, product_id, location="", lot_no="", cabinet_no="", project_code=""):
     legacy = _fetch_one(
         query_db,
         """
@@ -386,7 +386,7 @@ def _ensure_product_balance_ready(query_db, execute_db, product_id, location="",
     )
     balance = _fetch_one(query_db, "SELECT COUNT(*) AS row_count, COALESCE(SUM(quantity),0) AS quantity FROM inventory_balances WHERE product_id=%s", (product_id,))
     if int((balance or {}).get("row_count") or 0) == 0:
-        _ensure_inventory_balance(query_db, execute_db, product_id, lot_no, serial_no, project_code=project_code)
+        _ensure_inventory_balance(query_db, execute_db, product_id, lot_no, cabinet_no, project_code=project_code)
         execute_db(
             """
             UPDATE inventory_balances
@@ -396,9 +396,9 @@ def _ensure_product_balance_ready(query_db, execute_db, product_id, location="",
               AND location_id IS NULL
               AND COALESCE(project_code,'')=%s
               AND COALESCE(lot_no,'')=%s
-              AND COALESCE(serial_no,'')=%s
+              AND COALESCE(cabinet_no,'')=%s
             """,
-            (_to_decimal((legacy or {}).get("quantity")), _to_decimal((legacy or {}).get("unit_cost")), product_id, project_code or "", lot_no or "", serial_no or ""),
+            (_to_decimal((legacy or {}).get("quantity")), _to_decimal((legacy or {}).get("unit_cost")), product_id, project_code or "", lot_no or "", cabinet_no or ""),
         )
         return
     _assert_inventory_balance_consistent(query_db, product_id)
@@ -408,17 +408,17 @@ def lock_product_inventory_rows(query_db, product_id) -> None:
     query_db("SELECT id FROM inventory WHERE product_id=%s ORDER BY id FOR UPDATE", (product_id,))
 
 
-def post_inventory_change(query_db, execute_db, *, product_id, quantity, unit_cost=0, direction, location="", reference_no="", remark="", tx_date=None, tx_type="", lot_no="", serial_no="", warehouse_id=None, location_id=None, project_code="", source_type="", source_doc_no="", source_line_no="", amount=None) -> bool:
+def post_inventory_change(query_db, execute_db, *, product_id, quantity, unit_cost=0, direction, location="", reference_no="", remark="", tx_date=None, tx_type="", lot_no="", cabinet_no="", warehouse_id=None, location_id=None, project_code="", source_type="", source_doc_no="", source_line_no="", amount=None) -> bool:
     """Dispatch an inbound or outbound inventory posting based on direction."""
     direction = (direction or "").strip().lower()
     if direction in {"in", "inbound", "receipt", "receive"}:
-        return inventory_inbound_weighted_avg(query_db, execute_db, product_id, quantity, unit_cost, location, reference_no, remark, tx_date, tx_type or "inbound", lot_no, serial_no, warehouse_id, location_id, project_code, source_type, source_doc_no, source_line_no, amount)
+        return inventory_inbound_weighted_avg(query_db, execute_db, product_id, quantity, unit_cost, location, reference_no, remark, tx_date, tx_type or "inbound", lot_no, cabinet_no, warehouse_id, location_id, project_code, source_type, source_doc_no, source_line_no, amount)
     if direction in {"out", "outbound", "issue", "shipment"}:
-        return inventory_outbound(query_db, execute_db, product_id, quantity, location, reference_no, remark, tx_date, tx_type or "outbound", lot_no, serial_no, unit_cost, warehouse_id, location_id, project_code, source_type, source_doc_no, source_line_no, amount)
+        return inventory_outbound(query_db, execute_db, product_id, quantity, location, reference_no, remark, tx_date, tx_type or "outbound", lot_no, cabinet_no, unit_cost, warehouse_id, location_id, project_code, source_type, source_doc_no, source_line_no, amount)
     raise ValueError(f"unsupported inventory posting direction: {direction!r}")
 
 
-def post_inventory_change_with_cursor(cur, *, product_id, quantity, unit_cost=0, direction, location="", reference_no="", remark="", tx_date=None, tx_type="", lot_no="", serial_no="", warehouse_id=None, location_id=None, project_code="", source_type="", source_doc_no="", source_line_no="", amount=None) -> bool:
+def post_inventory_change_with_cursor(cur, *, product_id, quantity, unit_cost=0, direction, location="", reference_no="", remark="", tx_date=None, tx_type="", lot_no="", cabinet_no="", warehouse_id=None, location_id=None, project_code="", source_type="", source_doc_no="", source_line_no="", amount=None) -> bool:
     from services.transaction_utils import cursor_db_helpers
 
     query_db, execute_db, _execute_and_return = cursor_db_helpers(cur)
@@ -435,7 +435,7 @@ def post_inventory_change_with_cursor(cur, *, product_id, quantity, unit_cost=0,
         tx_date=tx_date,
         tx_type=tx_type,
         lot_no=lot_no,
-        serial_no=serial_no,
+        cabinet_no=cabinet_no,
         warehouse_id=warehouse_id,
         location_id=location_id,
         project_code=project_code,
@@ -446,7 +446,7 @@ def post_inventory_change_with_cursor(cur, *, product_id, quantity, unit_cost=0,
     )
 
 
-def record_stock_transaction(query_db, execute_db, product_id, tx_type, quantity, location="", reference_no="", remark="", tx_date=None, unit_cost=0, lot_no="", serial_no="", warehouse_id=None, location_id=None, project_code="", source_type="", source_doc_no="", source_line_no="", amount=None):
+def record_stock_transaction(query_db, execute_db, product_id, tx_type, quantity, location="", reference_no="", remark="", tx_date=None, unit_cost=0, lot_no="", cabinet_no="", warehouse_id=None, location_id=None, project_code="", source_type="", source_doc_no="", source_line_no="", amount=None):
     qty = _to_decimal(quantity)
     cost = _to_decimal(unit_cost)
     amount_value = _to_decimal(amount) if amount is not None else qty * cost
@@ -454,12 +454,12 @@ def record_stock_transaction(query_db, execute_db, product_id, tx_type, quantity
         """
         INSERT INTO stock_transactions
             (product_id, transaction_type, quantity, location, reference_no, remark, transaction_date,
-             unit_cost, lot_no, serial_no, warehouse_id, location_id, project_code,
+             unit_cost, lot_no, cabinet_no, warehouse_id, location_id, project_code,
              source_type, source_doc_no, source_line_no, amount)
         VALUES (%s,%s,%s,%s,%s,%s,COALESCE(%s, CURRENT_DATE),%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         RETURNING id
         """,
-        (product_id, tx_type, qty, location, reference_no, remark, tx_date, cost, lot_no or "", serial_no or "", warehouse_id, location_id, project_code or "", source_type or "", source_doc_no or reference_no or "", source_line_no or "", amount_value),
+        (product_id, tx_type, qty, location, reference_no, remark, tx_date, cost, lot_no or "", cabinet_no or "", warehouse_id, location_id, project_code or "", source_type or "", source_doc_no or reference_no or "", source_line_no or "", amount_value),
     )
     return _row_value(_first_row(rows), "id")
 
@@ -475,32 +475,32 @@ def resolve_outbound_unit_cost(query_db, product_id, explicit_unit_cost=0) -> De
     return _to_decimal(_row_value(row, "unit_cost"))
 
 
-def inventory_inbound_weighted_avg(query_db, execute_db, product_id, quantity, unit_cost, location="", reference_no="", remark="", tx_date=None, tx_type="inbound", lot_no="", serial_no="", warehouse_id=None, location_id=None, project_code="", source_type="", source_doc_no="", source_line_no="", amount=None):
+def inventory_inbound_weighted_avg(query_db, execute_db, product_id, quantity, unit_cost, location="", reference_no="", remark="", tx_date=None, tx_type="inbound", lot_no="", cabinet_no="", warehouse_id=None, location_id=None, project_code="", source_type="", source_doc_no="", source_line_no="", amount=None):
     """Post an inbound receipt using weighted-average cost across the balance."""
     ensure_inventory(query_db, execute_db, product_id, 0, 0, location, 0)
-    _ensure_product_balance_ready(query_db, execute_db, product_id, location, lot_no, serial_no, project_code)
+    _ensure_product_balance_ready(query_db, execute_db, product_id, location, lot_no, cabinet_no, project_code)
     lock_product_inventory_rows(query_db, product_id)
     qty = _to_decimal(quantity)
     cost = _to_decimal(unit_cost)
-    _sync_inventory_balance_inbound(query_db, execute_db, product_id, qty, cost, lot_no, serial_no, warehouse_id, location_id, project_code)
+    _sync_inventory_balance_inbound(query_db, execute_db, product_id, qty, cost, lot_no, cabinet_no, warehouse_id, location_id, project_code)
     _sync_legacy_inventory_from_balances(query_db, execute_db, product_id, location)
-    _sync_batch_tracking_from_balance(query_db, execute_db, product_id, warehouse_id, location_id, lot_no, serial_no, project_code, reference_no, movement_qty=qty)
-    tx_id = record_stock_transaction(query_db, execute_db, product_id, tx_type, qty, location, reference_no, remark, tx_date, cost, lot_no, serial_no, warehouse_id, location_id, project_code, source_type, source_doc_no, source_line_no, amount)
+    _sync_batch_tracking_from_balance(query_db, execute_db, product_id, warehouse_id, location_id, lot_no, cabinet_no, project_code, reference_no, movement_qty=qty)
+    tx_id = record_stock_transaction(query_db, execute_db, product_id, tx_type, qty, location, reference_no, remark, tx_date, cost, lot_no, cabinet_no, warehouse_id, location_id, project_code, source_type, source_doc_no, source_line_no, amount)
     _assert_inventory_balance_consistent(query_db, product_id)
     return {"tx_id": tx_id}
 
 
-def inventory_outbound(query_db, execute_db, product_id, quantity, location="", reference_no="", remark="", tx_date=None, tx_type="outbound", lot_no="", serial_no="", unit_cost=0, warehouse_id=None, location_id=None, project_code="", source_type="", source_doc_no="", source_line_no="", amount=None):
+def inventory_outbound(query_db, execute_db, product_id, quantity, location="", reference_no="", remark="", tx_date=None, tx_type="outbound", lot_no="", cabinet_no="", unit_cost=0, warehouse_id=None, location_id=None, project_code="", source_type="", source_doc_no="", source_line_no="", amount=None):
     """Post an outbound issue, decreasing balance with negative-stock protection."""
     ensure_inventory(query_db, execute_db, product_id, 0, 0, location, 0)
-    _ensure_product_balance_ready(query_db, execute_db, product_id, location, lot_no, serial_no, project_code)
+    _ensure_product_balance_ready(query_db, execute_db, product_id, location, lot_no, cabinet_no, project_code)
     lock_product_inventory_rows(query_db, product_id)
     qty = _to_decimal(quantity)
     cost = resolve_outbound_unit_cost(query_db, product_id, unit_cost)
-    _sync_inventory_balance_outbound(query_db, execute_db, product_id, qty, cost, lot_no, serial_no, warehouse_id, location_id, project_code)
+    _sync_inventory_balance_outbound(query_db, execute_db, product_id, qty, cost, lot_no, cabinet_no, warehouse_id, location_id, project_code)
     _sync_legacy_inventory_from_balances(query_db, execute_db, product_id, location)
-    _sync_batch_tracking_from_balance(query_db, execute_db, product_id, warehouse_id, location_id, lot_no, serial_no, project_code, reference_no, movement_qty=-qty)
-    tx_id = record_stock_transaction(query_db, execute_db, product_id, tx_type, -qty, location, reference_no, remark, tx_date, cost, lot_no, serial_no, warehouse_id, location_id, project_code, source_type, source_doc_no, source_line_no, amount)
+    _sync_batch_tracking_from_balance(query_db, execute_db, product_id, warehouse_id, location_id, lot_no, cabinet_no, project_code, reference_no, movement_qty=-qty)
+    tx_id = record_stock_transaction(query_db, execute_db, product_id, tx_type, -qty, location, reference_no, remark, tx_date, cost, lot_no, cabinet_no, warehouse_id, location_id, project_code, source_type, source_doc_no, source_line_no, amount)
     _assert_inventory_balance_consistent(query_db, product_id)
     return {"tx_id": tx_id}
 

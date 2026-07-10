@@ -23,7 +23,7 @@ Target documents and views:
 
 ## Read-Only Readiness Data
 
-Project-axis engineering readiness APIs expose read-only JSON readiness data for sales order, project code, or machine serial number. These APIs must summarize status, owner role, blocked reason, next action, technical confirmation basis, released drawing basis, and kitting basis.
+Project-axis engineering readiness APIs expose read-only JSON readiness data for sales order, project code, or cabinet number. These APIs must summarize status, owner role, blocked reason, next action, technical confirmation basis, released drawing basis, and kitting basis.
 
 The readiness APIs must not create, submit, audit, reverse, void, or post any business document. They are warning and guidance surfaces only.
 
@@ -50,6 +50,6 @@ The loop is accepted only when operators can verify the following without relyin
 - The readiness surface shows owner role, blocked reason, next action, technical confirmation basis, BOM basis, drawing basis, and kitting basis.
 - Engineering technical confirmation can be prefilled from sales order context.
 - Technical confirmation blocks incomplete BOM, routing, drawing, or open ECN conditions before confirmation.
-- MRP and kitting views preserve project code and machine serial number as traceability fields.
+- MRP and kitting views preserve project code and cabinet number as traceability fields.
 - Work order preparation can drill back to BOM, MRP shortage, kitting readiness, and project ledger context.
 - Read-only readiness APIs do not write execution, inventory, procurement, or finance documents.

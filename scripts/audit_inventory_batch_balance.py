@@ -17,7 +17,7 @@ DIMENSIONS = (
     "warehouse_id",
     "location_id",
     "lot_no",
-    "serial_no",
+    "cabinet_no",
     "project_code",
 )
 REQUIRED_COLUMNS = {
@@ -76,30 +76,30 @@ def fetch_differences(cur):
                    COALESCE(warehouse_id, 0) AS warehouse_id,
                    COALESCE(location_id, 0) AS location_id,
                    COALESCE(lot_no, '') AS lot_no,
-                   COALESCE(serial_no, '') AS serial_no,
+                   COALESCE(cabinet_no, '') AS cabinet_no,
                    COALESCE(project_code, '') AS project_code,
                    SUM(COALESCE(quantity_available, 0)) AS batch_qty
             FROM batch_tracking
             GROUP BY product_id, COALESCE(warehouse_id, 0), COALESCE(location_id, 0),
-                     COALESCE(lot_no, ''), COALESCE(serial_no, ''), COALESCE(project_code, '')
+                     COALESCE(lot_no, ''), COALESCE(cabinet_no, ''), COALESCE(project_code, '')
         ),
         balance AS (
             SELECT product_id,
                    COALESCE(warehouse_id, 0) AS warehouse_id,
                    COALESCE(location_id, 0) AS location_id,
                    COALESCE(lot_no, '') AS lot_no,
-                   COALESCE(serial_no, '') AS serial_no,
+                   COALESCE(cabinet_no, '') AS cabinet_no,
                    COALESCE(project_code, '') AS project_code,
                    SUM(COALESCE(quantity, 0)) AS balance_qty
             FROM inventory_balances
             GROUP BY product_id, COALESCE(warehouse_id, 0), COALESCE(location_id, 0),
-                     COALESCE(lot_no, ''), COALESCE(serial_no, ''), COALESCE(project_code, '')
+                     COALESCE(lot_no, ''), COALESCE(cabinet_no, ''), COALESCE(project_code, '')
         )
         SELECT COALESCE(batch.product_id, balance.product_id) AS product_id,
                COALESCE(batch.warehouse_id, balance.warehouse_id) AS warehouse_id,
                COALESCE(batch.location_id, balance.location_id) AS location_id,
                COALESCE(batch.lot_no, balance.lot_no) AS lot_no,
-               COALESCE(batch.serial_no, balance.serial_no) AS serial_no,
+               COALESCE(batch.cabinet_no, balance.cabinet_no) AS cabinet_no,
                COALESCE(batch.project_code, balance.project_code) AS project_code,
                COALESCE(batch.batch_qty, 0) AS batch_qty,
                COALESCE(balance.balance_qty, 0) AS balance_qty,
@@ -110,11 +110,11 @@ def fetch_differences(cur):
          AND batch.warehouse_id=balance.warehouse_id
          AND batch.location_id=balance.location_id
          AND batch.lot_no=balance.lot_no
-         AND batch.serial_no=balance.serial_no
+         AND batch.cabinet_no=balance.cabinet_no
          AND batch.project_code=balance.project_code
         WHERE COALESCE(batch.batch_qty, 0) <> COALESCE(balance.balance_qty, 0)
         ORDER BY ABS(COALESCE(batch.batch_qty, 0) - COALESCE(balance.balance_qty, 0)) DESC,
-                 product_id, warehouse_id, location_id, lot_no, serial_no, project_code
+                 product_id, warehouse_id, location_id, lot_no, cabinet_no, project_code
         LIMIT %s
         """,
         (DIFF_LIMIT,),

@@ -26,7 +26,7 @@ def main() -> int:
     boundary = read("docs/phase2_sales_engineering_bom_kitting_boundary.md")
 
     readiness_routes = [
-        "/api/project-machine-ledger/machine/<path:serial_no>/engineering-readiness",
+        "/api/project-machine-ledger/machine/<path:cabinet_no>/engineering-readiness",
         "/api/project-machine-ledger/project/<path:project_code>/engineering-readiness",
         "/api/project-machine-ledger/order/<int:order_id>/engineering-readiness",
     ]
@@ -57,7 +57,7 @@ def main() -> int:
         require(
             "readiness_routes",
             all(route in project_routes for route in readiness_routes),
-            "order, project-code, and machine-serial readiness APIs exist",
+            "order, project-code, and machine-cabinet readiness APIs exist",
         ),
         require(
             "readiness_routes_readonly",
@@ -113,7 +113,7 @@ def main() -> int:
                     "_prefill_confirmation_from_sales_order",
                     "sales_order_id",
                     "project_code",
-                    "serial_no",
+                    "cabinet_no",
                     "drawing_no",
                     "drawing_version",
                     "bom_id",
@@ -160,7 +160,7 @@ def main() -> int:
                     "下游执行状态",
                     "BOM明细",
                     "图纸有效性",
-                    "项目/机号台账",
+                    "项目/柜号台账",
                 )
             ),
             "technical confirmation detail exposes locked-material readiness and ledger drill-down",
@@ -241,7 +241,7 @@ def main() -> int:
                     "工程准备",
                     "技术确认单",
                     "/api/project-machine-ledger/engineering-readiness/alerts",
-                    "AI助手可以按项目号、机号或销售订单号读取工程准备上下文",
+                    "AI助手可以按项目号、柜号或销售订单号读取工程准备上下文",
                 )
             ),
             "AI operation helper includes machine-tool engineering readiness guidance",

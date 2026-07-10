@@ -220,7 +220,7 @@ def audit_metric_semantics(findings: list[Finding]) -> None:
                 location="routes/app_shell_routes.py:pending_delivery",
                 title="首页“本月待交付”用本月销售金额减本月发货金额，业务口径不严谨",
                 actual="本月待交付 = max(本月销售金额 - 本月发货金额, 0)。跨月订单、部分发货、退货、作废、币种税率差异都会导致偏差。",
-                expected="待交付应按销售订单行/项目/机号维度，基于订单数量、已发数量和状态计算。",
+                expected="待交付应按销售订单行/项目/柜号维度，基于订单数量、已发数量和状态计算。",
                 evidence={"formula": "pending_delivery = max(month_sales - month_shipments, 0)"},
             )
         )

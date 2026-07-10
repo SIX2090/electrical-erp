@@ -25,7 +25,7 @@ QUEUE_CASES = {
         "forbidden": [],
     },
     "pilot_sales": {
-        "required": ["项目/机号台账", "待技术确认", "待发货"],
+        "required": ["项目/柜号台账", "待技术确认", "待发货"],
         "forbidden": ["待采购", "待到货", "待委外发料", "待委外收货", "待领料", "待调试/终检", "待回款", "待付款", "待售后处理"],
     },
     "pilot_purchase": {
@@ -51,8 +51,8 @@ QUEUE_CASES = {
 }
 
 QUEUE_PAGE_MARKERS = {
-    "/projects": ("项目号", "机号", "下一步", "责任"),
-    "/sales-orders": ("项目/机号", "状态", "下一步"),
+    "/projects": ("项目号", "柜号", "下一步", "责任"),
+    "/sales-orders": ("项目/柜号", "状态", "下一步"),
     "/engineering/kitting": ("项目", "物料", "下一步", "责任"),
     "/purchase_request": ("采购申请", "状态", "详情"),
     "/purchase_receipts": ("采购入库", "供应商", "状态"),

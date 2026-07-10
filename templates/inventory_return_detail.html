@@ -11,7 +11,7 @@
 {% set can_delete = status in ['', '待过账', '待审核', '草稿', 'draft', 'pending', 'unposted'] %}
 {% set prev_id = order.id - 1 if order.id and order.id > 1 else 1 %}
 {% set doc_no = order.return_no or order.id %}
-{% set trace_keyword = order.project_code or order.serial_no or doc_no %}
+{% set trace_keyword = order.project_code or order.cabinet_no or doc_no %}
 
 {{ document_menu_bar(actions=[
     {'label': '返回列表', 'type': 'link', 'href': back_url, 'icon': 'bi-arrow-left'},
@@ -32,7 +32,7 @@
     {'label': '工具', 'type': 'dropdown', 'items': [
         {'label': '来源单据', 'type': 'link', 'href': back_url ~ '?keyword=' ~ ((order.source_no or order.source_order_no or doc_no)|urlencode)},
         {'label': '明细流水', 'type': 'link', 'href': '/transactions?keyword=' ~ (doc_no|urlencode)},
-        {'label': '批次/机号追溯', 'type': 'link', 'href': '/transactions?keyword=' ~ (trace_keyword|urlencode)},
+        {'label': '批次/柜号追溯', 'type': 'link', 'href': '/transactions?keyword=' ~ (trace_keyword|urlencode)},
         {'label': '附件', 'type': 'link', 'href': '#returnAttachmentsPanel'},
         {'label': '备注/操作记录', 'type': 'link', 'href': '#returnNotesPanel'}
     ]}
@@ -64,7 +64,7 @@
     {% elif status == '已取消' %}
     单据已取消，未写入库存。
     {% else %}
-    请复核{{ partner_label }}、物料、仓库、库位、批号、机号和数量后确认{{ direction_label }}。
+    请复核{{ partner_label }}、物料、仓库、库位、批号、柜号和数量后确认{{ direction_label }}。
     {% endif %}
 </div>
 
@@ -89,10 +89,10 @@
 </div>
 
 <div class="page-card mb-3">
-    <div class="section-title"><div><h2>退货明细</h2><span>退货影响库存的物料、仓库、库位、批号和机号</span></div></div>
+    <div class="section-title"><div><h2>退货明细</h2><span>退货影响库存的物料、仓库、库位、批号和柜号</span></div></div>
     <div class="table-responsive">
         <table class="table table-sm align-middle">
-            <thead><tr><th>物料编码</th><th>物料名称</th><th>规格</th><th class="text-end">数量</th><th>单位</th><th class="text-end">库存成本单价</th><th>仓库</th>{% if location_management_enabled %}<th>库位</th>{% endif %}<th>批号</th><th>机号</th><th>项目号</th></tr></thead>
+            <thead><tr><th>物料编码</th><th>物料名称</th><th>规格</th><th class="text-end">数量</th><th>单位</th><th class="text-end">库存成本单价</th><th>仓库</th>{% if location_management_enabled %}<th>库位</th>{% endif %}<th>批号</th><th>柜号</th><th>项目号</th></tr></thead>
             <tbody>
             <tr>
                 <td>{{ order.product_code or order.product_id or '-' }}</td>
@@ -104,7 +104,7 @@
                 <td>{{ order.warehouse_name or '-' }}</td>
                 {% if location_management_enabled %}<td>{{ order.location_code or order.location_name or '-' }}</td>{% endif %}
                 <td>{{ order.lot_no or '-' }}</td>
-                <td>{{ order.serial_no or '-' }}</td>
+                <td>{{ order.cabinet_no or '-' }}</td>
                 <td>{{ order.project_code or '-' }}</td>
             </tr>
             </tbody>
@@ -116,7 +116,7 @@
     <div class="section-title"><div><h2>库存流水</h2><span>按退货单号生成的库存流水</span></div></div>
     <div class="table-responsive">
         <table class="table table-sm align-middle">
-            <thead><tr><th>日期</th><th>类型</th><th>物料</th><th>仓库</th><th>库位</th><th class="text-end">数量</th><th class="text-end">成本</th><th>批号</th><th>机号</th></tr></thead>
+            <thead><tr><th>日期</th><th>类型</th><th>物料</th><th>仓库</th><th>库位</th><th class="text-end">数量</th><th class="text-end">成本</th><th>批号</th><th>柜号</th></tr></thead>
             <tbody>
             {% for tx in transactions %}
             <tr>
@@ -128,7 +128,7 @@
                 <td class="text-end">{{ tx.quantity|qty }}</td>
                 <td class="text-end">{{ tx.unit_cost|money }}</td>
                 <td>{{ tx.lot_no or '-' }}</td>
-                <td>{{ tx.serial_no or '-' }}</td>
+                <td>{{ tx.cabinet_no or '-' }}</td>
             </tr>
             {% else %}
             <tr><td colspan="9" class="text-muted">暂无库存流水。</td></tr>

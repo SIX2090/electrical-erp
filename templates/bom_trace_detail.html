@@ -117,9 +117,9 @@
     <div class="row g-3">
         <div class="col-lg-6">
             <h3 class="h6">最近相关工单</h3>
-            <div class="table-responsive"><table class="table table-sm align-middle mb-0"><thead><tr><th>工单</th><th>项目/机号</th><th>数量</th><th>状态</th><th>计划完工</th></tr></thead><tbody>
+            <div class="table-responsive"><table class="table table-sm align-middle mb-0"><thead><tr><th>工单</th><th>项目/柜号</th><th>数量</th><th>状态</th><th>计划完工</th></tr></thead><tbody>
             {% for row in bom_drilldown.recent_work_orders %}
-            <tr><td><a href="/work-orders/{{ row.id }}">{{ row.wo_no|clean_text or row.id }}</a></td><td>{{ row.project_code|clean_text or '-' }} / {{ row.serial_no|clean_text or '-' }}</td><td>{{ row.quantity|qty }}</td><td>{{ row.status|erp_value|clean_text or '-' }}</td><td>{{ row.planned_end_date or '-' }}</td></tr>
+            <tr><td><a href="/work-orders/{{ row.id }}">{{ row.wo_no|clean_text or row.id }}</a></td><td>{{ row.project_code|clean_text or '-' }} / {{ row.cabinet_no|clean_text or '-' }}</td><td>{{ row.quantity|qty }}</td><td>{{ row.status|erp_value|clean_text or '-' }}</td><td>{{ row.planned_end_date or '-' }}</td></tr>
             {% else %}
             <tr><td colspan="5" class="text-muted">暂无使用此BOM或适用产品的工单。</td></tr>
             {% endfor %}
@@ -127,9 +127,9 @@
         </div>
         <div class="col-lg-6">
             <h3 class="h6">采购/MRP需求</h3>
-            <div class="table-responsive"><table class="table table-sm align-middle mb-0"><thead><tr><th>物料</th><th>项目/机号</th><th class="text-end">需求</th><th class="text-end">缺料</th><th>需求日</th></tr></thead><tbody>
+            <div class="table-responsive"><table class="table table-sm align-middle mb-0"><thead><tr><th>物料</th><th>项目/柜号</th><th class="text-end">需求</th><th class="text-end">缺料</th><th>需求日</th></tr></thead><tbody>
             {% for row in bom_drilldown.mrp_rows %}
-            <tr><td>{{ row.product_code|clean_text or '-' }} {{ row.product_name|clean_text or '' }}</td><td>{{ row.project_code|clean_text or '-' }} / {{ row.serial_no|clean_text or '-' }}</td><td class="text-end">{{ row.quantity|qty }}</td><td class="text-end">{{ row.shortage_quantity|qty }}</td><td>{{ row.requirement_date or '-' }}</td></tr>
+            <tr><td>{{ row.product_code|clean_text or '-' }} {{ row.product_name|clean_text or '' }}</td><td>{{ row.project_code|clean_text or '-' }} / {{ row.cabinet_no|clean_text or '-' }}</td><td class="text-end">{{ row.quantity|qty }}</td><td class="text-end">{{ row.shortage_quantity|qty }}</td><td>{{ row.requirement_date or '-' }}</td></tr>
             {% else %}
             <tr><td colspan="5" class="text-muted">暂无当前BOM父项或子项关联MRP需求。</td></tr>
             {% endfor %}

@@ -32,7 +32,7 @@ def main() -> int:
     trace_template = read("templates/project_trace_detail.html")
 
     closure_routes = [
-        "/api/project-machine-ledger/machine/<path:serial_no>/procurement-closure",
+        "/api/project-machine-ledger/machine/<path:cabinet_no>/procurement-closure",
         "/api/project-machine-ledger/project/<path:project_code>/procurement-closure",
         "/api/project-machine-ledger/order/<int:order_id>/procurement-closure",
     ]

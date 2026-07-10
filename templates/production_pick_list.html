@@ -18,7 +18,7 @@
 <div class="page-card mb-3">
     <form class="row g-2" method="get" data-list-filter-form>
         <div class="col-md-10">
-            <input class="form-control form-control-sm" name="keyword" value="{{ keyword|clean_text }}" placeholder="单号 / 工单 / 项目号 / 机号">
+            <input class="form-control form-control-sm" name="keyword" value="{{ keyword|clean_text }}" placeholder="单号 / 工单 / 项目号 / 柜号">
         </div>
         <div class="col-md-2 d-grid">
             <button class="btn btn-outline-primary btn-sm" type="submit">查询</button>
@@ -34,7 +34,7 @@
                     <th>日期</th>
                     <th>工单</th>
                     <th>项目号</th>
-                    <th>机号</th>
+                    <th>柜号</th>
                     <th>仓库</th>
                     <th class="text-end">行数</th>
                     <th class="text-end">数量</th>
@@ -49,7 +49,7 @@
                 <td>{{ row.doc_date or '-' }}</td>
                 <td>{% if row.work_order_id %}<a href="/work-orders/{{ row.work_order_id }}">{{ row.wo_no|clean_text or row.work_order_id }}</a>{% else %}-{% endif %}</td>
                 <td>{{ row.project_code|clean_text or '-' }}</td>
-                <td>{{ row.serial_no|clean_text or '-' }}</td>
+                <td>{{ row.cabinet_no|clean_text or '-' }}</td>
                 <td>{{ row.warehouse_name|clean_text or '-' }}</td>
                 <td class="text-end">{{ row.line_count or 0 }}</td>
                 <td class="text-end">{{ row.total_quantity|qty }}</td>

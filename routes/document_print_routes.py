@@ -99,7 +99,7 @@ def _build_print_template_grid(template, doc):
         "联系人": doc.get("contact_person") or "",
         "联系电话": doc.get("partner_phone") or "",
         "项目号": doc.get("project_code") or "",
-        "机号": doc.get("serial_no") or "",
+        "柜号": doc.get("cabinet_no") or "",
         "仓库": doc.get("warehouse_name") or "",
         "业务员": doc.get("business_user") or "",
         "部门": doc.get("department") or "",
@@ -274,7 +274,7 @@ def render_document_print(kind, order_id, query_one, query_rows, as_decimal):
             ("联系人", order.get("contact_person")),
             ("电话", order.get("partner_phone")),
             ("项目号", order.get("project_code")),
-            ("机号", order.get("serial_no")),
+            ("柜号", order.get("cabinet_no")),
             ("仓库", order.get("warehouse_name")),
             (extra_date_label, extra_date),
         ],
@@ -302,7 +302,7 @@ def render_document_print(kind, order_id, query_one, query_rows, as_decimal):
     doc["contact_person"] = order.get("contact_person")
     doc["partner_phone"] = order.get("partner_phone")
     doc["project_code"] = order.get("project_code")
-    doc["serial_no"] = order.get("serial_no")
+    doc["cabinet_no"] = order.get("cabinet_no")
     doc["warehouse_name"] = order.get("warehouse_name")
     doc["business_user"] = order.get("business_user") or ""
     doc["department"] = order.get("department") or ""

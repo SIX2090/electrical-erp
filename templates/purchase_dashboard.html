@@ -36,7 +36,7 @@
 <div class="page-card erp-list-card mb-3">
     <form class="row g-2" method="get" action="{{ back_url }}">
         <div class="col-lg-4">
-            <input class="form-control" name="keyword" value="{{ filters.keyword }}" placeholder="订单、供应商、项目号、机号">
+            <input class="form-control" name="keyword" value="{{ filters.keyword }}" placeholder="订单、供应商、项目号、柜号">
         </div>
         <div class="col-lg-2">
             <select class="form-select" name="supplier_id">
@@ -87,7 +87,7 @@
             <tr>
                 <th>来源订单</th>
                 <th>供应商</th>
-                <th>项目/机号</th>
+                <th>项目/柜号</th>
                 <th>到货预警</th>
                 <th class="text-end">未收数量</th>
                 <th class="text-end">应付余额</th>
@@ -103,7 +103,7 @@
             <tr>
                 <td><a href="/purchase_order/{{ row.id }}">{{ row.order_no|clean_text }}</a><div class="text-muted small">{{ row.order_date or '-' }}</div></td>
                 <td>{{ row.supplier_name|clean_text }}</td>
-                <td>{{ row.project_code|clean_text }} / {{ row.serial_no|clean_text }}</td>
+                <td>{{ row.project_code|clean_text }} / {{ row.cabinet_no|clean_text }}</td>
                 <td>
                     <div>{{ row.arrival_alert|default(row.risk_label)|clean_text }}</div>
                     <div class="text-muted small">预计 {{ row.expected_date or '-' }} / 实到 {{ row.last_receipt_date or '-' }}</div>

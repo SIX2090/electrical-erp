@@ -76,7 +76,7 @@
         <div class="col-md-3"><span class="text-muted">仓库：</span>{{ receipt.warehouse_name or '-' }}</div>
         <div class="col-md-3"><span class="text-muted">经办人：</span>{{ receipt.operator_name or '-' }}</div>
         <div class="col-md-3"><span class="text-muted">项目号：</span>{{ receipt.project_code or '-' }}</div>
-        <div class="col-md-3"><span class="text-muted">机号：</span>{{ receipt.serial_no or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">柜号：</span>{{ receipt.cabinet_no or '-' }}</div>
     </div>
 </div>
 
@@ -103,7 +103,7 @@
                 {% if location_management_enabled %}<th>库位</th>{% endif %}
                 <th>批号</th>
                 <th>项目号</th>
-                <th>机号</th>
+                <th>柜号</th>
             </tr>
             </thead>
             <tbody>
@@ -125,7 +125,7 @@
                 {% if location_management_enabled %}<td>{{ item.location_code or item.location_name or '-' }}</td>{% endif %}
                 <td>{{ item.lot_no or '-' }}</td>
                 <td>{{ receipt.project_code|clean_text or '-' }}</td>
-                <td>{{ receipt.serial_no|clean_text or '-' }}</td>
+                <td>{{ receipt.cabinet_no|clean_text or '-' }}</td>
             </tr>
             {% endfor %}
             </tbody>
@@ -196,7 +196,7 @@
 
 {% if same_project_receipts %}
 <div class="page-card mt-3">
-    <h2 class="h5 mb-3">同项目/机号入库</h2>
+    <h2 class="h5 mb-3">同项目/柜号入库</h2>
     <div class="d-flex flex-wrap gap-2">
         {% for row in same_project_receipts %}
         <a class="btn btn-outline-secondary btn-sm" href="/purchase_receipts/{{ row.id }}">{{ row.receipt_no }} / {{ row.receipt_date or '-' }}</a>

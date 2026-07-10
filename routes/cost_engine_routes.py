@@ -8,7 +8,7 @@
 - GET  /cost/runs                     成本运行列表
 - GET  /cost/runs/<run_id>            成本运行明细（按成本类型分组）
 - GET  /cost/project/<project_code>   项目成本汇总
-- GET  /cost/serial/<serial_no>       机号成本汇总
+- GET  /cost/cabinet/<cabinet_no>       柜号成本汇总
 - GET  /cost/reconciliation           成本对账页面
 - POST /cost/reconciliation/run       执行成本对账
 """
@@ -29,7 +29,7 @@ from services.cost_engine import (
     get_cost_run,
     get_cost_variance_report,
     get_project_cost_summary,
-    get_serial_cost_summary,
+    get_cabinet_cost_summary,
     list_cost_runs,
     run_cost_calculation,
 )
@@ -87,7 +87,7 @@ def _filters_from_request() -> dict:
         "keyword": (request.args.get("keyword") or "").strip(),
         "period": (request.args.get("period") or "").strip(),
         "project_code": (request.args.get("project_code") or "").strip(),
-        "serial_no": (request.args.get("serial_no") or "").strip(),
+        "cabinet_no": (request.args.get("cabinet_no") or "").strip(),
         "status": (request.args.get("status") or "").strip(),
     }
 
@@ -102,7 +102,7 @@ def register_routes(app, deps):
     query_one = lambda sql, params=None: query_db(sql, params or (), one=True)
     query_rows = lambda sql, params=None: query_db(sql, params or ())
 
-    _SCOPE_FIELD_MAP = {"project": "project_code", "serial": "serial_no"}
+    _SCOPE_FIELD_MAP = {"project": "project_code", "cabinet": "cabinet_no"}
 
     def _current_scope():
         try:
@@ -169,7 +169,7 @@ def register_routes(app, deps):
         return render_template(
             "cost/index.html",
             title="成本引擎",
-            subtitle="按项目号/机号/工单归集材料、人工、制造费用、委外、售后、质量成本，生成成本运行记录。",
+            subtitle="按项目号/柜号/工单归集材料、人工、制造费用、委外、售后、质量成本，生成成本运行记录。",
             recent_runs=recent_runs,
             metrics=metrics,
             filters=filters,
@@ -185,7 +185,7 @@ def register_routes(app, deps):
     def cost_engine_run():
         period = (request.form.get("period") or "").strip()
         project_code = (request.form.get("project_code") or "").strip()
-        serial_no = (request.form.get("serial_no") or "").strip()
+        cabinet_no = (request.form.get("cabinet_no") or "").strip()
         work_order_id_raw = (request.form.get("work_order_id") or "").strip()
         work_order_id = None
         if work_order_id_raw:
@@ -194,8 +194,8 @@ def register_routes(app, deps):
             except ValueError:
                 flash("工单 ID 必须为整数", "error")
                 return redirect("/cost")
-        if not any([period, project_code, serial_no, work_order_id]):
-            flash("请至少填写期间、项目号、机号或工单 ID 之一", "error")
+        if not any([period, project_code, cabinet_no, work_order_id]):
+            flash("请至少填写期间、项目号、柜号或工单 ID 之一", "error")
             return redirect("/cost")
 
         created_by = _current_user_id()
@@ -203,7 +203,7 @@ def register_routes(app, deps):
             query_one, query_rows, execute_db, execute_and_return,
             period=period or None,
             project_code=project_code or None,
-            serial_no=serial_no or None,
+            cabinet_no=cabinet_no or None,
             work_order_id=work_order_id,
             created_by=created_by,
         )
@@ -283,7 +283,7 @@ def register_routes(app, deps):
             {"label": "状态", "value": run.get("status", ""), "hint": "运行状态"},
             {"label": "期间", "value": run.get("period") or "-", "hint": "成本期间"},
             {"label": "项目号", "value": run.get("project_code") or "-", "hint": "项目号过滤"},
-            {"label": "机号", "value": run.get("serial_no") or "-", "hint": "机号过滤"},
+            {"label": "柜号", "value": run.get("cabinet_no") or "-", "hint": "柜号过滤"},
             {"label": "工单 ID", "value": run.get("work_order_id") or "-", "hint": "工单过滤"},
             {"label": "明细行数", "value": len(items), "hint": "全部明细行"},
             {"label": "总成本", "value": _money(run.get("total_cost")), "hint": "运行总成本"},
@@ -335,17 +335,17 @@ def register_routes(app, deps):
         )
 
     # -----------------------------------------------------------------------
-    # GET /cost/serial/<serial_no> - 机号成本汇总
+    # GET /cost/cabinet/<cabinet_no> - 柜号成本汇总
     # -----------------------------------------------------------------------
-    @app.get("/cost/serial/<serial_no>", endpoint="cost_engine_serial_summary")
+    @app.get("/cost/cabinet/<cabinet_no>", endpoint="cost_engine_cabinet_summary")
     @login_required
-    def cost_engine_serial_summary(serial_no: str):
-        if _scope_denied({"serial_no": serial_no}):
+    def cost_engine_cabinet_summary(cabinet_no: str):
+        if _scope_denied({"cabinet_no": cabinet_no}):
             abort(403)
-        summary = get_serial_cost_summary(query_one, serial_no)
-        runs = list_cost_runs(query_rows, {"serial_no": serial_no})
+        summary = get_cabinet_cost_summary(query_one, cabinet_no)
+        runs = list_cost_runs(query_rows, {"cabinet_no": cabinet_no})
         metrics = [
-            {"label": "机号", "value": serial_no, "hint": "成本汇总对象"},
+            {"label": "柜号", "value": cabinet_no, "hint": "成本汇总对象"},
             {"label": "运行数", "value": summary.get("run_count", 0), "hint": "已完成运行数"},
             {"label": "材料成本", "value": _money(summary.get("material")), "hint": "材料领料 - 退料"},
             {"label": "人工成本", "value": _money(summary.get("labor")), "hint": "工序报工人工"},
@@ -356,10 +356,10 @@ def register_routes(app, deps):
             {"label": "总成本", "value": _money(summary.get("total")), "hint": "所有成本汇总"},
         ]
         return render_template(
-            "cost/serial_cost.html",
-            title=f"机号成本汇总 - {serial_no}",
-            subtitle="按机号汇总所有成本运行结果，支持查看运行明细。",
-            serial_no=serial_no,
+            "cost/cabinet_cost.html",
+            title=f"柜号成本汇总 - {cabinet_no}",
+            subtitle="按柜号汇总所有成本运行结果，支持查看运行明细。",
+            cabinet_no=cabinet_no,
             summary=summary,
             runs=runs,
             metrics=metrics,
@@ -392,7 +392,7 @@ def register_routes(app, deps):
     def cost_engine_reconciliation_run():
         period = (request.form.get("period") or "").strip()
         project_code = (request.form.get("project_code") or "").strip()
-        serial_no = (request.form.get("serial_no") or "").strip()
+        cabinet_no = (request.form.get("cabinet_no") or "").strip()
         recon_type = (request.form.get("reconciliation_type") or "business_vs_inventory").strip()
 
         if recon_type == "business_vs_gl":
@@ -400,14 +400,14 @@ def register_routes(app, deps):
                 query_one,
                 period=period or None,
                 project_code=project_code or None,
-                serial_no=serial_no or None,
+                cabinet_no=cabinet_no or None,
             )
         else:
             result = reconcile_business_vs_inventory(
                 query_one,
                 period=period or None,
                 project_code=project_code or None,
-                serial_no=serial_no or None,
+                cabinet_no=cabinet_no or None,
             )
 
         save_result = save_reconciliation_result(query_db, execute_db, result)
@@ -447,7 +447,7 @@ def register_routes(app, deps):
             "total_actual": 0, "total_variance": 0,
         }
         runs = query_db(
-            "SELECT id, run_no, period, project_code, serial_no, status, created_at "
+            "SELECT id, run_no, period, project_code, cabinet_no, status, created_at "
             "FROM cost_runs WHERE status='completed' ORDER BY id DESC LIMIT 50"
         )
         return render_template(

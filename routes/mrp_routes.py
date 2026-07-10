@@ -73,7 +73,7 @@ def register_routes(app, deps):
     login_required = deps["login_required"]
     log_action = deps.get("log_action")
 
-    _SCOPE_FIELD_MAP = {"project": "project_code", "serial": "serial_no"}
+    _SCOPE_FIELD_MAP = {"project": "project_code", "cabinet": "cabinet_no"}
 
     def _current_scope():
         try:
@@ -118,7 +118,7 @@ def register_routes(app, deps):
         open_suggestions = get_mrp_suggestions(query_rows, status="open")[:10]
         work_orders = query_rows(
             """
-            SELECT wo.id, wo.wo_no, wo.project_code, wo.serial_no, wo.status, wo.quantity,
+            SELECT wo.id, wo.wo_no, wo.project_code, wo.cabinet_no, wo.status, wo.quantity,
                    p.code AS product_code, p.name AS product_name
             FROM work_orders wo
             LEFT JOIN products p ON p.id=wo.product_id
@@ -156,7 +156,7 @@ def register_routes(app, deps):
         source_type = (request.form.get("source_type") or "").strip()
         source_id = _int(request.form.get("source_id"))
         project_code = (request.form.get("project_code") or "").strip() or None
-        serial_no = (request.form.get("serial_no") or "").strip() or None
+        cabinet_no = (request.form.get("cabinet_no") or "").strip() or None
         bom_id = _int(request.form.get("bom_id")) or None
         quantity = request.form.get("quantity") or "1"
         created_by = session.get("user_id")
@@ -186,7 +186,7 @@ def register_routes(app, deps):
             source_type=source_type,
             source_id=source_id,
             project_code=project_code,
-            serial_no=serial_no,
+            cabinet_no=cabinet_no,
             bom_id=bom_id,
             quantity=quantity,
             required_date=required_date,
@@ -217,7 +217,7 @@ def register_routes(app, deps):
             "status": (request.args.get("status") or "").strip() or None,
             "source_type": (request.args.get("source_type") or "").strip() or None,
             "project_code": (request.args.get("project_code") or "").strip() or None,
-            "serial_no": (request.args.get("serial_no") or "").strip() or None,
+            "cabinet_no": (request.args.get("cabinet_no") or "").strip() or None,
             "keyword": (request.args.get("keyword") or request.args.get("q") or "").strip() or None,
         }
         filters = {k: v for k, v in filters.items() if v}
@@ -336,7 +336,7 @@ def register_routes(app, deps):
             analysis = build_kitting_analysis(query_one, query_rows, work_order_id)
         work_orders = _filter_by_scope(query_rows(
             """
-            SELECT wo.id, wo.wo_no, wo.project_code, wo.serial_no, wo.status, wo.quantity,
+            SELECT wo.id, wo.wo_no, wo.project_code, wo.cabinet_no, wo.status, wo.quantity,
                    p.code AS product_code, p.name AS product_name
             FROM work_orders wo
             LEFT JOIN products p ON p.id=wo.product_id

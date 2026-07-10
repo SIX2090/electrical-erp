@@ -29,13 +29,13 @@
     <div class="section-title">
         <div>
             <h2>查询条件</h2>
-            <span>按往来单位、来源单据、项目号、机号或状态筛选；本页不提供新增、审核、过账或自动改账动作。</span>
+            <span>按往来单位、来源单据、项目号、柜号或状态筛选；本页不提供新增、审核、过账或自动改账动作。</span>
         </div>
     </div>
     <form class="row g-2 align-items-end" method="get">
         <div class="col-md-4">
             <label class="form-label">关键字</label>
-            <input class="form-control form-control-sm" name="keyword" value="{{ request.args.get('keyword', '') }}" placeholder="单号 / 往来单位 / 项目号 / 机号">
+            <input class="form-control form-control-sm" name="keyword" value="{{ request.args.get('keyword', '') }}" placeholder="单号 / 往来单位 / 项目号 / 柜号">
         </div>
         <div class="col-md-2">
             <button class="btn btn-outline-primary btn-sm" type="submit"><i class="bi bi-search"></i> 查询</button>

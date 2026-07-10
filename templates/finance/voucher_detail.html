@@ -192,7 +192,7 @@
                             <th style="width: 12%;">借方金额</th>
                             <th style="width: 12%;">贷方金额</th>
                             <th style="width: 8%;">项目号</th>
-                            <th style="width: 8%;">机号</th>
+                            <th style="width: 8%;">柜号</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -222,7 +222,7 @@
                                 {% endif %}
                             </td>
                             <td>{{ line.project_code or '' }}</td>
-                            <td>{{ line.serial_no or '' }}</td>
+                            <td>{{ line.cabinet_no or '' }}</td>
                         </tr>
                         {% endfor %}
                         <!-- 合计行 -->

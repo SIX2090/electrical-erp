@@ -20,7 +20,7 @@
     {'label': '删除', 'type': 'button', 'button_type': 'submit', 'form': 'deleteForm', 'icon': 'bi-trash', 'disabled': not can_delete, 'title': delete_disabled_reason if not can_delete else '删除草稿单据'},
     {'label': '工具', 'type': 'dropdown', 'items': [
         {'label': '下查库存流水', 'type': 'link', 'href': '/transactions?keyword=' ~ (doc_no|urlencode)},
-        {'label': '批次/机号追溯', 'type': 'link', 'href': '/batch/tracking?keyword=' ~ ((header.serial_no or header.project_code or doc_no)|urlencode)},
+        {'label': '批次/柜号追溯', 'type': 'link', 'href': '/batch/tracking?keyword=' ~ ((header.cabinet_no or header.project_code or doc_no)|urlencode)},
         {'label': '返回列表', 'type': 'link', 'href': back_url}
     ]}
 ], aria_label=tx_type ~ '单据操作菜单', doc_status={'code': status, 'label': status_label} if status else None) }}
@@ -57,8 +57,8 @@
                     <div class="form-control-static">{{ safe_value(header.project_code) }}</div>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label text-muted">机号</label>
-                    <div class="form-control-static">{{ safe_value(header.serial_no) }}</div>
+                    <label class="form-label text-muted">柜号</label>
+                    <div class="form-control-static">{{ safe_value(header.cabinet_no) }}</div>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label text-muted">备注</label>
@@ -92,7 +92,7 @@
                             <th>仓库</th>
                             <th>库位</th>
                             <th>批次号</th>
-                            <th>机号</th>
+                            <th>柜号</th>
                             <th>项目号</th>
                             <th>备注</th>
                         </tr>
@@ -111,7 +111,7 @@
                             <td>{{ safe_value(warehouse.name) }}</td>
                             <td>{{ safe_value(line.location) }}</td>
                             <td>{{ safe_value(line.lot_no) }}</td>
-                            <td>{{ safe_value(line.serial_no) }}</td>
+                            <td>{{ safe_value(line.cabinet_no) }}</td>
                             <td>{{ safe_value(line.project_code) }}</td>
                             <td>{{ safe_value(line.remark) }}</td>
                         </tr>

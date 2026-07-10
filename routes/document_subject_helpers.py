@@ -116,7 +116,7 @@ def document_subject(kind):
         return {
             "subject_type": "service_card",
             "table": "machine_service_cards",
-            "doc_no_field": "serial_no",
+            "doc_no_field": "cabinet_no",
             "label": "设备服务档案",
             "url_prefix": "/service-cards",
         }

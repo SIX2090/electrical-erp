@@ -54,7 +54,7 @@ MENU_COVERAGE = {
         ("采购发票汇总表/税票汇总表", "/purchase/reports/invoice-summary"),
         ("采购付款一览表", "/purchase/reports/payment-overview"),
         ("采购应付对账明细", "/purchase/reports/payable-reconciliation-detail"),
-        ("项目/机号采购成本明细", "/purchase/reports/project-serial-purchase-cost-detail"),
+        ("项目/柜号采购成本明细", "/purchase/reports/project-cabinet-purchase-cost-detail"),
         ("采购日报", "/purchase/reports/daily"),
     ],
 }

@@ -173,9 +173,9 @@ def register_routes(app, deps):
                 "SELECT COUNT(*) AS value FROM project_masters",
                 label="operating.project_master_count",
             ).get("value", 0),
-            "machine_serial_count": safe_one(
-                "SELECT COUNT(*) AS value FROM machine_serial_masters",
-                label="operating.machine_serial_count",
+            "cabinet_count": safe_one(
+                "SELECT COUNT(*) AS value FROM cabinet_masters",
+                label="operating.cabinet_count",
             ).get("value", 0),
             "projects_without_machine": safe_one(
                 """
@@ -183,7 +183,7 @@ def register_routes(app, deps):
                 FROM project_masters pm
                 WHERE NOT EXISTS (
                     SELECT 1
-                    FROM machine_serial_masters m
+                    FROM cabinet_masters m
                     WHERE m.project_id=pm.id OR m.project_code=pm.project_code
                 )
                 """,
@@ -353,7 +353,7 @@ def register_routes(app, deps):
             {"label": "MRP缺料行", "value": operating["shortage_lines"], "url": "/production-enhance/mrp-requirements"},
             {"label": "采购未收行", "value": operating["pending_receipts"], "url": "/purchase-orders"},
             {"label": "未完工单", "value": operating["open_work_orders"], "url": "/work-orders"},
-            {"label": "项目未建机号", "value": operating["projects_without_machine"], "url": "/project-master"},
+            {"label": "项目未建柜号", "value": operating["projects_without_machine"], "url": "/project-master"},
         ]
         risk_max = max([metric_value(row) for row in risk_rows] + [1])
         for row in risk_rows:
@@ -367,7 +367,7 @@ def register_routes(app, deps):
 
         blocked_items = [
             {
-                "title": "项目/机号风险",
+                "title": "项目/柜号风险",
                 "count": operating["active_projects"],
                 "owner": "销售/项目",
                 "next_step": "进入项目台账核对交期、缺料和应收",
@@ -413,7 +413,7 @@ def register_routes(app, deps):
             "receivable_balance": "operating.receivable_balance" in failed_home_metrics,
             "payable_balance": "operating.payable_balance" in failed_home_metrics,
             "project_master_count": "operating.project_master_count" in failed_home_metrics,
-            "machine_serial_count": "operating.machine_serial_count" in failed_home_metrics,
+            "cabinet_count": "operating.cabinet_count" in failed_home_metrics,
             "projects_without_machine": "operating.projects_without_machine" in failed_home_metrics,
         }
 
@@ -870,7 +870,7 @@ def register_routes(app, deps):
             "table": "sales_orders",
             "date_col": "order_date",
             "columns": [
-                "order_no", "order_date", "customer_id", "project_code", "serial_no",
+                "order_no", "order_date", "customer_id", "project_code", "cabinet_no",
                 "total_amount", "amount_with_tax", "status", "remark",
             ],
         },
@@ -879,7 +879,7 @@ def register_routes(app, deps):
             "table": "purchase_orders",
             "date_col": "order_date",
             "columns": [
-                "order_no", "order_date", "supplier_id", "project_code", "serial_no",
+                "order_no", "order_date", "supplier_id", "project_code", "cabinet_no",
                 "total_amount", "status", "remark",
             ],
         },
@@ -888,7 +888,7 @@ def register_routes(app, deps):
             "table": "sales_shipments",
             "date_col": "shipment_date",
             "columns": [
-                "shipment_no", "shipment_date", "customer_id", "project_code", "serial_no",
+                "shipment_no", "shipment_date", "customer_id", "project_code", "cabinet_no",
                 "shipped_amount", "status", "remark",
             ],
         },
@@ -897,7 +897,7 @@ def register_routes(app, deps):
             "table": "purchase_receipts",
             "date_col": "receipt_date",
             "columns": [
-                "receipt_no", "receipt_date", "supplier_id", "project_code", "serial_no",
+                "receipt_no", "receipt_date", "supplier_id", "project_code", "cabinet_no",
                 "status", "remark",
             ],
         },
@@ -906,7 +906,7 @@ def register_routes(app, deps):
             "table": "work_orders",
             "date_col": "planned_end_date",
             "columns": [
-                "wo_no", "planned_end_date", "product_id", "project_code", "serial_no",
+                "wo_no", "planned_end_date", "product_id", "project_code", "cabinet_no",
                 "quantity", "completed_qty", "status", "remark",
             ],
         },

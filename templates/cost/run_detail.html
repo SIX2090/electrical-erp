@@ -84,7 +84,7 @@
                     <th>来源 ID</th>
                     <th>产品 ID</th>
                     <th>项目号</th>
-                    <th>机号</th>
+                    <th>柜号</th>
                     <th>工单</th>
                     <th class="text-end">数量</th>
                     <th class="text-end">单位成本</th>
@@ -100,7 +100,7 @@
                     <td>{{ item.source_id or '-' }}</td>
                     <td>{{ item.product_id or '-' }}</td>
                     <td>{{ item.project_code or '-' }}</td>
-                    <td>{{ item.serial_no or '-' }}</td>
+                    <td>{{ item.cabinet_no or '-' }}</td>
                     <td>{{ item.work_order_id or '-' }}</td>
                     <td class="text-end">{{ item.quantity }}</td>
                     <td class="text-end">{{ money(item.unit_cost) }}</td>
@@ -126,7 +126,7 @@
         <div class="col-md-3"><span class="text-muted">运行编号：</span>{{ run.run_no }}</div>
         <div class="col-md-3"><span class="text-muted">期间：</span>{{ run.period or '-' }}</div>
         <div class="col-md-3"><span class="text-muted">项目号：</span>{{ run.project_code or '-' }}</div>
-        <div class="col-md-3"><span class="text-muted">机号：</span>{{ run.serial_no or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">柜号：</span>{{ run.cabinet_no or '-' }}</div>
         <div class="col-md-3"><span class="text-muted">工单 ID：</span>{{ run.work_order_id or '-' }}</div>
         <div class="col-md-3"><span class="text-muted">状态：</span>{{ run.status }}</div>
         <div class="col-md-3"><span class="text-muted">创建人：</span>{{ run.created_by or '-' }}</div>

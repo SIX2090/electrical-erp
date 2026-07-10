@@ -49,7 +49,7 @@ PHASE1_MENU_COVERAGE = {
         ("客户应收余额", "/finance/reports/receivable-summary"),
         ("客户对账单", "/finance/reports/customer-statement"),
         ("应收账龄分析", "/finance/reports/aging"),
-        ("项目/机号应收明细", "/finance/reports/receivable-detail"),
+        ("项目/柜号应收明细", "/finance/reports/receivable-detail"),
         ("销售发票登记列表", "/finance/sales-invoices"),
     ],
     "应付管理": [
@@ -63,7 +63,7 @@ PHASE1_MENU_COVERAGE = {
         ("供应商应付余额", "/finance/reports/payable-summary"),
         ("供应商对账单", "/finance/reports/supplier-statement"),
         ("应付账龄分析", "/finance/reports/aging-buckets"),
-        ("项目/机号应付明细", "/finance/reports/payable-detail"),
+        ("项目/柜号应付明细", "/finance/reports/payable-detail"),
         ("采购发票登记列表", "/finance/purchase-invoices"),
     ],
     "发票管理": [
@@ -105,12 +105,12 @@ PHASE1_MENU_COVERAGE = {
     "成本管理": [
         ("成本管理首页", "/finance/cost-management"),
         ("项目成本台账", "/finance/project-costs"),
-        ("机号成本台账", "/finance/serial-costs"),
+        ("柜号成本台账", "/finance/cabinet-costs"),
         ("生产工单成本", "/finance/work-order-costs"),
         ("项目成本明细", "/finance/reports/project-cost"),
-        ("机号成本明细", "/finance/reports/machine-cost"),
+        ("柜号成本明细", "/finance/reports/machine-cost"),
         ("项目毛利分析", "/finance/reports/project-profit"),
-        ("机号毛利分析", "/finance/reports/serial-profit"),
+        ("柜号毛利分析", "/finance/reports/cabinet-profit"),
     ],
     "期末处理": [
         ("月末结账", "/finance/period-close"),

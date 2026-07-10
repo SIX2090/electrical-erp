@@ -4,7 +4,7 @@
 <div class="page-heading erp-list-heading">
     <div>
         <h1>MRP 运行记录</h1>
-        <p>查看历史 MRP 运行结果，可按状态、来源、项目/机号筛选。</p>
+        <p>查看历史 MRP 运行结果，可按状态、来源、项目/柜号筛选。</p>
     </div>
     <div class="d-flex flex-wrap gap-2">
         <a class="btn btn-outline-secondary btn-sm" href="/mrp/suggestions"><i class="bi bi-lightbulb"></i> 处理建议</a>
@@ -16,7 +16,7 @@
     <form class="row g-2 align-items-end" method="get" action="/mrp/runs">
         <div class="col-md-3">
             <label class="form-label small text-muted mb-1">关键字</label>
-            <input class="form-control form-control-sm" name="keyword" value="{{ filters.get('keyword', '') }}" placeholder="运行号、来源单号、项目/机号">
+            <input class="form-control form-control-sm" name="keyword" value="{{ filters.get('keyword', '') }}" placeholder="运行号、来源单号、项目/柜号">
         </div>
         <div class="col-md-2">
             <label class="form-label small text-muted mb-1">状态</label>
@@ -41,8 +41,8 @@
             <input class="form-control form-control-sm" name="project_code" value="{{ filters.get('project_code', '') }}">
         </div>
         <div class="col-md-2">
-            <label class="form-label small text-muted mb-1">机号</label>
-            <input class="form-control form-control-sm" name="serial_no" value="{{ filters.get('serial_no', '') }}">
+            <label class="form-label small text-muted mb-1">柜号</label>
+            <input class="form-control form-control-sm" name="cabinet_no" value="{{ filters.get('cabinet_no', '') }}">
         </div>
         <div class="col-md-1 d-grid">
             <button class="btn btn-primary btn-sm" type="submit">查询</button>
@@ -65,7 +65,7 @@
                 <th>运行号</th>
                 <th>来源</th>
                 <th>项目号</th>
-                <th>机号</th>
+                <th>柜号</th>
                 <th>状态</th>
                 <th class="text-end">毛需求</th>
                 <th class="text-end">净需求</th>
@@ -81,7 +81,7 @@
                 <td>{{ r.run_no }}</td>
                 <td>{{ r.source_type }} {{ r.source_no or '' }}</td>
                 <td>{{ r.project_code or '-' }}</td>
-                <td>{{ r.serial_no or '-' }}</td>
+                <td>{{ r.cabinet_no or '-' }}</td>
                 <td>
                     {% if r.status == 'completed' %}<span class="badge bg-success">已完成</span>
                     {% elif r.status == 'running' %}<span class="badge bg-warning text-dark">运行中</span>

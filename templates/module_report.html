@@ -4,14 +4,14 @@
 <div class="page-heading">
     <h1>{{ title|clean_text }}</h1>
     <p>{{ subtitle|clean_text or '只读报表，支持查询、导出、打印和查看明细，不提供新增、提交、审核或过账动作。' }}</p>
-    <p class="text-muted small mb-0">大数据量库存报表请优先按日期、仓库、物料、项目号或机号筛选，避免加载重图表。</p>
+    <p class="text-muted small mb-0">大数据量库存报表请优先按日期、仓库、物料、项目号或柜号筛选，避免加载重图表。</p>
 </div>
 
 <div class="page-card mb-3">
     <div class="section-title">
         <div>
             <h2>报表条件</h2>
-            <span>按日期、状态、关键字、项目号和机号筛选</span>
+            <span>按日期、状态、关键字、项目号和柜号筛选</span>
         </div>
     </div>
     <form id="reportFilterForm" method="get" class="row g-2 align-items-end">
@@ -29,11 +29,11 @@
         </div>
         <div class="col-md-3">
             <label class="form-label small text-muted mb-1">关键字</label>
-            <input class="form-control form-control-sm" name="keyword" value="{{ filters.keyword }}" placeholder="单号、物料、项目号、机号">
+            <input class="form-control form-control-sm" name="keyword" value="{{ filters.keyword }}" placeholder="单号、物料、项目号、柜号">
         </div>
         <div class="col-md-2">
-            <label class="form-label small text-muted mb-1">项目号/机号</label>
-            <input class="form-control form-control-sm" name="project" value="{{ filters.project }}" placeholder="项目号或机号">
+            <label class="form-label small text-muted mb-1">项目号/柜号</label>
+            <input class="form-control form-control-sm" name="project" value="{{ filters.project }}" placeholder="项目号或柜号">
         </div>
         <div class="col-md-1 d-grid">
             <button class="btn btn-primary btn-sm" type="submit"><i class="bi bi-search"></i> 查询</button>

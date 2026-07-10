@@ -37,7 +37,7 @@ def _normalize_filters(filters=None):
         "customer_id": _blank_to_none(filters.get("customer_id")),
         "customer_name": _blank_to_none(filters.get("customer_name")),
         "project_code": _blank_to_none(filters.get("project_code")),
-        "serial_no": _blank_to_none(filters.get("serial_no")),
+        "cabinet_no": _blank_to_none(filters.get("cabinet_no")),
         "status": _blank_to_none(filters.get("status")),
         "invoice_type": _blank_to_none(filters.get("invoice_type")),
         "source_no": _blank_to_none(filters.get("source_no")),
@@ -61,9 +61,9 @@ def _add_invoice_filters(where, params, filters, alias="si"):
     if filters.get("project_code"):
         where.append(f"{alias}.project_code ILIKE %s")
         params.append(f"%{filters['project_code']}%")
-    if filters.get("serial_no"):
-        where.append(f"{alias}.serial_no ILIKE %s")
-        params.append(f"%{filters['serial_no']}%")
+    if filters.get("cabinet_no"):
+        where.append(f"{alias}.cabinet_no ILIKE %s")
+        params.append(f"%{filters['cabinet_no']}%")
     if filters.get("status"):
         where.append(f"{alias}.status = %s")
         params.append(filters["status"])
@@ -83,7 +83,7 @@ def _invoice_columns(extra_columns=None):
         {"key": "invoice_type", "label": "发票类型"},
         {"key": "source_no", "label": "来源单号"},
         {"key": "project_code", "label": "项目号"},
-        {"key": "serial_no", "label": "机号"},
+        {"key": "cabinet_no", "label": "柜号"},
         {"key": "amount", "label": "不含税金额", "align": "right", "format": "money"},
         {"key": "tax_amount", "label": "税额", "align": "right", "format": "money"},
         {"key": "amount_with_tax", "label": "含税金额", "align": "right", "format": "money"},
@@ -148,9 +148,9 @@ def query_invoice_execution_detail(query_db, filters=None):
     if filters.get("project_code"):
         where.append("so.project_code ILIKE %s")
         params.append(f"%{filters['project_code']}%")
-    if filters.get("serial_no"):
-        where.append("so.serial_no ILIKE %s")
-        params.append(f"%{filters['serial_no']}%")
+    if filters.get("cabinet_no"):
+        where.append("so.cabinet_no ILIKE %s")
+        params.append(f"%{filters['cabinet_no']}%")
     if filters.get("status"):
         where.append("so.status = %s")
         params.append(filters["status"])
@@ -185,7 +185,7 @@ def query_invoice_execution_detail(query_db, filters=None):
             so.order_date,
             c.name AS customer_name,
             so.project_code,
-            so.serial_no,
+            so.cabinet_no,
             so.status AS order_status,
             COALESCE(so.amount_with_tax, so.total_amount, 0) AS expected_amount_with_tax,
             COALESCE(so.tax_amount, 0) AS expected_tax_amount,
@@ -226,7 +226,7 @@ def query_invoice_execution_detail(query_db, filters=None):
         {"key": "order_date", "label": "订单日期"},
         {"key": "customer_name", "label": "客户"},
         {"key": "project_code", "label": "项目号"},
-        {"key": "serial_no", "label": "机号"},
+        {"key": "cabinet_no", "label": "柜号"},
         {"key": "order_status", "label": "订单状态"},
         {"key": "expected_amount_with_tax", "label": "应开票含税金额", "align": "right", "format": "money"},
         {"key": "invoiced_amount_with_tax", "label": "已开票含税金额", "align": "right", "format": "money"},
@@ -241,13 +241,13 @@ def query_invoice_execution_detail(query_db, filters=None):
 
 
 def query_invoice_summary(query_db, filters=None):
-    """Sales invoice summary grouped by customer/project/serial/invoice_type/status/month."""
+    """Sales invoice summary grouped by customer/project/cabinet/invoice_type/status/month."""
     filters = _normalize_filters(filters)
-    group_by = filters.get("group_by") if filters.get("group_by") in {"customer", "project", "serial", "invoice_type", "status", "month"} else "customer"
+    group_by = filters.get("group_by") if filters.get("group_by") in {"customer", "project", "cabinet", "invoice_type", "status", "month"} else "customer"
     group_expr = {
         "customer": "COALESCE(c.name, '未指定客户')",
         "project": "COALESCE(NULLIF(si.project_code, ''), '未指定项目')",
-        "serial": "COALESCE(NULLIF(si.serial_no, ''), '未指定机号')",
+        "cabinet": "COALESCE(NULLIF(si.cabinet_no, ''), '未指定柜号')",
         "invoice_type": "COALESCE(NULLIF(si.invoice_type, ''), '销售发票')",
         "status": "COALESCE(NULLIF(si.status, ''), '未指定状态')",
         "month": "TO_CHAR(si.invoice_date, 'YYYY-MM')",
@@ -310,7 +310,7 @@ def query_tax_registration_detail(query_db, filters=None):
             si.source_type,
             si.source_no,
             si.project_code,
-            si.serial_no,
+            si.cabinet_no,
             COALESCE(si.amount, 0) AS amount,
             COALESCE(si.tax_amount, 0) AS tax_amount,
             COALESCE(NULLIF(si.amount_with_tax, 0), COALESCE(si.amount, 0) + COALESCE(si.tax_amount, 0)) AS amount_with_tax,

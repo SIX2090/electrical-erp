@@ -40,7 +40,7 @@
         <div class="col-md-3"><strong>来源：</strong>{{ doc.source_no or doc.doc_no or '-' }}</div>
         <div class="col-md-3"><strong>日期：</strong>{{ doc.receivable_date or doc.doc_date or '-' }}</div>
         <div class="col-md-3"><strong>项目号：</strong>{{ doc.project_code or '-' }}</div>
-        <div class="col-md-3"><strong>机号：</strong>{{ doc.serial_no or '-' }}</div>
+        <div class="col-md-3"><strong>柜号：</strong>{{ doc.cabinet_no or '-' }}</div>
         <div class="col-md-6"><strong>成本对象：</strong>{{ doc.cost_object_code or doc.cost_object_id or '-' }} {{ doc.project_name or '' }}</div>
         <div class="col-md-6"><strong>备注：</strong>{{ doc.remark or doc.finance_remark or '-' }}</div>
     </div>

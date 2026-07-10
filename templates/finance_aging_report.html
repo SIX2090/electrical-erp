@@ -24,7 +24,7 @@
     <form id="financeAgingReportFilterForm" method="get" class="row g-2 align-items-end">
         <div class="col-md-3">
             <label class="form-label small text-muted mb-1">关键字</label>
-            <input class="form-control form-control-sm" name="keyword" value="{{ request.args.get('keyword', '') }}" placeholder="单号、项目号、机号">
+            <input class="form-control form-control-sm" name="keyword" value="{{ request.args.get('keyword', '') }}" placeholder="单号、项目号、柜号">
         </div>
         <div class="col-md-2">
             <label class="form-label small text-muted mb-1">类型</label>
@@ -102,7 +102,7 @@
                 <th class="text-end">余额</th>
                 <th>核销状态</th>
                 <th>项目号</th>
-                <th>机号</th>
+                <th>柜号</th>
             </tr>
         </thead>
         <tbody>
@@ -151,7 +151,7 @@
                     {% endif %}
                 </td>
                 <td>{{ row.project_code or '-' }}</td>
-                <td>{{ row.serial_no or '-' }}</td>
+                <td>{{ row.cabinet_no or '-' }}</td>
             </tr>
             {% else %}
             <tr><td colspan="12" class="text-center text-muted py-4">暂无应收应付数据。</td></tr>
@@ -262,7 +262,7 @@
                 <th>核销状态</th>
                 <th>业务状态</th>
                 <th>项目号</th>
-                <th>机号</th>
+                <th>柜号</th>
             </tr>
         </thead>
         <tbody>
@@ -287,7 +287,7 @@
                 </td>
                 <td>{{ row.status or '-' }}</td>
                 <td>{{ row.project_code or '-' }}</td>
-                <td>{{ row.serial_no or '-' }}</td>
+                <td>{{ row.cabinet_no or '-' }}</td>
             </tr>
             {% else %}
             <tr><td colspan="10" class="text-center text-muted py-4">暂无往来余额数据。</td></tr>

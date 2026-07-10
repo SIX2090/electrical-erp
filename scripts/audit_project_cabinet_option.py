@@ -43,7 +43,7 @@ def main() -> int:
         if not (legacy_ok or modern_ok):
             findings.append("system_options has neither key/value nor option_key/option_value columns")
         if legacy_ok:
-            cur.execute("SELECT value FROM system_options WHERE key=%s LIMIT 1", ("require_project_serial",))
+            cur.execute("SELECT value FROM system_options WHERE key=%s LIMIT 1", ("require_project_cabinet",))
             row = cur.fetchone()
             legacy_value = (row or {}).get("value")
         else:
@@ -51,7 +51,7 @@ def main() -> int:
         if modern_ok:
             cur.execute(
                 "SELECT option_value FROM system_options WHERE option_key=%s LIMIT 1",
-                ("require_project_serial",),
+                ("require_project_cabinet",),
             )
             row = cur.fetchone()
             modern_value = (row or {}).get("option_value")
@@ -60,8 +60,8 @@ def main() -> int:
     value = modern_value if modern_value not in (None, "") else legacy_value
     enabled = str(value or "").strip().lower() in {"1", "true", "yes", "on", "启用", "强制"}
     print(f"system_options_columns={','.join(sorted(columns))}")
-    print(f"require_project_serial_value={value if value not in (None, '') else 'unset'}")
-    print(f"require_project_serial_enabled={str(enabled).lower()}")
+    print(f"require_project_cabinet_value={value if value not in (None, '') else 'unset'}")
+    print(f"require_project_cabinet_enabled={str(enabled).lower()}")
     print(f"findings={len(findings)}")
     for finding in findings:
         print(f"finding | {finding}")

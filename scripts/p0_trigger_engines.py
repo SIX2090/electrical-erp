@@ -78,7 +78,7 @@ def trigger_mrp_run():
             source_type="work_order",
             source_id=13,  # WO-GT-TRIAL-20260526-001
             project_code="PJ-GT-TRIAL-20260526-001",
-            serial_no="SN-GT-TRIAL-20260526-001",
+            cabinet_no="SN-GT-TRIAL-20260526-001",
             created_by=1,
         )
         print(f"MRP 运算结果: {result}")
@@ -106,7 +106,7 @@ def trigger_cost_run():
             execute_db,
             execute_and_return,
             project_code="PJ-GT-TRIAL-20260526-001",
-            serial_no="SN-GT-TRIAL-20260526-001",
+            cabinet_no="SN-GT-TRIAL-20260526-001",
             created_by=1,
         )
         print(f"成本归集结果: {result}")

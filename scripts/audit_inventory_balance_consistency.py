@@ -14,7 +14,7 @@ DIMENSIONS = (
     "warehouse_id",
     "location_id",
     "lot_no",
-    "serial_no",
+    "cabinet_no",
     "project_code",
 )
 QTY_TOLERANCE = "0.0001"
@@ -56,7 +56,7 @@ def normalized_dimension_select(alias, quantity_column, cost_column="unit_cost")
         COALESCE({alias}.warehouse_id, 0) AS warehouse_id,
         COALESCE({alias}.location_id, 0) AS location_id,
         COALESCE({alias}.lot_no, '') AS lot_no,
-        COALESCE({alias}.serial_no, '') AS serial_no,
+        COALESCE({alias}.cabinet_no, '') AS cabinet_no,
         COALESCE({alias}.project_code, '') AS project_code,
         SUM(COALESCE({alias}.{quantity_column}, 0)) AS quantity,
         CASE WHEN COALESCE(SUM({alias}.{quantity_column}),0) <> 0
@@ -85,7 +85,7 @@ def fetch_negative_rows(cur):
             COALESCE(ib.warehouse_id, 0) AS warehouse_id,
             COALESCE(ib.location_id, 0) AS location_id,
             COALESCE(ib.lot_no, '') AS lot_no,
-            COALESCE(ib.serial_no, '') AS serial_no,
+            COALESCE(ib.cabinet_no, '') AS cabinet_no,
             COALESCE(ib.project_code, '') AS project_code,
             COALESCE(ib.quantity, 0) AS quantity
         FROM inventory_balances ib
@@ -161,19 +161,19 @@ def fetch_batch_mismatch_rows(cur):
             SELECT {normalized_dimension_select("bt", "quantity_available")}
             FROM batch_tracking bt
             GROUP BY bt.product_id, COALESCE(bt.warehouse_id, 0), COALESCE(bt.location_id, 0),
-                     COALESCE(bt.lot_no, ''), COALESCE(bt.serial_no, ''), COALESCE(bt.project_code, '')
+                     COALESCE(bt.lot_no, ''), COALESCE(bt.cabinet_no, ''), COALESCE(bt.project_code, '')
         ),
         balance AS (
             SELECT {normalized_dimension_select("ib", "quantity")}
             FROM inventory_balances ib
             GROUP BY ib.product_id, COALESCE(ib.warehouse_id, 0), COALESCE(ib.location_id, 0),
-                     COALESCE(ib.lot_no, ''), COALESCE(ib.serial_no, ''), COALESCE(ib.project_code, '')
+                     COALESCE(ib.lot_no, ''), COALESCE(ib.cabinet_no, ''), COALESCE(ib.project_code, '')
         )
         SELECT COALESCE(batch.product_id, balance.product_id) AS product_id,
                COALESCE(batch.warehouse_id, balance.warehouse_id) AS warehouse_id,
                COALESCE(batch.location_id, balance.location_id) AS location_id,
                COALESCE(batch.lot_no, balance.lot_no) AS lot_no,
-               COALESCE(batch.serial_no, balance.serial_no) AS serial_no,
+               COALESCE(batch.cabinet_no, balance.cabinet_no) AS cabinet_no,
                COALESCE(batch.project_code, balance.project_code) AS project_code,
                COALESCE(batch.quantity, 0) AS batch_qty,
                COALESCE(balance.quantity, 0) AS balance_qty,
@@ -186,11 +186,11 @@ def fetch_batch_mismatch_rows(cur):
          AND batch.warehouse_id=balance.warehouse_id
          AND batch.location_id=balance.location_id
          AND batch.lot_no=balance.lot_no
-         AND batch.serial_no=balance.serial_no
+         AND batch.cabinet_no=balance.cabinet_no
          AND batch.project_code=balance.project_code
         WHERE ABS(COALESCE(batch.quantity, 0) - COALESCE(balance.quantity, 0)) > %s
         ORDER BY ABS(COALESCE(batch.quantity, 0) - COALESCE(balance.quantity, 0)) DESC,
-                 product_id, warehouse_id, location_id, lot_no, serial_no, project_code
+                 product_id, warehouse_id, location_id, lot_no, cabinet_no, project_code
         LIMIT %s
         """,
         (QTY_TOLERANCE, DIFF_LIMIT),
@@ -207,7 +207,7 @@ def fetch_stock_transaction_mismatch_rows(cur):
                 COALESCE(warehouse_id, 0) AS warehouse_id,
                 COALESCE(location_id, 0) AS location_id,
                 COALESCE(lot_no, '') AS lot_no,
-                COALESCE(serial_no, '') AS serial_no,
+                COALESCE(cabinet_no, '') AS cabinet_no,
                 COALESCE(project_code, '') AS project_code,
                 SUM(
                     CASE
@@ -222,7 +222,7 @@ def fetch_stock_transaction_mismatch_rows(cur):
                 ) AS tx_qty
             FROM stock_transactions
             GROUP BY product_id, COALESCE(warehouse_id, 0), COALESCE(location_id, 0),
-                     COALESCE(lot_no, ''), COALESCE(serial_no, ''), COALESCE(project_code, '')
+                     COALESCE(lot_no, ''), COALESCE(cabinet_no, ''), COALESCE(project_code, '')
         ),
         balance AS (
             SELECT
@@ -230,18 +230,18 @@ def fetch_stock_transaction_mismatch_rows(cur):
                 COALESCE(warehouse_id, 0) AS warehouse_id,
                 COALESCE(location_id, 0) AS location_id,
                 COALESCE(lot_no, '') AS lot_no,
-                COALESCE(serial_no, '') AS serial_no,
+                COALESCE(cabinet_no, '') AS cabinet_no,
                 COALESCE(project_code, '') AS project_code,
                 SUM(COALESCE(quantity, 0)) AS balance_qty
             FROM inventory_balances
             GROUP BY product_id, COALESCE(warehouse_id, 0), COALESCE(location_id, 0),
-                     COALESCE(lot_no, ''), COALESCE(serial_no, ''), COALESCE(project_code, '')
+                     COALESCE(lot_no, ''), COALESCE(cabinet_no, ''), COALESCE(project_code, '')
         )
         SELECT COALESCE(tx.product_id, balance.product_id) AS product_id,
                COALESCE(tx.warehouse_id, balance.warehouse_id) AS warehouse_id,
                COALESCE(tx.location_id, balance.location_id) AS location_id,
                COALESCE(tx.lot_no, balance.lot_no) AS lot_no,
-               COALESCE(tx.serial_no, balance.serial_no) AS serial_no,
+               COALESCE(tx.cabinet_no, balance.cabinet_no) AS cabinet_no,
                COALESCE(tx.project_code, balance.project_code) AS project_code,
                COALESCE(tx.tx_qty, 0) AS stock_transaction_qty,
                COALESCE(balance.balance_qty, 0) AS balance_qty,
@@ -252,11 +252,11 @@ def fetch_stock_transaction_mismatch_rows(cur):
          AND tx.warehouse_id=balance.warehouse_id
          AND tx.location_id=balance.location_id
          AND tx.lot_no=balance.lot_no
-         AND tx.serial_no=balance.serial_no
+         AND tx.cabinet_no=balance.cabinet_no
          AND tx.project_code=balance.project_code
         WHERE ABS(COALESCE(tx.tx_qty, 0) - COALESCE(balance.balance_qty, 0)) > %s
         ORDER BY ABS(COALESCE(tx.tx_qty, 0) - COALESCE(balance.balance_qty, 0)) DESC,
-                 product_id, warehouse_id, location_id, lot_no, serial_no, project_code
+                 product_id, warehouse_id, location_id, lot_no, cabinet_no, project_code
         LIMIT %s
         """,
         (QTY_TOLERANCE, DIFF_LIMIT),
@@ -272,7 +272,7 @@ def fetch_work_order_stock_rows(cur):
             wo.wo_no,
             wo.product_id,
             wo.project_code,
-            wo.serial_no,
+            wo.cabinet_no,
             COALESCE(wo.quantity,0) AS planned_qty,
             COALESCE(SUM(CASE WHEN st.transaction_type='工单领料' THEN ABS(COALESCE(st.quantity,0)) ELSE 0 END),0) AS issued_qty,
             COALESCE(SUM(CASE WHEN st.transaction_type='工单退料' THEN ABS(COALESCE(st.quantity,0)) ELSE 0 END),0) AS returned_qty,
@@ -281,7 +281,7 @@ def fetch_work_order_stock_rows(cur):
         LEFT JOIN stock_transactions st
           ON st.reference_no=wo.wo_no
          AND st.transaction_type IN ('工单领料', '工单退料', '工单完工入库')
-        GROUP BY wo.id, wo.wo_no, wo.product_id, wo.project_code, wo.serial_no, wo.quantity
+        GROUP BY wo.id, wo.wo_no, wo.product_id, wo.project_code, wo.cabinet_no, wo.quantity
         HAVING COALESCE(SUM(CASE WHEN st.transaction_type='工单领料' THEN ABS(COALESCE(st.quantity,0)) ELSE 0 END),0) < 0
             OR COALESCE(SUM(CASE WHEN st.transaction_type='工单退料' THEN ABS(COALESCE(st.quantity,0)) ELSE 0 END),0) < 0
             OR COALESCE(SUM(CASE WHEN st.transaction_type='工单完工入库' THEN ABS(COALESCE(st.quantity,0)) ELSE 0 END),0) < 0
@@ -359,7 +359,7 @@ def main():
     print_rows(
         "work_order_stock_mismatch_rows",
         work_order_rows,
-        ("work_order_id", "wo_no", "product_id", "project_code", "serial_no", "planned_qty", "issued_qty", "returned_qty", "completed_in_qty"),
+        ("work_order_id", "wo_no", "product_id", "project_code", "cabinet_no", "planned_qty", "issued_qty", "returned_qty", "completed_in_qty"),
     )
     if findings:
         print("repair_hint=run scripts/repair_inventory_balance_consistency.py --dry-run; use --apply only after reviewing affected derived summaries")

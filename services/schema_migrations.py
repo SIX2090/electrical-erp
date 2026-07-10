@@ -153,7 +153,7 @@ MIGRATIONS = [
         ALTER TABLE inventory_adjustments ADD COLUMN IF NOT EXISTS project_code VARCHAR(120);
         ALTER TABLE inventory_adjustments ADD COLUMN IF NOT EXISTS warehouse_id INTEGER;
         ALTER TABLE inventory_adjustments ADD COLUMN IF NOT EXISTS location_id INTEGER;
-        ALTER TABLE inventory_adjustments ADD COLUMN IF NOT EXISTS serial_no VARCHAR(120);
+        ALTER TABLE inventory_adjustments ADD COLUMN IF NOT EXISTS cabinet_no VARCHAR(120);
         ALTER TABLE transfer_orders ADD COLUMN IF NOT EXISTS project_code VARCHAR(120);
         ALTER TABLE transfer_orders ADD COLUMN IF NOT EXISTS from_location_id INTEGER;
         ALTER TABLE transfer_orders ADD COLUMN IF NOT EXISTS to_location_id INTEGER;
@@ -163,7 +163,7 @@ MIGRATIONS = [
             product_id INTEGER NOT NULL,
             quantity NUMERIC NOT NULL,
             lot_no VARCHAR(100),
-            serial_no VARCHAR(100),
+            cabinet_no VARCHAR(100),
             unit_cost NUMERIC DEFAULT 0,
             remark TEXT
         );
@@ -188,7 +188,7 @@ MIGRATIONS = [
         ALTER TABLE subcontract_orders ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
         ALTER TABLE subcontract_orders ADD COLUMN IF NOT EXISTS cost_object_id INTEGER;
         ALTER TABLE subcontract_orders ADD COLUMN IF NOT EXISTS project_code VARCHAR(120);
-        ALTER TABLE subcontract_orders ADD COLUMN IF NOT EXISTS serial_no VARCHAR(120);
+        ALTER TABLE subcontract_orders ADD COLUMN IF NOT EXISTS cabinet_no VARCHAR(120);
         ALTER TABLE supplier_payables ADD COLUMN IF NOT EXISTS doc_type VARCHAR(80);
         ALTER TABLE supplier_payables ADD COLUMN IF NOT EXISTS doc_id INTEGER;
         ALTER TABLE supplier_payables ADD COLUMN IF NOT EXISTS doc_no VARCHAR(120);
@@ -211,13 +211,13 @@ MIGRATIONS = [
         ALTER TABLE machine_service_cards ADD COLUMN IF NOT EXISTS cost_object_id INTEGER;
         ALTER TABLE machine_service_cards ADD COLUMN IF NOT EXISTS project_code VARCHAR(120);
         ALTER TABLE machine_service_cards ADD COLUMN IF NOT EXISTS machine_model VARCHAR(160);
-        ALTER TABLE machine_service_cards ADD COLUMN IF NOT EXISTS serial_no VARCHAR(120);
+        ALTER TABLE machine_service_cards ADD COLUMN IF NOT EXISTS cabinet_no VARCHAR(120);
         ALTER TABLE machine_service_cards ADD COLUMN IF NOT EXISTS product_id INTEGER;
         ALTER TABLE machine_service_cards ADD COLUMN IF NOT EXISTS customer_id INTEGER;
         ALTER TABLE machine_service_cards ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT '待安装';
         CREATE UNIQUE INDEX IF NOT EXISTS machine_service_cards_sales_serial_uidx
-            ON machine_service_cards(sales_order_id, serial_no)
-            WHERE sales_order_id IS NOT NULL AND serial_no IS NOT NULL;
+            ON machine_service_cards(sales_order_id, cabinet_no)
+            WHERE sales_order_id IS NOT NULL AND cabinet_no IS NOT NULL;
         """,
     ),
     (
@@ -253,7 +253,7 @@ MIGRATIONS = [
         ALTER TABLE customer_receipts ADD COLUMN IF NOT EXISTS receivable_id INTEGER;
         ALTER TABLE customer_receipts ADD COLUMN IF NOT EXISTS cost_object_id INTEGER;
         ALTER TABLE customer_receipts ADD COLUMN IF NOT EXISTS project_code VARCHAR(120);
-        ALTER TABLE customer_receipts ADD COLUMN IF NOT EXISTS serial_no VARCHAR(120);
+        ALTER TABLE customer_receipts ADD COLUMN IF NOT EXISTS cabinet_no VARCHAR(120);
         ALTER TABLE customer_receipts ADD COLUMN IF NOT EXISTS status VARCHAR(80) DEFAULT '已确认';
         """,
     ),
@@ -261,14 +261,14 @@ MIGRATIONS = [
         "20260527_001_sales_optional_document_trace_fields",
         """
         ALTER TABLE quotation_headers ADD COLUMN IF NOT EXISTS project_code VARCHAR(120);
-        ALTER TABLE quotation_headers ADD COLUMN IF NOT EXISTS serial_no VARCHAR(120);
+        ALTER TABLE quotation_headers ADD COLUMN IF NOT EXISTS cabinet_no VARCHAR(120);
         ALTER TABLE quotation_headers ADD COLUMN IF NOT EXISTS source_no VARCHAR(120);
 
         ALTER TABLE sales_returns ADD COLUMN IF NOT EXISTS project_code VARCHAR(120);
-        ALTER TABLE sales_returns ADD COLUMN IF NOT EXISTS serial_no VARCHAR(120);
+        ALTER TABLE sales_returns ADD COLUMN IF NOT EXISTS cabinet_no VARCHAR(120);
         ALTER TABLE sales_returns ADD COLUMN IF NOT EXISTS source_no VARCHAR(120);
         ALTER TABLE sales_invoices ADD COLUMN IF NOT EXISTS project_code VARCHAR(120);
-        ALTER TABLE sales_invoices ADD COLUMN IF NOT EXISTS serial_no VARCHAR(120);
+        ALTER TABLE sales_invoices ADD COLUMN IF NOT EXISTS cabinet_no VARCHAR(120);
         ALTER TABLE sales_invoices ADD COLUMN IF NOT EXISTS source_no VARCHAR(120);
         """,
     ),
@@ -291,7 +291,7 @@ MIGRATIONS = [
         ALTER TABLE inventory_balances ADD COLUMN IF NOT EXISTS project_code VARCHAR(120);
         ALTER TABLE inventory_adjustments ADD COLUMN IF NOT EXISTS warehouse_id INTEGER;
         ALTER TABLE inventory_adjustments ADD COLUMN IF NOT EXISTS location_id INTEGER;
-        ALTER TABLE inventory_adjustments ADD COLUMN IF NOT EXISTS serial_no VARCHAR(120);
+        ALTER TABLE inventory_adjustments ADD COLUMN IF NOT EXISTS cabinet_no VARCHAR(120);
         ALTER TABLE transfer_orders ADD COLUMN IF NOT EXISTS from_location_id INTEGER;
         ALTER TABLE transfer_orders ADD COLUMN IF NOT EXISTS to_location_id INTEGER;
         CREATE TABLE IF NOT EXISTS transfer_order_items (
@@ -300,7 +300,7 @@ MIGRATIONS = [
             product_id INTEGER NOT NULL,
             quantity NUMERIC NOT NULL,
             lot_no VARCHAR(100),
-            serial_no VARCHAR(100),
+            cabinet_no VARCHAR(100),
             unit_cost NUMERIC DEFAULT 0,
             remark TEXT
         );
@@ -334,7 +334,7 @@ MIGRATIONS = [
             quantity NUMERIC(14, 3) NOT NULL DEFAULT 0,
             unit_cost NUMERIC(14, 4) DEFAULT 0,
             lot_no VARCHAR(120),
-            serial_no VARCHAR(120),
+            cabinet_no VARCHAR(120),
             project_code VARCHAR(120),
             status VARCHAR(80) NOT NULL DEFAULT '已过账',
             remark TEXT,
@@ -350,7 +350,7 @@ MIGRATIONS = [
             quantity NUMERIC(14, 3) NOT NULL DEFAULT 0,
             unit_cost NUMERIC(14, 4) DEFAULT 0,
             lot_no VARCHAR(120),
-            serial_no VARCHAR(120),
+            cabinet_no VARCHAR(120),
             line_role VARCHAR(30) NOT NULL DEFAULT 'component',
             remark TEXT
         );
@@ -359,12 +359,12 @@ MIGRATIONS = [
     (
         "20260527_005_inventory_trace_batch_fields",
         """
-        ALTER TABLE batch_tracking ADD COLUMN IF NOT EXISTS serial_no VARCHAR(120);
+        ALTER TABLE batch_tracking ADD COLUMN IF NOT EXISTS cabinet_no VARCHAR(120);
         ALTER TABLE batch_tracking ADD COLUMN IF NOT EXISTS project_code VARCHAR(120);
         ALTER TABLE batch_tracking ADD COLUMN IF NOT EXISTS location_id INTEGER;
         ALTER TABLE batch_tracking ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
-        CREATE INDEX IF NOT EXISTS idx_batch_tracking_project_serial
-            ON batch_tracking (project_code, serial_no);
+        CREATE INDEX IF NOT EXISTS idx_batch_tracking_project_cabinet
+            ON batch_tracking (project_code, cabinet_no);
         CREATE INDEX IF NOT EXISTS idx_batch_tracking_location
             ON batch_tracking (warehouse_id, location_id);
         """,
@@ -550,7 +550,7 @@ MIGRATIONS = [
         ALTER TABLE customer_receipts ADD COLUMN IF NOT EXISTS receivable_id INTEGER;
         ALTER TABLE customer_receipts ADD COLUMN IF NOT EXISTS cost_object_id INTEGER;
         ALTER TABLE customer_receipts ADD COLUMN IF NOT EXISTS project_code VARCHAR(120);
-        ALTER TABLE customer_receipts ADD COLUMN IF NOT EXISTS serial_no VARCHAR(120);
+        ALTER TABLE customer_receipts ADD COLUMN IF NOT EXISTS cabinet_no VARCHAR(120);
         ALTER TABLE customer_receipts ADD COLUMN IF NOT EXISTS status VARCHAR(80) DEFAULT '已确认';
 
         ALTER TABLE supplier_payments ADD COLUMN IF NOT EXISTS payment_no VARCHAR(120);
@@ -569,7 +569,7 @@ MIGRATIONS = [
         ALTER TABLE supplier_payments ADD COLUMN IF NOT EXISTS payable_id INTEGER;
         ALTER TABLE supplier_payments ADD COLUMN IF NOT EXISTS cost_object_id INTEGER;
         ALTER TABLE supplier_payments ADD COLUMN IF NOT EXISTS project_code VARCHAR(120);
-        ALTER TABLE supplier_payments ADD COLUMN IF NOT EXISTS serial_no VARCHAR(120);
+        ALTER TABLE supplier_payments ADD COLUMN IF NOT EXISTS cabinet_no VARCHAR(120);
         ALTER TABLE supplier_payments ADD COLUMN IF NOT EXISTS status VARCHAR(80) DEFAULT '已确认';
 
         CREATE UNIQUE INDEX IF NOT EXISTS customer_receipts_receipt_no_uidx
@@ -606,7 +606,7 @@ MIGRATIONS = [
         ALTER TABLE purchase_order_items ADD COLUMN IF NOT EXISTS material_unit VARCHAR(80);
         ALTER TABLE purchase_order_items ADD COLUMN IF NOT EXISTS source_line_no VARCHAR(80);
         ALTER TABLE purchase_order_items ADD COLUMN IF NOT EXISTS line_project_code VARCHAR(120);
-        ALTER TABLE purchase_order_items ADD COLUMN IF NOT EXISTS line_serial_no VARCHAR(120);
+        ALTER TABLE purchase_order_items ADD COLUMN IF NOT EXISTS line_cabinet_no VARCHAR(120);
         ALTER TABLE purchase_order_items ADD COLUMN IF NOT EXISTS expected_date DATE;
 
         ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS material_code VARCHAR(120);
@@ -615,7 +615,7 @@ MIGRATIONS = [
         ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS material_unit VARCHAR(80);
         ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS source_line_no VARCHAR(80);
         ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS line_project_code VARCHAR(120);
-        ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS line_serial_no VARCHAR(120);
+        ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS line_cabinet_no VARCHAR(120);
 
         ALTER TABLE subcontract_orders ADD COLUMN IF NOT EXISTS material_code VARCHAR(120);
         ALTER TABLE subcontract_orders ADD COLUMN IF NOT EXISTS material_name VARCHAR(255);
@@ -627,7 +627,7 @@ MIGRATIONS = [
         ALTER TABLE subcontract_orders ADD COLUMN IF NOT EXISTS lot_no VARCHAR(120);
         ALTER TABLE subcontract_orders ADD COLUMN IF NOT EXISTS source_line_no VARCHAR(80);
         ALTER TABLE subcontract_orders ADD COLUMN IF NOT EXISTS line_project_code VARCHAR(120);
-        ALTER TABLE subcontract_orders ADD COLUMN IF NOT EXISTS line_serial_no VARCHAR(120);
+        ALTER TABLE subcontract_orders ADD COLUMN IF NOT EXISTS line_cabinet_no VARCHAR(120);
 
         ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS location_id INTEGER;
         ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS lot_no VARCHAR(120);
@@ -639,7 +639,7 @@ MIGRATIONS = [
         ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS material_unit VARCHAR(80);
         ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS source_line_no VARCHAR(80);
         ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS line_project_code VARCHAR(120);
-        ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS line_serial_no VARCHAR(120);
+        ALTER TABLE work_orders ADD COLUMN IF NOT EXISTS line_cabinet_no VARCHAR(120);
 
         ALTER TABLE wo_material_items ADD COLUMN IF NOT EXISTS material_code VARCHAR(120);
         ALTER TABLE wo_material_items ADD COLUMN IF NOT EXISTS material_name VARCHAR(255);
@@ -651,7 +651,7 @@ MIGRATIONS = [
         ALTER TABLE wo_material_items ADD COLUMN IF NOT EXISTS lot_no VARCHAR(120);
         ALTER TABLE wo_material_items ADD COLUMN IF NOT EXISTS source_line_no VARCHAR(80);
         ALTER TABLE wo_material_items ADD COLUMN IF NOT EXISTS line_project_code VARCHAR(120);
-        ALTER TABLE wo_material_items ADD COLUMN IF NOT EXISTS line_serial_no VARCHAR(120);
+        ALTER TABLE wo_material_items ADD COLUMN IF NOT EXISTS line_cabinet_no VARCHAR(120);
 
         ALTER TABLE machine_service_order_items ADD COLUMN IF NOT EXISTS material_code VARCHAR(120);
         ALTER TABLE machine_service_order_items ADD COLUMN IF NOT EXISTS material_name VARCHAR(255);
@@ -663,7 +663,7 @@ MIGRATIONS = [
         ALTER TABLE machine_service_order_items ADD COLUMN IF NOT EXISTS warehouse_id INTEGER;
         ALTER TABLE machine_service_order_items ADD COLUMN IF NOT EXISTS location_id INTEGER;
         ALTER TABLE machine_service_order_items ADD COLUMN IF NOT EXISTS lot_no VARCHAR(120);
-        ALTER TABLE machine_service_order_items ADD COLUMN IF NOT EXISTS serial_no VARCHAR(120);
+        ALTER TABLE machine_service_order_items ADD COLUMN IF NOT EXISTS cabinet_no VARCHAR(120);
         ALTER TABLE machine_service_order_items ADD COLUMN IF NOT EXISTS project_code VARCHAR(120);
         ALTER TABLE machine_service_order_items ADD COLUMN IF NOT EXISTS source_line_no VARCHAR(80);
 
@@ -680,7 +680,7 @@ MIGRATIONS = [
         ALTER TABLE machine_service_rmas ADD COLUMN IF NOT EXISTS material_unit VARCHAR(80);
         ALTER TABLE machine_service_rmas ADD COLUMN IF NOT EXISTS source_line_no VARCHAR(80);
         ALTER TABLE machine_service_rmas ADD COLUMN IF NOT EXISTS line_project_code VARCHAR(120);
-        ALTER TABLE machine_service_rmas ADD COLUMN IF NOT EXISTS line_serial_no VARCHAR(120);
+        ALTER TABLE machine_service_rmas ADD COLUMN IF NOT EXISTS line_cabinet_no VARCHAR(120);
 
         ALTER TABLE inventory_adjustments ADD COLUMN IF NOT EXISTS source_line_no VARCHAR(80);
         ALTER TABLE inventory_adjustments ADD COLUMN IF NOT EXISTS line_project_code VARCHAR(120);
@@ -716,21 +716,21 @@ MIGRATIONS = [
         "20260528_003_project_ledger_indexes",
         """
         CREATE INDEX IF NOT EXISTS idx_sales_orders_project_code ON sales_orders(project_code);
-        CREATE INDEX IF NOT EXISTS idx_sales_orders_serial_no ON sales_orders(serial_no);
+        CREATE INDEX IF NOT EXISTS idx_sales_orders_cabinet_no ON sales_orders(cabinet_no);
         CREATE INDEX IF NOT EXISTS idx_sales_orders_cost_object_id ON sales_orders(cost_object_id);
         CREATE INDEX IF NOT EXISTS idx_sales_orders_delivery_date ON sales_orders(delivery_date);
         CREATE INDEX IF NOT EXISTS idx_purchase_orders_project_code ON purchase_orders(project_code);
-        CREATE INDEX IF NOT EXISTS idx_purchase_orders_serial_no ON purchase_orders(serial_no);
+        CREATE INDEX IF NOT EXISTS idx_purchase_orders_cabinet_no ON purchase_orders(cabinet_no);
         CREATE INDEX IF NOT EXISTS idx_purchase_orders_cost_object_id ON purchase_orders(cost_object_id);
         CREATE INDEX IF NOT EXISTS idx_purchase_order_items_order_id ON purchase_order_items(order_id);
         CREATE INDEX IF NOT EXISTS idx_work_orders_project_code ON work_orders(project_code);
-        CREATE INDEX IF NOT EXISTS idx_work_orders_serial_no ON work_orders(serial_no);
+        CREATE INDEX IF NOT EXISTS idx_work_orders_cabinet_no ON work_orders(cabinet_no);
         CREATE INDEX IF NOT EXISTS idx_work_orders_cost_object_id ON work_orders(cost_object_id);
         CREATE INDEX IF NOT EXISTS idx_sales_shipments_project_code ON sales_shipments(project_code);
-        CREATE INDEX IF NOT EXISTS idx_sales_shipments_serial_no ON sales_shipments(serial_no);
+        CREATE INDEX IF NOT EXISTS idx_sales_shipments_cabinet_no ON sales_shipments(cabinet_no);
         CREATE INDEX IF NOT EXISTS idx_supplier_payables_doc ON supplier_payables(doc_type, doc_id, doc_no);
         CREATE INDEX IF NOT EXISTS idx_subcontract_orders_project_code ON subcontract_orders(project_code);
-        CREATE INDEX IF NOT EXISTS idx_subcontract_orders_serial_no ON subcontract_orders(serial_no);
+        CREATE INDEX IF NOT EXISTS idx_subcontract_orders_cabinet_no ON subcontract_orders(cabinet_no);
         CREATE INDEX IF NOT EXISTS idx_subcontract_orders_cost_object_id ON subcontract_orders(cost_object_id);
         """,
     ),
@@ -781,7 +781,7 @@ MIGRATIONS = [
             sales_order_id INTEGER,
             product_id INTEGER,
             project_code VARCHAR(120),
-            serial_no VARCHAR(120),
+            cabinet_no VARCHAR(120),
             machine_model VARCHAR(160),
             bom_id INTEGER,
             routing_id INTEGER,
@@ -805,7 +805,7 @@ MIGRATIONS = [
         ALTER TABLE engineering_technical_confirmations ADD COLUMN IF NOT EXISTS sales_order_id INTEGER;
         ALTER TABLE engineering_technical_confirmations ADD COLUMN IF NOT EXISTS product_id INTEGER;
         ALTER TABLE engineering_technical_confirmations ADD COLUMN IF NOT EXISTS project_code VARCHAR(120);
-        ALTER TABLE engineering_technical_confirmations ADD COLUMN IF NOT EXISTS serial_no VARCHAR(120);
+        ALTER TABLE engineering_technical_confirmations ADD COLUMN IF NOT EXISTS cabinet_no VARCHAR(120);
         ALTER TABLE engineering_technical_confirmations ADD COLUMN IF NOT EXISTS machine_model VARCHAR(160);
         ALTER TABLE engineering_technical_confirmations ADD COLUMN IF NOT EXISTS bom_id INTEGER;
         ALTER TABLE engineering_technical_confirmations ADD COLUMN IF NOT EXISTS routing_id INTEGER;
@@ -825,8 +825,8 @@ MIGRATIONS = [
         ALTER TABLE engineering_technical_confirmations ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
         CREATE UNIQUE INDEX IF NOT EXISTS idx_engineering_confirm_no
             ON engineering_technical_confirmations(confirm_no);
-        CREATE INDEX IF NOT EXISTS idx_engineering_confirm_project_serial
-            ON engineering_technical_confirmations(project_code, serial_no);
+        CREATE INDEX IF NOT EXISTS idx_engineering_confirm_project_cabinet
+            ON engineering_technical_confirmations(project_code, cabinet_no);
         CREATE INDEX IF NOT EXISTS idx_engineering_confirm_sales_order
             ON engineering_technical_confirmations(sales_order_id);
         CREATE INDEX IF NOT EXISTS idx_engineering_confirm_status
@@ -874,7 +874,7 @@ MIGRATIONS = [
             location_id INTEGER,
             lot_no VARCHAR(120),
             project_code VARCHAR(120),
-            serial_no VARCHAR(120),
+            cabinet_no VARCHAR(120),
             remark TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
@@ -896,7 +896,7 @@ MIGRATIONS = [
             location_id INTEGER,
             lot_no VARCHAR(120),
             project_code VARCHAR(120),
-            serial_no VARCHAR(120),
+            cabinet_no VARCHAR(120),
             remark TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
@@ -966,7 +966,7 @@ MIGRATIONS = [
             partner_type VARCHAR(40),
             partner_name VARCHAR(160),
             project_code VARCHAR(120),
-            serial_no VARCHAR(120),
+            cabinet_no VARCHAR(120),
             summary TEXT,
             status VARCHAR(30) NOT NULL DEFAULT 'confirmed',
             created_by INTEGER,
@@ -983,7 +983,7 @@ MIGRATIONS = [
         ALTER TABLE cash_bank_journal_entries ADD COLUMN IF NOT EXISTS partner_type VARCHAR(40);
         ALTER TABLE cash_bank_journal_entries ADD COLUMN IF NOT EXISTS partner_name VARCHAR(160);
         ALTER TABLE cash_bank_journal_entries ADD COLUMN IF NOT EXISTS project_code VARCHAR(120);
-        ALTER TABLE cash_bank_journal_entries ADD COLUMN IF NOT EXISTS serial_no VARCHAR(120);
+        ALTER TABLE cash_bank_journal_entries ADD COLUMN IF NOT EXISTS cabinet_no VARCHAR(120);
         ALTER TABLE cash_bank_journal_entries ADD COLUMN IF NOT EXISTS summary TEXT;
         ALTER TABLE cash_bank_journal_entries ADD COLUMN IF NOT EXISTS status VARCHAR(30) NOT NULL DEFAULT 'confirmed';
         ALTER TABLE cash_bank_journal_entries ADD COLUMN IF NOT EXISTS created_by INTEGER;
@@ -993,19 +993,19 @@ MIGRATIONS = [
         CREATE INDEX IF NOT EXISTS idx_cash_bank_journal_source
             ON cash_bank_journal_entries(source_type, source_no);
         CREATE INDEX IF NOT EXISTS idx_cash_bank_journal_trace
-            ON cash_bank_journal_entries(project_code, serial_no);
+            ON cash_bank_journal_entries(project_code, cabinet_no);
         """,
     ),
     (
         "20260531_003_finance_phase1_trace_and_purchase_invoices",
         """
         ALTER TABLE customer_receivables ADD COLUMN IF NOT EXISTS project_code VARCHAR(120);
-        ALTER TABLE customer_receivables ADD COLUMN IF NOT EXISTS serial_no VARCHAR(120);
+        ALTER TABLE customer_receivables ADD COLUMN IF NOT EXISTS cabinet_no VARCHAR(120);
         ALTER TABLE customer_receivables ADD COLUMN IF NOT EXISTS cost_object_id INTEGER;
 
         UPDATE customer_receivables cr
         SET project_code=COALESCE(NULLIF(cr.project_code,''), so.project_code),
-            serial_no=COALESCE(NULLIF(cr.serial_no,''), so.serial_no),
+            cabinet_no=COALESCE(NULLIF(cr.cabinet_no,''), so.cabinet_no),
             cost_object_id=COALESCE(cr.cost_object_id, so.cost_object_id)
         FROM sales_orders so
         WHERE cr.source_type='sales_order'
@@ -1013,7 +1013,7 @@ MIGRATIONS = [
 
         UPDATE customer_receivables cr
         SET project_code=COALESCE(NULLIF(cr.project_code,''), ss.project_code, so.project_code),
-            serial_no=COALESCE(NULLIF(cr.serial_no,''), ss.serial_no, so.serial_no),
+            cabinet_no=COALESCE(NULLIF(cr.cabinet_no,''), ss.cabinet_no, so.cabinet_no),
             cost_object_id=COALESCE(cr.cost_object_id, so.cost_object_id)
         FROM sales_shipments ss
         LEFT JOIN sales_orders so ON so.id=ss.order_id
@@ -1021,16 +1021,16 @@ MIGRATIONS = [
           AND (cr.source_id=ss.id OR cr.source_no=ss.shipment_no);
 
         CREATE INDEX IF NOT EXISTS idx_customer_receivables_trace
-            ON customer_receivables(project_code, serial_no);
+            ON customer_receivables(project_code, cabinet_no);
 
         ALTER TABLE supplier_payables ADD COLUMN IF NOT EXISTS project_code VARCHAR(120);
-        ALTER TABLE supplier_payables ADD COLUMN IF NOT EXISTS serial_no VARCHAR(120);
+        ALTER TABLE supplier_payables ADD COLUMN IF NOT EXISTS cabinet_no VARCHAR(120);
         ALTER TABLE supplier_payables ADD COLUMN IF NOT EXISTS cost_object_id INTEGER;
         ALTER TABLE supplier_payables ADD COLUMN IF NOT EXISTS due_date DATE;
 
         UPDATE supplier_payables sp
         SET project_code=COALESCE(NULLIF(sp.project_code,''), po.project_code),
-            serial_no=COALESCE(NULLIF(sp.serial_no,''), po.serial_no),
+            cabinet_no=COALESCE(NULLIF(sp.cabinet_no,''), po.cabinet_no),
             cost_object_id=COALESCE(sp.cost_object_id, po.cost_object_id)
         FROM purchase_orders po
         WHERE sp.doc_type='purchase_order'
@@ -1038,7 +1038,7 @@ MIGRATIONS = [
 
         UPDATE supplier_payables sp
         SET project_code=COALESCE(NULLIF(sp.project_code,''), pr.project_code, po.project_code),
-            serial_no=COALESCE(NULLIF(sp.serial_no,''), pr.serial_no, po.serial_no),
+            cabinet_no=COALESCE(NULLIF(sp.cabinet_no,''), pr.cabinet_no, po.cabinet_no),
             cost_object_id=COALESCE(sp.cost_object_id, po.cost_object_id)
         FROM purchase_receipts pr
         LEFT JOIN purchase_orders po ON po.id=pr.order_id
@@ -1047,14 +1047,14 @@ MIGRATIONS = [
 
         UPDATE supplier_payables sp
         SET project_code=COALESCE(NULLIF(sp.project_code,''), so.project_code),
-            serial_no=COALESCE(NULLIF(sp.serial_no,''), so.serial_no),
+            cabinet_no=COALESCE(NULLIF(sp.cabinet_no,''), so.cabinet_no),
             cost_object_id=COALESCE(sp.cost_object_id, so.cost_object_id)
         FROM subcontract_orders so
         WHERE sp.doc_type IN ('subcontract_order','subcontract_receipt')
           AND (sp.doc_id=so.id OR sp.doc_no=so.order_no);
 
         CREATE INDEX IF NOT EXISTS idx_supplier_payables_trace
-            ON supplier_payables(project_code, serial_no);
+            ON supplier_payables(project_code, cabinet_no);
 
         CREATE TABLE IF NOT EXISTS purchase_invoices (
             id SERIAL PRIMARY KEY,
@@ -1068,7 +1068,7 @@ MIGRATIONS = [
             tax_amount NUMERIC(14, 2) DEFAULT 0,
             amount_with_tax NUMERIC(14, 2) DEFAULT 0,
             project_code VARCHAR(120),
-            serial_no VARCHAR(120),
+            cabinet_no VARCHAR(120),
             status VARCHAR(80) DEFAULT 'draft',
             remark TEXT,
             created_by INTEGER,
@@ -1084,7 +1084,7 @@ MIGRATIONS = [
         ALTER TABLE purchase_invoices ADD COLUMN IF NOT EXISTS tax_amount NUMERIC(14, 2) DEFAULT 0;
         ALTER TABLE purchase_invoices ADD COLUMN IF NOT EXISTS amount_with_tax NUMERIC(14, 2) DEFAULT 0;
         ALTER TABLE purchase_invoices ADD COLUMN IF NOT EXISTS project_code VARCHAR(120);
-        ALTER TABLE purchase_invoices ADD COLUMN IF NOT EXISTS serial_no VARCHAR(120);
+        ALTER TABLE purchase_invoices ADD COLUMN IF NOT EXISTS cabinet_no VARCHAR(120);
         ALTER TABLE purchase_invoices ADD COLUMN IF NOT EXISTS status VARCHAR(80) DEFAULT 'draft';
         ALTER TABLE purchase_invoices ADD COLUMN IF NOT EXISTS remark TEXT;
         ALTER TABLE purchase_invoices ADD COLUMN IF NOT EXISTS created_by INTEGER;
@@ -1095,7 +1095,7 @@ MIGRATIONS = [
         CREATE INDEX IF NOT EXISTS idx_purchase_invoices_source
             ON purchase_invoices(source_type, source_id, source_no);
         CREATE INDEX IF NOT EXISTS idx_purchase_invoices_trace
-            ON purchase_invoices(project_code, serial_no);
+            ON purchase_invoices(project_code, cabinet_no);
         CREATE TABLE IF NOT EXISTS sales_invoices (
             id SERIAL PRIMARY KEY
         );
@@ -1109,7 +1109,7 @@ MIGRATIONS = [
         ALTER TABLE sales_invoices ADD COLUMN IF NOT EXISTS tax_amount NUMERIC(14, 2) DEFAULT 0;
         ALTER TABLE sales_invoices ADD COLUMN IF NOT EXISTS amount_with_tax NUMERIC(14, 2) DEFAULT 0;
         ALTER TABLE sales_invoices ADD COLUMN IF NOT EXISTS project_code VARCHAR(120);
-        ALTER TABLE sales_invoices ADD COLUMN IF NOT EXISTS serial_no VARCHAR(120);
+        ALTER TABLE sales_invoices ADD COLUMN IF NOT EXISTS cabinet_no VARCHAR(120);
         ALTER TABLE sales_invoices ADD COLUMN IF NOT EXISTS status VARCHAR(80) DEFAULT 'draft';
         ALTER TABLE sales_invoices ADD COLUMN IF NOT EXISTS remark TEXT;
         ALTER TABLE sales_invoices ADD COLUMN IF NOT EXISTS created_by INTEGER;
@@ -1120,7 +1120,7 @@ MIGRATIONS = [
         CREATE INDEX IF NOT EXISTS idx_sales_invoices_source
             ON sales_invoices(source_type, source_id, source_no);
         CREATE INDEX IF NOT EXISTS idx_sales_invoices_trace
-            ON sales_invoices(project_code, serial_no);
+            ON sales_invoices(project_code, cabinet_no);
         """,
     ),
     (
@@ -1417,7 +1417,7 @@ MIGRATIONS = [
             product_id INTEGER NOT NULL,
             quantity NUMERIC(14,3) NOT NULL,
             lot_no VARCHAR(100),
-            serial_no VARCHAR(100),
+            cabinet_no VARCHAR(100),
             unit_cost NUMERIC(14,2) DEFAULT 0,
             amount NUMERIC(14,2) DEFAULT 0,
             remark TEXT
@@ -1434,7 +1434,7 @@ MIGRATIONS = [
             actual_qty NUMERIC(14,3) NOT NULL DEFAULT 0,
             diff_qty NUMERIC(14,3) NOT NULL DEFAULT 0,
             lot_no VARCHAR(100),
-            serial_no VARCHAR(100),
+            cabinet_no VARCHAR(100),
             unit_cost NUMERIC(14,2) DEFAULT 0,
             amount NUMERIC(14,2) DEFAULT 0
         );
@@ -1475,7 +1475,7 @@ MIGRATIONS = [
         CREATE INDEX IF NOT EXISTS idx_stock_transactions_reference_or_source
             ON stock_transactions (reference_no, source_doc_no);
         CREATE INDEX IF NOT EXISTS idx_stock_transactions_balance_dims
-            ON stock_transactions (product_id, warehouse_id, location_id, project_code, lot_no, serial_no);
+            ON stock_transactions (product_id, warehouse_id, location_id, project_code, lot_no, cabinet_no);
 
         WITH duplicate_balance_groups AS (
             SELECT
@@ -1496,7 +1496,7 @@ MIGRATIONS = [
                 COALESCE(location_id, 0),
                 COALESCE(project_code, ''),
                 COALESCE(lot_no, ''),
-                COALESCE(serial_no, '')
+                COALESCE(cabinet_no, '')
             HAVING COUNT(*) > 1
         ),
         updated_keep_rows AS (
@@ -1522,7 +1522,7 @@ MIGRATIONS = [
                 COALESCE(location_id, 0),
                 COALESCE(project_code, ''),
                 COALESCE(lot_no, ''),
-                COALESCE(serial_no, '')
+                COALESCE(cabinet_no, '')
             );
         """,
     ),
@@ -1586,7 +1586,7 @@ MIGRATIONS = [
             debit_amount NUMERIC(14,2) DEFAULT 0,
             credit_amount NUMERIC(14,2) DEFAULT 0,
             project_code VARCHAR(120),
-            serial_no VARCHAR(120),
+            cabinet_no VARCHAR(120),
             partner_type VARCHAR(40),
             partner_id INTEGER,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -1598,7 +1598,7 @@ MIGRATIONS = [
         ALTER TABLE voucher_lines ADD COLUMN IF NOT EXISTS debit_amount NUMERIC(14,2) DEFAULT 0;
         ALTER TABLE voucher_lines ADD COLUMN IF NOT EXISTS credit_amount NUMERIC(14,2) DEFAULT 0;
         ALTER TABLE voucher_lines ADD COLUMN IF NOT EXISTS project_code VARCHAR(120);
-        ALTER TABLE voucher_lines ADD COLUMN IF NOT EXISTS serial_no VARCHAR(120);
+        ALTER TABLE voucher_lines ADD COLUMN IF NOT EXISTS cabinet_no VARCHAR(120);
         ALTER TABLE voucher_lines ADD COLUMN IF NOT EXISTS partner_type VARCHAR(40);
         ALTER TABLE voucher_lines ADD COLUMN IF NOT EXISTS partner_id INTEGER;
         ALTER TABLE voucher_lines ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
@@ -1618,7 +1618,7 @@ MIGRATIONS = [
             credit_amount NUMERIC(14,2) DEFAULT 0,
             summary TEXT,
             project_code VARCHAR(120),
-            serial_no VARCHAR(120),
+            cabinet_no VARCHAR(120),
             voucher_no VARCHAR(120),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
@@ -1633,7 +1633,7 @@ MIGRATIONS = [
         ALTER TABLE general_ledger ADD COLUMN IF NOT EXISTS credit_amount NUMERIC(14,2) DEFAULT 0;
         ALTER TABLE general_ledger ADD COLUMN IF NOT EXISTS summary TEXT;
         ALTER TABLE general_ledger ADD COLUMN IF NOT EXISTS project_code VARCHAR(120);
-        ALTER TABLE general_ledger ADD COLUMN IF NOT EXISTS serial_no VARCHAR(120);
+        ALTER TABLE general_ledger ADD COLUMN IF NOT EXISTS cabinet_no VARCHAR(120);
         ALTER TABLE general_ledger ADD COLUMN IF NOT EXISTS voucher_no VARCHAR(120);
         ALTER TABLE general_ledger ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
         CREATE INDEX IF NOT EXISTS idx_general_ledger_account_date ON general_ledger(account_id, entry_date);
@@ -1655,7 +1655,7 @@ MIGRATIONS = [
         ALTER TABLE voucher_lines ADD COLUMN IF NOT EXISTS source_id INTEGER;
         ALTER TABLE voucher_lines ADD COLUMN IF NOT EXISTS source_no VARCHAR(120);
         CREATE INDEX IF NOT EXISTS idx_voucher_lines_trace
-            ON voucher_lines(project_code, serial_no);
+            ON voucher_lines(project_code, cabinet_no);
 
         ALTER TABLE general_ledger ADD COLUMN IF NOT EXISTS source_type VARCHAR(80);
         ALTER TABLE general_ledger ADD COLUMN IF NOT EXISTS source_id INTEGER;
@@ -1663,7 +1663,7 @@ MIGRATIONS = [
         CREATE INDEX IF NOT EXISTS idx_general_ledger_source
             ON general_ledger(source_type, source_id, source_no);
         CREATE INDEX IF NOT EXISTS idx_general_ledger_trace
-            ON general_ledger(project_code, serial_no);
+            ON general_ledger(project_code, cabinet_no);
 
         ALTER TABLE cash_bank_accounts ADD COLUMN IF NOT EXISTS account_id INTEGER;
         ALTER TABLE cash_bank_accounts ADD COLUMN IF NOT EXISTS account_code_link VARCHAR(50);
@@ -1878,9 +1878,9 @@ MIGRATIONS = [
             ON project_masters(project_code)
             WHERE project_code IS NOT NULL AND project_code <> '';
 
-        CREATE TABLE IF NOT EXISTS machine_serial_masters (
+        CREATE TABLE IF NOT EXISTS cabinet_masters (
             id SERIAL PRIMARY KEY,
-            serial_no VARCHAR(120) NOT NULL UNIQUE,
+            cabinet_no VARCHAR(120) NOT NULL UNIQUE,
             project_id INTEGER,
             project_code VARCHAR(120),
             customer_id INTEGER,
@@ -1896,26 +1896,26 @@ MIGRATIONS = [
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
-        ALTER TABLE machine_serial_masters ADD COLUMN IF NOT EXISTS serial_no VARCHAR(120);
-        ALTER TABLE machine_serial_masters ADD COLUMN IF NOT EXISTS project_id INTEGER;
-        ALTER TABLE machine_serial_masters ADD COLUMN IF NOT EXISTS project_code VARCHAR(120);
-        ALTER TABLE machine_serial_masters ADD COLUMN IF NOT EXISTS customer_id INTEGER;
-        ALTER TABLE machine_serial_masters ADD COLUMN IF NOT EXISTS product_id INTEGER;
-        ALTER TABLE machine_serial_masters ADD COLUMN IF NOT EXISTS product_family VARCHAR(160);
-        ALTER TABLE machine_serial_masters ADD COLUMN IF NOT EXISTS machine_model VARCHAR(160);
-        ALTER TABLE machine_serial_masters ADD COLUMN IF NOT EXISTS production_stage VARCHAR(80) DEFAULT '准备';
-        ALTER TABLE machine_serial_masters ADD COLUMN IF NOT EXISTS service_status VARCHAR(80) DEFAULT '未安装';
-        ALTER TABLE machine_serial_masters ADD COLUMN IF NOT EXISTS warranty_start_date DATE;
-        ALTER TABLE machine_serial_masters ADD COLUMN IF NOT EXISTS warranty_end_date DATE;
-        ALTER TABLE machine_serial_masters ADD COLUMN IF NOT EXISTS status VARCHAR(80) DEFAULT '启用';
-        ALTER TABLE machine_serial_masters ADD COLUMN IF NOT EXISTS remark TEXT;
-        ALTER TABLE machine_serial_masters ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
-        ALTER TABLE machine_serial_masters ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
-        CREATE UNIQUE INDEX IF NOT EXISTS machine_serial_masters_serial_no_uidx
-            ON machine_serial_masters(serial_no)
-            WHERE serial_no IS NOT NULL AND serial_no <> '';
-        CREATE INDEX IF NOT EXISTS machine_serial_masters_project_code_idx
-            ON machine_serial_masters(project_code);
+        ALTER TABLE cabinet_masters ADD COLUMN IF NOT EXISTS cabinet_no VARCHAR(120);
+        ALTER TABLE cabinet_masters ADD COLUMN IF NOT EXISTS project_id INTEGER;
+        ALTER TABLE cabinet_masters ADD COLUMN IF NOT EXISTS project_code VARCHAR(120);
+        ALTER TABLE cabinet_masters ADD COLUMN IF NOT EXISTS customer_id INTEGER;
+        ALTER TABLE cabinet_masters ADD COLUMN IF NOT EXISTS product_id INTEGER;
+        ALTER TABLE cabinet_masters ADD COLUMN IF NOT EXISTS product_family VARCHAR(160);
+        ALTER TABLE cabinet_masters ADD COLUMN IF NOT EXISTS machine_model VARCHAR(160);
+        ALTER TABLE cabinet_masters ADD COLUMN IF NOT EXISTS production_stage VARCHAR(80) DEFAULT '准备';
+        ALTER TABLE cabinet_masters ADD COLUMN IF NOT EXISTS service_status VARCHAR(80) DEFAULT '未安装';
+        ALTER TABLE cabinet_masters ADD COLUMN IF NOT EXISTS warranty_start_date DATE;
+        ALTER TABLE cabinet_masters ADD COLUMN IF NOT EXISTS warranty_end_date DATE;
+        ALTER TABLE cabinet_masters ADD COLUMN IF NOT EXISTS status VARCHAR(80) DEFAULT '启用';
+        ALTER TABLE cabinet_masters ADD COLUMN IF NOT EXISTS remark TEXT;
+        ALTER TABLE cabinet_masters ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+        ALTER TABLE cabinet_masters ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+        CREATE UNIQUE INDEX IF NOT EXISTS cabinet_masters_cabinet_no_uidx
+            ON cabinet_masters(cabinet_no)
+            WHERE cabinet_no IS NOT NULL AND cabinet_no <> '';
+        CREATE INDEX IF NOT EXISTS cabinet_masters_project_code_idx
+            ON cabinet_masters(project_code);
         """,
     ),
     (
@@ -2004,7 +2004,7 @@ MIGRATIONS = [
             product_id INTEGER REFERENCES products(id),
             bom_id INTEGER REFERENCES boms(id),
             project_code VARCHAR(120),
-            serial_no VARCHAR(120),
+            cabinet_no VARCHAR(120),
             usage_scope VARCHAR(80),
             remark TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -2082,12 +2082,12 @@ MIGRATIONS = [
         ALTER TABLE machine_service_rmas ADD COLUMN IF NOT EXISTS next_action VARCHAR(240);
         ALTER TABLE machine_service_rmas ADD COLUMN IF NOT EXISTS downstream_impact TEXT;
 
-        CREATE INDEX IF NOT EXISTS idx_service_orders_project_serial_status
-            ON machine_service_orders(project_code, serial_no, status);
-        CREATE INDEX IF NOT EXISTS idx_service_rmas_project_serial_status
-            ON machine_service_rmas(project_code, serial_no, status);
-        CREATE INDEX IF NOT EXISTS idx_service_acceptance_project_serial_result
-            ON machine_service_acceptance_checks(project_code, serial_no, result);
+        CREATE INDEX IF NOT EXISTS idx_service_orders_project_cabinet_status
+            ON machine_service_orders(project_code, cabinet_no, status);
+        CREATE INDEX IF NOT EXISTS idx_service_rmas_project_cabinet_status
+            ON machine_service_rmas(project_code, cabinet_no, status);
+        CREATE INDEX IF NOT EXISTS idx_service_acceptance_project_cabinet_result
+            ON machine_service_acceptance_checks(project_code, cabinet_no, result);
         """,
     ),
     (
@@ -2104,7 +2104,7 @@ MIGRATIONS = [
             base_bom_id INTEGER,
             project_bom_id INTEGER,
             project_code VARCHAR(120),
-            serial_no VARCHAR(120),
+            cabinet_no VARCHAR(120),
             product_family VARCHAR(160),
             machine_model VARCHAR(160),
             status VARCHAR(40) NOT NULL DEFAULT 'draft',
@@ -2145,8 +2145,8 @@ MIGRATIONS = [
         );
         CREATE INDEX IF NOT EXISTS idx_product_configurations_status
             ON product_configurations(status);
-        CREATE INDEX IF NOT EXISTS idx_product_configurations_project_serial
-            ON product_configurations(project_code, serial_no);
+        CREATE INDEX IF NOT EXISTS idx_product_configurations_project_cabinet
+            ON product_configurations(project_code, cabinet_no);
         CREATE INDEX IF NOT EXISTS idx_product_configurations_sales_order
             ON product_configurations(sales_order_id);
         CREATE INDEX IF NOT EXISTS idx_product_configuration_items_config
@@ -2781,7 +2781,7 @@ MIGRATIONS = [
         -- 3. 客户应收账款补充字段（如果不存在）
         ALTER TABLE customer_receivables ADD COLUMN IF NOT EXISTS cost_object_id INTEGER;
         ALTER TABLE customer_receivables ADD COLUMN IF NOT EXISTS project_code VARCHAR(120);
-        ALTER TABLE customer_receivables ADD COLUMN IF NOT EXISTS serial_no VARCHAR(120);
+        ALTER TABLE customer_receivables ADD COLUMN IF NOT EXISTS cabinet_no VARCHAR(120);
         ALTER TABLE customer_receivables ADD COLUMN IF NOT EXISTS invoice_no VARCHAR(120);
         ALTER TABLE customer_receivables ADD COLUMN IF NOT EXISTS invoice_date DATE;
 
@@ -2806,7 +2806,7 @@ MIGRATIONS = [
             tax_amount NUMERIC(15,2),
             total_amount NUMERIC(15,2),
             project_code VARCHAR(120),
-            serial_no VARCHAR(120),
+            cabinet_no VARCHAR(120),
             source_doc_type VARCHAR(80),
             source_doc_id INTEGER,
             source_doc_no VARCHAR(120),
@@ -2838,7 +2838,7 @@ MIGRATIONS = [
             tax_amount NUMERIC(15,2),
             total_amount NUMERIC(15,2),
             project_code VARCHAR(120),
-            serial_no VARCHAR(120),
+            cabinet_no VARCHAR(120),
             source_doc_type VARCHAR(80),
             source_doc_id INTEGER,
             source_doc_no VARCHAR(120),
@@ -2869,7 +2869,7 @@ MIGRATIONS = [
             payment_terms TEXT,
             payment_purpose TEXT,
             project_code VARCHAR(120),
-            serial_no VARCHAR(120),
+            cabinet_no VARCHAR(120),
             cost_object_id INTEGER,
             requested_payment_date DATE,
             requested_by INTEGER,
@@ -2916,7 +2916,7 @@ MIGRATIONS = [
             discount_amount NUMERIC(15,2) DEFAULT 0,
             receivable_id INTEGER,
             project_code VARCHAR(120),
-            serial_no VARCHAR(120),
+            cabinet_no VARCHAR(120),
             remark TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -2949,7 +2949,7 @@ MIGRATIONS = [
             paid_amount NUMERIC(15,2) DEFAULT 0,
             payable_id INTEGER,
             project_code VARCHAR(120),
-            serial_no VARCHAR(120),
+            cabinet_no VARCHAR(120),
             remark TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -3070,7 +3070,7 @@ MIGRATIONS = [
             delivery_id INTEGER,
             delivery_no VARCHAR(120),
             project_code VARCHAR(120),
-            serial_no VARCHAR(120),
+            cabinet_no VARCHAR(120),
             remark TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -3108,7 +3108,7 @@ MIGRATIONS = [
             receipt_id INTEGER,
             receipt_no VARCHAR(120),
             project_code VARCHAR(120),
-            serial_no VARCHAR(120),
+            cabinet_no VARCHAR(120),
             remark TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -3200,7 +3200,7 @@ MIGRATIONS = [
             credit_amount NUMERIC(16, 2) DEFAULT 0,
             summary TEXT,
             project_code VARCHAR(120),
-            serial_no VARCHAR(120),
+            cabinet_no VARCHAR(120),
             partner_type VARCHAR(50),
             partner_id INTEGER,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -3250,9 +3250,9 @@ MIGRATIONS = [
         CREATE INDEX IF NOT EXISTS idx_project_cost_ledger_date ON project_cost_ledger(cost_date);
 
         -- 6. Serial Cost Ledger
-        CREATE TABLE IF NOT EXISTS serial_cost_ledger (
+        CREATE TABLE IF NOT EXISTS cabinet_cost_ledger (
             id SERIAL PRIMARY KEY,
-            serial_no VARCHAR(120) NOT NULL,
+            cabinet_no VARCHAR(120) NOT NULL,
             cost_date DATE NOT NULL,
             cost_type VARCHAR(80),
             source_type VARCHAR(80),
@@ -3266,8 +3266,8 @@ MIGRATIONS = [
             remark TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
-        CREATE INDEX IF NOT EXISTS idx_serial_cost_ledger_serial ON serial_cost_ledger(serial_no);
-        CREATE INDEX IF NOT EXISTS idx_serial_cost_ledger_date ON serial_cost_ledger(cost_date);
+        CREATE INDEX IF NOT EXISTS idx_cabinet_cost_ledger_cabinet ON cabinet_cost_ledger(cabinet_no);
+        CREATE INDEX IF NOT EXISTS idx_cabinet_cost_ledger_date ON cabinet_cost_ledger(cost_date);
 
         -- 7. Inventory Costing
         CREATE TABLE IF NOT EXISTS inventory_costing (
@@ -3297,7 +3297,7 @@ MIGRATIONS = [
             location_id INTEGER,
             reference_no VARCHAR(120),
             project_code VARCHAR(120),
-            serial_no VARCHAR(120),
+            cabinet_no VARCHAR(120),
             remark TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
@@ -3506,11 +3506,11 @@ MIGRATIONS = [
             END IF;
         END $$;
 
-        -- 补充查询索引（项目/机号/单号维度）
+        -- 补充查询索引（项目/柜号/单号维度）
         CREATE INDEX IF NOT EXISTS idx_inventory_transactions_project
             ON inventory_transactions(project_code) WHERE project_code IS NOT NULL;
-        CREATE INDEX IF NOT EXISTS idx_inventory_transactions_serial
-            ON inventory_transactions(serial_no) WHERE serial_no IS NOT NULL;
+        CREATE INDEX IF NOT EXISTS idx_inventory_transactions_cabinet
+            ON inventory_transactions(cabinet_no) WHERE cabinet_no IS NOT NULL;
         CREATE INDEX IF NOT EXISTS idx_inventory_transactions_reference
             ON inventory_transactions(reference_no) WHERE reference_no IS NOT NULL;
         CREATE INDEX IF NOT EXISTS idx_inventory_costing_date
@@ -3538,7 +3538,7 @@ MIGRATIONS = [
         ALTER TABLE pick_lists ADD COLUMN IF NOT EXISTS warehouse_id INTEGER;
         ALTER TABLE pick_lists ADD COLUMN IF NOT EXISTS location_id INTEGER;
         ALTER TABLE pick_lists ADD COLUMN IF NOT EXISTS project_code VARCHAR(120);
-        ALTER TABLE pick_lists ADD COLUMN IF NOT EXISTS serial_no VARCHAR(120);
+        ALTER TABLE pick_lists ADD COLUMN IF NOT EXISTS cabinet_no VARCHAR(120);
         ALTER TABLE pick_lists ADD COLUMN IF NOT EXISTS status VARCHAR(40) DEFAULT 'draft';
         ALTER TABLE pick_lists ADD COLUMN IF NOT EXISTS posted_at TIMESTAMP;
         ALTER TABLE pick_lists ADD COLUMN IF NOT EXISTS voided_at TIMESTAMP;
@@ -3559,10 +3559,10 @@ MIGRATIONS = [
         ALTER TABLE pick_list_items ADD COLUMN IF NOT EXISTS warehouse_id INTEGER;
         ALTER TABLE pick_list_items ADD COLUMN IF NOT EXISTS location_id INTEGER;
         ALTER TABLE pick_list_items ADD COLUMN IF NOT EXISTS lot_no VARCHAR(120);
-        ALTER TABLE pick_list_items ADD COLUMN IF NOT EXISTS serial_no VARCHAR(120);
+        ALTER TABLE pick_list_items ADD COLUMN IF NOT EXISTS cabinet_no VARCHAR(120);
         ALTER TABLE pick_list_items ADD COLUMN IF NOT EXISTS source_line_no VARCHAR(120);
         ALTER TABLE pick_list_items ADD COLUMN IF NOT EXISTS line_project_code VARCHAR(120);
-        ALTER TABLE pick_list_items ADD COLUMN IF NOT EXISTS line_serial_no VARCHAR(120);
+        ALTER TABLE pick_list_items ADD COLUMN IF NOT EXISTS line_cabinet_no VARCHAR(120);
         ALTER TABLE pick_list_items ADD COLUMN IF NOT EXISTS remark TEXT;
         ALTER TABLE stock_transactions ADD COLUMN IF NOT EXISTS source_doc_type VARCHAR(80);
         ALTER TABLE stock_transactions ADD COLUMN IF NOT EXISTS source_doc_no VARCHAR(120);
@@ -3594,7 +3594,7 @@ MIGRATIONS = [
         ALTER TABLE operation_reports ADD COLUMN IF NOT EXISTS next_action TEXT;
         ALTER TABLE operation_reports ADD COLUMN IF NOT EXISTS downstream_impact TEXT;
         ALTER TABLE operation_reports ADD COLUMN IF NOT EXISTS project_code VARCHAR(120);
-        ALTER TABLE operation_reports ADD COLUMN IF NOT EXISTS serial_no VARCHAR(120);
+        ALTER TABLE operation_reports ADD COLUMN IF NOT EXISTS cabinet_no VARCHAR(120);
         ALTER TABLE operation_reports ADD COLUMN IF NOT EXISTS remark TEXT;
         ALTER TABLE operation_reports ADD COLUMN IF NOT EXISTS submitted_by INTEGER;
         ALTER TABLE operation_reports ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMP;
@@ -3710,7 +3710,7 @@ MIGRATIONS = [
             warehouse_id INTEGER,
             location_id INTEGER,
             lot_no VARCHAR(120),
-            serial_no VARCHAR(120),
+            cabinet_no VARCHAR(120),
             project_code VARCHAR(120),
             status VARCHAR(40) NOT NULL DEFAULT '草稿',
             remark TEXT,
@@ -3739,7 +3739,7 @@ MIGRATIONS = [
         ALTER TABLE production_completion_orders ADD COLUMN IF NOT EXISTS warehouse_id INTEGER;
         ALTER TABLE production_completion_orders ADD COLUMN IF NOT EXISTS location_id INTEGER;
         ALTER TABLE production_completion_orders ADD COLUMN IF NOT EXISTS lot_no VARCHAR(120);
-        ALTER TABLE production_completion_orders ADD COLUMN IF NOT EXISTS serial_no VARCHAR(120);
+        ALTER TABLE production_completion_orders ADD COLUMN IF NOT EXISTS cabinet_no VARCHAR(120);
         ALTER TABLE production_completion_orders ADD COLUMN IF NOT EXISTS project_code VARCHAR(120);
         ALTER TABLE production_completion_orders ADD COLUMN IF NOT EXISTS status VARCHAR(40) DEFAULT '草稿';
         ALTER TABLE production_completion_orders ADD COLUMN IF NOT EXISTS remark TEXT;
@@ -3759,7 +3759,7 @@ MIGRATIONS = [
         ALTER TABLE production_completion_orders ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
         CREATE UNIQUE INDEX IF NOT EXISTS idx_production_completion_no ON production_completion_orders(completion_no);
         CREATE INDEX IF NOT EXISTS idx_production_completion_work_order ON production_completion_orders(work_order_id);
-        CREATE INDEX IF NOT EXISTS idx_production_completion_project_serial ON production_completion_orders(project_code, serial_no);
+        CREATE INDEX IF NOT EXISTS idx_production_completion_project_cabinet ON production_completion_orders(project_code, cabinet_no);
         CREATE UNIQUE INDEX IF NOT EXISTS idx_production_completion_legacy_item ON production_completion_orders(wo_complete_item_id) WHERE wo_complete_item_id IS NOT NULL;
         ALTER TABLE wo_complete_items ADD COLUMN IF NOT EXISTS source_doc_type VARCHAR(80);
         ALTER TABLE wo_complete_items ADD COLUMN IF NOT EXISTS source_doc_no VARCHAR(120);
@@ -3792,7 +3792,7 @@ MIGRATIONS = [
             link_type VARCHAR(40) NOT NULL,
             link_strength VARCHAR(20) NOT NULL DEFAULT 'hard',
             project_code VARCHAR(120),
-            serial_no VARCHAR(120),
+            cabinet_no VARCHAR(120),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             created_by INTEGER,
             created_event VARCHAR(80)
@@ -3804,9 +3804,9 @@ MIGRATIONS = [
         CREATE INDEX IF NOT EXISTS idx_trace_links_project
             ON trace_links(project_code)
             WHERE project_code IS NOT NULL AND project_code <> '';
-        CREATE INDEX IF NOT EXISTS idx_trace_links_serial
-            ON trace_links(serial_no)
-            WHERE serial_no IS NOT NULL AND serial_no <> '';
+        CREATE INDEX IF NOT EXISTS idx_trace_links_cabinet
+            ON trace_links(cabinet_no)
+            WHERE cabinet_no IS NOT NULL AND cabinet_no <> '';
         CREATE INDEX IF NOT EXISTS idx_trace_links_created_at
             ON trace_links(created_at);
         CREATE UNIQUE INDEX IF NOT EXISTS uq_trace_links_edge_coalesced
@@ -3829,7 +3829,7 @@ MIGRATIONS = [
             snapshot_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             snapshot_by INTEGER,
             project_code VARCHAR(120),
-            serial_no VARCHAR(120),
+            cabinet_no VARCHAR(120),
             header_payload JSONB NOT NULL,
             lines_payload JSONB NOT NULL DEFAULT '[]'::jsonb,
             trace_context_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
@@ -3843,9 +3843,9 @@ MIGRATIONS = [
         CREATE INDEX IF NOT EXISTS idx_trace_snapshots_project
             ON trace_snapshots(project_code)
             WHERE project_code IS NOT NULL AND project_code <> '';
-        CREATE INDEX IF NOT EXISTS idx_trace_snapshots_serial
-            ON trace_snapshots(serial_no)
-            WHERE serial_no IS NOT NULL AND serial_no <> '';
+        CREATE INDEX IF NOT EXISTS idx_trace_snapshots_cabinet
+            ON trace_snapshots(cabinet_no)
+            WHERE cabinet_no IS NOT NULL AND cabinet_no <> '';
         CREATE INDEX IF NOT EXISTS idx_trace_snapshots_event
             ON trace_snapshots(doc_type, doc_id, snapshot_event);
         CREATE UNIQUE INDEX IF NOT EXISTS uq_trace_snapshots_event_hash
@@ -3921,7 +3921,7 @@ MIGRATIONS = [
                 COALESCE(warehouse_id, 0),
                 COALESCE(location_id, 0),
                 COALESCE(lot_no, ''),
-                COALESCE(serial_no, ''),
+                COALESCE(cabinet_no, ''),
                 COALESCE(project_code, '')
             );
         DO $$
@@ -4100,7 +4100,7 @@ MIGRATIONS = [
             doc_id INTEGER,
             doc_no VARCHAR(120),
             project_code VARCHAR(80),
-            serial_no VARCHAR(80),
+            cabinet_no VARCHAR(80),
             description TEXT,
             severity VARCHAR(20) DEFAULT 'warning',
             status VARCHAR(20) DEFAULT 'open',
@@ -4191,7 +4191,7 @@ MIGRATIONS = [
             source_id INTEGER,
             source_no VARCHAR(120),
             project_code VARCHAR(80),
-            serial_no VARCHAR(80),
+            cabinet_no VARCHAR(80),
             bom_version_id INTEGER,
             status VARCHAR(20) NOT NULL DEFAULT 'draft',
             kitting_rate NUMERIC(5,2) DEFAULT 0,
@@ -4203,8 +4203,8 @@ MIGRATIONS = [
         );
         CREATE INDEX IF NOT EXISTS idx_mrp_runs_source
             ON mrp_runs(source_type, source_id);
-        CREATE INDEX IF NOT EXISTS idx_mrp_runs_project_serial
-            ON mrp_runs(project_code, serial_no);
+        CREATE INDEX IF NOT EXISTS idx_mrp_runs_project_cabinet
+            ON mrp_runs(project_code, cabinet_no);
 
         CREATE TABLE IF NOT EXISTS mrp_run_items (
             id SERIAL PRIMARY KEY,
@@ -4226,7 +4226,7 @@ MIGRATIONS = [
             suggestion_type VARCHAR(40) DEFAULT 'none',
             required_date DATE,
             project_code VARCHAR(80),
-            serial_no VARCHAR(80),
+            cabinet_no VARCHAR(80),
             source_bom_item_id INTEGER,
             parent_material_id INTEGER,
             loss_rate NUMERIC(8,4) DEFAULT 0,
@@ -4248,7 +4248,7 @@ MIGRATIONS = [
             qty NUMERIC(18,4) NOT NULL DEFAULT 0,
             required_date DATE,
             project_code VARCHAR(80),
-            serial_no VARCHAR(80),
+            cabinet_no VARCHAR(80),
             status VARCHAR(20) NOT NULL DEFAULT 'open',
             converted_doc_type VARCHAR(60),
             converted_doc_id INTEGER,
@@ -4270,7 +4270,7 @@ MIGRATIONS = [
             run_no VARCHAR(60) NOT NULL UNIQUE,
             period VARCHAR(20),
             project_code VARCHAR(80),
-            serial_no VARCHAR(80),
+            cabinet_no VARCHAR(80),
             work_order_id INTEGER,
             status VARCHAR(20) NOT NULL DEFAULT 'draft',
             total_material_cost NUMERIC(18,4) DEFAULT 0,
@@ -4283,8 +4283,8 @@ MIGRATIONS = [
             created_by INTEGER,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
-        CREATE INDEX IF NOT EXISTS idx_cost_runs_project_serial
-            ON cost_runs(project_code, serial_no);
+        CREATE INDEX IF NOT EXISTS idx_cost_runs_project_cabinet
+            ON cost_runs(project_code, cabinet_no);
         CREATE INDEX IF NOT EXISTS idx_cost_runs_period
             ON cost_runs(period, status);
 
@@ -4300,7 +4300,7 @@ MIGRATIONS = [
             unit_cost NUMERIC(18,4) DEFAULT 0,
             amount NUMERIC(18,4) NOT NULL DEFAULT 0,
             project_code VARCHAR(80),
-            serial_no VARCHAR(80),
+            cabinet_no VARCHAR(80),
             work_order_id INTEGER,
             remark TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -4314,7 +4314,7 @@ MIGRATIONS = [
             id SERIAL PRIMARY KEY,
             period VARCHAR(20),
             project_code VARCHAR(80),
-            serial_no VARCHAR(80),
+            cabinet_no VARCHAR(80),
             business_cost NUMERIC(18,4) DEFAULT 0,
             inventory_cost NUMERIC(18,4) DEFAULT 0,
             gl_cost NUMERIC(18,4) DEFAULT 0,
@@ -4637,7 +4637,7 @@ MIGRATIONS = [
         ALTER TABLE subcontract_items ADD COLUMN IF NOT EXISTS lot_no VARCHAR(120);
         ALTER TABLE subcontract_items ADD COLUMN IF NOT EXISTS source_line_no VARCHAR(80);
         ALTER TABLE subcontract_items ADD COLUMN IF NOT EXISTS line_project_code VARCHAR(120);
-        ALTER TABLE subcontract_items ADD COLUMN IF NOT EXISTS line_serial_no VARCHAR(120);
+        ALTER TABLE subcontract_items ADD COLUMN IF NOT EXISTS line_cabinet_no VARCHAR(120);
         ALTER TABLE subcontract_items ADD COLUMN IF NOT EXISTS material_code VARCHAR(120);
         ALTER TABLE subcontract_items ADD COLUMN IF NOT EXISTS material_name VARCHAR(255);
         ALTER TABLE subcontract_items ADD COLUMN IF NOT EXISTS material_spec VARCHAR(255);
@@ -4800,7 +4800,7 @@ MIGRATIONS = [
             unit_cost NUMERIC(14,2) NOT NULL DEFAULT 0,
             amount NUMERIC(14,2) NOT NULL DEFAULT 0,
             lot_no VARCHAR(120),
-            serial_no VARCHAR(120),
+            cabinet_no VARCHAR(120),
             line_project_code VARCHAR(120),
             line_warehouse_id INTEGER,
             line_location_id INTEGER,
@@ -4862,7 +4862,7 @@ MIGRATIONS = [
 
                 INSERT INTO inventory_movement_lines
                     (doc_id, line_no, product_id, quantity, unit_cost, amount,
-                     lot_no, serial_no, line_project_code, line_warehouse_id,
+                     lot_no, cabinet_no, line_project_code, line_warehouse_id,
                      line_location_id, usage_reason, source_doc_no, source_line_no,
                      created_at)
                 SELECT
@@ -4873,7 +4873,7 @@ MIGRATIONS = [
                     COALESCE(st.unit_cost, 0),
                     COALESCE(st.amount, st.quantity * COALESCE(st.unit_cost, 0)),
                     st.lot_no,
-                    st.serial_no,
+                    st.cabinet_no,
                     st.project_code,
                     st.warehouse_id,
                     st.location_id,
@@ -5029,6 +5029,84 @@ MIGRATIONS = [
         SET is_active=FALSE,
             updated_at=CURRENT_TIMESTAMP
         WHERE rule_key='document:quality_inspections.inspection_no';
+        """,
+    ),
+    (
+        "20260710_005_rename_serial_to_cabinet",
+        """
+        -- 将 serial_no 列重命名为 cabinet_no（柜号），适配低压开关成套设备行业术语
+        -- 使用动态 DO 块，兼容从零重建（列已为 cabinet_no）和现有库升级（列为 serial_no）
+        DO $$
+        DECLARE
+            r RECORD;
+        BEGIN
+            FOR r IN
+                SELECT table_name
+                FROM information_schema.columns
+                WHERE column_name = 'serial_no'
+                  AND table_schema = 'public'
+            LOOP
+                EXECUTE format('ALTER TABLE %I RENAME COLUMN serial_no TO cabinet_no', r.table_name);
+            END LOOP;
+        END $$;
+
+        -- line_serial_no -> line_cabinet_no
+        DO $$
+        DECLARE
+            r RECORD;
+        BEGIN
+            FOR r IN
+                SELECT table_name
+                FROM information_schema.columns
+                WHERE column_name = 'line_serial_no'
+                  AND table_schema = 'public'
+            LOOP
+                EXECUTE format('ALTER TABLE %I RENAME COLUMN line_serial_no TO line_cabinet_no', r.table_name);
+            END LOOP;
+        END $$;
+
+        -- card_serial_no -> card_cabinet_no
+        DO $$
+        DECLARE
+            r RECORD;
+        BEGIN
+            FOR r IN
+                SELECT table_name
+                FROM information_schema.columns
+                WHERE column_name = 'card_serial_no'
+                  AND table_schema = 'public'
+            LOOP
+                EXECUTE format('ALTER TABLE %I RENAME COLUMN card_serial_no TO card_cabinet_no', r.table_name);
+            END LOOP;
+        END $$;
+
+        -- 表重命名：machine_serial_masters -> cabinet_masters
+        ALTER TABLE IF EXISTS machine_serial_masters RENAME TO cabinet_masters;
+        -- 表重命名：serial_cost_ledger -> cabinet_cost_ledger
+        ALTER TABLE IF EXISTS serial_cost_ledger RENAME TO cabinet_cost_ledger;
+
+        -- 索引重命名：idx_*_serial -> idx_*_cabinet
+        DO $$
+        DECLARE
+            r RECORD;
+        BEGIN
+            FOR r IN
+                SELECT indexname
+                FROM pg_indexes
+                WHERE schemaname = 'public'
+                  AND indexname LIKE '%\\_serial'
+                  AND indexname NOT LIKE '%\\_serial\\_control%'
+            LOOP
+                EXECUTE format('ALTER INDEX %I RENAME TO %s', r.indexname, replace(r.indexname, '_serial', '_cabinet'));
+            END LOOP;
+        END $$;
+
+        -- 系统选项键重命名
+        UPDATE system_options SET option_key = 'require_project_cabinet' WHERE option_key = 'require_project_serial';
+        UPDATE system_options SET option_key = 'batch_cabinet_control' WHERE option_key = 'batch_serial_control';
+
+        -- 数据权限范围类型重命名
+        UPDATE data_scope_rules SET scope_type = 'cabinet' WHERE scope_type = 'serial';
         """,
     ),
 ]

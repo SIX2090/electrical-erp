@@ -17,10 +17,10 @@
     {'label': '关闭', 'type': 'button', 'event': 'focus-close', 'disabled': is_closed},
     {'label': '下查', 'type': 'dropdown', 'items': [
         {'label': '设备服务档案', 'type': 'link', 'href': '/service-cards/' ~ service.service_card_id if service.service_card_id else '/service-cards', 'disabled': not service.service_card_id},
-        {'label': 'RMA列表', 'type': 'link', 'href': '/service-rmas?keyword=' ~ ((service.order_no or service.serial_no or service.project_code or '')|urlencode)},
-        {'label': '库存流水', 'type': 'link', 'href': '/transactions?keyword=' ~ ((service.order_no or service.serial_no or service.project_code or '')|urlencode)},
-        {'label': '应收查询', 'type': 'link', 'href': '/receivables?keyword=' ~ ((service.order_no or service.serial_no or service.project_code or '')|urlencode)},
-        {'label': '项目台账', 'type': 'link', 'href': '/projects?keyword=' ~ ((service.project_code or service.serial_no or service.order_no or '')|urlencode)}
+        {'label': 'RMA列表', 'type': 'link', 'href': '/service-rmas?keyword=' ~ ((service.order_no or service.cabinet_no or service.project_code or '')|urlencode)},
+        {'label': '库存流水', 'type': 'link', 'href': '/transactions?keyword=' ~ ((service.order_no or service.cabinet_no or service.project_code or '')|urlencode)},
+        {'label': '应收查询', 'type': 'link', 'href': '/receivables?keyword=' ~ ((service.order_no or service.cabinet_no or service.project_code or '')|urlencode)},
+        {'label': '项目台账', 'type': 'link', 'href': '/projects?keyword=' ~ ((service.project_code or service.cabinet_no or service.order_no or '')|urlencode)}
     ]},
     {'label': '附件/备注', 'type': 'button', 'event': 'focus-attachments'},
     {'type': 'nav', 'items': [
@@ -45,7 +45,7 @@
     <div class="d-flex justify-content-between align-items-start gap-3">
         <div>
             <h1 class="h4 mb-1">服务单：{{ service.order_no }}</h1>
-            <div class="text-muted">{{ service.customer_name or '-' }} / {{ service.card_serial_no or service.serial_no or '-' }} / {{ service.machine_model or '-' }}</div>
+            <div class="text-muted">{{ service.customer_name or '-' }} / {{ service.card_cabinet_no or service.cabinet_no or '-' }} / {{ service.machine_model or '-' }}</div>
         </div>
         <span class="badge text-bg-primary">{{ service.status or '-' }}</span>
     </div>
@@ -60,8 +60,8 @@
         <span class="badge {{ 'text-bg-secondary' if not can_operate else 'text-bg-info' }}">{{ service.status or '-' }}</span>
     </div>
     {% if can_operate %}
-    {% if nav_mode in ['gt_pilot', 'pilot_gtym', 'gtym_pilot'] and (not service.project_code or not (service.serial_no or service.card_serial_no)) %}
-    <div class="alert alert-info mt-3 mb-0">项目号和机号用于售后追溯；系统启用强制项目号/机号时，服务单必须补齐后才能继续流转。</div>
+    {% if nav_mode in ['gt_pilot', 'pilot_gtym', 'gtym_pilot'] and (not service.project_code or not (service.cabinet_no or service.card_cabinet_no)) %}
+    <div class="alert alert-info mt-3 mb-0">项目号和柜号用于售后追溯；系统启用强制项目号/柜号时，服务单必须补齐后才能继续流转。</div>
     {% endif %}
     <div class="row g-3 mt-2">
         <div class="col-lg-6">
@@ -158,7 +158,7 @@
                                     <th style="min-width: 110px;" data-column-key="unit_cost" data-column-label="成本"><span class="grid-header-text">成本</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
                                     <th style="min-width: 110px;" data-column-key="amount" data-column-label="成本金额"><span class="grid-header-text">成本金额</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
                                     <th style="min-width: 120px;" data-column-key="lot_no" data-column-label="批号"><span class="grid-header-text">批号</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
-                                    <th style="min-width: 120px;" data-column-key="serial_no" data-column-label="机号"><span class="grid-header-text">机号</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
+                                    <th style="min-width: 120px;" data-column-key="cabinet_no" data-column-label="柜号"><span class="grid-header-text">柜号</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
                                     <th style="min-width: 120px;" data-column-key="project_code" data-column-label="项目号"><span class="grid-header-text">项目号</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
                                     <th style="min-width: 110px;" data-column-key="source_line_no" data-column-label="来源行"><span class="grid-header-text">来源行</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
                                     <th style="min-width: 160px;" data-column-key="remark" data-column-label="备注"><span class="grid-header-text">备注</span><span class="grid-resize-handle" aria-hidden="true"></span></th>
@@ -196,7 +196,7 @@
                                     <td data-column-key="unit_cost"><input class="form-control form-control-sm js-unit-cost" type="number" step="0.01" name="unit_cost[]" value="0"></td>
                                     <td data-column-key="amount"><input class="form-control form-control-sm js-cost-amount text-end" name="amount_display[]" value="0.00" readonly></td>
                                     <td data-column-key="lot_no"><input class="form-control form-control-sm" name="lot_no[]"></td>
-                                    <td data-column-key="serial_no"><input class="form-control form-control-sm" name="serial_no[]" value="{{ service.serial_no or service.card_serial_no or '' }}"></td>
+                                    <td data-column-key="cabinet_no"><input class="form-control form-control-sm" name="cabinet_no[]" value="{{ service.cabinet_no or service.card_cabinet_no or '' }}"></td>
                                     <td data-column-key="project_code"><input class="form-control form-control-sm js-line-project-code" name="line_project_code[]" value="{{ service.project_code or '' }}"></td>
                                     <td data-column-key="source_line_no"><input class="form-control form-control-sm" name="source_line_no[]" placeholder="服务领料行"></td>
                                     <td data-column-key="remark"><input class="form-control form-control-sm" name="remark[]"></td>
@@ -265,7 +265,7 @@
     <div class="section-title">
         <div>
             <h2>售后成本与财务关联</h2>
-            <span>用于服务单、售后成本专题、项目/机号成本和应收核对</span>
+            <span>用于服务单、售后成本专题、项目/柜号成本和应收核对</span>
         </div>
     </div>
     <div class="row g-3">
@@ -277,10 +277,10 @@
         <div class="col-md-2"><div class="metric"><div class="label">应收关联</div><div class="value h6">{{ cost_summary.receivable_no or cost_summary.settlement_status or '-' }}</div></div></div>
         <div class="col-12 text-muted small">{{ cost_summary.basis }}</div>
         <div class="col-12 d-flex flex-wrap gap-2">
-            <a class="btn btn-outline-primary btn-sm" href="/service/reports/cost?keyword={{ (service.order_no or service.project_code or service.serial_no or '')|urlencode }}">售后成本专题</a>
-            <a class="btn btn-outline-primary btn-sm" href="/finance/reports/project-cost?keyword={{ (service.project_code or service.serial_no or service.order_no or '')|urlencode }}">项目/机号成本明细</a>
+            <a class="btn btn-outline-primary btn-sm" href="/service/reports/cost?keyword={{ (service.order_no or service.project_code or service.cabinet_no or '')|urlencode }}">售后成本专题</a>
+            <a class="btn btn-outline-primary btn-sm" href="/finance/reports/project-cost?keyword={{ (service.project_code or service.cabinet_no or service.order_no or '')|urlencode }}">项目/柜号成本明细</a>
             <a class="btn btn-outline-primary btn-sm" href="/receivables?keyword={{ (service.receivable_no or service.order_no or service.project_code or '')|urlencode }}">应收查询</a>
-            <a class="btn btn-outline-primary btn-sm" href="/transactions?keyword={{ (service.order_no or service.project_code or service.serial_no or '')|urlencode }}">库存流水核对</a>
+            <a class="btn btn-outline-primary btn-sm" href="/transactions?keyword={{ (service.order_no or service.project_code or service.cabinet_no or '')|urlencode }}">库存流水核对</a>
         </div>
     </div>
 </div>
@@ -289,7 +289,7 @@
     <h2 class="h5 mb-3">处理信息</h2>
     <div class="row g-2">
         <div class="col-md-3"><strong>项目号：</strong>{{ service.project_code or '-' }}</div>
-        <div class="col-md-3"><strong>机号：</strong>{{ service.serial_no or service.card_serial_no or '-' }}</div>
+        <div class="col-md-3"><strong>柜号：</strong>{{ service.cabinet_no or service.card_cabinet_no or '-' }}</div>
         <div class="col-md-3"><strong>执行人：</strong>{{ service.performed_by or '-' }}</div>
         <div class="col-md-3"><strong>结算：</strong>{{ service.settlement_status or '-' }}</div>
         <div class="col-md-3"><strong>产品分类：</strong>{{ service.product_family|clean_text if service.product_family else '-' }}</div>
@@ -344,7 +344,7 @@
 <div class="row g-3">
     {% set sections = [
         ('派工记录', dispatches, [('dispatch_no','派工单'),('dispatch_date','日期'),('planned_service_date','计划'),('status','状态'),('task_summary','任务'),('remark','备注')]),
-        ('备件材料', items, [('product_code','物料编码'),('product_name','物料名称'),('specification','规格型号'),('unit_name','单位'),('product_family','产品分类'),('bom_display','BOM版本'),('control_display','管控'),('warehouse_name','仓库'),('location_name','库位'),('stock_qty','账面库存'),('locked_qty','占用'),('available_qty','可用库存'),('quantity','数量'),('unit_cost','库存成本单价'),('amount','成本金额'),('lot_no','批号'),('serial_no','机号'),('project_code','项目号'),('source_line_no','来源行'),('remark','备注')]),
+        ('备件材料', items, [('product_code','物料编码'),('product_name','物料名称'),('specification','规格型号'),('unit_name','单位'),('product_family','产品分类'),('bom_display','BOM版本'),('control_display','管控'),('warehouse_name','仓库'),('location_name','库位'),('stock_qty','账面库存'),('locked_qty','占用'),('available_qty','可用库存'),('quantity','数量'),('unit_cost','库存成本单价'),('amount','成本金额'),('lot_no','批号'),('cabinet_no','柜号'),('project_code','项目号'),('source_line_no','来源行'),('remark','备注')]),
         ('服务检查', checklists, [('check_item','检查项'),('result','结果'),('remark','备注'),('created_at','时间')]),
         ('回访记录', return_visits, [('visit_no','回访单号'),('visit_date','日期'),('satisfaction','满意度'),('satisfaction_score','评分'),('result','结果'),('next_action','下一步'),('remark','备注')]),
         ('RMA', rmas, [('rma_no','RMA'),('rma_date','日期'),('warranty_scope','质保'),('responsibility_type','责任'),('claim_status','索赔'),('status','状态')]),

@@ -19,7 +19,7 @@
         {'label': '查看来源销售订单', 'type': 'link', 'href': '/sales/' ~ shipment.order_id if shipment.order_id else '#', 'disabled': not shipment.order_id},
         {'label': '查看服务档案', 'type': 'link', 'href': '/service-cards/' ~ shipment.service_card_id if shipment.service_card_id else '#', 'disabled': not shipment.service_card_id},
         {'label': '查看应收列表', 'type': 'link', 'href': '/receivables?keyword=' ~ (shipment.shipment_no|urlencode)},
-        {'label': '查看项目/机号台账', 'type': 'link', 'href': '/projects?keyword=' ~ ((shipment.project_code or shipment.serial_no or '')|urlencode)}
+        {'label': '查看项目/柜号台账', 'type': 'link', 'href': '/projects?keyword=' ~ ((shipment.project_code or shipment.cabinet_no or '')|urlencode)}
     ]}
 ]) }}
 <div id="doc-nav-config" data-nav-table="sales_shipments" data-nav-base="/shipments/" data-doc-id="{{ shipment.id }}" style="display:none"></div>
@@ -71,7 +71,7 @@
         <div class="col-md-3"><span class="text-muted">仓库：</span>{{ shipment.warehouse_name or '-' }}</div>
         <div class="col-md-3"><span class="text-muted">经办人：</span>{{ shipment.operator_name or '-' }}</div>
         <div class="col-md-3"><span class="text-muted">项目号（推荐追溯）：</span>{{ shipment.project_code or '-' }}</div>
-        <div class="col-md-3"><span class="text-muted">机号（推荐追溯）：</span>{{ shipment.serial_no or '-' }}</div>
+        <div class="col-md-3"><span class="text-muted">柜号（推荐追溯）：</span>{{ shipment.cabinet_no or '-' }}</div>
         <div class="col-md-3"><span class="text-muted">物流公司：</span>{{ shipment.logistics_provider or '-' }}</div>
         <div class="col-md-3"><span class="text-muted">物流单号：</span>{{ shipment.logistics_no or '-' }}</div>
         <div class="col-md-3"><span class="text-muted">签收状态：</span>{{ shipment.signoff_status or '-' }}</div>
@@ -100,7 +100,7 @@
                 <th>库位</th>
                 <th>批号</th>
                 <th>项目号</th>
-                <th>机号</th>
+                <th>柜号</th>
             </tr>
             </thead>
             <tbody>
@@ -120,7 +120,7 @@
                 <td>{{ item.location_code or item.location_name or '-' }}</td>
                 <td>{{ item.lot_no or '-' }}</td>
                 <td>{{ shipment.project_code|clean_text or '-' }}</td>
-                <td>{{ shipment.serial_no|clean_text or '-' }}</td>
+                <td>{{ shipment.cabinet_no|clean_text or '-' }}</td>
             </tr>
             {% endfor %}
             </tbody>
@@ -148,7 +148,7 @@
             <h2 class="h5 mb-3">服务档案/售后交接</h2>
             {% if shipment.service_card_id %}
             <div class="small">
-                <div><span class="text-muted">服务档案：</span><a href="/service-cards/{{ shipment.service_card_id }}">{{ shipment.serial_no or shipment.service_card_id }}</a></div>
+                <div><span class="text-muted">服务档案：</span><a href="/service-cards/{{ shipment.service_card_id }}">{{ shipment.cabinet_no or shipment.service_card_id }}</a></div>
                 <div><span class="text-muted">状态：</span>{{ shipment.service_card_status or '-' }}</div>
                 <div><span class="text-muted">机型：</span>{{ shipment.machine_model or '-' }}</div>
                 <div><span class="text-muted">安装地址：</span>{{ shipment.install_address or '-' }}</div>
@@ -226,7 +226,7 @@
 
 {% if same_project_shipments %}
 <div class="page-card mt-3">
-    <h2 class="h5 mb-3">同项目/机号发货</h2>
+    <h2 class="h5 mb-3">同项目/柜号发货</h2>
     <div class="d-flex flex-wrap gap-2">
         {% for row in same_project_shipments %}
         <a class="btn btn-outline-secondary btn-sm" href="/shipments/{{ row.id }}">{{ row.shipment_no }} / {{ row.shipment_date or '-' }}</a>

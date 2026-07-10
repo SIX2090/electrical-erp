@@ -206,7 +206,7 @@ def main() -> int:
             continue
         header_names = column_names.get(table, set())
         detail_names = column_names.get(detail, set())
-        for field in ("project_code", "serial_no", "warehouse_id", "location_id", "lot_no", "source_line_no"):
+        for field in ("project_code", "cabinet_no", "warehouse_id", "location_id", "lot_no", "source_line_no"):
             if field in header_names or field in detail_names:
                 traceability_findings.append(
                     {

@@ -26,7 +26,7 @@ def _project_csv_response(rows):
             ("order_no", "销售订单"),
             ("customer_name", "客户"),
             ("project_code", "项目号"),
-            ("serial_no", "机号"),
+            ("cabinet_no", "柜号"),
             ("delivery_date", "交期"),
             ("delivery_state", "交期状态"),
             ("status", "销售状态"),
@@ -48,7 +48,7 @@ def _project_csv_response(rows):
         ("order_no", "销售订单"),
         ("customer_name", "客户"),
         ("project_code", "项目号"),
-        ("serial_no", "机号"),
+        ("cabinet_no", "柜号"),
         ("delivery_date", "交期"),
         ("delivery_state", "交期状态"),
         ("status", "销售状态"),
@@ -73,7 +73,7 @@ def _project_csv_response(rows):
 
 def _acceptance_owner_roles(gaps):
     owner_by_gap = {
-        "项目/机号": "销售/项目",
+        "项目/柜号": "销售/项目",
         "缺料": "计划/采购",
         "采购未到": "采购",
         "未完工单": "生产",
@@ -99,8 +99,8 @@ def _acceptance_primary_gap(gaps):
 
 
 def _project_next_action(row, as_decimal):
-    if not row.get("project_code") or not row.get("serial_no"):
-        return "补齐项目号/机号", "销售/项目", "主线追溯字段不完整"
+    if not row.get("project_code") or not row.get("cabinet_no"):
+        return "补齐项目号/柜号", "销售/项目", "主线追溯字段不完整"
     if row.get("shortage_lines"):
         return "处理缺料并生成采购申请", "采购/计划", "BOM/MRP缺料"
     if as_decimal(row.get("pending_purchase_qty")) > 0:
@@ -120,8 +120,8 @@ def _build_project_diagnostics(order, context, finance_summary):
     diagnostics = []
     if not order:
         return diagnostics
-    if not order.get("project_code") or not order.get("serial_no"):
-        diagnostics.append({"level": "danger", "label": "追溯缺口", "text": "销售项目缺项目号或机号，后续采购、生产、库存、售后无法稳定归集。", "owner": "销售/项目"})
+    if not order.get("project_code") or not order.get("cabinet_no"):
+        diagnostics.append({"level": "danger", "label": "追溯缺口", "text": "销售项目缺项目号或柜号，后续采购、生产、库存、售后无法稳定归集。", "owner": "销售/项目"})
     kit_summary = context.get("kit_summary") or {}
     if kit_summary.get("shortage_count"):
         diagnostics.append({"level": "danger", "label": "齐套缺料", "text": f"仍有 {kit_summary.get('shortage_count')} 个物料缺口，优先生成采购申请或处理替代料。", "owner": "计划/采购"})
@@ -159,24 +159,24 @@ def _json_safe(value):
     return value
 
 
-def _project_axis_order(query_one, keyword=None, project_code=None, serial_no=None, order_no=None):
-    exact_value = (serial_no or project_code or order_no or keyword or "").strip()
+def _project_axis_order(query_one, keyword=None, project_code=None, cabinet_no=None, order_no=None):
+    exact_value = (cabinet_no or project_code or order_no or keyword or "").strip()
     if not exact_value:
         return None
     like_value = f"%{exact_value}%"
     return query_one(
         """
         SELECT so.id, so.order_no, so.order_date, so.delivery_date,
-               so.project_code, so.serial_no, so.status, so.total_amount,
+               so.project_code, so.cabinet_no, so.status, so.total_amount,
                so.shipped_amount, so.cost_object_id, c.name AS customer_name
         FROM sales_orders so
         LEFT JOIN customers c ON c.id=so.customer_id
         WHERE so.order_no ILIKE %s
            OR so.project_code ILIKE %s
-           OR so.serial_no ILIKE %s
+           OR so.cabinet_no ILIKE %s
            OR c.name ILIKE %s
         ORDER BY CASE
-            WHEN %s <> '' AND so.serial_no=%s THEN 0
+            WHEN %s <> '' AND so.cabinet_no=%s THEN 0
             WHEN %s <> '' AND so.project_code=%s THEN 1
             WHEN %s <> '' AND so.order_no=%s THEN 2
             ELSE 3
@@ -188,8 +188,8 @@ def _project_axis_order(query_one, keyword=None, project_code=None, serial_no=No
             like_value,
             like_value,
             like_value,
-            serial_no or "",
-            serial_no or "",
+            cabinet_no or "",
+            cabinet_no or "",
             project_code or "",
             project_code or "",
             order_no or "",
@@ -202,7 +202,7 @@ def _project_order_by_id(query_one, order_id):
     return query_one(
         """
         SELECT so.id, so.order_no, so.order_date, so.delivery_date,
-               so.project_code, so.serial_no, so.status, so.total_amount,
+               so.project_code, so.cabinet_no, so.status, so.total_amount,
                so.shipped_amount, so.cost_object_id, c.name AS customer_name
         FROM sales_orders so
         LEFT JOIN customers c ON c.id=so.customer_id
@@ -220,16 +220,16 @@ def _project_axis_search_rows(query_rows, keyword, limit):
     return query_rows(
         """
         SELECT so.id, so.order_no, so.order_date, so.delivery_date,
-               so.project_code, so.serial_no, so.status, so.total_amount,
+               so.project_code, so.cabinet_no, so.status, so.total_amount,
                so.shipped_amount, so.cost_object_id, c.name AS customer_name
         FROM sales_orders so
         LEFT JOIN customers c ON c.id=so.customer_id
         WHERE so.order_no ILIKE %s
            OR so.project_code ILIKE %s
-           OR so.serial_no ILIKE %s
+           OR so.cabinet_no ILIKE %s
            OR c.name ILIKE %s
         ORDER BY CASE
-            WHEN so.serial_no=%s THEN 0
+            WHEN so.cabinet_no=%s THEN 0
             WHEN so.project_code=%s THEN 1
             WHEN so.order_no=%s THEN 2
             ELSE 3
@@ -245,7 +245,7 @@ def _project_axis_counts(query_one, order):
         return {}
     order_id = order.get("id")
     project_code = order.get("project_code")
-    serial_no = order.get("serial_no")
+    cabinet_no = order.get("cabinet_no")
     cost_object_id = order.get("cost_object_id")
     return query_one(
         """
@@ -255,7 +255,7 @@ def _project_axis_counts(query_one, order):
             FROM purchase_orders po
             WHERE (%s IS NOT NULL AND po.cost_object_id=%s)
                OR (%s IS NOT NULL AND po.project_code=%s)
-               OR (%s IS NOT NULL AND po.serial_no=%s)
+               OR (%s IS NOT NULL AND po.cabinet_no=%s)
           ) AS purchase_order_count,
           (
             SELECT COALESCE(SUM(GREATEST(COALESCE(poi.quantity, 0)-COALESCE(poi.received_qty, 0), 0)), 0)
@@ -263,21 +263,21 @@ def _project_axis_counts(query_one, order):
             LEFT JOIN purchase_order_items poi ON poi.order_id=po.id
             WHERE (%s IS NOT NULL AND po.cost_object_id=%s)
                OR (%s IS NOT NULL AND po.project_code=%s)
-               OR (%s IS NOT NULL AND po.serial_no=%s)
+               OR (%s IS NOT NULL AND po.cabinet_no=%s)
           ) AS pending_purchase_qty,
           (
             SELECT COUNT(*)
             FROM subcontract_orders sc
             WHERE (%s IS NOT NULL AND sc.cost_object_id=%s)
                OR (%s IS NOT NULL AND sc.project_code=%s)
-               OR (%s IS NOT NULL AND sc.serial_no=%s)
+               OR (%s IS NOT NULL AND sc.cabinet_no=%s)
           ) AS subcontract_order_count,
           (
             SELECT COUNT(*)
             FROM work_orders wo
             WHERE (%s IS NOT NULL AND wo.cost_object_id=%s)
                OR (%s IS NOT NULL AND wo.project_code=%s)
-               OR (%s IS NOT NULL AND wo.serial_no=%s)
+               OR (%s IS NOT NULL AND wo.cabinet_no=%s)
           ) AS work_order_count,
           (
             SELECT COUNT(*)
@@ -285,7 +285,7 @@ def _project_axis_counts(query_one, order):
             WHERE (
                 (%s IS NOT NULL AND wo.cost_object_id=%s)
                 OR (%s IS NOT NULL AND wo.project_code=%s)
-                OR (%s IS NOT NULL AND wo.serial_no=%s)
+                OR (%s IS NOT NULL AND wo.cabinet_no=%s)
               )
               AND COALESCE(wo.status, '') NOT IN ('closed','completed','void','cancelled','已完工','已关闭','已作废','已完成')
           ) AS open_work_order_count,
@@ -294,7 +294,7 @@ def _project_axis_counts(query_one, order):
             FROM sales_shipments ss
             WHERE ss.order_id=%s
                OR (%s IS NOT NULL AND ss.project_code=%s)
-               OR (%s IS NOT NULL AND ss.serial_no=%s)
+               OR (%s IS NOT NULL AND ss.cabinet_no=%s)
           ) AS shipment_count,
           (
             SELECT COUNT(*)
@@ -302,7 +302,7 @@ def _project_axis_counts(query_one, order):
             WHERE scard.sales_order_id=%s
                OR (%s IS NOT NULL AND scard.cost_object_id=%s)
                OR (%s IS NOT NULL AND scard.project_code=%s)
-               OR (%s IS NOT NULL AND scard.serial_no=%s)
+               OR (%s IS NOT NULL AND scard.cabinet_no=%s)
           ) AS service_card_count,
           (
             SELECT COUNT(*)
@@ -310,14 +310,14 @@ def _project_axis_counts(query_one, order):
             WHERE mso.sales_order_id=%s
                OR (%s IS NOT NULL AND mso.cost_object_id=%s)
                OR (%s IS NOT NULL AND mso.project_code=%s)
-               OR (%s IS NOT NULL AND mso.serial_no=%s)
+               OR (%s IS NOT NULL AND mso.cabinet_no=%s)
           ) AS service_order_count,
           (
             SELECT COUNT(*)
             FROM stock_transactions st
             WHERE (%s IS NOT NULL AND st.reference_no=%s)
                OR (%s IS NOT NULL AND st.project_code=%s)
-               OR (%s IS NOT NULL AND st.serial_no=%s)
+               OR (%s IS NOT NULL AND st.cabinet_no=%s)
           ) AS stock_transaction_count
         """,
         (
@@ -325,57 +325,57 @@ def _project_axis_counts(query_one, order):
             cost_object_id,
             project_code,
             project_code,
-            serial_no,
-            serial_no,
+            cabinet_no,
+            cabinet_no,
             cost_object_id,
             cost_object_id,
             project_code,
             project_code,
-            serial_no,
-            serial_no,
+            cabinet_no,
+            cabinet_no,
             cost_object_id,
             cost_object_id,
             project_code,
             project_code,
-            serial_no,
-            serial_no,
+            cabinet_no,
+            cabinet_no,
             cost_object_id,
             cost_object_id,
             project_code,
             project_code,
-            serial_no,
-            serial_no,
+            cabinet_no,
+            cabinet_no,
             cost_object_id,
             cost_object_id,
             project_code,
             project_code,
-            serial_no,
-            serial_no,
+            cabinet_no,
+            cabinet_no,
             order_id,
             project_code,
             project_code,
-            serial_no,
-            serial_no,
-            order_id,
-            cost_object_id,
-            cost_object_id,
-            project_code,
-            project_code,
-            serial_no,
-            serial_no,
+            cabinet_no,
+            cabinet_no,
             order_id,
             cost_object_id,
             cost_object_id,
             project_code,
             project_code,
-            serial_no,
-            serial_no,
+            cabinet_no,
+            cabinet_no,
+            order_id,
+            cost_object_id,
+            cost_object_id,
+            project_code,
+            project_code,
+            cabinet_no,
+            cabinet_no,
             order.get("order_no"),
             order.get("order_no"),
             project_code,
             project_code,
-            serial_no,
-            serial_no,
+            cabinet_no,
+            cabinet_no,
         ),
     ) or {}
 
@@ -409,7 +409,7 @@ def _project_axis_events(query_rows, order, limit=80):
         return []
     order_id = order.get("id")
     project_code = order.get("project_code")
-    serial_no = order.get("serial_no")
+    cabinet_no = order.get("cabinet_no")
     cost_object_id = order.get("cost_object_id")
     events = []
     _append_project_events(
@@ -429,11 +429,11 @@ def _project_axis_events(query_rows, order, limit=80):
             FROM engineering_technical_confirmations
             WHERE sales_order_id=%s
                OR (%s IS NOT NULL AND project_code=%s)
-               OR (%s IS NOT NULL AND serial_no=%s)
+               OR (%s IS NOT NULL AND cabinet_no=%s)
             ORDER BY confirm_date DESC NULLS LAST, id DESC
             LIMIT 40
             """,
-            (order_id, project_code, project_code, serial_no, serial_no),
+            (order_id, project_code, project_code, cabinet_no, cabinet_no),
         ),
         event_type="technical_confirmation",
         number_key="confirm_no",
@@ -448,11 +448,11 @@ def _project_axis_events(query_rows, order, limit=80):
             FROM purchase_requisitions pr
             LEFT JOIN purchase_requisition_items pri ON pri.req_id=pr.id
             WHERE (%s IS NOT NULL AND (pr.project_code=%s OR pri.project_code=%s))
-               OR (%s IS NOT NULL AND (pr.serial_no=%s OR pri.serial_no=%s))
+               OR (%s IS NOT NULL AND (pr.cabinet_no=%s OR pri.cabinet_no=%s))
             ORDER BY pr.req_date DESC NULLS LAST, pr.id DESC
             LIMIT 40
             """,
-            (project_code, project_code, project_code, serial_no, serial_no, serial_no),
+            (project_code, project_code, project_code, cabinet_no, cabinet_no, cabinet_no),
         ),
         event_type="purchase_request",
         number_key="req_no",
@@ -467,11 +467,11 @@ def _project_axis_events(query_rows, order, limit=80):
             FROM purchase_orders
             WHERE (%s IS NOT NULL AND cost_object_id=%s)
                OR (%s IS NOT NULL AND project_code=%s)
-               OR (%s IS NOT NULL AND serial_no=%s)
+               OR (%s IS NOT NULL AND cabinet_no=%s)
             ORDER BY order_date DESC NULLS LAST, id DESC
             LIMIT 40
             """,
-            (cost_object_id, cost_object_id, project_code, project_code, serial_no, serial_no),
+            (cost_object_id, cost_object_id, project_code, project_code, cabinet_no, cabinet_no),
         ),
         event_type="purchase_order",
         number_key="order_no",
@@ -491,7 +491,7 @@ def _project_axis_events(query_rows, order, limit=80):
             LEFT JOIN purchase_orders po ON po.id=pr.order_id
             WHERE (%s IS NOT NULL AND (pr.cost_object_id=%s OR po.cost_object_id=%s))
                OR (%s IS NOT NULL AND (pr.project_code=%s OR po.project_code=%s))
-               OR (%s IS NOT NULL AND (pr.serial_no=%s OR po.serial_no=%s))
+               OR (%s IS NOT NULL AND (pr.cabinet_no=%s OR po.cabinet_no=%s))
             GROUP BY pr.id
             ORDER BY pr.receipt_date DESC NULLS LAST, pr.id DESC
             LIMIT 40
@@ -503,9 +503,9 @@ def _project_axis_events(query_rows, order, limit=80):
                 project_code,
                 project_code,
                 project_code,
-                serial_no,
-                serial_no,
-                serial_no,
+                cabinet_no,
+                cabinet_no,
+                cabinet_no,
             ),
         ),
         event_type="purchase_receipt",
@@ -532,7 +532,7 @@ def _project_axis_events(query_rows, order, limit=80):
                     sp.project_code=%s OR po_ap.project_code=%s OR sc_ap.project_code=%s
                   ))
                OR (%s IS NOT NULL AND (
-                    sp.serial_no=%s OR po_ap.serial_no=%s OR sc_ap.serial_no=%s
+                    sp.cabinet_no=%s OR po_ap.cabinet_no=%s OR sc_ap.cabinet_no=%s
                   ))
             ORDER BY sp.doc_date DESC NULLS LAST, sp.id DESC
             LIMIT 40
@@ -546,10 +546,10 @@ def _project_axis_events(query_rows, order, limit=80):
                 project_code,
                 project_code,
                 project_code,
-                serial_no,
-                serial_no,
-                serial_no,
-                serial_no,
+                cabinet_no,
+                cabinet_no,
+                cabinet_no,
+                cabinet_no,
             ),
         ),
         event_type="supplier_payable",
@@ -566,11 +566,11 @@ def _project_axis_events(query_rows, order, limit=80):
             FROM subcontract_orders
             WHERE (%s IS NOT NULL AND cost_object_id=%s)
                OR (%s IS NOT NULL AND project_code=%s)
-               OR (%s IS NOT NULL AND serial_no=%s)
+               OR (%s IS NOT NULL AND cabinet_no=%s)
             ORDER BY order_date DESC NULLS LAST, id DESC
             LIMIT 40
             """,
-            (cost_object_id, cost_object_id, project_code, project_code, serial_no, serial_no),
+            (cost_object_id, cost_object_id, project_code, project_code, cabinet_no, cabinet_no),
         ),
         event_type="subcontract_order",
         number_key="order_no",
@@ -592,9 +592,9 @@ def _project_axis_events(query_rows, order, limit=80):
                     SELECT 1 FROM subcontract_issue_lines sil
                     WHERE sil.issue_id=sio.id AND sil.project_code=%s
                )))
-               OR (%s IS NOT NULL AND (sc.serial_no=%s OR EXISTS (
+               OR (%s IS NOT NULL AND (sc.cabinet_no=%s OR EXISTS (
                     SELECT 1 FROM subcontract_issue_lines sil
-                    WHERE sil.issue_id=sio.id AND sil.serial_no=%s
+                    WHERE sil.issue_id=sio.id AND sil.cabinet_no=%s
                )))
             ORDER BY sio.date DESC NULLS LAST, sio.id DESC
             LIMIT 40
@@ -605,9 +605,9 @@ def _project_axis_events(query_rows, order, limit=80):
                 project_code,
                 project_code,
                 project_code,
-                serial_no,
-                serial_no,
-                serial_no,
+                cabinet_no,
+                cabinet_no,
+                cabinet_no,
             ),
         ),
         event_type="subcontract_issue",
@@ -629,9 +629,9 @@ def _project_axis_events(query_rows, order, limit=80):
                     SELECT 1 FROM subcontract_receive_lines srl
                     WHERE srl.receive_id=sro.id AND srl.project_code=%s
                )))
-               OR (%s IS NOT NULL AND (sc.serial_no=%s OR EXISTS (
+               OR (%s IS NOT NULL AND (sc.cabinet_no=%s OR EXISTS (
                     SELECT 1 FROM subcontract_receive_lines srl
-                    WHERE srl.receive_id=sro.id AND srl.serial_no=%s
+                    WHERE srl.receive_id=sro.id AND srl.cabinet_no=%s
                )))
             ORDER BY sro.date DESC NULLS LAST, sro.id DESC
             LIMIT 40
@@ -642,9 +642,9 @@ def _project_axis_events(query_rows, order, limit=80):
                 project_code,
                 project_code,
                 project_code,
-                serial_no,
-                serial_no,
-                serial_no,
+                cabinet_no,
+                cabinet_no,
+                cabinet_no,
             ),
         ),
         event_type="subcontract_receive",
@@ -661,11 +661,11 @@ def _project_axis_events(query_rows, order, limit=80):
             FROM work_orders
             WHERE (%s IS NOT NULL AND cost_object_id=%s)
                OR (%s IS NOT NULL AND project_code=%s)
-               OR (%s IS NOT NULL AND serial_no=%s)
+               OR (%s IS NOT NULL AND cabinet_no=%s)
             ORDER BY wo_date DESC NULLS LAST, id DESC
             LIMIT 40
             """,
-            (cost_object_id, cost_object_id, project_code, project_code, serial_no, serial_no),
+            (cost_object_id, cost_object_id, project_code, project_code, cabinet_no, cabinet_no),
         ),
         event_type="work_order",
         number_key="wo_no",
@@ -682,12 +682,12 @@ def _project_axis_events(query_rows, order, limit=80):
             WHERE doc_type='production_issue'
               AND (
                    (%s IS NOT NULL AND project_code=%s)
-                   OR (%s IS NOT NULL AND serial_no=%s)
+                   OR (%s IS NOT NULL AND cabinet_no=%s)
                    OR work_order_id IN (
                        SELECT id FROM work_orders wo
                        WHERE (%s IS NOT NULL AND wo.cost_object_id=%s)
                           OR (%s IS NOT NULL AND wo.project_code=%s)
-                          OR (%s IS NOT NULL AND wo.serial_no=%s)
+                          OR (%s IS NOT NULL AND wo.cabinet_no=%s)
                    )
               )
             ORDER BY doc_date DESC NULLS LAST, id DESC
@@ -696,14 +696,14 @@ def _project_axis_events(query_rows, order, limit=80):
             (
                 project_code,
                 project_code,
-                serial_no,
-                serial_no,
+                cabinet_no,
+                cabinet_no,
                 cost_object_id,
                 cost_object_id,
                 project_code,
                 project_code,
-                serial_no,
-                serial_no,
+                cabinet_no,
+                cabinet_no,
             ),
         ),
         event_type="production_issue",
@@ -720,12 +720,12 @@ def _project_axis_events(query_rows, order, limit=80):
             WHERE doc_type='production_return'
               AND (
                    (%s IS NOT NULL AND project_code=%s)
-                   OR (%s IS NOT NULL AND serial_no=%s)
+                   OR (%s IS NOT NULL AND cabinet_no=%s)
                    OR work_order_id IN (
                        SELECT id FROM work_orders wo
                        WHERE (%s IS NOT NULL AND wo.cost_object_id=%s)
                           OR (%s IS NOT NULL AND wo.project_code=%s)
-                          OR (%s IS NOT NULL AND wo.serial_no=%s)
+                          OR (%s IS NOT NULL AND wo.cabinet_no=%s)
                    )
               )
             ORDER BY doc_date DESC NULLS LAST, id DESC
@@ -734,14 +734,14 @@ def _project_axis_events(query_rows, order, limit=80):
             (
                 project_code,
                 project_code,
-                serial_no,
-                serial_no,
+                cabinet_no,
+                cabinet_no,
                 cost_object_id,
                 cost_object_id,
                 project_code,
                 project_code,
-                serial_no,
-                serial_no,
+                cabinet_no,
+                cabinet_no,
             ),
         ),
         event_type="production_return",
@@ -759,7 +759,7 @@ def _project_axis_events(query_rows, order, limit=80):
             LEFT JOIN work_orders wo ON wo.id=pc.work_order_id
             WHERE (%s IS NOT NULL AND wo.cost_object_id=%s)
                OR (%s IS NOT NULL AND (pc.project_code=%s OR wo.project_code=%s))
-               OR (%s IS NOT NULL AND (pc.serial_no=%s OR wo.serial_no=%s))
+               OR (%s IS NOT NULL AND (pc.cabinet_no=%s OR wo.cabinet_no=%s))
             ORDER BY pc.completion_date DESC NULLS LAST, pc.id DESC
             LIMIT 40
             """,
@@ -769,9 +769,9 @@ def _project_axis_events(query_rows, order, limit=80):
                 project_code,
                 project_code,
                 project_code,
-                serial_no,
-                serial_no,
-                serial_no,
+                cabinet_no,
+                cabinet_no,
+                cabinet_no,
             ),
         ),
         event_type="production_completion",
@@ -792,7 +792,7 @@ def _project_axis_events(query_rows, order, limit=80):
               ON qi.source_document_type='work_order' AND wo.id=qi.source_document_id
             WHERE (%s IS NOT NULL AND (qi.cost_object_id=%s OR wo.cost_object_id=%s))
                OR (%s IS NOT NULL AND (qi.project_code=%s OR wo.project_code=%s))
-               OR (%s IS NOT NULL AND (qi.serial_no=%s OR wo.serial_no=%s))
+               OR (%s IS NOT NULL AND (qi.cabinet_no=%s OR wo.cabinet_no=%s))
             ORDER BY qi.inspection_date DESC NULLS LAST, qi.id DESC
             LIMIT 40
             """,
@@ -803,9 +803,9 @@ def _project_axis_events(query_rows, order, limit=80):
                 project_code,
                 project_code,
                 project_code,
-                serial_no,
-                serial_no,
-                serial_no,
+                cabinet_no,
+                cabinet_no,
+                cabinet_no,
             ),
         ),
         event_type="quality_inspection",
@@ -825,11 +825,11 @@ def _project_axis_events(query_rows, order, limit=80):
             LEFT JOIN work_orders wo ON wo.id=wcl.work_order_id
             WHERE (%s IS NOT NULL AND wcl.cost_object_id=%s)
                OR (%s IS NOT NULL AND wo.project_code=%s)
-               OR (%s IS NOT NULL AND wo.serial_no=%s)
+               OR (%s IS NOT NULL AND wo.cabinet_no=%s)
             ORDER BY wcl.created_at DESC NULLS LAST, wcl.id DESC
             LIMIT 60
             """,
-            (cost_object_id, cost_object_id, project_code, project_code, serial_no, serial_no),
+            (cost_object_id, cost_object_id, project_code, project_code, cabinet_no, cabinet_no),
         ),
         event_type="work_order_cost",
         number_key="source_no",
@@ -846,11 +846,11 @@ def _project_axis_events(query_rows, order, limit=80):
             FROM sales_shipments
             WHERE order_id=%s
                OR (%s IS NOT NULL AND project_code=%s)
-               OR (%s IS NOT NULL AND serial_no=%s)
+               OR (%s IS NOT NULL AND cabinet_no=%s)
             ORDER BY shipment_date DESC NULLS LAST, id DESC
             LIMIT 40
             """,
-            (order_id, project_code, project_code, serial_no, serial_no),
+            (order_id, project_code, project_code, cabinet_no, cabinet_no),
         ),
         event_type="sales_shipment",
         number_key="shipment_no",
@@ -867,11 +867,11 @@ def _project_axis_events(query_rows, order, limit=80):
             WHERE source_id=%s
                OR (%s IS NOT NULL AND cost_object_id=%s)
                OR (%s IS NOT NULL AND project_code=%s)
-               OR (%s IS NOT NULL AND serial_no=%s)
+               OR (%s IS NOT NULL AND cabinet_no=%s)
             ORDER BY due_date DESC NULLS LAST, id DESC
             LIMIT 40
             """,
-            (order_id, cost_object_id, cost_object_id, project_code, project_code, serial_no, serial_no),
+            (order_id, cost_object_id, cost_object_id, project_code, project_code, cabinet_no, cabinet_no),
         ),
         event_type="customer_receivable",
         number_key="source_no",
@@ -883,16 +883,16 @@ def _project_axis_events(query_rows, order, limit=80):
         events,
         query_rows(
             """
-            SELECT id, serial_no AS card_no, install_date, status
+            SELECT id, cabinet_no AS card_no, install_date, status
             FROM machine_service_cards
             WHERE sales_order_id=%s
                OR (%s IS NOT NULL AND cost_object_id=%s)
                OR (%s IS NOT NULL AND project_code=%s)
-               OR (%s IS NOT NULL AND serial_no=%s)
+               OR (%s IS NOT NULL AND cabinet_no=%s)
             ORDER BY install_date DESC NULLS LAST, id DESC
             LIMIT 40
             """,
-            (order_id, cost_object_id, cost_object_id, project_code, project_code, serial_no, serial_no),
+            (order_id, cost_object_id, cost_object_id, project_code, project_code, cabinet_no, cabinet_no),
         ),
         event_type="service_card",
         number_key="card_no",
@@ -908,11 +908,11 @@ def _project_axis_events(query_rows, order, limit=80):
             WHERE sales_order_id=%s
                OR (%s IS NOT NULL AND cost_object_id=%s)
                OR (%s IS NOT NULL AND project_code=%s)
-               OR (%s IS NOT NULL AND serial_no=%s)
+               OR (%s IS NOT NULL AND cabinet_no=%s)
             ORDER BY check_date DESC NULLS LAST, id DESC
             LIMIT 40
             """,
-            (order_id, cost_object_id, cost_object_id, project_code, project_code, serial_no, serial_no),
+            (order_id, cost_object_id, cost_object_id, project_code, project_code, cabinet_no, cabinet_no),
         ),
         event_type="service_acceptance",
         number_key="acceptance_no",
@@ -928,11 +928,11 @@ def _project_axis_events(query_rows, order, limit=80):
             WHERE sales_order_id=%s
                OR (%s IS NOT NULL AND cost_object_id=%s)
                OR (%s IS NOT NULL AND project_code=%s)
-               OR (%s IS NOT NULL AND serial_no=%s)
+               OR (%s IS NOT NULL AND cabinet_no=%s)
             ORDER BY service_date DESC NULLS LAST, id DESC
             LIMIT 40
             """,
-            (order_id, cost_object_id, cost_object_id, project_code, project_code, serial_no, serial_no),
+            (order_id, cost_object_id, cost_object_id, project_code, project_code, cabinet_no, cabinet_no),
         ),
         event_type="service_order",
         number_key="order_no",
@@ -948,11 +948,11 @@ def _project_axis_events(query_rows, order, limit=80):
             FROM machine_service_rmas
             WHERE sales_order_id=%s
                OR (%s IS NOT NULL AND project_code=%s)
-               OR (%s IS NOT NULL AND serial_no=%s)
+               OR (%s IS NOT NULL AND cabinet_no=%s)
             ORDER BY rma_date DESC NULLS LAST, id DESC
             LIMIT 40
             """,
-            (order_id, project_code, project_code, serial_no, serial_no),
+            (order_id, project_code, project_code, cabinet_no, cabinet_no),
         ),
         event_type="service_rma",
         number_key="rma_no",
@@ -980,10 +980,10 @@ def _project_axis_overview_payload(
     build_kit_summary,
 ):
     project_code = order.get("project_code")
-    serial_no = order.get("serial_no")
+    cabinet_no = order.get("cabinet_no")
     cost_object_id = order.get("cost_object_id")
-    finance_summary = project_finance_summary(order, project_code, serial_no, cost_object_id)
-    kit_rows = project_kit_rows(order.get("id"), project_code, serial_no, cost_object_id)
+    finance_summary = project_finance_summary(order, project_code, cabinet_no, cost_object_id)
+    kit_rows = project_kit_rows(order.get("id"), project_code, cabinet_no, cost_object_id)
     no_bom_items = project_items_without_bom(order.get("id"))
     kit_summary = build_kit_summary(kit_rows, no_bom_items)
     counts = _project_axis_counts(query_one, order)
@@ -991,7 +991,7 @@ def _project_axis_overview_payload(
     next_action, owner_role, blocked_reason = _project_next_action(
         {
             "project_code": project_code,
-            "serial_no": serial_no,
+            "cabinet_no": cabinet_no,
             "shortage_lines": (kit_summary or {}).get("shortage_count"),
             "pending_purchase_qty": counts.get("pending_purchase_qty"),
             "open_work_order_count": counts.get("open_work_order_count"),
@@ -1011,7 +1011,7 @@ def _project_axis_overview_payload(
         "ledger_url": f"/projects/{order.get('id')}",
         "axis": {
             "project_code": project_code,
-            "serial_no": serial_no,
+            "cabinet_no": cabinet_no,
             "cost_object_id": cost_object_id,
         },
         "counts": counts,
@@ -1034,7 +1034,7 @@ def _project_axis_engineering_readiness_payload(
     kit_rows = project_kit_rows(
         order.get("id"),
         order.get("project_code"),
-        order.get("serial_no"),
+        order.get("cabinet_no"),
         order.get("cost_object_id"),
     )
     no_bom_items = project_items_without_bom(order.get("id"))
@@ -1045,7 +1045,7 @@ def _project_axis_engineering_readiness_payload(
         "order_id": order.get("id"),
         "order_no": order.get("order_no"),
         "project_code": order.get("project_code"),
-        "serial_no": order.get("serial_no"),
+        "cabinet_no": order.get("cabinet_no"),
         "ledger_url": f"/projects/{order.get('id')}",
         "engineering_readiness": readiness,
         "kit_summary": kit_summary,
@@ -1065,14 +1065,14 @@ def _project_axis_procurement_closure_payload(
     kit_rows = project_kit_rows(
         order.get("id"),
         order.get("project_code"),
-        order.get("serial_no"),
+        order.get("cabinet_no"),
         order.get("cost_object_id"),
     )
     no_bom_items = project_items_without_bom(order.get("id"))
     kit_summary = build_kit_summary(kit_rows, no_bom_items)
     readiness = _project_engineering_readiness(query_one, order, kit_summary)
     project_code = order.get("project_code")
-    serial_no = order.get("serial_no")
+    cabinet_no = order.get("cabinet_no")
     cost_object_id = order.get("cost_object_id")
     counts = query_one(
         """
@@ -1083,7 +1083,7 @@ def _project_axis_procurement_closure_payload(
             WHERE COALESCE(mr.shortage_quantity, 0) > 0
               AND (
                     (%s IS NOT NULL AND mr.project_code=%s)
-                    OR (%s IS NOT NULL AND mr.serial_no=%s)
+                    OR (%s IS NOT NULL AND mr.cabinet_no=%s)
                   )
           ) AS shortage_line_count,
           (
@@ -1092,7 +1092,7 @@ def _project_axis_procurement_closure_payload(
             WHERE COALESCE(mr.shortage_quantity, 0) > 0
               AND (
                     (%s IS NOT NULL AND mr.project_code=%s)
-                    OR (%s IS NOT NULL AND mr.serial_no=%s)
+                    OR (%s IS NOT NULL AND mr.cabinet_no=%s)
                   )
           ) AS shortage_qty,
           (
@@ -1100,14 +1100,14 @@ def _project_axis_procurement_closure_payload(
             FROM purchase_requisitions pr
             LEFT JOIN purchase_requisition_items pri ON pri.req_id=pr.id
             WHERE (%s IS NOT NULL AND (pr.project_code=%s OR pri.project_code=%s))
-               OR (%s IS NOT NULL AND (pr.serial_no=%s OR pri.serial_no=%s))
+               OR (%s IS NOT NULL AND (pr.cabinet_no=%s OR pri.cabinet_no=%s))
           ) AS purchase_request_count,
           (
             SELECT COUNT(*)
             FROM purchase_orders po
             WHERE (%s IS NOT NULL AND po.cost_object_id=%s)
                OR (%s IS NOT NULL AND po.project_code=%s)
-               OR (%s IS NOT NULL AND po.serial_no=%s)
+               OR (%s IS NOT NULL AND po.cabinet_no=%s)
           ) AS purchase_order_count,
           (
             SELECT COALESCE(SUM(GREATEST(COALESCE(poi.quantity, 0)-COALESCE(poi.received_qty, 0), 0)), 0)
@@ -1115,7 +1115,7 @@ def _project_axis_procurement_closure_payload(
             LEFT JOIN purchase_order_items poi ON poi.order_id=po.id
             WHERE (%s IS NOT NULL AND po.cost_object_id=%s)
                OR (%s IS NOT NULL AND po.project_code=%s)
-               OR (%s IS NOT NULL AND po.serial_no=%s)
+               OR (%s IS NOT NULL AND po.cabinet_no=%s)
           ) AS pending_receipt_qty,
           (
             SELECT COUNT(DISTINCT pr.id)
@@ -1123,7 +1123,7 @@ def _project_axis_procurement_closure_payload(
             LEFT JOIN purchase_orders po ON po.id=pr.order_id
             WHERE (%s IS NOT NULL AND (pr.cost_object_id=%s OR po.cost_object_id=%s))
                OR (%s IS NOT NULL AND (pr.project_code=%s OR po.project_code=%s))
-               OR (%s IS NOT NULL AND (pr.serial_no=%s OR po.serial_no=%s))
+               OR (%s IS NOT NULL AND (pr.cabinet_no=%s OR po.cabinet_no=%s))
           ) AS purchase_receipt_count,
           (
             SELECT COUNT(DISTINCT sp.id)
@@ -1139,7 +1139,7 @@ def _project_axis_procurement_closure_payload(
                     sp.project_code=%s OR po_ap.project_code=%s OR sc_ap.project_code=%s
                   ))
                OR (%s IS NOT NULL AND (
-                    sp.serial_no=%s OR po_ap.serial_no=%s OR sc_ap.serial_no=%s
+                    sp.cabinet_no=%s OR po_ap.cabinet_no=%s OR sc_ap.cabinet_no=%s
                   ))
           ) AS supplier_payable_count,
           (
@@ -1156,58 +1156,46 @@ def _project_axis_procurement_closure_payload(
                     sp.project_code=%s OR po_ap.project_code=%s OR sc_ap.project_code=%s
                   ))
                OR (%s IS NOT NULL AND (
-                    sp.serial_no=%s OR po_ap.serial_no=%s OR sc_ap.serial_no=%s
+                    sp.cabinet_no=%s OR po_ap.cabinet_no=%s OR sc_ap.cabinet_no=%s
                   ))
           ) AS payable_balance
         """,
         (
             project_code,
             project_code,
-            serial_no,
-            serial_no,
+            cabinet_no,
+            cabinet_no,
             project_code,
             project_code,
-            serial_no,
-            serial_no,
+            cabinet_no,
+            cabinet_no,
             project_code,
             project_code,
             project_code,
-            serial_no,
-            serial_no,
-            serial_no,
+            cabinet_no,
+            cabinet_no,
+            cabinet_no,
             cost_object_id,
             cost_object_id,
             project_code,
             project_code,
-            serial_no,
-            serial_no,
+            cabinet_no,
+            cabinet_no,
             cost_object_id,
             cost_object_id,
             project_code,
             project_code,
-            serial_no,
-            serial_no,
-            cost_object_id,
-            cost_object_id,
-            cost_object_id,
-            project_code,
-            project_code,
-            project_code,
-            serial_no,
-            serial_no,
-            serial_no,
-            cost_object_id,
+            cabinet_no,
+            cabinet_no,
             cost_object_id,
             cost_object_id,
             cost_object_id,
             project_code,
             project_code,
             project_code,
-            project_code,
-            serial_no,
-            serial_no,
-            serial_no,
-            serial_no,
+            cabinet_no,
+            cabinet_no,
+            cabinet_no,
             cost_object_id,
             cost_object_id,
             cost_object_id,
@@ -1216,10 +1204,22 @@ def _project_axis_procurement_closure_payload(
             project_code,
             project_code,
             project_code,
-            serial_no,
-            serial_no,
-            serial_no,
-            serial_no,
+            cabinet_no,
+            cabinet_no,
+            cabinet_no,
+            cabinet_no,
+            cost_object_id,
+            cost_object_id,
+            cost_object_id,
+            cost_object_id,
+            project_code,
+            project_code,
+            project_code,
+            project_code,
+            cabinet_no,
+            cabinet_no,
+            cabinet_no,
+            cabinet_no,
         ),
     ) or {}
     if not readiness.get("ready"):
@@ -1257,7 +1257,7 @@ def _project_axis_procurement_closure_payload(
         "order_id": order.get("id"),
         "order_no": order.get("order_no"),
         "project_code": project_code,
-        "serial_no": serial_no,
+        "cabinet_no": cabinet_no,
         "ledger_url": f"/projects/{order.get('id')}",
         "status": status,
         "blocked_reason": blocked_reason,
@@ -1280,36 +1280,36 @@ def _project_axis_production_closure_payload(query_one, order):
     if not order:
         return {"found": False}
     project_code = order.get("project_code")
-    serial_no = order.get("serial_no")
+    cabinet_no = order.get("cabinet_no")
     cost_object_id = order.get("cost_object_id")
-    axis6 = (cost_object_id, cost_object_id, project_code, project_code, serial_no, serial_no)
+    axis6 = (cost_object_id, cost_object_id, project_code, project_code, cabinet_no, cabinet_no)
     doc8 = (
         cost_object_id,
         cost_object_id,
         project_code,
         project_code,
         project_code,
-        serial_no,
-        serial_no,
-        serial_no,
+        cabinet_no,
+        cabinet_no,
+        cabinet_no,
     )
     stock16 = (
         project_code,
         project_code,
-        serial_no,
-        serial_no,
+        cabinet_no,
+        cabinet_no,
         cost_object_id,
         cost_object_id,
         project_code,
         project_code,
-        serial_no,
-        serial_no,
+        cabinet_no,
+        cabinet_no,
         cost_object_id,
         cost_object_id,
         project_code,
         project_code,
-        serial_no,
-        serial_no,
+        cabinet_no,
+        cabinet_no,
     )
     counts = query_one(
         """
@@ -1319,7 +1319,7 @@ def _project_axis_production_closure_payload(query_one, order):
             FROM work_orders wo
             WHERE (%s IS NOT NULL AND wo.cost_object_id=%s)
                OR (%s IS NOT NULL AND wo.project_code=%s)
-               OR (%s IS NOT NULL AND wo.serial_no=%s)
+               OR (%s IS NOT NULL AND wo.cabinet_no=%s)
           ) AS work_order_count,
           (
             SELECT COUNT(*)
@@ -1327,7 +1327,7 @@ def _project_axis_production_closure_payload(query_one, order):
             WHERE (
                 (%s IS NOT NULL AND wo.cost_object_id=%s)
                 OR (%s IS NOT NULL AND wo.project_code=%s)
-                OR (%s IS NOT NULL AND wo.serial_no=%s)
+                OR (%s IS NOT NULL AND wo.cabinet_no=%s)
               )
               AND COALESCE(wo.status, '') NOT IN ('closed','completed','void','cancelled','已完工','已关闭','已作废','已完成')
           ) AS open_work_order_count,
@@ -1337,7 +1337,7 @@ def _project_axis_production_closure_payload(query_one, order):
             JOIN work_orders wo ON wo.id=mi.wo_id
             WHERE (%s IS NOT NULL AND wo.cost_object_id=%s)
                OR (%s IS NOT NULL AND wo.project_code=%s)
-               OR (%s IS NOT NULL AND wo.serial_no=%s)
+               OR (%s IS NOT NULL AND wo.cabinet_no=%s)
           ) AS material_required_qty,
           (
             SELECT COALESCE(SUM(mi.issued_qty), 0)
@@ -1345,7 +1345,7 @@ def _project_axis_production_closure_payload(query_one, order):
             JOIN work_orders wo ON wo.id=mi.wo_id
             WHERE (%s IS NOT NULL AND wo.cost_object_id=%s)
                OR (%s IS NOT NULL AND wo.project_code=%s)
-               OR (%s IS NOT NULL AND wo.serial_no=%s)
+               OR (%s IS NOT NULL AND wo.cabinet_no=%s)
           ) AS material_issued_qty,
           (
             SELECT COALESCE(SUM(mi.returned_qty), 0)
@@ -1353,7 +1353,7 @@ def _project_axis_production_closure_payload(query_one, order):
             JOIN work_orders wo ON wo.id=mi.wo_id
             WHERE (%s IS NOT NULL AND wo.cost_object_id=%s)
                OR (%s IS NOT NULL AND wo.project_code=%s)
-               OR (%s IS NOT NULL AND wo.serial_no=%s)
+               OR (%s IS NOT NULL AND wo.cabinet_no=%s)
           ) AS material_returned_qty,
           (
             SELECT COALESCE(SUM(GREATEST(COALESCE(mi.required_qty, 0)-COALESCE(mi.issued_qty, 0)+COALESCE(mi.returned_qty, 0), 0)), 0)
@@ -1361,7 +1361,7 @@ def _project_axis_production_closure_payload(query_one, order):
             JOIN work_orders wo ON wo.id=mi.wo_id
             WHERE (%s IS NOT NULL AND wo.cost_object_id=%s)
                OR (%s IS NOT NULL AND wo.project_code=%s)
-               OR (%s IS NOT NULL AND wo.serial_no=%s)
+               OR (%s IS NOT NULL AND wo.cabinet_no=%s)
           ) AS pending_issue_qty,
           (
             SELECT COUNT(*)
@@ -1371,7 +1371,7 @@ def _project_axis_production_closure_payload(query_one, order):
               AND (
                    (%s IS NOT NULL AND wo.cost_object_id=%s)
                    OR (%s IS NOT NULL AND (pl.project_code=%s OR wo.project_code=%s))
-                   OR (%s IS NOT NULL AND (pl.serial_no=%s OR wo.serial_no=%s))
+                   OR (%s IS NOT NULL AND (pl.cabinet_no=%s OR wo.cabinet_no=%s))
               )
           ) AS issue_doc_count,
           (
@@ -1382,7 +1382,7 @@ def _project_axis_production_closure_payload(query_one, order):
               AND (
                    (%s IS NOT NULL AND wo.cost_object_id=%s)
                    OR (%s IS NOT NULL AND (pl.project_code=%s OR wo.project_code=%s))
-                   OR (%s IS NOT NULL AND (pl.serial_no=%s OR wo.serial_no=%s))
+                   OR (%s IS NOT NULL AND (pl.cabinet_no=%s OR wo.cabinet_no=%s))
               )
           ) AS return_doc_count,
           (
@@ -1391,7 +1391,7 @@ def _project_axis_production_closure_payload(query_one, order):
             LEFT JOIN work_orders wo ON wo.id=pc.work_order_id
             WHERE (%s IS NOT NULL AND wo.cost_object_id=%s)
                OR (%s IS NOT NULL AND (pc.project_code=%s OR wo.project_code=%s))
-               OR (%s IS NOT NULL AND (pc.serial_no=%s OR wo.serial_no=%s))
+               OR (%s IS NOT NULL AND (pc.cabinet_no=%s OR wo.cabinet_no=%s))
           ) AS completion_doc_count,
           (
             SELECT COALESCE(SUM(wc.qty), 0)
@@ -1399,7 +1399,7 @@ def _project_axis_production_closure_payload(query_one, order):
             JOIN work_orders wo ON wo.id=wc.wo_id
             WHERE (%s IS NOT NULL AND wo.cost_object_id=%s)
                OR (%s IS NOT NULL AND wo.project_code=%s)
-               OR (%s IS NOT NULL AND wo.serial_no=%s)
+               OR (%s IS NOT NULL AND wo.cabinet_no=%s)
           ) AS completed_qty,
           (
             SELECT COUNT(*)
@@ -1407,19 +1407,19 @@ def _project_axis_production_closure_payload(query_one, order):
             WHERE st.transaction_type IN ('工单领料','生产领料','工单退料','生产退料','工单完工入库')
               AND (
                    (%s IS NOT NULL AND st.project_code=%s)
-                   OR (%s IS NOT NULL AND st.serial_no=%s)
+                   OR (%s IS NOT NULL AND st.cabinet_no=%s)
                    OR st.reference_no IN (
                        SELECT pl.doc_no FROM pick_lists pl
                        LEFT JOIN work_orders wo ON wo.id=pl.work_order_id
                        WHERE (%s IS NOT NULL AND wo.cost_object_id=%s)
                           OR (%s IS NOT NULL AND wo.project_code=%s)
-                          OR (%s IS NOT NULL AND wo.serial_no=%s)
+                          OR (%s IS NOT NULL AND wo.cabinet_no=%s)
                        UNION
                        SELECT pc.completion_no FROM production_completion_orders pc
                        LEFT JOIN work_orders wo2 ON wo2.id=pc.work_order_id
                        WHERE (%s IS NOT NULL AND wo2.cost_object_id=%s)
                           OR (%s IS NOT NULL AND wo2.project_code=%s)
-                          OR (%s IS NOT NULL AND wo2.serial_no=%s)
+                          OR (%s IS NOT NULL AND wo2.cabinet_no=%s)
                    )
               )
           ) AS stock_tx_count,
@@ -1429,7 +1429,7 @@ def _project_axis_production_closure_payload(query_one, order):
             LEFT JOIN work_orders wo ON wo.id=wcl.work_order_id
             WHERE (%s IS NOT NULL AND wcl.cost_object_id=%s)
                OR (%s IS NOT NULL AND wo.project_code=%s)
-               OR (%s IS NOT NULL AND wo.serial_no=%s)
+               OR (%s IS NOT NULL AND wo.cabinet_no=%s)
           ) AS cost_line_count,
           (
             SELECT COALESCE(SUM(woc.total_cost), 0)
@@ -1437,7 +1437,7 @@ def _project_axis_production_closure_payload(query_one, order):
             LEFT JOIN work_orders wo ON wo.id=woc.work_order_id
             WHERE (%s IS NOT NULL AND woc.cost_object_id=%s)
                OR (%s IS NOT NULL AND wo.project_code=%s)
-               OR (%s IS NOT NULL AND wo.serial_no=%s)
+               OR (%s IS NOT NULL AND wo.cabinet_no=%s)
           ) AS total_cost
         """,
         (
@@ -1496,7 +1496,7 @@ def _project_axis_production_closure_payload(query_one, order):
         "order_id": order.get("id"),
         "order_no": order.get("order_no"),
         "project_code": project_code,
-        "serial_no": serial_no,
+        "cabinet_no": cabinet_no,
         "ledger_url": f"/projects/{order.get('id')}",
         "status": status,
         "blocked_reason": blocked_reason,
@@ -1525,7 +1525,7 @@ def _project_axis_assistant_context(query_one, query_rows, order, project_kit_ro
     readiness = readiness_payload.get("engineering_readiness") or {}
     summary = [
         f"销售订单：{order.get('order_no') or '-'}",
-        f"项目号：{order.get('project_code') or '-'}；机号：{order.get('serial_no') or '-'}",
+        f"项目号：{order.get('project_code') or '-'}；柜号：{order.get('cabinet_no') or '-'}",
         f"工程准备：{readiness.get('status') or '-'}；阻塞原因：{readiness.get('blocked_reason') or '无'}",
         f"下一步：{readiness.get('next_action') or '-'}；责任：{readiness.get('owner_role') or '-'}",
     ]
@@ -1534,7 +1534,7 @@ def _project_axis_assistant_context(query_one, query_rows, order, project_kit_ro
         "order_id": order.get("id"),
         "order_no": order.get("order_no"),
         "project_code": order.get("project_code"),
-        "serial_no": order.get("serial_no"),
+        "cabinet_no": order.get("cabinet_no"),
         "ledger_url": f"/projects/{order.get('id')}",
         "engineering_readiness": readiness,
         "kit_summary": readiness_payload.get("kit_summary"),
@@ -1557,11 +1557,11 @@ def _project_engineering_readiness(query_one, order, kit_summary=None):
         return {"ready": False, "blocked_reason": "缺少销售订单", "next_action": "选择销售订单", "owner_role": "销售"}
     order_id = order.get("id")
     project_code = order.get("project_code")
-    serial_no = order.get("serial_no")
+    cabinet_no = order.get("cabinet_no")
     confirmation = query_one(
         """
         SELECT etc.id, etc.confirm_no, etc.confirm_date, etc.status, etc.confirmed_at,
-               etc.project_code, etc.serial_no, etc.bom_id, etc.routing_id, etc.work_center_id,
+               etc.project_code, etc.cabinet_no, etc.bom_id, etc.routing_id, etc.work_center_id,
                etc.drawing_no, etc.drawing_version, etc.owner, etc.next_action,
                b.bom_no, b.version AS bom_version, b.status AS bom_status,
                COALESCE(bom_items.item_count, 0) AS bom_item_count
@@ -1574,11 +1574,11 @@ def _project_engineering_readiness(query_one, order, kit_summary=None):
         ) bom_items ON TRUE
         WHERE etc.sales_order_id=%s
            OR (%s IS NOT NULL AND etc.project_code=%s)
-           OR (%s IS NOT NULL AND etc.serial_no=%s)
+           OR (%s IS NOT NULL AND etc.cabinet_no=%s)
         ORDER BY etc.confirmed_at DESC NULLS LAST, etc.id DESC
         LIMIT 1
         """,
-        (order_id, project_code, project_code, serial_no, serial_no),
+        (order_id, project_code, project_code, cabinet_no, cabinet_no),
     )
     sales_bom = query_one(
         """
@@ -1680,8 +1680,8 @@ def _subcontract_project_execution(row):
     received_qty = as_decimal_safe(row.get("received_qty"))
     scrap_qty = as_decimal_safe(row.get("scrap_qty"))
     payable_balance = as_decimal_safe(row.get("payable_balance"))
-    if not (row.get("project_code") or "").strip() or not (row.get("serial_no") or "").strip():
-        return "追溯缺失", "补齐项目号/机号"
+    if not (row.get("project_code") or "").strip() or not (row.get("cabinet_no") or "").strip():
+        return "追溯缺失", "补齐项目号/柜号"
     if status in {"已作废", "void", "cancelled"}:
         return "已作废", "保留追溯"
     if scrap_qty > 0:
@@ -1720,7 +1720,7 @@ def _work_order_project_execution(row):
     return "已齐套", "推进完工、质检和关闭", "生产"
 
 
-def _project_cost_rows(query_rows, order_id, project_code, serial_no, cost_object_id):
+def _project_cost_rows(query_rows, order_id, project_code, cabinet_no, cost_object_id):
     rows = []
     purchase_rows = query_rows(
         """
@@ -1729,11 +1729,11 @@ def _project_cost_rows(query_rows, order_id, project_code, serial_no, cost_objec
         FROM purchase_orders
         WHERE (%s IS NOT NULL AND cost_object_id=%s)
            OR (%s IS NOT NULL AND project_code=%s)
-           OR (%s IS NOT NULL AND serial_no=%s)
+           OR (%s IS NOT NULL AND cabinet_no=%s)
         ORDER BY id DESC
         LIMIT 40
         """,
-        (cost_object_id, cost_object_id, project_code, project_code, serial_no, serial_no),
+        (cost_object_id, cost_object_id, project_code, project_code, cabinet_no, cabinet_no),
     )
     subcontract_rows = query_rows(
         """
@@ -1742,11 +1742,11 @@ def _project_cost_rows(query_rows, order_id, project_code, serial_no, cost_objec
         FROM subcontract_orders
         WHERE (%s IS NOT NULL AND cost_object_id=%s)
            OR (%s IS NOT NULL AND project_code=%s)
-           OR (%s IS NOT NULL AND serial_no=%s)
+           OR (%s IS NOT NULL AND cabinet_no=%s)
         ORDER BY id DESC
         LIMIT 40
         """,
-        (cost_object_id, cost_object_id, project_code, project_code, serial_no, serial_no),
+        (cost_object_id, cost_object_id, project_code, project_code, cabinet_no, cabinet_no),
     )
     work_rows = query_rows(
         """
@@ -1762,11 +1762,11 @@ def _project_cost_rows(query_rows, order_id, project_code, serial_no, cost_objec
         LEFT JOIN work_order_cost_lines wcl ON wcl.work_order_id=wo.id
         WHERE (%s IS NOT NULL AND wo.cost_object_id=%s)
            OR (%s IS NOT NULL AND wo.project_code=%s)
-           OR (%s IS NOT NULL AND wo.serial_no=%s)
+           OR (%s IS NOT NULL AND wo.cabinet_no=%s)
         ORDER BY COALESCE(wcl.created_at, woc.last_calculated_at) DESC NULLS LAST, wo.id DESC
         LIMIT 80
         """,
-        (cost_object_id, cost_object_id, project_code, project_code, serial_no, serial_no),
+        (cost_object_id, cost_object_id, project_code, project_code, cabinet_no, cabinet_no),
     )
     service_rows = query_rows(
         """
@@ -1776,11 +1776,11 @@ def _project_cost_rows(query_rows, order_id, project_code, serial_no, cost_objec
         WHERE sales_order_id=%s
            OR (%s IS NOT NULL AND cost_object_id=%s)
            OR (%s IS NOT NULL AND project_code=%s)
-           OR (%s IS NOT NULL AND serial_no=%s)
+           OR (%s IS NOT NULL AND cabinet_no=%s)
         ORDER BY id DESC
         LIMIT 40
         """,
-        (order_id, cost_object_id, cost_object_id, project_code, project_code, serial_no, serial_no),
+        (order_id, cost_object_id, cost_object_id, project_code, project_code, cabinet_no, cabinet_no),
     )
     for group in (purchase_rows, subcontract_rows, work_rows, service_rows):
         rows.extend(dict(row) for row in group)
@@ -1822,9 +1822,9 @@ def _pilot_acceptance_answers(order, context, finance_summary):
             "owner": "销售/仓库",
         },
         {
-            "question": "项目号和机号",
-            "answer": f"{order.get('project_code') or '-'} / {order.get('serial_no') or '-'}",
-            "status": "通过" if order.get("project_code") and order.get("serial_no") else "待补",
+            "question": "项目号和柜号",
+            "answer": f"{order.get('project_code') or '-'} / {order.get('cabinet_no') or '-'}",
+            "status": "通过" if order.get("project_code") and order.get("cabinet_no") else "待补",
             "owner": "销售/项目",
         },
         {
@@ -1938,7 +1938,7 @@ def render_project_ledger(
             (
                 so.order_no ILIKE %s
                 OR so.project_code ILIKE %s
-                OR so.serial_no ILIKE %s
+                OR so.cabinet_no ILIKE %s
                 OR c.name ILIKE %s
             )
             """
@@ -1960,7 +1960,7 @@ def render_project_ledger(
             LIMIT %s OFFSET %s
         )
         SELECT bo.id, bo.order_no, bo.order_date, bo.delivery_date,
-               bo.project_code, bo.serial_no, bo.status, bo.total_amount,
+               bo.project_code, bo.cabinet_no, bo.status, bo.total_amount,
                bo.shipped_amount, bo.customer_name, bo.cost_object_id,
                COALESCE(shortage.shortage_lines, 0) AS shortage_lines,
                COALESCE(shortage.shortage_qty, 0) AS shortage_qty,
@@ -1984,7 +1984,7 @@ def render_project_ledger(
                 (mr.source_document_type='sales_order' AND mr.source_document_id=bo.id)
                 OR (bo.cost_object_id IS NOT NULL AND mr.cost_object_id=bo.cost_object_id)
                 OR (NULLIF(bo.project_code, '') IS NOT NULL AND mr.project_code=bo.project_code)
-                OR (NULLIF(bo.serial_no, '') IS NOT NULL AND mr.serial_no=bo.serial_no)
+                OR (NULLIF(bo.cabinet_no, '') IS NOT NULL AND mr.cabinet_no=bo.cabinet_no)
               )
         ) shortage ON TRUE
         LEFT JOIN LATERAL (
@@ -1994,7 +1994,7 @@ def render_project_ledger(
             LEFT JOIN purchase_order_items poi ON poi.order_id=po.id
             WHERE (bo.cost_object_id IS NOT NULL AND po.cost_object_id=bo.cost_object_id)
                OR (NULLIF(bo.project_code, '') IS NOT NULL AND po.project_code=bo.project_code)
-               OR (NULLIF(bo.serial_no, '') IS NOT NULL AND po.serial_no=bo.serial_no)
+               OR (NULLIF(bo.cabinet_no, '') IS NOT NULL AND po.cabinet_no=bo.cabinet_no)
         ) purchase ON TRUE
         LEFT JOIN LATERAL (
             SELECT COUNT(*) AS work_order_count,
@@ -2002,14 +2002,14 @@ def render_project_ledger(
             FROM work_orders wo
             WHERE (bo.cost_object_id IS NOT NULL AND wo.cost_object_id=bo.cost_object_id)
                OR (NULLIF(bo.project_code, '') IS NOT NULL AND wo.project_code=bo.project_code)
-               OR (NULLIF(bo.serial_no, '') IS NOT NULL AND wo.serial_no=bo.serial_no)
+               OR (NULLIF(bo.cabinet_no, '') IS NOT NULL AND wo.cabinet_no=bo.cabinet_no)
         ) work ON TRUE
         LEFT JOIN LATERAL (
             SELECT COUNT(*) AS shipment_count
             FROM sales_shipments ss
             WHERE ss.order_id=bo.id
                OR (NULLIF(bo.project_code, '') IS NOT NULL AND ss.project_code=bo.project_code)
-               OR (NULLIF(bo.serial_no, '') IS NOT NULL AND ss.serial_no=bo.serial_no)
+               OR (NULLIF(bo.cabinet_no, '') IS NOT NULL AND ss.cabinet_no=bo.cabinet_no)
         ) ship ON TRUE
         LEFT JOIN LATERAL (
             SELECT COALESCE(SUM(balance), 0) AS receivable_balance
@@ -2017,7 +2017,7 @@ def render_project_ledger(
             WHERE cr.source_id=bo.id
                OR (bo.cost_object_id IS NOT NULL AND cr.cost_object_id=bo.cost_object_id)
                OR (NULLIF(bo.project_code, '') IS NOT NULL AND cr.project_code=bo.project_code)
-               OR (NULLIF(bo.serial_no, '') IS NOT NULL AND cr.serial_no=bo.serial_no)
+               OR (NULLIF(bo.cabinet_no, '') IS NOT NULL AND cr.cabinet_no=bo.cabinet_no)
         ) ar ON TRUE
         LEFT JOIN LATERAL (
             SELECT COUNT(*) AS service_order_count
@@ -2025,7 +2025,7 @@ def render_project_ledger(
             WHERE mso.sales_order_id=bo.id
                OR (bo.cost_object_id IS NOT NULL AND mso.cost_object_id=bo.cost_object_id)
                OR (NULLIF(bo.project_code, '') IS NOT NULL AND mso.project_code=bo.project_code)
-               OR (NULLIF(bo.serial_no, '') IS NOT NULL AND mso.serial_no=bo.serial_no)
+               OR (NULLIF(bo.cabinet_no, '') IS NOT NULL AND mso.cabinet_no=bo.cabinet_no)
         ) service ON TRUE
         LEFT JOIN LATERAL (
             SELECT COUNT(*) AS service_card_count
@@ -2033,7 +2033,7 @@ def render_project_ledger(
             WHERE sc.sales_order_id=bo.id
                OR (bo.cost_object_id IS NOT NULL AND sc.cost_object_id=bo.cost_object_id)
                OR (NULLIF(bo.project_code, '') IS NOT NULL AND sc.project_code=bo.project_code)
-               OR (NULLIF(bo.serial_no, '') IS NOT NULL AND sc.serial_no=bo.serial_no)
+               OR (NULLIF(bo.cabinet_no, '') IS NOT NULL AND sc.cabinet_no=bo.cabinet_no)
         ) card ON TRUE
         LEFT JOIN LATERAL (
             SELECT COALESCE(SUM(sp.balance), 0) AS payable_balance
@@ -2042,7 +2042,7 @@ def render_project_ledger(
             LEFT JOIN subcontract_orders sc_ap ON sp.doc_type='subcontract_order' AND (sc_ap.id=sp.doc_id OR sc_ap.order_no=sp.doc_no)
             WHERE (bo.cost_object_id IS NOT NULL AND (po_ap.cost_object_id=bo.cost_object_id OR sc_ap.cost_object_id=bo.cost_object_id))
                OR (NULLIF(bo.project_code, '') IS NOT NULL AND (po_ap.project_code=bo.project_code OR sc_ap.project_code=bo.project_code))
-               OR (NULLIF(bo.serial_no, '') IS NOT NULL AND (po_ap.serial_no=bo.serial_no OR sc_ap.serial_no=bo.serial_no))
+               OR (NULLIF(bo.cabinet_no, '') IS NOT NULL AND (po_ap.cabinet_no=bo.cabinet_no OR sc_ap.cabinet_no=bo.cabinet_no))
         ) ap ON TRUE
         LEFT JOIN LATERAL (
             SELECT
@@ -2051,14 +2051,14 @@ def render_project_ledger(
                     FROM purchase_orders po_cost
                     WHERE (bo.cost_object_id IS NOT NULL AND po_cost.cost_object_id=bo.cost_object_id)
                        OR (NULLIF(bo.project_code, '') IS NOT NULL AND po_cost.project_code=bo.project_code)
-                       OR (NULLIF(bo.serial_no, '') IS NOT NULL AND po_cost.serial_no=bo.serial_no)
+                       OR (NULLIF(bo.cabinet_no, '') IS NOT NULL AND po_cost.cabinet_no=bo.cabinet_no)
                 ), 0)
                 + COALESCE((
                     SELECT SUM(total_amount)
                     FROM subcontract_orders sc_cost
                     WHERE (bo.cost_object_id IS NOT NULL AND sc_cost.cost_object_id=bo.cost_object_id)
                        OR (NULLIF(bo.project_code, '') IS NOT NULL AND sc_cost.project_code=bo.project_code)
-                       OR (NULLIF(bo.serial_no, '') IS NOT NULL AND sc_cost.serial_no=bo.serial_no)
+                       OR (NULLIF(bo.cabinet_no, '') IS NOT NULL AND sc_cost.cabinet_no=bo.cabinet_no)
                 ), 0)
                 + COALESCE((
                     SELECT SUM(woc.total_cost)
@@ -2066,7 +2066,7 @@ def render_project_ledger(
                     LEFT JOIN work_orders wo_cost ON wo_cost.id=woc.work_order_id
                     WHERE (bo.cost_object_id IS NOT NULL AND woc.cost_object_id=bo.cost_object_id)
                        OR (NULLIF(bo.project_code, '') IS NOT NULL AND wo_cost.project_code=bo.project_code)
-                       OR (NULLIF(bo.serial_no, '') IS NOT NULL AND wo_cost.serial_no=bo.serial_no)
+                       OR (NULLIF(bo.cabinet_no, '') IS NOT NULL AND wo_cost.cabinet_no=bo.cabinet_no)
                 ), 0)
                 + COALESCE((
                     SELECT SUM(total_cost)
@@ -2074,7 +2074,7 @@ def render_project_ledger(
                     WHERE mso_cost.sales_order_id=bo.id
                        OR (bo.cost_object_id IS NOT NULL AND mso_cost.cost_object_id=bo.cost_object_id)
                        OR (NULLIF(bo.project_code, '') IS NOT NULL AND mso_cost.project_code=bo.project_code)
-                       OR (NULLIF(bo.serial_no, '') IS NOT NULL AND mso_cost.serial_no=bo.serial_no)
+                       OR (NULLIF(bo.cabinet_no, '') IS NOT NULL AND mso_cost.cabinet_no=bo.cabinet_no)
                 ), 0) AS project_cost
         ) cost ON TRUE
         ORDER BY shortage_lines DESC, bo.delivery_date NULLS LAST, bo.id DESC
@@ -2083,7 +2083,7 @@ def render_project_ledger(
     )
 
     today = today or datetime.now().date()
-    rows = filter_clean_rows(rows, "order_no", "customer_name", "project_code", "serial_no", "status")
+    rows = filter_clean_rows(rows, "order_no", "customer_name", "project_code", "cabinet_no", "status")
     for row in rows:
         row["status"] = clean_display_text(row.get("status"), "未知状态")
         row["is_overdue"] = bool(row.get("delivery_date") and row.get("delivery_date") < today)
@@ -2091,8 +2091,8 @@ def render_project_ledger(
         row["gross_profit"] = as_decimal(row.get("total_amount")) - as_decimal(row.get("project_cost"))
         row["gross_margin"] = (row["gross_profit"] / as_decimal(row.get("total_amount")) * 100) if as_decimal(row.get("total_amount")) else 0
         acceptance_gaps = []
-        if not row.get("project_code") or not row.get("serial_no"):
-            acceptance_gaps.append("项目/机号")
+        if not row.get("project_code") or not row.get("cabinet_no"):
+            acceptance_gaps.append("项目/柜号")
         if row.get("shortage_lines"):
             acceptance_gaps.append("缺料")
         if as_decimal(row.get("pending_purchase_qty")) > 0:
@@ -2206,7 +2206,7 @@ def render_project_ledger(
     global_shortage = query_one(
         """
         SELECT COUNT(*) AS shortage_lines,
-               COUNT(DISTINCT COALESCE(project_code, '') || '|' || COALESCE(serial_no, '')) AS shortage_projects
+               COUNT(DISTINCT COALESCE(project_code, '') || '|' || COALESCE(cabinet_no, '')) AS shortage_projects
         FROM mrp_requirements
         WHERE COALESCE(shortage_quantity, 0) > 0
         """
@@ -2232,8 +2232,8 @@ def render_project_ledger(
     ]
     return render_template(
         "project_ledger.html",
-        title="项目/机号台账",
-        subtitle="按销售订单、项目号、机号追踪采购、生产、发货、回款和售后",
+        title="项目/柜号台账",
+        subtitle="按销售订单、项目号、柜号追踪采购、生产、发货、回款和售后",
         rows=visible_rows,
         metrics=metrics,
         status_rows=status_rows,
@@ -2271,7 +2271,7 @@ def render_project_ledger_detail(
         (order_id,),
     )
     project_code = order.get("project_code") if order else None
-    serial_no = order.get("serial_no") if order else None
+    cabinet_no = order.get("cabinet_no") if order else None
     cost_object_id = order.get("cost_object_id") if order else None
     order_items = query_rows(
         """
@@ -2284,10 +2284,10 @@ def render_project_ledger_detail(
         """,
         (order_id,),
     )
-    kit_rows = project_kit_rows(order_id, project_code, serial_no, cost_object_id) if order else []
+    kit_rows = project_kit_rows(order_id, project_code, cabinet_no, cost_object_id) if order else []
     no_bom_items = project_items_without_bom(order_id) if order else []
     kit_summary = build_kit_summary(kit_rows, no_bom_items)
-    finance_summary = project_finance_summary(order, project_code, serial_no, cost_object_id) if order else {}
+    finance_summary = project_finance_summary(order, project_code, cabinet_no, cost_object_id) if order else {}
     engineering_readiness = _project_engineering_readiness(query_one, order, kit_summary) if order else {}
     context = {
         "order": order,
@@ -2297,7 +2297,7 @@ def render_project_ledger_detail(
         "kit_summary": kit_summary,
         "engineering_readiness": engineering_readiness,
         "finance_summary": finance_summary,
-        "cost_rows": _project_cost_rows(query_rows, order_id, project_code, serial_no, cost_object_id) if order else [],
+        "cost_rows": _project_cost_rows(query_rows, order_id, project_code, cabinet_no, cost_object_id) if order else [],
         "project_events": _project_axis_events(query_rows, order, 80) if order else [],
         "cost_object": query_one("SELECT * FROM cost_objects WHERE id=%s", (cost_object_id,)),
         "shortages": query_rows(
@@ -2307,12 +2307,12 @@ def render_project_ledger_detail(
             LEFT JOIN products p ON p.id=mr.product_id
             WHERE (mr.source_document_type='sales_order' AND mr.source_document_id=%s)
                OR (%s IS NOT NULL AND mr.project_code=%s)
-               OR (%s IS NOT NULL AND mr.serial_no=%s)
+               OR (%s IS NOT NULL AND mr.cabinet_no=%s)
             ORDER BY mr.id DESC LIMIT 50
             """,
-            (order_id, project_code, project_code, serial_no, serial_no),
+            (order_id, project_code, project_code, cabinet_no, cabinet_no),
         ),
-        "purchase_orders": query_rows("SELECT * FROM purchase_orders WHERE cost_object_id=%s OR project_code=%s OR serial_no=%s LIMIT 50", (cost_object_id, project_code, serial_no)),
+        "purchase_orders": query_rows("SELECT * FROM purchase_orders WHERE cost_object_id=%s OR project_code=%s OR cabinet_no=%s LIMIT 50", (cost_object_id, project_code, cabinet_no)),
         "subcontract_orders": query_rows(
             """
             SELECT sc.*, 0 AS quantity, 0 AS unit_price,
@@ -2346,11 +2346,11 @@ def render_project_ledger_detail(
                   AND (sp.doc_id=sc.id OR sp.doc_no=sc.order_no)
             ) payable_sum ON TRUE
             WHERE (%s IS NOT NULL AND sc.project_code=%s)
-               OR (%s IS NOT NULL AND sc.serial_no=%s)
+               OR (%s IS NOT NULL AND sc.cabinet_no=%s)
             ORDER BY sc.id DESC
             LIMIT 50
             """,
-            (project_code, project_code, serial_no, serial_no),
+            (project_code, project_code, cabinet_no, cabinet_no),
         ),
         "work_orders": query_rows(
             """
@@ -2374,11 +2374,11 @@ def render_project_ledger_detail(
             ) completed ON TRUE
             WHERE (%s IS NOT NULL AND wo.cost_object_id=%s)
                OR (%s IS NOT NULL AND wo.project_code=%s)
-               OR (%s IS NOT NULL AND wo.serial_no=%s)
+               OR (%s IS NOT NULL AND wo.cabinet_no=%s)
             ORDER BY wo.id DESC
             LIMIT 50
             """,
-            (cost_object_id, cost_object_id, project_code, project_code, serial_no, serial_no),
+            (cost_object_id, cost_object_id, project_code, project_code, cabinet_no, cabinet_no),
         ),
         "quality_inspections": query_rows(
             """
@@ -2389,11 +2389,11 @@ def render_project_ledger_detail(
             LEFT JOIN products p ON p.id=qi.product_id
             WHERE (%s IS NOT NULL AND qi.cost_object_id=%s)
                OR (%s IS NOT NULL AND qi.project_code=%s)
-               OR (%s IS NOT NULL AND qi.serial_no=%s)
+               OR (%s IS NOT NULL AND qi.cabinet_no=%s)
             ORDER BY qi.id DESC
             LIMIT 50
             """,
-            (cost_object_id, cost_object_id, project_code, project_code, serial_no, serial_no),
+            (cost_object_id, cost_object_id, project_code, project_code, cabinet_no, cabinet_no),
         ),
         "shipments": query_rows(
             """
@@ -2402,24 +2402,24 @@ def render_project_ledger_detail(
                    sc.machine_model
             FROM sales_shipments ss
             LEFT JOIN machine_service_cards sc
-              ON sc.sales_order_id=ss.order_id AND sc.serial_no=ss.serial_no
-            WHERE ss.order_id=%s OR ss.project_code=%s OR ss.serial_no=%s
+              ON sc.sales_order_id=ss.order_id AND sc.cabinet_no=ss.cabinet_no
+            WHERE ss.order_id=%s OR ss.project_code=%s OR ss.cabinet_no=%s
             ORDER BY ss.id DESC
             LIMIT 50
             """,
-            (order_id, project_code, serial_no),
+            (order_id, project_code, cabinet_no),
         ),
-        "receivables": query_rows("SELECT * FROM customer_receivables WHERE source_id=%s OR project_code=%s OR serial_no=%s LIMIT 50", (order_id, project_code, serial_no)),
-        "service_orders": query_rows("SELECT * FROM machine_service_orders WHERE sales_order_id=%s OR project_code=%s OR serial_no=%s LIMIT 50", (order_id, project_code, serial_no)),
-        "service_cards": query_rows("SELECT * FROM machine_service_cards WHERE sales_order_id=%s OR project_code=%s OR serial_no=%s LIMIT 50", (order_id, project_code, serial_no)),
-        "service_acceptances": query_rows("SELECT * FROM machine_service_acceptance_checks WHERE sales_order_id=%s OR project_code=%s OR serial_no=%s LIMIT 50", (order_id, project_code, serial_no)),
-        "service_visits": query_rows("SELECT * FROM machine_service_return_visits WHERE sales_order_id=%s OR project_code=%s OR serial_no=%s LIMIT 50", (order_id, project_code, serial_no)),
-        "service_rmas": query_rows("SELECT * FROM machine_service_rmas WHERE sales_order_id=%s OR project_code=%s OR serial_no=%s LIMIT 50", (order_id, project_code, serial_no)),
+        "receivables": query_rows("SELECT * FROM customer_receivables WHERE source_id=%s OR project_code=%s OR cabinet_no=%s LIMIT 50", (order_id, project_code, cabinet_no)),
+        "service_orders": query_rows("SELECT * FROM machine_service_orders WHERE sales_order_id=%s OR project_code=%s OR cabinet_no=%s LIMIT 50", (order_id, project_code, cabinet_no)),
+        "service_cards": query_rows("SELECT * FROM machine_service_cards WHERE sales_order_id=%s OR project_code=%s OR cabinet_no=%s LIMIT 50", (order_id, project_code, cabinet_no)),
+        "service_acceptances": query_rows("SELECT * FROM machine_service_acceptance_checks WHERE sales_order_id=%s OR project_code=%s OR cabinet_no=%s LIMIT 50", (order_id, project_code, cabinet_no)),
+        "service_visits": query_rows("SELECT * FROM machine_service_return_visits WHERE sales_order_id=%s OR project_code=%s OR cabinet_no=%s LIMIT 50", (order_id, project_code, cabinet_no)),
+        "service_rmas": query_rows("SELECT * FROM machine_service_rmas WHERE sales_order_id=%s OR project_code=%s OR cabinet_no=%s LIMIT 50", (order_id, project_code, cabinet_no)),
     }
     next_action, owner_role, blocked_reason = _project_next_action(
         {
             "project_code": project_code,
-            "serial_no": serial_no,
+            "cabinet_no": cabinet_no,
             "shortage_lines": (context["kit_summary"] or {}).get("shortage_count"),
             "pending_purchase_qty": sum([as_decimal_safe(row.get("pending_purchase_qty")) for row in context["purchase_orders"]]),
             "open_work_order_count": len([row for row in context["work_orders"] if (row.get("status") or "") not in {"已完工", "已关闭", "已作废"}]),
@@ -2511,13 +2511,13 @@ def register_project_ledger_routes(
             build_kit_summary,
         )
 
-    @app.get("/projects/machine/<path:serial_no>")
+    @app.get("/projects/machine/<path:cabinet_no>")
     @login_required
-    def project_machine_ledger(serial_no):
-        order = _project_axis_order(query_one, serial_no=serial_no)
+    def project_machine_ledger(cabinet_no):
+        order = _project_axis_order(query_one, cabinet_no=cabinet_no)
         if order:
             return redirect(f"/projects/{order.get('id')}")
-        return redirect(f"/projects?{urlencode({'keyword': serial_no})}")
+        return redirect(f"/projects?{urlencode({'keyword': cabinet_no})}")
 
     @app.get("/projects/project/<path:project_code>")
     @login_required
@@ -2561,7 +2561,7 @@ def register_project_ledger_routes(
                     "keyword": keyword,
                     "order": order,
                     "ledger_url": f"/projects/{order.get('id')}",
-                    "machine_url": f"/projects/machine/{order.get('serial_no')}" if order.get("serial_no") else None,
+                    "machine_url": f"/projects/machine/{order.get('cabinet_no')}" if order.get("cabinet_no") else None,
                     "project_url": f"/projects/project/{order.get('project_code')}" if order.get("project_code") else None,
                     "overview_api": f"/api/project-machine-ledger/order/{order.get('id')}/overview",
                     "events_api": f"/api/project-machine-ledger/order/{order.get('id')}/events",
@@ -2569,12 +2569,12 @@ def register_project_ledger_routes(
             )
         )
 
-    @app.get("/api/project-machine-ledger/machine/<path:serial_no>/overview")
+    @app.get("/api/project-machine-ledger/machine/<path:cabinet_no>/overview")
     @login_required
-    def project_machine_ledger_overview_api(serial_no):
-        order = _project_axis_order(query_one, serial_no=serial_no)
+    def project_machine_ledger_overview_api(cabinet_no):
+        order = _project_axis_order(query_one, cabinet_no=cabinet_no)
         if not order:
-            return jsonify({"found": False, "serial_no": serial_no}), 404
+            return jsonify({"found": False, "cabinet_no": cabinet_no}), 404
 
         return jsonify(
             _json_safe(
@@ -2627,12 +2627,12 @@ def register_project_ledger_routes(
             )
         )
 
-    @app.get("/api/project-machine-ledger/machine/<path:serial_no>/engineering-readiness")
+    @app.get("/api/project-machine-ledger/machine/<path:cabinet_no>/engineering-readiness")
     @login_required
-    def project_machine_ledger_engineering_readiness_api(serial_no):
-        order = _project_axis_order(query_one, serial_no=serial_no)
+    def project_machine_ledger_engineering_readiness_api(cabinet_no):
+        order = _project_axis_order(query_one, cabinet_no=cabinet_no)
         if not order:
-            return jsonify({"found": False, "serial_no": serial_no}), 404
+            return jsonify({"found": False, "cabinet_no": cabinet_no}), 404
         return jsonify(
             _json_safe(
                 _project_axis_engineering_readiness_payload(
@@ -2681,12 +2681,12 @@ def register_project_ledger_routes(
             )
         )
 
-    @app.get("/api/project-machine-ledger/machine/<path:serial_no>/procurement-closure")
+    @app.get("/api/project-machine-ledger/machine/<path:cabinet_no>/procurement-closure")
     @login_required
-    def project_machine_ledger_procurement_closure_api(serial_no):
-        order = _project_axis_order(query_one, serial_no=serial_no)
+    def project_machine_ledger_procurement_closure_api(cabinet_no):
+        order = _project_axis_order(query_one, cabinet_no=cabinet_no)
         if not order:
-            return jsonify({"found": False, "serial_no": serial_no}), 404
+            return jsonify({"found": False, "cabinet_no": cabinet_no}), 404
         return jsonify(
             _json_safe(
                 _project_axis_procurement_closure_payload(
@@ -2735,12 +2735,12 @@ def register_project_ledger_routes(
             )
         )
 
-    @app.get("/api/project-machine-ledger/machine/<path:serial_no>/production-closure")
+    @app.get("/api/project-machine-ledger/machine/<path:cabinet_no>/production-closure")
     @login_required
-    def project_machine_ledger_production_closure_api(serial_no):
-        order = _project_axis_order(query_one, serial_no=serial_no)
+    def project_machine_ledger_production_closure_api(cabinet_no):
+        order = _project_axis_order(query_one, cabinet_no=cabinet_no)
         if not order:
-            return jsonify({"found": False, "serial_no": serial_no}), 404
+            return jsonify({"found": False, "cabinet_no": cabinet_no}), 404
         return jsonify(_json_safe(_project_axis_production_closure_payload(query_one, order)))
 
     @app.get("/api/project-machine-ledger/project/<path:project_code>/production-closure")
@@ -2769,7 +2769,7 @@ def register_project_ledger_routes(
         limit = min(max(limit, 1), 100)
         candidates = query_rows(
             """
-            SELECT so.id, so.order_no, so.order_date, so.project_code, so.serial_no,
+            SELECT so.id, so.order_no, so.order_date, so.project_code, so.cabinet_no,
                    so.delivery_date, so.status, so.total_amount, so.cost_object_id,
                    c.name AS customer_name
             FROM sales_orders so
@@ -2777,7 +2777,7 @@ def register_project_ledger_routes(
             WHERE COALESCE(so.status, '') NOT IN ('已作废','作废','void','cancelled')
               AND (
                     so.project_code IS NOT NULL
-                    OR so.serial_no IS NOT NULL
+                    OR so.cabinet_no IS NOT NULL
                     OR EXISTS (SELECT 1 FROM sales_order_items soi WHERE soi.order_id=so.id)
               )
             ORDER BY so.delivery_date ASC NULLS LAST, so.id DESC
@@ -2801,7 +2801,7 @@ def register_project_ledger_routes(
                     "order_id": order.get("id"),
                     "order_no": order.get("order_no"),
                     "project_code": order.get("project_code"),
-                    "serial_no": order.get("serial_no"),
+                    "cabinet_no": order.get("cabinet_no"),
                     "customer_name": order.get("customer_name"),
                     "delivery_date": order.get("delivery_date"),
                     "ledger_url": payload.get("ledger_url"),
@@ -2825,7 +2825,7 @@ def register_project_ledger_routes(
     def project_machine_ledger_assistant_context_api():
         keyword = (request.args.get("keyword") or request.args.get("q") or "").strip()
         if not keyword:
-            return jsonify({"found": False, "msg": "请提供项目号、机号或销售订单号。"}), 400
+            return jsonify({"found": False, "msg": "请提供项目号、柜号或销售订单号。"}), 400
         order = _project_axis_order(query_one, keyword=keyword)
         if not order:
             return jsonify({"found": False, "keyword": keyword}), 404
@@ -2842,12 +2842,12 @@ def register_project_ledger_routes(
             )
         )
 
-    @app.get("/api/project-machine-ledger/machine/<path:serial_no>/events")
+    @app.get("/api/project-machine-ledger/machine/<path:cabinet_no>/events")
     @login_required
-    def project_machine_ledger_events_api(serial_no):
-        order = _project_axis_order(query_one, serial_no=serial_no)
+    def project_machine_ledger_events_api(cabinet_no):
+        order = _project_axis_order(query_one, cabinet_no=cabinet_no)
         if not order:
-            return jsonify({"found": False, "serial_no": serial_no, "events": []}), 404
+            return jsonify({"found": False, "cabinet_no": cabinet_no, "events": []}), 404
         try:
             limit = int(request.args.get("limit") or "80")
         except ValueError:
@@ -2860,7 +2860,7 @@ def register_project_ledger_routes(
                     "found": True,
                     "order_id": order.get("id"),
                     "project_code": order.get("project_code"),
-                    "serial_no": order.get("serial_no"),
+                    "cabinet_no": order.get("cabinet_no"),
                     "ledger_url": f"/projects/{order.get('id')}",
                     "count": len(events),
                     "events": events,
@@ -2886,7 +2886,7 @@ def register_project_ledger_routes(
                     "found": True,
                     "order_id": order.get("id"),
                     "project_code": order.get("project_code"),
-                    "serial_no": order.get("serial_no"),
+                    "cabinet_no": order.get("cabinet_no"),
                     "ledger_url": f"/projects/{order.get('id')}",
                     "count": len(events),
                     "events": events,
@@ -2912,7 +2912,7 @@ def register_project_ledger_routes(
                     "found": True,
                     "order_id": order.get("id"),
                     "project_code": order.get("project_code"),
-                    "serial_no": order.get("serial_no"),
+                    "cabinet_no": order.get("cabinet_no"),
                     "ledger_url": f"/projects/{order.get('id')}",
                     "count": len(events),
                     "events": events,

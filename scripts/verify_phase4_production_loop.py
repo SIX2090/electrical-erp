@@ -93,7 +93,7 @@ def delete_if_table(cur, table, where_sql, params=()):
         cur.execute(f"DELETE FROM {table} WHERE {where_sql}", params)
 
 
-def seed_initial_inventory(cur, product_id, qty, unit_cost, warehouse_id, location_id, project_code, serial_no, suffix):
+def seed_initial_inventory(cur, product_id, qty, unit_cost, warehouse_id, location_id, project_code, cabinet_no, suffix):
     amount = qty * unit_cost
     insert_dynamic(
         cur,
@@ -103,7 +103,7 @@ def seed_initial_inventory(cur, product_id, qty, unit_cost, warehouse_id, locati
             "warehouse_id": warehouse_id,
             "location_id": location_id,
             "lot_no": "",
-            "serial_no": serial_no,
+            "cabinet_no": cabinet_no,
             "project_code": project_code,
             "quantity": qty,
             "locked_qty": Decimal("0"),
@@ -130,7 +130,7 @@ def seed_initial_inventory(cur, product_id, qty, unit_cost, warehouse_id, locati
             "warehouse_id": warehouse_id,
             "location_id": location_id,
             "lot_no": "",
-            "serial_no": serial_no,
+            "cabinet_no": cabinet_no,
             "project_code": project_code,
             "quantity_in": qty,
             "quantity_out": Decimal("0"),
@@ -153,7 +153,7 @@ def seed_initial_inventory(cur, product_id, qty, unit_cost, warehouse_id, locati
             "warehouse_id": warehouse_id,
             "location_id": location_id,
             "lot_no": "",
-            "serial_no": serial_no,
+            "cabinet_no": cabinet_no,
             "project_code": project_code,
             "reference_no": f"{PREFIX}-OPEN-{suffix}",
             "source_doc_no": f"{PREFIX}-OPEN-{suffix}",
@@ -171,7 +171,7 @@ def reconcile_fixture_batch_tracking(cur):
                    COALESCE(ib.warehouse_id, 0) AS warehouse_id,
                    COALESCE(ib.location_id, 0) AS location_id,
                    COALESCE(ib.lot_no, '') AS lot_no,
-                   COALESCE(ib.serial_no, '') AS serial_no,
+                   COALESCE(ib.cabinet_no, '') AS cabinet_no,
                    COALESCE(ib.project_code, '') AS project_code,
                    SUM(COALESCE(ib.quantity, 0)) AS quantity,
                    CASE WHEN COALESCE(SUM(ib.quantity),0) <> 0
@@ -182,22 +182,22 @@ def reconcile_fixture_batch_tracking(cur):
             JOIN products p ON p.id=ib.product_id
             WHERE p.code LIKE %s
             GROUP BY ib.product_id, COALESCE(ib.warehouse_id, 0), COALESCE(ib.location_id, 0),
-                     COALESCE(ib.lot_no, ''), COALESCE(ib.serial_no, ''), COALESCE(ib.project_code, '')
+                     COALESCE(ib.lot_no, ''), COALESCE(ib.cabinet_no, ''), COALESCE(ib.project_code, '')
         ),
         existing AS (
             SELECT DISTINCT ON (bt.product_id, COALESCE(bt.warehouse_id, 0), COALESCE(bt.location_id, 0),
-                                COALESCE(bt.lot_no, ''), COALESCE(bt.serial_no, ''), COALESCE(bt.project_code, ''))
+                                COALESCE(bt.lot_no, ''), COALESCE(bt.cabinet_no, ''), COALESCE(bt.project_code, ''))
                    bt.id, bt.product_id,
                    COALESCE(bt.warehouse_id, 0) AS warehouse_id,
                    COALESCE(bt.location_id, 0) AS location_id,
                    COALESCE(bt.lot_no, '') AS lot_no,
-                   COALESCE(bt.serial_no, '') AS serial_no,
+                   COALESCE(bt.cabinet_no, '') AS cabinet_no,
                    COALESCE(bt.project_code, '') AS project_code
             FROM batch_tracking bt
             JOIN products p ON p.id=bt.product_id
             WHERE p.code LIKE %s
             ORDER BY bt.product_id, COALESCE(bt.warehouse_id, 0), COALESCE(bt.location_id, 0),
-                     COALESCE(bt.lot_no, ''), COALESCE(bt.serial_no, ''), COALESCE(bt.project_code, ''), bt.id
+                     COALESCE(bt.lot_no, ''), COALESCE(bt.cabinet_no, ''), COALESCE(bt.project_code, ''), bt.id
         )
         UPDATE batch_tracking bt
         SET quantity_available=desired.quantity,
@@ -211,7 +211,7 @@ def reconcile_fixture_batch_tracking(cur):
          AND existing.warehouse_id=desired.warehouse_id
          AND existing.location_id=desired.location_id
          AND existing.lot_no=desired.lot_no
-         AND existing.serial_no=desired.serial_no
+         AND existing.cabinet_no=desired.cabinet_no
          AND existing.project_code=desired.project_code
         WHERE bt.id=existing.id
         """,
@@ -220,13 +220,13 @@ def reconcile_fixture_batch_tracking(cur):
     cur.execute(
         """
         INSERT INTO batch_tracking
-            (product_id, warehouse_id, location_id, lot_no, serial_no, project_code,
+            (product_id, warehouse_id, location_id, lot_no, cabinet_no, project_code,
              quantity_in, quantity_out, quantity_available, unit_cost, source_order_no, status)
         SELECT desired.product_id,
                NULLIF(desired.warehouse_id, 0),
                NULLIF(desired.location_id, 0),
                desired.lot_no,
-               desired.serial_no,
+               desired.cabinet_no,
                desired.project_code,
                GREATEST(desired.quantity, 0),
                0,
@@ -239,7 +239,7 @@ def reconcile_fixture_batch_tracking(cur):
                    COALESCE(ib.warehouse_id, 0) AS warehouse_id,
                    COALESCE(ib.location_id, 0) AS location_id,
                    COALESCE(ib.lot_no, '') AS lot_no,
-                   COALESCE(ib.serial_no, '') AS serial_no,
+                   COALESCE(ib.cabinet_no, '') AS cabinet_no,
                    COALESCE(ib.project_code, '') AS project_code,
                    SUM(COALESCE(ib.quantity, 0)) AS quantity,
                    CASE WHEN COALESCE(SUM(ib.quantity),0) <> 0
@@ -250,7 +250,7 @@ def reconcile_fixture_batch_tracking(cur):
             JOIN products p ON p.id=ib.product_id
             WHERE p.code LIKE %s
             GROUP BY ib.product_id, COALESCE(ib.warehouse_id, 0), COALESCE(ib.location_id, 0),
-                     COALESCE(ib.lot_no, ''), COALESCE(ib.serial_no, ''), COALESCE(ib.project_code, '')
+                     COALESCE(ib.lot_no, ''), COALESCE(ib.cabinet_no, ''), COALESCE(ib.project_code, '')
         ) desired
         WHERE NOT EXISTS (
             SELECT 1
@@ -259,7 +259,7 @@ def reconcile_fixture_batch_tracking(cur):
               AND COALESCE(bt.warehouse_id, 0)=desired.warehouse_id
               AND COALESCE(bt.location_id, 0)=desired.location_id
               AND COALESCE(bt.lot_no, '')=desired.lot_no
-              AND COALESCE(bt.serial_no, '')=desired.serial_no
+              AND COALESCE(bt.cabinet_no, '')=desired.cabinet_no
               AND COALESCE(bt.project_code, '')=desired.project_code
         )
         """,
@@ -268,20 +268,20 @@ def reconcile_fixture_batch_tracking(cur):
 
 
 def cleanup(cur):
-    delete_if_table(cur, "stock_transactions", "reference_no LIKE %s OR source_doc_no LIKE %s OR project_code LIKE %s OR serial_no LIKE %s", (f"{PREFIX}%", f"{PREFIX}%", f"{PREFIX}%", f"{PREFIX}%"))
+    delete_if_table(cur, "stock_transactions", "reference_no LIKE %s OR source_doc_no LIKE %s OR project_code LIKE %s OR cabinet_no LIKE %s", (f"{PREFIX}%", f"{PREFIX}%", f"{PREFIX}%", f"{PREFIX}%"))
     delete_if_table(cur, "work_order_cost_lines", "work_order_id IN (SELECT id FROM work_orders WHERE wo_no LIKE %s) OR source_no LIKE %s", (f"{PREFIX}%", f"{PREFIX}%"))
     delete_if_table(cur, "work_order_costs", "work_order_id IN (SELECT id FROM work_orders WHERE wo_no LIKE %s)", (f"{PREFIX}%",))
-    delete_if_table(cur, "wo_complete_items", "wo_id IN (SELECT id FROM work_orders WHERE wo_no LIKE %s) OR source_doc_no LIKE %s OR serial_no LIKE %s", (f"{PREFIX}%", f"{PREFIX}%", f"{PREFIX}%"))
-    delete_if_table(cur, "production_completion_orders", "completion_no LIKE %s OR project_code LIKE %s OR serial_no LIKE %s", (f"{PREFIX}%", f"{PREFIX}%", f"{PREFIX}%"))
-    delete_if_table(cur, "pick_list_items", "pick_list_id IN (SELECT id FROM pick_lists WHERE doc_no LIKE %s OR project_code LIKE %s OR serial_no LIKE %s)", (f"{PREFIX}%", f"{PREFIX}%", f"{PREFIX}%"))
-    delete_if_table(cur, "pick_lists", "doc_no LIKE %s OR project_code LIKE %s OR serial_no LIKE %s", (f"{PREFIX}%", f"{PREFIX}%", f"{PREFIX}%"))
-    delete_if_table(cur, "quality_inspection_records", "inspection_no LIKE %s OR project_code LIKE %s OR serial_no LIKE %s", (f"{PREFIX}%", f"{PREFIX}%", f"{PREFIX}%"))
+    delete_if_table(cur, "wo_complete_items", "wo_id IN (SELECT id FROM work_orders WHERE wo_no LIKE %s) OR source_doc_no LIKE %s OR cabinet_no LIKE %s", (f"{PREFIX}%", f"{PREFIX}%", f"{PREFIX}%"))
+    delete_if_table(cur, "production_completion_orders", "completion_no LIKE %s OR project_code LIKE %s OR cabinet_no LIKE %s", (f"{PREFIX}%", f"{PREFIX}%", f"{PREFIX}%"))
+    delete_if_table(cur, "pick_list_items", "pick_list_id IN (SELECT id FROM pick_lists WHERE doc_no LIKE %s OR project_code LIKE %s OR cabinet_no LIKE %s)", (f"{PREFIX}%", f"{PREFIX}%", f"{PREFIX}%"))
+    delete_if_table(cur, "pick_lists", "doc_no LIKE %s OR project_code LIKE %s OR cabinet_no LIKE %s", (f"{PREFIX}%", f"{PREFIX}%", f"{PREFIX}%"))
+    delete_if_table(cur, "quality_inspection_records", "inspection_no LIKE %s OR project_code LIKE %s OR cabinet_no LIKE %s", (f"{PREFIX}%", f"{PREFIX}%", f"{PREFIX}%"))
     delete_if_table(cur, "wo_material_items", "wo_id IN (SELECT id FROM work_orders WHERE wo_no LIKE %s)", (f"{PREFIX}%",))
     delete_if_table(cur, "work_order_processes", "work_order_id IN (SELECT id FROM work_orders WHERE wo_no LIKE %s)", (f"{PREFIX}%",))
-    delete_if_table(cur, "mrp_requirements", "work_order_id IN (SELECT id FROM work_orders WHERE wo_no LIKE %s) OR project_code LIKE %s OR serial_no LIKE %s", (f"{PREFIX}%", f"{PREFIX}%", f"{PREFIX}%"))
-    delete_if_table(cur, "work_orders", "wo_no LIKE %s OR project_code LIKE %s OR serial_no LIKE %s", (f"{PREFIX}%", f"{PREFIX}%", f"{PREFIX}%"))
-    delete_if_table(cur, "sales_order_items", "order_id IN (SELECT id FROM sales_orders WHERE order_no LIKE %s OR project_code LIKE %s OR serial_no LIKE %s)", (f"{PREFIX}%", f"{PREFIX}%", f"{PREFIX}%"))
-    delete_if_table(cur, "sales_orders", "order_no LIKE %s OR project_code LIKE %s OR serial_no LIKE %s", (f"{PREFIX}%", f"{PREFIX}%", f"{PREFIX}%"))
+    delete_if_table(cur, "mrp_requirements", "work_order_id IN (SELECT id FROM work_orders WHERE wo_no LIKE %s) OR project_code LIKE %s OR cabinet_no LIKE %s", (f"{PREFIX}%", f"{PREFIX}%", f"{PREFIX}%"))
+    delete_if_table(cur, "work_orders", "wo_no LIKE %s OR project_code LIKE %s OR cabinet_no LIKE %s", (f"{PREFIX}%", f"{PREFIX}%", f"{PREFIX}%"))
+    delete_if_table(cur, "sales_order_items", "order_id IN (SELECT id FROM sales_orders WHERE order_no LIKE %s OR project_code LIKE %s OR cabinet_no LIKE %s)", (f"{PREFIX}%", f"{PREFIX}%", f"{PREFIX}%"))
+    delete_if_table(cur, "sales_orders", "order_no LIKE %s OR project_code LIKE %s OR cabinet_no LIKE %s", (f"{PREFIX}%", f"{PREFIX}%", f"{PREFIX}%"))
     delete_if_table(cur, "inventory_balances", "product_id IN (SELECT id FROM products WHERE code LIKE %s)", (f"{PREFIX}%",))
     delete_if_table(cur, "inventory", "product_id IN (SELECT id FROM products WHERE code LIKE %s)", (f"{PREFIX}%",))
     delete_if_table(cur, "batch_tracking", "product_id IN (SELECT id FROM products WHERE code LIKE %s)", (f"{PREFIX}%",))
@@ -320,7 +320,7 @@ def ensure_customer(cur):
 def prepare_fixture():
     suffix = str(int(time.time() * 1000))
     project_code = f"{PREFIX}-PRJ-{suffix}"
-    serial_no = f"{PREFIX}-SN-{suffix}"
+    cabinet_no = f"{PREFIX}-SN-{suffix}"
     conn = connect_db(db_config())
     try:
         with conn.cursor() as cur:
@@ -366,7 +366,7 @@ def prepare_fixture():
                     "total_amount": Decimal("500"),
                     "shipped_amount": Decimal("0"),
                     "project_code": project_code,
-                    "serial_no": serial_no,
+                    "cabinet_no": cabinet_no,
                     "warehouse_id": warehouse_id,
                     "remark": PREFIX,
                 },
@@ -382,7 +382,7 @@ def prepare_fixture():
                     "unit_price": Decimal("500"),
                     "amount": Decimal("500"),
                     "line_project_code": project_code,
-                    "line_serial_no": serial_no,
+                    "line_cabinet_no": cabinet_no,
                 },
             )
             work_order_id = insert_dynamic(
@@ -397,7 +397,7 @@ def prepare_fixture():
                     "warehouse_id": warehouse_id,
                     "location_id": location_id,
                     "project_code": project_code,
-                    "serial_no": serial_no,
+                    "cabinet_no": cabinet_no,
                     "planned_start_date": date.today(),
                     "planned_end_date": date.today(),
                     "remark": PREFIX,
@@ -422,7 +422,7 @@ def prepare_fixture():
                     "material_unit": "pcs",
                     "source_line_no": "P4-MAT-L1",
                     "line_project_code": project_code,
-                    "line_serial_no": serial_no,
+                    "line_cabinet_no": cabinet_no,
                 },
             )
             seed_initial_inventory(
@@ -433,7 +433,7 @@ def prepare_fixture():
                 warehouse_id,
                 location_id,
                 project_code,
-                serial_no,
+                cabinet_no,
                 suffix,
             )
             insert_dynamic(
@@ -452,7 +452,7 @@ def prepare_fixture():
                     "source_document_type": "work_order",
                     "source_document_id": work_order_id,
                     "project_code": project_code,
-                    "serial_no": serial_no,
+                    "cabinet_no": cabinet_no,
                     "conclusion": "phase4 verification release",
                 },
             )
@@ -468,7 +468,7 @@ def prepare_fixture():
         "warehouse_id": warehouse_id,
         "location_id": location_id,
         "project_code": project_code,
-        "serial_no": serial_no,
+        "cabinet_no": cabinet_no,
     }
 
 
@@ -524,7 +524,7 @@ def main() -> int:
                 "warehouse_id": str(fixture["warehouse_id"]),
                 "location_id": str(fixture["location_id"] or ""),
                 "lot_no": f"{PREFIX}-LOT",
-                "serial_no": fixture["serial_no"],
+                "cabinet_no": fixture["cabinet_no"],
                 "remark": "phase4 production loop verification",
                 "save_action": "post",
             },
@@ -560,9 +560,9 @@ def main() -> int:
                 SELECT COALESCE(SUM(quantity), 0)
                 FROM inventory_balances
                 WHERE product_id=%s AND warehouse_id=%s
-                  AND COALESCE(project_code, '')=%s AND COALESCE(serial_no, '')=%s
+                  AND COALESCE(project_code, '')=%s AND COALESCE(cabinet_no, '')=%s
             """,
-                (fixture["fg_id"], fixture["warehouse_id"], fixture["project_code"], fixture["serial_no"]),
+                (fixture["fg_id"], fixture["warehouse_id"], fixture["project_code"], fixture["cabinet_no"]),
             )
             completion_qty = scalar(cur, "SELECT COALESCE(SUM(qty), 0) FROM wo_complete_items WHERE wo_id=%s", (fixture["work_order_id"],))
             cost = one(cur, "SELECT * FROM work_order_costs WHERE work_order_id=%s ORDER BY id DESC LIMIT 1", (fixture["work_order_id"],)) or {}
@@ -583,9 +583,9 @@ def main() -> int:
                   COUNT(*) FILTER (WHERE st.transaction_type IN ('生产退料','工单退料')) AS return_tx,
                   COUNT(*) FILTER (WHERE st.transaction_type='工单完工入库') AS completion_tx
                 FROM stock_transactions st
-                WHERE st.project_code=%s OR st.serial_no=%s
+                WHERE st.project_code=%s OR st.cabinet_no=%s
             """,
-                (fixture["project_code"], fixture["serial_no"]),
+                (fixture["project_code"], fixture["cabinet_no"]),
             ) or {}
             issue_doc = one(cur, "SELECT status FROM pick_lists WHERE doc_type='production_issue' AND work_order_id=%s ORDER BY id DESC LIMIT 1", (fixture["work_order_id"],)) or {}
             return_doc = one(cur, "SELECT status FROM pick_lists WHERE doc_type='production_return' AND work_order_id=%s ORDER BY id DESC LIMIT 1", (fixture["work_order_id"],)) or {}
@@ -619,7 +619,7 @@ def main() -> int:
     print(f"sales_order_id={fixture['sales_order_id']}")
     print(f"work_order_id={fixture['work_order_id']}")
     print(f"project_code={fixture['project_code']}")
-    print(f"serial_no={fixture['serial_no']}")
+    print(f"cabinet_no={fixture['cabinet_no']}")
     for name, ok, detail in checks:
         print(f"{'ok' if ok else 'failed'} | {name} | {detail}")
     return 1 if failures else 0

@@ -24,18 +24,18 @@
         {'label': '生产领料单', 'type': 'link', 'href': '/production-issues?keyword=' ~ (order.wo_no|urlencode)},
         {'label': '生产退料单', 'type': 'link', 'href': '/production-returns?keyword=' ~ (order.wo_no|urlencode)},
         {'label': '完工入库单', 'type': 'link', 'href': '/production-completions?keyword=' ~ (order.wo_no|urlencode)},
-        {'label': 'MRP缺料', 'type': 'link', 'href': '/production-enhance/mrp-requirements?keyword=' ~ ((order.project_code or order.serial_no or order.wo_no)|urlencode)},
-        {'label': '齐套检查', 'type': 'link', 'href': '/engineering/kitting?keyword=' ~ ((order.project_code or order.serial_no or order.wo_no)|urlencode)},
+        {'label': 'MRP缺料', 'type': 'link', 'href': '/production-enhance/mrp-requirements?keyword=' ~ ((order.project_code or order.cabinet_no or order.wo_no)|urlencode)},
+        {'label': '齐套检查', 'type': 'link', 'href': '/engineering/kitting?keyword=' ~ ((order.project_code or order.cabinet_no or order.wo_no)|urlencode)},
         {'label': '工序/工艺执行', 'type': 'button', 'event': 'focus-process'},
         {'label': '库存流水', 'type': 'button', 'event': 'focus-stock'},
         {'label': '委外加工', 'type': 'button', 'event': 'focus-subcontract'},
-        {'label': '质量检验列表', 'type': 'link', 'href': '/production-enhance/quality-inspections?keyword=' ~ ((order.project_code or order.serial_no or order.wo_no)|urlencode)},
+        {'label': '质量检验列表', 'type': 'link', 'href': '/production-enhance/quality-inspections?keyword=' ~ ((order.project_code or order.cabinet_no or order.wo_no)|urlencode)},
         {'label': '成本明细', 'type': 'button', 'event': 'focus-cost'},
-        {'label': '项目台账', 'type': 'link', 'href': '/projects?keyword=' ~ ((order.project_code or order.serial_no or order.wo_no)|urlencode)}
+        {'label': '项目台账', 'type': 'link', 'href': '/projects?keyword=' ~ ((order.project_code or order.cabinet_no or order.wo_no)|urlencode)}
     ]},
     {'label': '工具', 'type': 'dropdown', 'items': [
         {'label': '查看BOM', 'type': 'link', 'href': '/bom/' ~ order.bom_no if order.bom_no else '/bom', 'disabled': not order.bom_no},
-        {'label': '生产排程', 'type': 'link', 'href': '/production-schedules?keyword=' ~ ((order.project_code or order.serial_no or order.wo_no)|urlencode)},
+        {'label': '生产排程', 'type': 'link', 'href': '/production-schedules?keyword=' ~ ((order.project_code or order.cabinet_no or order.wo_no)|urlencode)},
         {'label': '工单变更控制', 'type': 'button', 'event': 'focus-change-control'},
         {'label': '工单执行追溯', 'type': 'button', 'event': 'focus-cost'}
     ]},
@@ -204,7 +204,7 @@
     <div class="row g-2">
         <div class="col-md-3"><strong>来源单据：</strong>{{ order.source_document or '未关联来源' }}</div>
         <div class="col-md-3"><strong>项目号：</strong>{{ order.project_code or '-' }}</div>
-        <div class="col-md-3"><strong>机号：</strong>{{ order.serial_no or '-' }}</div>
+        <div class="col-md-3"><strong>柜号：</strong>{{ order.cabinet_no or '-' }}</div>
         <div class="col-md-3"><strong>来源行：</strong>{{ order.source_line_display or order.source_line_no or '-' }}</div>
         <div class="col-md-3"><strong>BOM：</strong>{{ order.source_bom_display or order.bom_display or '-' }}</div>
         <div class="col-md-3"><strong>来源状态：</strong>{{ order.source_trace_status or '-' }}</div>
@@ -218,7 +218,7 @@
     <div class="row g-2">
         <div class="col-md-3"><strong>工单日期：</strong>{{ order.wo_date or '-' }}</div>
         <div class="col-md-3"><strong>项目号：</strong>{{ order.project_code or '-' }}</div>
-        <div class="col-md-3"><strong>机号：</strong>{{ order.serial_no or '-' }}</div>
+        <div class="col-md-3"><strong>柜号：</strong>{{ order.cabinet_no or '-' }}</div>
         <div class="col-md-3"><strong>入库仓库：</strong>{{ order.warehouse_name or '-' }}</div>
         <div class="col-md-3"><strong>物料编码：</strong>{{ order.material_code or order.product_code or '-' }}</div>
         <div class="col-md-3"><strong>物料名称：</strong>{{ order.material_name or order.product_name or '-' }}</div>
@@ -579,7 +579,7 @@
     <div class="section-title">
         <div>
             <h2>质检登记</h2>
-            <span>记录工单完工检验结果，关联项目号、机号和工单来源。</span>
+            <span>记录工单完工检验结果，关联项目号、柜号和工单来源。</span>
         </div>
     </div>
     <form id="qualityActionPanel" class="row g-2 align-items-end" method="post" action="/work-orders/{{ order.id }}/quality">
@@ -705,7 +705,7 @@
                 <th>仓库</th>
                 <th>库位</th>
                 <th>批号</th>
-                <th>项目号/机号</th>
+                <th>项目号/柜号</th>
                 <th class="text-end">库存成本单价</th>
                 <th class="text-end">成本金额</th>
                 <th>缺料原因/备注</th>
@@ -730,7 +730,7 @@
                 <td>{{ item.line_warehouse_name or order.warehouse_name or '-' }}</td>
                 <td>{{ item.line_location_name or order.location_name or '-' }}</td>
                 <td>{{ item.lot_no or '-' }}</td>
-                <td>{{ item.line_project_code or order.project_code or '-' }} / {{ item.line_serial_no or order.serial_no or '-' }}</td>
+                <td>{{ item.line_project_code or order.project_code or '-' }} / {{ item.line_cabinet_no or order.cabinet_no or '-' }}</td>
                 <td class="text-end">{{ item.unit_cost|money }}</td>
                 <td class="text-end">{{ (item.required_qty * item.unit_cost)|money if item.required_qty is defined and item.unit_cost is defined else '-' }}</td>
                 <td>{{ item.remark or '' }}</td>
@@ -971,7 +971,7 @@
     </div>
     {% set sections = [
         ('齐套准备', component_items, [('product_code','物料编码'),('product_name','物料名称'),('specification','规格型号'),('unit','单位'),('required_qty','需求数量'),('ready_qty','已齐套'),('not_ready_qty','未齐套'),('supply_mode','供应方式'),('status','状态')]),
-        ('报工/完工汇报记录', completions, [('complete_date','完工日期'),('product_code','物料编码'),('product_name','物料名称'),('specification','规格'),('unit','单位'),('qty','合格数量'),('unit_cost','入库成本'),('lot_no','批号'),('serial_no','机号'),('warehouse_name','仓库'),('location_name','库位')]),
+        ('报工/完工汇报记录', completions, [('complete_date','完工日期'),('product_code','物料编码'),('product_name','物料名称'),('specification','规格'),('unit','单位'),('qty','合格数量'),('unit_cost','入库成本'),('lot_no','批号'),('cabinet_no','柜号'),('warehouse_name','仓库'),('location_name','库位')]),
         ('MRP缺料', mrp_rows, [('requirement_date','需求日期'),('product_code','物料编码'),('product_name','物料名称'),('quantity','需求数量'),('available_quantity','可用数量'),('shortage_quantity','缺料数量'),('supply_mode','供应方式'),('status','状态')]),
         ('成本明细', cost_lines, [('cost_type','成本类型'),('source_type','来源类型'),('source_no','来源单号'),('quantity','数量'),('unit_cost','单位成本'),('amount','成本金额'),('remark','备注')]),
         ('库存流水', stock_rows, [('transaction_date','日期'),('transaction_type','类型'),('product_code','物料编码'),('product_name','物料名称'),('quantity','数量'),('unit_cost','单位成本'),('amount','库存金额'),('reference_no','来源单据'),('source_line_no','来源行')])

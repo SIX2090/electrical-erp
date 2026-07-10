@@ -50,9 +50,9 @@ def _query_sales_invoice_reconciliation(query_db, filters):
         where_clauses.append("so.project_code = %s")
         params.append(filters['project_code'])
 
-    if filters.get('serial_no'):
-        where_clauses.append("so.serial_no = %s")
-        params.append(filters['serial_no'])
+    if filters.get('cabinet_no'):
+        where_clauses.append("so.cabinet_no = %s")
+        params.append(filters['cabinet_no'])
 
     if filters.get('start_date'):
         where_clauses.append("so.order_date >= %s")
@@ -109,7 +109,7 @@ def _query_sales_invoice_reconciliation(query_db, filters):
         so.order_date,
         c.name AS customer_name,
         so.project_code,
-        so.serial_no,
+        so.cabinet_no,
         ol.item_code,
         ol.item_name,
         ol.specification,
@@ -148,7 +148,7 @@ def _query_sales_invoice_reconciliation(query_db, filters):
             'order_date': row['order_date'],
             'customer_name': row['customer_name'],
             'project_code': row['project_code'],
-            'serial_no': row['serial_no'],
+            'cabinet_no': row['cabinet_no'],
             'item_code': row['item_code'],
             'item_name': row['item_name'],
             'specification': row['specification'],
@@ -187,9 +187,9 @@ def _query_purchase_invoice_reconciliation(query_db, filters):
         where_clauses.append("po.project_code = %s")
         params.append(filters['project_code'])
 
-    if filters.get('serial_no'):
-        where_clauses.append("po.serial_no = %s")
-        params.append(filters['serial_no'])
+    if filters.get('cabinet_no'):
+        where_clauses.append("po.cabinet_no = %s")
+        params.append(filters['cabinet_no'])
 
     if filters.get('start_date'):
         where_clauses.append("po.order_date >= %s")
@@ -244,7 +244,7 @@ def _query_purchase_invoice_reconciliation(query_db, filters):
         po.order_date,
         s.name AS supplier_name,
         po.project_code,
-        po.serial_no,
+        po.cabinet_no,
         ol.item_code,
         m.name AS item_name,
         m.specification,
@@ -321,7 +321,7 @@ def _query_purchase_invoice_reconciliation(query_db, filters):
         po.order_date,
         s.name AS supplier_name,
         po.project_code,
-        po.serial_no,
+        po.cabinet_no,
         ol.item_code,
         ol.item_name,
         ol.specification,
@@ -360,7 +360,7 @@ def _query_purchase_invoice_reconciliation(query_db, filters):
             'order_date': row['order_date'],
             'supplier_name': row['supplier_name'],
             'project_code': row['project_code'],
-            'serial_no': row['serial_no'],
+            'cabinet_no': row['cabinet_no'],
             'item_code': row['item_code'],
             'item_name': row['item_name'],
             'specification': row['specification'],

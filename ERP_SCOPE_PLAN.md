@@ -14,7 +14,7 @@ Stabilize the current machine-tool manufacturing ERP for trial go-live by provin
 ## First Fix Batch
 
 1. Inventory document entry visibility
-   - Fix `/inventory/inbound` and `/inventory/outbound` list pages so operators can see the key document context: document information, source document, material detail count, inventory cost unit price, lot number, project number, and machine serial number.
+   - Fix `/inventory/inbound` and `/inventory/outbound` list pages so operators can see the key document context: document information, source document, material detail count, inventory cost unit price, lot number, project number, and cabinet number.
    - Preserve `/inventory/inbound/new` and `/inventory/outbound/new` as the document-entry routes.
 
 2. Material opening UI boundary
@@ -35,7 +35,7 @@ Stabilize the current machine-tool manufacturing ERP for trial go-live by provin
    - Service card/order -> acceptance/return visit/RMA -> service cost and settlement trace.
 
 3. Trace and cost proof
-   - Project number and machine serial number must flow through sales, engineering, purchase, inventory, production, subcontract, shipment, service, AR/AP, and cost reports.
+   - Project number and cabinet number must flow through sales, engineering, purchase, inventory, production, subcontract, shipment, service, AR/AP, and cost reports.
    - Trace integrity findings must be reviewed before trial go-live.
 
 4. Operations readiness

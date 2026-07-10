@@ -82,13 +82,13 @@ def reconcile_business_vs_inventory(
     *,
     period: Optional[str] = None,
     project_code: Optional[str] = None,
-    serial_no: Optional[str] = None,
+    cabinet_no: Optional[str] = None,
 ) -> Dict:
     """对比业务成本（来自 cost_runs）与库存成本（来自 inventory_balances 估值）。
 
-    业务成本：从 cost_runs 汇总 total_cost（按 project_code/serial_no 过滤）
+    业务成本：从 cost_runs 汇总 total_cost（按 project_code/cabinet_no 过滤）
     库存成本：从 inventory_balances 汇总 quantity * unit_cost
-              （若表存在且能按 project_code/serial_no 过滤则过滤，否则全量）
+              （若表存在且能按 project_code/cabinet_no 过滤则过滤，否则全量）
     """
     # 1. 业务成本
     business_cost = Decimal("0")
@@ -101,9 +101,9 @@ def reconcile_business_vs_inventory(
         if project_code:
             clauses.append("COALESCE(project_code, '')=%s")
             params.append(project_code)
-        if serial_no:
-            clauses.append("COALESCE(serial_no, '')=%s")
-            params.append(serial_no)
+        if cabinet_no:
+            clauses.append("COALESCE(cabinet_no, '')=%s")
+            params.append(cabinet_no)
         where_sql = " AND ".join(clauses)
         row = query_one(
             f"""
@@ -119,17 +119,17 @@ def reconcile_business_vs_inventory(
     inventory_cost = Decimal("0")
     inventory_details: List[Dict] = []
     if _table_exists(query_one, "inventory_balances"):
-        # 检查 inventory_balances 是否有 project_code/serial_no 列
+        # 检查 inventory_balances 是否有 project_code/cabinet_no 列
         has_proj = _has_column(query_one, "inventory_balances", "project_code")
-        has_serial = _has_column(query_one, "inventory_balances", "serial_no")
+        has_cabinet = _has_column(query_one, "inventory_balances", "cabinet_no")
         clauses = ["COALESCE(quantity, 0) <> 0"]
         params = []
         if project_code and has_proj:
             clauses.append("COALESCE(project_code, '')=%s")
             params.append(project_code)
-        if serial_no and has_serial:
-            clauses.append("COALESCE(serial_no, '')=%s")
-            params.append(serial_no)
+        if cabinet_no and has_cabinet:
+            clauses.append("COALESCE(cabinet_no, '')=%s")
+            params.append(cabinet_no)
         where_sql = " AND ".join(clauses)
         row = query_one(
             f"""
@@ -148,7 +148,7 @@ def reconcile_business_vs_inventory(
         "reconciliation_type": "business_vs_inventory",
         "period": period,
         "project_code": project_code,
-        "serial_no": serial_no,
+        "cabinet_no": cabinet_no,
         "business_cost": business_cost,
         "inventory_cost": inventory_cost,
         "gl_cost": Decimal("0"),
@@ -170,7 +170,7 @@ def reconcile_business_vs_gl(
     *,
     period: Optional[str] = None,
     project_code: Optional[str] = None,
-    serial_no: Optional[str] = None,
+    cabinet_no: Optional[str] = None,
 ) -> Dict:
     """对比业务成本（来自 cost_runs）与总账成本（来自 gl_account_balances / general_ledger）。
 
@@ -188,9 +188,9 @@ def reconcile_business_vs_gl(
         if project_code:
             clauses.append("COALESCE(project_code, '')=%s")
             params.append(project_code)
-        if serial_no:
-            clauses.append("COALESCE(serial_no, '')=%s")
-            params.append(serial_no)
+        if cabinet_no:
+            clauses.append("COALESCE(cabinet_no, '')=%s")
+            params.append(cabinet_no)
         where_sql = " AND ".join(clauses)
         row = query_one(
             f"""
@@ -264,7 +264,7 @@ def reconcile_business_vs_gl(
         "reconciliation_type": "business_vs_gl",
         "period": period,
         "project_code": project_code,
-        "serial_no": serial_no,
+        "cabinet_no": cabinet_no,
         "business_cost": business_cost,
         "inventory_cost": Decimal("0"),
         "gl_cost": gl_cost,
@@ -297,7 +297,7 @@ def save_reconciliation_result(query_db, execute_db, result: Dict) -> Dict:
         execute_db(
             """
             INSERT INTO cost_reconciliation_results
-                (period, project_code, serial_no,
+                (period, project_code, cabinet_no,
                  business_cost, inventory_cost, gl_cost,
                  difference, status, remark, created_at)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,NOW())
@@ -305,7 +305,7 @@ def save_reconciliation_result(query_db, execute_db, result: Dict) -> Dict:
             (
                 result.get("period"),
                 result.get("project_code"),
-                result.get("serial_no"),
+                result.get("cabinet_no"),
                 result.get("business_cost", Decimal("0")),
                 result.get("inventory_cost", Decimal("0")),
                 result.get("gl_cost", Decimal("0")),
@@ -340,16 +340,16 @@ def list_reconciliation_results(query_rows, filters: Optional[Dict] = None) -> L
     if filters.get("project_code"):
         clauses.append("COALESCE(project_code, '')=%s")
         params.append(filters["project_code"])
-    if filters.get("serial_no"):
-        clauses.append("COALESCE(serial_no, '')=%s")
-        params.append(filters["serial_no"])
+    if filters.get("cabinet_no"):
+        clauses.append("COALESCE(cabinet_no, '')=%s")
+        params.append(filters["cabinet_no"])
     if filters.get("status"):
         clauses.append("status=%s")
         params.append(filters["status"])
     where_sql = " AND ".join(clauses)
     rows = query_rows(
         f"""
-        SELECT id, period, project_code, serial_no,
+        SELECT id, period, project_code, cabinet_no,
                business_cost, inventory_cost, gl_cost,
                difference, status, remark, created_at
         FROM cost_reconciliation_results

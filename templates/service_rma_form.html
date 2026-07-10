@@ -29,7 +29,7 @@
         <div class="section-title">
             <div>
                 <h2>RMA表头</h2>
-                <span>RMA 必须选择来源服务单，并继承服务档案、项目号和机号。</span>
+                <span>RMA 必须选择来源服务单，并继承服务档案、项目号和柜号。</span>
             </div>
         </div>
         <div class="row g-2">
@@ -42,7 +42,7 @@
                 <select class="form-select form-select-sm" name="order_id" id="serviceOrderSelect" required {% if mode != 'edit' and not service_orders %}disabled{% endif %}>
                     <option value="">请选择</option>
                     {% for source in service_orders %}
-                    <option value="{{ source.id }}" data-project="{{ source.project_code or '' }}" data-serial="{{ source.serial_no or '' }}" data-customer="{{ source.customer_name or '' }}" data-machine="{{ source.machine_model or '' }}" data-issue="{{ source.issue_summary or '' }}" {% if selected_order_id == source.id %}selected{% endif %}>{{ source.order_no or source.id }} / {{ source.customer_name or '-' }} / {{ source.project_code or '-' }} / {{ source.serial_no or '-' }}</option>
+                    <option value="{{ source.id }}" data-project="{{ source.project_code or '' }}" data-cabinet="{{ source.cabinet_no or '' }}" data-customer="{{ source.customer_name or '' }}" data-machine="{{ source.machine_model or '' }}" data-issue="{{ source.issue_summary or '' }}" {% if selected_order_id == source.id %}selected{% endif %}>{{ source.order_no or source.id }} / {{ source.customer_name or '-' }} / {{ source.project_code or '-' }} / {{ source.cabinet_no or '-' }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -58,7 +58,7 @@
             <div class="col-md-3"><label class="form-label">客户</label><input class="form-control form-control-sm" id="customerName" readonly></div>
             <div class="col-md-3"><label class="form-label">机型</label><input class="form-control form-control-sm" id="machineModel" readonly></div>
             <div class="col-md-3"><label class="form-label">项目号 <span class="text-muted small">建议</span></label><input class="form-control form-control-sm" name="project_code" id="projectCode" value="{{ form_rma.project_code or '' }}"></div>
-            <div class="col-md-3"><label class="form-label">机号 <span class="text-muted small">建议</span></label><input class="form-control form-control-sm" name="serial_no" id="serialNo" value="{{ form_rma.serial_no or '' }}"></div>
+            <div class="col-md-3"><label class="form-label">柜号 <span class="text-muted small">建议</span></label><input class="form-control form-control-sm" name="cabinet_no" id="serialNo" value="{{ form_rma.cabinet_no or '' }}"></div>
             <div class="col-md-3">
                 <label class="form-label">质保范围</label>
                 {% set warranty_scope = form_rma.warranty_scope or '待判定' %}
@@ -124,7 +124,7 @@
     function fillFromOrder() {
         const data = orderSelect.selectedOptions[0] ? orderSelect.selectedOptions[0].dataset : {};
         if (!projectCode.value) projectCode.value = data.project || '';
-        if (!serialNo.value) serialNo.value = data.serial || '';
+        if (!serialNo.value) serialNo.value = data.cabinet || '';
         customerName.value = data.customer || '';
         machineModel.value = data.machine || '';
         if (!faultSummary.value) faultSummary.value = data.issue || '';

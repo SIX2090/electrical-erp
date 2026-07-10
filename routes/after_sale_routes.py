@@ -32,7 +32,7 @@ def _decorate_rows(rows):
 
 def render_after_sale_dashboard(query_rows, count_rows, columns, render_module_dashboard):
     metrics = [
-        {"label": "服务档案", "value": count_rows("machine_service_cards"), "hint": "已建机号档案"},
+        {"label": "服务档案", "value": count_rows("machine_service_cards"), "hint": "已建柜号档案"},
         {
             "label": "未关闭服务单",
             "value": count_rows("machine_service_orders", "COALESCE(status, '') NOT IN ('已关闭','已完成','closed','completed')"),
@@ -100,9 +100,9 @@ def render_after_sale_dashboard(query_rows, count_rows, columns, render_module_d
     exception_rows = query_rows(
         """
         WITH rows AS (
-            SELECT '缺项目号/机号服务单' AS issue_type, COUNT(*) AS issue_count
+            SELECT '缺项目号/柜号服务单' AS issue_type, COUNT(*) AS issue_count
             FROM machine_service_orders
-            WHERE (COALESCE(project_code, '')='' OR COALESCE(serial_no, '')='')
+            WHERE (COALESCE(project_code, '')='' OR COALESCE(cabinet_no, '')='')
               AND COALESCE(status, '') NOT IN ('已关闭','已完成','closed','completed','cancelled','已作废')
             UNION ALL
             SELECT '未结算可收费服务单', COUNT(*)
@@ -125,7 +125,7 @@ def render_after_sale_dashboard(query_rows, count_rows, columns, render_module_d
         """
     )
     exception_meta = {
-        "缺项目号/机号服务单": ("售后内勤", "补齐推荐追溯字段", "影响项目/机号成本和服务追溯", "/service-orders"),
+        "缺项目号/柜号服务单": ("售后内勤", "补齐推荐追溯字段", "影响项目/柜号成本和服务追溯", "/service-orders"),
         "未结算可收费服务单": ("售后/财务", "确认收费状态或生成应收", "影响应收和服务收入对账", "/service-orders"),
         "未通过安装验收项": ("售后现场", "补齐验收结论和整改记录", "影响质保起算和客户验收", "/service-acceptance"),
         "供应商索赔未追回": ("质量/采购", "跟进供应商索赔追回", "影响售后成本抵减口径", "/service-rmas"),
@@ -148,11 +148,11 @@ def render_after_sale_dashboard(query_rows, count_rows, columns, render_module_d
             "downstream_impact": "用于售后服务明细和售后成本专题核对",
         },
         {
-            "report_name": "项目/机号成本明细",
-            "basis": "按项目号、机号读取服务单总成本，展示配件、人工、差旅构成",
+            "report_name": "项目/柜号成本明细",
+            "basis": "按项目号、柜号读取服务单总成本，展示配件、人工、差旅构成",
             "finance_link": "/finance/reports/project-cost",
             "owner_role": "财务",
-            "downstream_impact": "用于项目毛利、机号成本和售后成本归集",
+            "downstream_impact": "用于项目毛利、柜号成本和售后成本归集",
         },
         {
             "report_name": "应收关联",
@@ -222,7 +222,7 @@ def render_service_rma_detail(
     rma = query_one(
         """
         SELECT r.*, so.order_no AS service_order_no, so.issue_summary AS service_issue,
-               sc.serial_no AS card_serial_no, sc.machine_model, c.name AS customer_name,
+               sc.cabinet_no AS card_cabinet_no, sc.machine_model, c.name AS customer_name,
                p.code AS product_code, p.name AS product_name,
                COALESCE(pc.name, p.category, '') AS product_family,
                COALESCE(p.batch_control, FALSE) AS batch_control,
@@ -262,8 +262,8 @@ def render_service_rma_detail(
                r.material_spec, r.material_unit, r.quantity, r.unit_cost,
                r.amount, r.warehouse_id, r.location_id,
                w.name AS warehouse_name, l.name AS location_name,
-               r.lot_no, r.line_project_code, r.line_serial_no,
-               r.project_code, r.serial_no,
+               r.lot_no, r.line_project_code, r.line_cabinet_no,
+               r.project_code, r.cabinet_no,
                p.code AS product_code, p.name AS product_name,
                p.specification, p.unit
         FROM machine_service_rmas r
@@ -311,7 +311,7 @@ def render_service_order_detail(
 
     service = query_one(
         """
-        SELECT so.*, sc.serial_no AS card_serial_no, sc.machine_model, c.name AS customer_name,
+        SELECT so.*, sc.cabinet_no AS card_cabinet_no, sc.machine_model, c.name AS customer_name,
                c.contact_person, c.phone AS customer_phone, cr.source_no AS receivable_no,
                cr.balance AS receivable_balance,
                p.code AS product_code, p.name AS product_name,
@@ -427,7 +427,7 @@ def render_service_order_detail(
                    wh.name AS warehouse_name,
                    loc.name AS location_name,
                    soi.quantity, soi.unit_cost, soi.amount, soi.lot_no,
-                   soi.serial_no, soi.project_code, soi.source_line_no, soi.remark,
+                   soi.cabinet_no, soi.project_code, soi.source_line_no, soi.remark,
                    COALESCE(stock.stock_qty, 0) AS stock_qty,
                    COALESCE(stock.locked_qty, 0) AS locked_qty,
                    GREATEST(COALESCE(stock.stock_qty, 0) - COALESCE(stock.locked_qty, 0), 0) AS available_qty
@@ -490,7 +490,7 @@ def render_service_order_detail(
         "billable_amount": as_decimal(service.get("billable_amount")),
         "receivable_no": service.get("receivable_no"),
         "settlement_status": service.get("settlement_status"),
-        "basis": "服务单 total_cost = parts_cost + labor_cost + travel_cost；项目/机号成本报表读取服务单总成本，库存流水按售后备件出库核对配件消耗。",
+        "basis": "服务单 total_cost = parts_cost + labor_cost + travel_cost；项目/柜号成本报表读取服务单总成本，库存流水按售后备件出库核对配件消耗。",
     }
     _decorate_rows(context["items"])
     return render_template("service_order_trace_detail.html", **context)

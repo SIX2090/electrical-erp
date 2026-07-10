@@ -36,7 +36,7 @@ def render_sales_dashboard(
     params = []
     if keyword:
         where_parts.append(
-            "(so.order_no ILIKE %s OR so.project_code ILIKE %s OR so.serial_no ILIKE %s OR c.name ILIKE %s)"
+            "(so.order_no ILIKE %s OR so.project_code ILIKE %s OR so.cabinet_no ILIKE %s OR c.name ILIKE %s)"
         )
         params.extend([f"%{keyword}%"] * 4)
     if status:
@@ -217,7 +217,7 @@ def render_sales_dashboard(
     product_families = filter_clean_rows(product_families, "name")
     orders = query_rows(
         f"""
-        SELECT so.id, so.order_no, so.order_date, so.delivery_date, so.project_code, so.serial_no,
+        SELECT so.id, so.order_no, so.order_date, so.delivery_date, so.project_code, so.cabinet_no,
                so.status, so.total_amount, so.shipped_amount, c.name AS customer_name,
                COALESCE(items.item_count, 0) AS item_count,
                COALESCE(items.ordered_qty, 0) AS ordered_qty,
@@ -264,25 +264,25 @@ def render_sales_dashboard(
         """,
         tuple(params),
     )
-    orders = filter_clean_rows(orders, "order_no", "customer_name", "project_code", "serial_no", "status")
+    orders = filter_clean_rows(orders, "order_no", "customer_name", "project_code", "cabinet_no", "status")
     today = datetime.now().date()
     filtered_orders = []
     for row in orders:
-        for key in ("order_no", "customer_name", "project_code", "serial_no"):
+        for key in ("order_no", "customer_name", "project_code", "cabinet_no"):
             row[key] = _clean_display_text(row.get(key))
         row["display_status"] = status_label(row.get("status"))
         pending_qty = as_decimal(row.get("pending_ship_qty"))
         receivable_balance = as_decimal(row.get("receivable_balance"))
         is_overdue = bool(row.get("delivery_date") and row.get("delivery_date") < today and pending_qty > 0)
         is_ship_status_ready = row.get("status") in SHIP_READY_STATUSES
-        has_project_serial = bool(row.get("project_code") and row.get("serial_no"))
-        row["can_ship"] = bool(pending_qty > 0 and is_ship_status_ready and has_project_serial)
+        has_project_cabinet = bool(row.get("project_code") and row.get("cabinet_no"))
+        row["can_ship"] = bool(pending_qty > 0 and is_ship_status_ready and has_project_cabinet)
         row["ship_action_label"] = "生成销售出库单"
         row["risk_label"] = "正常"
         row["next_action"] = "跟进订单"
         row["blocked_reason"] = ""
         row["owner_role"] = "销售跟单"
-        row["condition_label"] = "按交期跟踪客户、项目号和机号"
+        row["condition_label"] = "按交期跟踪客户、项目号和柜号"
         row["downstream_impact"] = "影响项目交付、发货、服务建档和应收"
         if pending_qty > 0:
             row["risk_label"] = "逾期交付" if is_overdue else "待发货"
@@ -292,12 +292,12 @@ def render_sales_dashboard(
             if not is_ship_status_ready:
                 row["blocked_reason"] = "销售订单未审核，不能发货"
                 row["condition_label"] = "需销售主管审核"
-            elif not row.get("project_code") or not row.get("serial_no"):
-                row["blocked_reason"] = "缺少项目号或机号，不能发货"
-                row["condition_label"] = "需补齐项目号和机号"
+            elif not row.get("project_code") or not row.get("cabinet_no"):
+                row["blocked_reason"] = "缺少项目号或柜号，不能发货"
+                row["condition_label"] = "需补齐项目号和柜号"
             elif not row.get("shipment_count"):
                 row["blocked_reason"] = "可直接生成销售出库单"
-                row["condition_label"] = "订单已审核，项目/机号齐套"
+                row["condition_label"] = "订单已审核，项目/柜号齐套"
         elif receivable_balance > 0:
             row["risk_label"] = "待回款"
             row["next_action"] = "催收回款"
@@ -366,7 +366,7 @@ def render_sales_dashboard(
         pending_items = query_rows(
             """
             SELECT soi.id, so.id AS order_id, so.order_no, so.delivery_date, c.name AS customer_name,
-                   so.project_code, so.serial_no, p.code AS product_code, p.name AS product_name,
+                   so.project_code, so.cabinet_no, p.code AS product_code, p.name AS product_name,
                    p.specification, p.unit,
                    soi.quantity, soi.shipped_qty,
                    GREATEST(COALESCE(soi.quantity,0)-COALESCE(soi.shipped_qty,0),0) AS pending_ship_qty
@@ -380,7 +380,7 @@ def render_sales_dashboard(
             LIMIT 12
             """
         )
-        pending_items = filter_clean_rows(pending_items, "order_no", "customer_name", "product_code", "product_name", "project_code", "serial_no")
+        pending_items = filter_clean_rows(pending_items, "order_no", "customer_name", "product_code", "product_name", "project_code", "cabinet_no")
         for row in pending_items:
             for key in ("order_no", "customer_name", "product_code", "product_name"):
                 row[key] = _clean_display_text(row.get(key))
@@ -402,7 +402,7 @@ def render_sales_dashboard(
     return render_template(
         "sales_order_list.html" if document_list else "sales_dashboard.html",
         title="销售订单列表" if document_list else "销售工作台",
-        subtitle="销售订单单据列表：新建、查看、提交、审核、发货、关闭、作废。" if document_list else "按项目号和机号推进订单、发货、签收、服务建档和应收闭环。",
+        subtitle="销售订单单据列表：新建、查看、提交、审核、发货、关闭、作废。" if document_list else "按项目号和柜号推进订单、发货、签收、服务建档和应收闭环。",
         document_list=document_list,
         back_url=back_url,
         metrics=metrics,

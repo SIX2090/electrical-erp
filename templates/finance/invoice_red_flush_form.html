@@ -116,7 +116,7 @@
             </div>
         </div>
 
-        {% if invoice.project_code or invoice.serial_no %}
+        {% if invoice.project_code or invoice.cabinet_no %}
         <div class="row mt-2">
             <div class="col-md-6">
                 {% if invoice.project_code %}
@@ -127,10 +127,10 @@
                 {% endif %}
             </div>
             <div class="col-md-6">
-                {% if invoice.serial_no %}
+                {% if invoice.cabinet_no %}
                 <div class="info-row">
-                    <div class="info-label">机号：</div>
-                    <div class="info-value">{{ invoice.serial_no }}</div>
+                    <div class="info-label">柜号：</div>
+                    <div class="info-value">{{ invoice.cabinet_no }}</div>
                 </div>
                 {% endif %}
             </div>

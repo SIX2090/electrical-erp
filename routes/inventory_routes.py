@@ -56,7 +56,7 @@ def inventory_filter_context(args=None):
         where_parts.append(
             """
             (p.code ILIKE %s OR p.name ILIKE %s OR p.specification ILIKE %s
-             OR ib.project_code ILIKE %s OR ib.lot_no ILIKE %s OR ib.serial_no ILIKE %s OR w.name ILIKE %s OR l.code ILIKE %s)
+             OR ib.project_code ILIKE %s OR ib.lot_no ILIKE %s OR ib.cabinet_no ILIKE %s OR w.name ILIKE %s OR l.code ILIKE %s)
             """
         )
         params.extend([f"%{keyword}%"] * 8)
@@ -89,7 +89,7 @@ def stock_transaction_filter_context(args=None):
     params = []
     if keyword:
         where_parts.append(
-            "(p.code ILIKE %s OR p.name ILIKE %s OR st.reference_no ILIKE %s OR st.project_code ILIKE %s OR st.lot_no ILIKE %s OR st.serial_no ILIKE %s)"
+            "(p.code ILIKE %s OR p.name ILIKE %s OR st.reference_no ILIKE %s OR st.project_code ILIKE %s OR st.lot_no ILIKE %s OR st.cabinet_no ILIKE %s)"
         )
         params.extend([f"%{keyword}%"] * 6)
     if tx_type:
@@ -153,20 +153,20 @@ def render_inventory_dashboard(query_rows, query_one):
         SELECT COUNT(*) AS value
         FROM mrp_requirements
         WHERE COALESCE(shortage_quantity, 0) > 0
-          AND (COALESCE(project_code, '') <> '' OR COALESCE(serial_no, '') <> '')
+          AND (COALESCE(project_code, '') <> '' OR COALESCE(cabinet_no, '') <> '')
         """
     ) or {}
     metrics = [
         {"label": "待过账单据", "value": pending_post_count.get("value", 0), "hint": "调拨、盘点、调整需先闭环"},
         {"label": "库存异常", "value": low_stock_count.get("value", 0), "hint": "低于安全库存或可用不足"},
-        {"label": "项目/机号缺口", "value": project_gap_count.get("value", 0), "hint": "按 MRP 缺料追踪"},
+        {"label": "项目/柜号缺口", "value": project_gap_count.get("value", 0), "hint": "按 MRP 缺料追踪"},
         {"label": "库存金额", "value": money_metric(stock_summary.get("stock_value", 0)), "hint": f"库存数量 {qty_metric(stock_summary.get('stock_qty', 0))}"},
     ]
     pending_documents = query_rows(
         """
         WITH docs AS (
             SELECT MIN(id) AS id, '库存调整' AS doc_type, adj_no AS doc_no, MAX(adj_date) AS doc_date,
-                   MAX(project_code) AS project_code, MAX(serial_no) AS serial_no, MAX(status) AS status,
+                   MAX(project_code) AS project_code, MAX(cabinet_no) AS cabinet_no, MAX(status) AS status,
                    COUNT(*) AS line_count, SUM(ABS(COALESCE(diff_quantity,0))) AS qty,
                    '/adjustments' AS detail_base
             FROM inventory_adjustments
@@ -174,7 +174,7 @@ def render_inventory_dashboard(query_rows, query_one):
             GROUP BY adj_no
             UNION ALL
             SELECT tr.id, '库存调拨', tr.transfer_no, tr.transfer_date,
-                   tr.project_code, NULL::VARCHAR AS serial_no, tr.status,
+                   tr.project_code, NULL::VARCHAR AS cabinet_no, tr.status,
                    COALESCE(items.line_count, 0), COALESCE(items.qty, 0), '/transfers'
             FROM transfer_orders tr
             LEFT JOIN LATERAL (
@@ -185,7 +185,7 @@ def render_inventory_dashboard(query_rows, query_one):
             WHERE COALESCE(tr.status, '') NOT IN ('已过账','已关闭','已取消','posted','closed','cancelled')
             UNION ALL
             SELECT ico.id, '库存盘点', ico.check_no, ico.check_date,
-                   ico.project_code, NULL::VARCHAR AS serial_no, ico.status,
+                   ico.project_code, NULL::VARCHAR AS cabinet_no, ico.status,
                    COALESCE(items.line_count, 0), COALESCE(items.qty, 0), '/inventory_checks'
             FROM inventory_check_orders ico
             LEFT JOIN LATERAL (
@@ -225,7 +225,7 @@ def render_inventory_dashboard(query_rows, query_one):
                p.specification, COALESCE(p.unit, '') AS unit, p.safety_stock,
                w.name AS warehouse_name, l.code AS location_code, l.name AS location_name,
                ib.project_code,
-               ib.lot_no, ib.serial_no, ib.quantity, ib.locked_qty,
+               ib.lot_no, ib.cabinet_no, ib.quantity, ib.locked_qty,
                GREATEST(COALESCE(ib.quantity,0)-COALESCE(ib.locked_qty,0),0) AS available_qty,
                ib.unit_cost, COALESCE(ib.quantity,0) * COALESCE(ib.unit_cost,0) AS stock_value,
                CASE
@@ -277,7 +277,7 @@ def render_inventory_dashboard(query_rows, query_one):
         """
         SELECT st.id, st.transaction_date, st.transaction_type, p.code AS product_code,
                p.name AS product_name, w.name AS warehouse_name, l.code AS location_code,
-               st.quantity, st.unit_cost, st.reference_no, st.lot_no, st.serial_no, st.project_code
+               st.quantity, st.unit_cost, st.reference_no, st.lot_no, st.cabinet_no, st.project_code
         FROM stock_transactions st
         LEFT JOIN products p ON p.id=st.product_id
         LEFT JOIN warehouses w ON w.id=st.warehouse_id
@@ -302,7 +302,7 @@ def render_inventory_dashboard(query_rows, query_one):
     batches = query_rows(
         """
         SELECT bt.id, bt.lot_no, p.code AS product_code, p.name AS product_name,
-               w.name AS warehouse_name, bt.location, bt.location_id, bt.project_code, bt.serial_no, bt.quantity_available,
+               w.name AS warehouse_name, bt.location, bt.location_id, bt.project_code, bt.cabinet_no, bt.quantity_available,
                bt.expiry_date, bt.supplier_id, bt.source_order_no, bt.status
         FROM batch_tracking bt
         LEFT JOIN products p ON p.id=bt.product_id
@@ -315,7 +315,7 @@ def render_inventory_dashboard(query_rows, query_one):
     return render_template(
         "inventory_dashboard.html",
         title="库存工作台",
-        subtitle="库存余额、批次机号和出入库流水",
+        subtitle="库存余额、批次柜号和出入库流水",
         metrics=metrics,
         pending_documents=pending_documents,
         balances=balances,
@@ -340,7 +340,7 @@ def render_inventory_balance_dashboard(query_rows, back_url="/inventory/detail",
         SELECT ib.id, p.code AS product_code, p.name AS product_name, p.specification,
                w.name AS warehouse_name, l.code AS location_code, l.name AS location_name,
                ib.project_code,
-               ib.lot_no, ib.serial_no, ib.quantity, ib.locked_qty,
+               ib.lot_no, ib.cabinet_no, ib.quantity, ib.locked_qty,
                GREATEST(COALESCE(ib.quantity,0)-COALESCE(ib.locked_qty,0),0) AS available_qty,
                ib.unit_cost, COALESCE(ib.quantity,0) * COALESCE(ib.unit_cost,0) AS stock_value,
                ib.expire_date, ib.updated_at,
@@ -364,7 +364,7 @@ def render_inventory_balance_dashboard(query_rows, back_url="/inventory/detail",
     return render_template(
         "inventory_balance_dashboard.html",
         title=title,
-        subtitle="按物料、项目号、仓库、库位、批号、机号查看可用库存。",
+        subtitle="按物料、项目号、仓库、库位、批号、柜号查看可用库存。",
         rows=rows,
         warehouses=query_rows("SELECT id, name FROM warehouses ORDER BY name LIMIT 200"),
         filters={"keyword": keyword, "warehouse_id": warehouse_id, "project_code": project_code, "stock_state": stock_state},
@@ -386,7 +386,7 @@ def render_stock_transaction_dashboard(query_rows, clean_rows=None, clean_text=N
                COALESCE(p.batch_control, FALSE) AS batch_control,
                COALESCE(p.serial_control, FALSE) AS serial_control,
                COALESCE(p.inspection_required, FALSE) AS inspection_required,
-               st.quantity, st.unit_cost, st.reference_no, st.source_type, st.lot_no, st.serial_no, st.project_code, st.remark
+               st.quantity, st.unit_cost, st.reference_no, st.source_type, st.lot_no, st.cabinet_no, st.project_code, st.remark
         FROM stock_transactions st
         LEFT JOIN products p ON p.id=st.product_id
         LEFT JOIN product_categories pc ON pc.id=p.category_id
@@ -425,7 +425,7 @@ def render_stock_transaction_dashboard(query_rows, clean_rows=None, clean_text=N
     return render_template(
         "inventory_transactions.html",
         title="库存流水",
-        subtitle="按来源单号、物料、项目号、批号、机号追踪出入库。",
+        subtitle="按来源单号、物料、项目号、批号、柜号追踪出入库。",
         rows=rows,
         types=types,
         filters={"keyword": keyword, "transaction_type": tx_type, "project_code": project_code, "date_from": date_from, "date_to": date_to},
@@ -509,7 +509,7 @@ def _inventory_form_options(query_rows, product_options=None, clean_rows=None):
             "title": "物料期初",
             "action_url": "/inventory/opening/new",
             "prefix": "MO",
-            "placeholder": "录入上线盘点库存、批号、机号、项目号和期初单位成本。",
+            "placeholder": "录入上线盘点库存、批号、柜号、项目号和期初单位成本。",
             "back_url": "/inventory/opening",
             "allow_unit_cost_edit": True,
             "grid_key": "material_opening_items",
@@ -608,13 +608,13 @@ def render_inventory_balance_detail(query_one, query_rows, balance_id, back_url=
         return render_template("simple_detail.html", title="库存明细", row=None, back_url=back_url, labels={})
     transactions = query_rows(
         """
-        SELECT id, transaction_date, transaction_type, quantity, unit_cost, reference_no, lot_no, serial_no, remark
+        SELECT id, transaction_date, transaction_type, quantity, unit_cost, reference_no, lot_no, cabinet_no, remark
         FROM stock_transactions
         WHERE product_id=%s
           AND COALESCE(warehouse_id, 0)=COALESCE(%s, 0)
           AND COALESCE(location_id, 0)=COALESCE(%s, 0)
           AND COALESCE(lot_no, '')=COALESCE(%s, '')
-          AND COALESCE(serial_no, '')=COALESCE(%s, '')
+          AND COALESCE(cabinet_no, '')=COALESCE(%s, '')
         ORDER BY id DESC
         LIMIT 80
         """,
@@ -623,7 +623,7 @@ def render_inventory_balance_detail(query_one, query_rows, balance_id, back_url=
             balance.get("warehouse_id"),
             balance.get("location_id"),
             balance.get("lot_no"),
-            balance.get("serial_no"),
+            balance.get("cabinet_no"),
         ),
     )
     quantity = as_decimal(balance.get("quantity"))
@@ -652,7 +652,7 @@ def stock_transactions_for_reference(query_rows, reference_no, source_type=None)
         f"""
         SELECT st.id, st.transaction_date, st.transaction_type, st.quantity, st.unit_cost,
                COALESCE(st.amount, COALESCE(st.quantity,0) * COALESCE(st.unit_cost,0)) AS amount,
-               st.reference_no, st.source_type, st.lot_no, st.serial_no, st.location, st.remark,
+               st.reference_no, st.source_type, st.lot_no, st.cabinet_no, st.location, st.remark,
                p.code AS product_code, p.name AS product_name, p.specification, p.unit,
                COALESCE(pc.name, p.category, '') AS product_family,
                bom.bom_no AS default_bom_no,
@@ -1011,7 +1011,7 @@ def render_inventory_document_print(
                 "unit": order.get("unit"),
                 "unit_cost": order.get("unit_cost"),
                 "lot_no": order.get("lot_no"),
-                "serial_no": order.get("reference_no"),
+                "cabinet_no": order.get("reference_no"),
                 "amount": as_decimal(order.get("diff_quantity")) * as_decimal(order.get("unit_cost")),
             }
         ]
@@ -1034,7 +1034,7 @@ def render_inventory_document_print(
             return render_template("simple_detail.html", title="库存调拨打印", row=None, back_url="/transfers", labels={})
         rows = query_rows(
             """
-            SELECT ti.quantity, ti.unit_cost, ti.lot_no, ti.serial_no,
+            SELECT ti.quantity, ti.unit_cost, ti.lot_no, ti.cabinet_no,
                    p.code AS product_code, p.name AS product_name, p.specification, p.unit,
                    fwl.name AS from_warehouse_name, twl.name AS to_warehouse_name,
                    fl.code AS from_location_code, tl.code AS to_location_code,
@@ -1080,7 +1080,7 @@ def render_inventory_document_print(
         rows = query_rows(
             """
             SELECT ci.book_qty, ci.actual_qty, ci.diff_qty AS quantity, ci.unit_cost,
-                   ci.lot_no, ci.serial_no, p.code AS product_code, p.name AS product_name,
+                   ci.lot_no, ci.cabinet_no, p.code AS product_code, p.name AS product_name,
                    p.specification, p.unit,
                    COALESCE(pc.name, p.category, '') AS product_family,
                    bom.bom_no AS default_bom_no,
@@ -1140,7 +1140,7 @@ def render_inventory_document_print(
             ("unit_cost", "单价/成本", "money right"),
             ("amount", "金额", "money right"),
             ("lot_no", "批号", ""),
-            ("serial_no", "机号", ""),
+            ("cabinet_no", "柜号", ""),
         ],
         "rows": rows,
         "total_quantity": sum((as_decimal(row.get("quantity")) for row in rows), Decimal("0")),
@@ -1211,7 +1211,7 @@ def render_inventory_dashboard_legacy_unused(query_rows, query_one):
         SELECT COUNT(*) AS value
         FROM mrp_requirements
         WHERE COALESCE(shortage_quantity, 0) > 0
-          AND (COALESCE(project_code, '') <> '' OR COALESCE(serial_no, '') <> '')
+          AND (COALESCE(project_code, '') <> '' OR COALESCE(cabinet_no, '') <> '')
         """
     ) or {}
     negative_count = query_one("SELECT COUNT(*) AS value FROM inventory_balances WHERE COALESCE(quantity,0) < 0") or {}
@@ -1221,13 +1221,13 @@ def render_inventory_dashboard_legacy_unused(query_rows, query_one):
         {"label": "待过账单据", "value": pending_post_count.get("value", 0), "hint": "调拨、盘点、调整需审核过账"},
         {"label": "低于安全库存", "value": low_stock_count.get("value", 0), "hint": "需要采购、生产或替代料处理"},
         {"label": "负库存风险", "value": negative_count.get("value", 0), "hint": negative_policy},
-        {"label": "项目/机号缺口", "value": project_gap_count.get("value", 0), "hint": "按 MRP 缺料追溯"},
+        {"label": "项目/柜号缺口", "value": project_gap_count.get("value", 0), "hint": "按 MRP 缺料追溯"},
     ]
     pending_documents = query_rows(
         """
         WITH docs AS (
             SELECT MIN(id) AS id, '库存调整' AS doc_type, adj_no AS doc_no, MAX(adj_date) AS doc_date,
-                   MAX(project_code) AS project_code, MAX(serial_no) AS serial_no, MAX(status) AS status,
+                   MAX(project_code) AS project_code, MAX(cabinet_no) AS cabinet_no, MAX(status) AS status,
                    COUNT(*) AS line_count, SUM(ABS(COALESCE(diff_quantity,0))) AS qty,
                    '/adjustments' AS detail_base
             FROM inventory_adjustments
@@ -1235,7 +1235,7 @@ def render_inventory_dashboard_legacy_unused(query_rows, query_one):
             GROUP BY adj_no
             UNION ALL
             SELECT tr.id, '库存调拨', tr.transfer_no, tr.transfer_date,
-                   tr.project_code, NULL::VARCHAR AS serial_no, tr.status,
+                   tr.project_code, NULL::VARCHAR AS cabinet_no, tr.status,
                    COALESCE(items.line_count, 0), COALESCE(items.qty, 0), '/transfers'
             FROM transfer_orders tr
             LEFT JOIN LATERAL (
@@ -1246,7 +1246,7 @@ def render_inventory_dashboard_legacy_unused(query_rows, query_one):
             WHERE COALESCE(tr.status, '') NOT IN ('已过账','已关闭','已取消','posted','closed','cancelled')
             UNION ALL
             SELECT ico.id, '库存盘点', ico.check_no, ico.check_date,
-                   ico.project_code, NULL::VARCHAR AS serial_no, ico.status,
+                   ico.project_code, NULL::VARCHAR AS cabinet_no, ico.status,
                    COALESCE(items.line_count, 0), COALESCE(items.qty, 0), '/inventory_checks'
             FROM inventory_check_orders ico
             LEFT JOIN LATERAL (
@@ -1298,7 +1298,7 @@ def render_inventory_dashboard_legacy_unused(query_rows, query_one):
     negative_rows = query_rows(
         """
         SELECT ib.id, p.code AS product_code, p.name AS product_name, w.name AS warehouse_name,
-               l.code AS location_code, ib.project_code, ib.lot_no, ib.serial_no, ib.quantity
+               l.code AS location_code, ib.project_code, ib.lot_no, ib.cabinet_no, ib.quantity
         FROM inventory_balances ib
         LEFT JOIN products p ON p.id=ib.product_id
         LEFT JOIN warehouses w ON w.id=ib.warehouse_id

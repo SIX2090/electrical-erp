@@ -6,7 +6,7 @@ P0-4 BOM/ECN 快照、P0-5 数据权限五大引擎。
 
 基线销售订单: SO-GT-TRIAL-20260526-001
 基线项目号:   PJ-GT-TRIAL-20260526-001
-基线机号:     SN-GT-TRIAL-20260526-001
+基线柜号:     SN-GT-TRIAL-20260526-001
 
 输出: logs/p0_acceptance_report.md
 退出码: 0=全部通过 1=有失败场景
@@ -88,7 +88,7 @@ def scenario_1_sales_order(cur, sc: Scenario) -> None:
     so = row(
         cur,
         """
-        SELECT id, order_no, project_code, serial_no, customer_id, total_amount, status
+        SELECT id, order_no, project_code, cabinet_no, customer_id, total_amount, status
         FROM sales_orders WHERE order_no=%s
         """,
         (BASELINE_ORDER_NO,),
@@ -96,10 +96,10 @@ def scenario_1_sales_order(cur, sc: Scenario) -> None:
     if not so:
         sc.check("销售订单存在", False, f"未找到 {BASELINE_ORDER_NO}")
         return
-    so_id, order_no, project_code, serial_no, customer_id, total_amount, status = so
+    so_id, order_no, project_code, cabinet_no, customer_id, total_amount, status = so
     sc.check("销售订单存在", True, f"id={so_id} 金额={total_amount}")
     sc.check("带项目号", bool(project_code), project_code or "缺失")
-    sc.check("带机号", bool(serial_no), serial_no or "缺失")
+    sc.check("带柜号", bool(cabinet_no), cabinet_no or "缺失")
     sc.check("带客户ID", bool(customer_id), f"customer_id={customer_id}")
     sc.check("订单已审核", status in {"已审核", "approved", "confirmed"}, f"status={status}")
     sc.check("订单金额>0", float(total_amount or 0) > 0, f"total={total_amount}")
@@ -173,7 +173,7 @@ def scenario_3_mrp(cur, sc: Scenario) -> None:
     # 是否有该项目的 MRP 运行记录
     run_count = scalar(
         cur,
-        "SELECT COUNT(*) FROM mrp_runs WHERE project_code=%s OR serial_no=%s",
+        "SELECT COUNT(*) FROM mrp_runs WHERE project_code=%s OR cabinet_no=%s",
         (BASELINE_PROJECT, BASELINE_SERIAL),
     )
     sc.check("MRP运行记录存在", (run_count or 0) > 0, f"runs={run_count}")
@@ -223,7 +223,7 @@ def scenario_4_suggestions(cur, sc: Scenario) -> None:
         """
         SELECT suggestion_type, COUNT(*) FROM mrp_suggestions ms
         JOIN mrp_runs mr ON mr.id=ms.run_id
-        WHERE mr.project_code=%s OR mr.serial_no=%s
+        WHERE mr.project_code=%s OR mr.cabinet_no=%s
         GROUP BY suggestion_type
         """,
         (BASELINE_PROJECT, BASELINE_SERIAL),
@@ -252,7 +252,7 @@ def scenario_5_inventory_pick(cur, sc: Scenario) -> None:
         """
         SELECT COUNT(*) FROM purchase_receipts pr
         JOIN purchase_orders po ON po.id=pr.order_id
-        WHERE po.project_code=%s AND po.serial_no=%s
+        WHERE po.project_code=%s AND po.cabinet_no=%s
         """,
         (BASELINE_PROJECT, BASELINE_SERIAL),
     )
@@ -261,10 +261,10 @@ def scenario_5_inventory_pick(cur, sc: Scenario) -> None:
     # 库存余额
     balance_count = scalar(
         cur,
-        "SELECT COUNT(*) FROM inventory_balances WHERE serial_no=%s",
+        "SELECT COUNT(*) FROM inventory_balances WHERE cabinet_no=%s",
         (BASELINE_SERIAL,),
     )
-    sc.check("机号库存余额", (balance_count or 0) > 0, f"balances={balance_count}")
+    sc.check("柜号库存余额", (balance_count or 0) > 0, f"balances={balance_count}")
 
     # 生产领料
     pick_count = scalar(
@@ -272,7 +272,7 @@ def scenario_5_inventory_pick(cur, sc: Scenario) -> None:
         """
         SELECT COUNT(*) FROM pick_lists pl
         JOIN work_orders wo ON wo.id=pl.work_order_id
-        WHERE wo.project_code=%s AND wo.serial_no=%s
+        WHERE wo.project_code=%s AND wo.cabinet_no=%s
         """,
         (BASELINE_PROJECT, BASELINE_SERIAL),
     )
@@ -293,7 +293,7 @@ def scenario_6_completion(cur, sc: Scenario) -> None:
         cur,
         """
         SELECT production_stage, COUNT(*) FROM work_orders
-        WHERE project_code=%s AND serial_no=%s
+        WHERE project_code=%s AND cabinet_no=%s
         GROUP BY production_stage
         """,
         (BASELINE_PROJECT, BASELINE_SERIAL),
@@ -316,7 +316,7 @@ def scenario_6_completion(cur, sc: Scenario) -> None:
         cur,
         """
         SELECT COUNT(*) FROM production_completion_orders
-        WHERE project_code=%s AND serial_no=%s
+        WHERE project_code=%s AND cabinet_no=%s
         """,
         (BASELINE_PROJECT, BASELINE_SERIAL),
     )
@@ -327,7 +327,7 @@ def scenario_6_completion(cur, sc: Scenario) -> None:
         cur,
         """
         SELECT COUNT(*) FROM operation_reports
-        WHERE project_code=%s AND serial_no=%s
+        WHERE project_code=%s AND cabinet_no=%s
         """,
         (BASELINE_PROJECT, BASELINE_SERIAL),
     )
@@ -341,7 +341,7 @@ def scenario_7_shipment_invoice(cur, sc: Scenario) -> None:
         cur,
         """
         SELECT id, shipment_no, status FROM sales_shipments
-        WHERE project_code=%s AND serial_no=%s
+        WHERE project_code=%s AND cabinet_no=%s
         ORDER BY id DESC LIMIT 1
         """,
         (BASELINE_PROJECT, BASELINE_SERIAL),
@@ -356,7 +356,7 @@ def scenario_7_shipment_invoice(cur, sc: Scenario) -> None:
         cur,
         """
         SELECT id, source_no, total_amount, balance, status FROM customer_receivables
-        WHERE project_code=%s AND serial_no=%s
+        WHERE project_code=%s AND cabinet_no=%s
         ORDER BY id DESC LIMIT 1
         """,
         (BASELINE_PROJECT, BASELINE_SERIAL),
@@ -371,7 +371,7 @@ def scenario_7_shipment_invoice(cur, sc: Scenario) -> None:
         cur,
         """
         SELECT COUNT(*) FROM sales_invoices
-        WHERE project_code=%s AND serial_no=%s
+        WHERE project_code=%s AND cabinet_no=%s
         """,
         (BASELINE_PROJECT, BASELINE_SERIAL),
     )
@@ -386,7 +386,7 @@ def scenario_8_cost(cur, sc: Scenario) -> None:
         sc.check(f"成本表 {tbl} 存在", bool(exists), tbl)
 
     # 成本引擎服务可导入
-    for svc in ["services.cost_engine", "services.serial_cost_service", "services.project_cost_service"]:
+    for svc in ["services.cost_engine", "services.cabinet_cost_service", "services.project_cost_service"]:
         try:
             __import__(svc)
             sc.check(f"{svc} 可导入", True)
@@ -400,7 +400,7 @@ def scenario_8_cost(cur, sc: Scenario) -> None:
         SELECT id, run_no, total_material_cost, total_labor_cost,
                total_outsource_cost, total_cost, status
         FROM cost_runs
-        WHERE project_code=%s OR serial_no=%s
+        WHERE project_code=%s OR cabinet_no=%s
         ORDER BY id DESC LIMIT 1
         """,
         (BASELINE_PROJECT, BASELINE_SERIAL),
@@ -429,7 +429,7 @@ def scenario_9_trace(cur, sc: Scenario) -> None:
     # 追溯链接总数
     link_count = scalar(
         cur,
-        "SELECT COUNT(*) FROM trace_links WHERE project_code=%s OR serial_no=%s",
+        "SELECT COUNT(*) FROM trace_links WHERE project_code=%s OR cabinet_no=%s",
         (BASELINE_PROJECT, BASELINE_SERIAL),
     )
     sc.check("追溯链接存在", (link_count or 0) > 0, f"links={link_count}")
@@ -439,7 +439,7 @@ def scenario_9_trace(cur, sc: Scenario) -> None:
         cur,
         """
         SELECT COUNT(DISTINCT source_doc_type), COUNT(DISTINCT target_doc_type)
-        FROM trace_links WHERE project_code=%s OR serial_no=%s
+        FROM trace_links WHERE project_code=%s OR cabinet_no=%s
         """,
         (BASELINE_PROJECT, BASELINE_SERIAL),
     )
@@ -465,7 +465,7 @@ def scenario_9_trace(cur, sc: Scenario) -> None:
         cur,
         """
         SELECT COUNT(*) FROM trace_links
-        WHERE source_doc_type='sales_order' AND (project_code=%s OR serial_no=%s)
+        WHERE source_doc_type='sales_order' AND (project_code=%s OR cabinet_no=%s)
         """,
         (BASELINE_PROJECT, BASELINE_SERIAL),
     )
@@ -476,7 +476,7 @@ def scenario_9_trace(cur, sc: Scenario) -> None:
         cur,
         """
         SELECT COUNT(*) FROM trace_links
-        WHERE source_doc_type='sales_order' AND (project_code=%s OR serial_no=%s)
+        WHERE source_doc_type='sales_order' AND (project_code=%s OR cabinet_no=%s)
         """,
         (BASELINE_PROJECT, BASELINE_SERIAL),
     )
@@ -558,7 +558,7 @@ def run_acceptance() -> int:
     print("P0 全链路联调验收")
     print(f"基线销售订单: {BASELINE_ORDER_NO}")
     print(f"基线项目号:   {BASELINE_PROJECT}")
-    print(f"基线机号:     {BASELINE_SERIAL}")
+    print(f"基线柜号:     {BASELINE_SERIAL}")
     print("=" * 70)
 
     scenarios: list[Scenario] = []
@@ -602,7 +602,7 @@ def run_acceptance() -> int:
         f"**验收时间**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
         f"**基线销售订单**: {BASELINE_ORDER_NO}",
         f"**基线项目号**: {BASELINE_PROJECT}",
-        f"**基线机号**: {BASELINE_SERIAL}",
+        f"**基线柜号**: {BASELINE_SERIAL}",
         "",
         "## 验收汇总",
         "",

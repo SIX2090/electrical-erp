@@ -2,18 +2,18 @@
 
 ## Business Loop
 
-Sales order -> sales shipment -> customer receivable -> customer receipt and reconciliation -> project and machine serial traceability.
+Sales order -> sales shipment -> customer receivable -> customer receipt and reconciliation -> project and machine cabinet traceability.
 
 ## Source Document
 
-The source document is the audited sales order. The sales order owns customer, project code, machine serial number, price, delivery intent, and shipment demand.
+The source document is the audited sales order. The sales order owns customer, project code, cabinet number, price, delivery intent, and shipment demand.
 
 ## Target Documents
 
 - Sales shipment records outbound execution and inventory movement.
-- Customer receivable records the AR balance by customer, source document, project code, and machine serial number.
+- Customer receivable records the AR balance by customer, source document, project code, and cabinet number.
 - Customer receipt records collection against the sales order or receivable source.
-- Project and machine serial ledgers expose downstream traceability across shipment, receivable, service card, and stock transactions.
+- Project and machine cabinet ledgers expose downstream traceability across shipment, receivable, service card, and stock transactions.
 
 ## In Scope
 
@@ -40,7 +40,7 @@ The source document is the audited sales order. The sales order owns customer, p
 - A sales shipment must be based on an audited sales order.
 - Finance-owned entries such as receivables and sales invoices must not be duplicated in the sales navigation group.
 - Sales may keep direct query access to receivable/project trace pages where existing permissions allow it, but homepage and navigation shortcuts must not present those pages as sales-owned work.
-- Project code and machine serial number are traceability fields. They should flow when present, but are not universal mandatory fields unless the system option requires them.
+- Project code and cabinet number are traceability fields. They should flow when present, but are not universal mandatory fields unless the system option requires them.
 
 ## Acceptance Checks
 

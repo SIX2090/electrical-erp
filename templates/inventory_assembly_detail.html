@@ -12,7 +12,7 @@
 {% set can_close = status == '已过账' %}
 {% set prev_id = order.id - 1 if order.id and order.id > 1 else 1 %}
 {% set doc_no = order.assembly_no or order.id %}
-{% set trace_keyword = order.project_code or order.serial_no or doc_no %}
+{% set trace_keyword = order.project_code or order.cabinet_no or doc_no %}
 
 {{ document_menu_bar(actions=[
     {'label': '返回列表', 'type': 'link', 'href': back_url, 'icon': 'bi-arrow-left'},
@@ -32,7 +32,7 @@
     {'label': '关闭', 'type': 'button', 'button_type': 'submit', 'form': 'assemblyCloseForm', 'disabled': not can_close, 'icon': 'bi-lock'},
     {'label': '工具', 'type': 'dropdown', 'items': [
         {'label': '库存流水', 'type': 'link', 'href': '/transactions?keyword=' ~ (doc_no|urlencode)},
-        {'label': '批次/机号追溯', 'type': 'link', 'href': '/transactions?keyword=' ~ (trace_keyword|urlencode)},
+        {'label': '批次/柜号追溯', 'type': 'link', 'href': '/transactions?keyword=' ~ (trace_keyword|urlencode)},
         {'label': 'BOM/主件', 'type': 'link', 'href': ('/boms?keyword=' ~ (order.product_code|urlencode)) if meta.doc_type == 'assembly' else ('/material?search=' ~ (order.product_code|urlencode))},
         {'label': '附件', 'type': 'link', 'href': '#assemblyAttachmentsPanel'},
         {'label': '备注/操作记录', 'type': 'link', 'href': '#assemblyNotesPanel'}
@@ -58,7 +58,7 @@
 <div class="alert alert-info mb-3">
     <strong>当前状态：</strong>{{ status or '待过账' }}。
     {% if status in pending_statuses %}
-    单据已保存，尚未影响库存；请复核主件、子件、仓库、库位、批号和机号后确认过账。
+    单据已保存，尚未影响库存；请复核主件、子件、仓库、库位、批号和柜号后确认过账。
     {% elif status == '已关闭' %}
     单据已关闭，库存流水保留为最终追溯依据，不允许重复过账。
     {% elif status == '已取消' %}
@@ -74,7 +74,7 @@
     <div class="d-flex justify-content-between align-items-start gap-3">
         <div>
             <h1 class="h4 mb-1">{{ meta.title }}：{{ doc_no }}</h1>
-            <div class="text-muted">{{ order.project_code or '-' }} / {{ order.serial_no or '-' }}</div>
+            <div class="text-muted">{{ order.project_code or '-' }} / {{ order.cabinet_no or '-' }}</div>
         </div>
         <div class="document-title-stamp">
             {{ void_stamp(status) }}
@@ -92,10 +92,10 @@
 </div>
 
 <div class="page-card mb-3">
-    <div class="section-title"><div><h2>{{ meta.parent_label }}</h2><span>主件物料、数量、批号和机号</span></div></div>
+    <div class="section-title"><div><h2>{{ meta.parent_label }}</h2><span>主件物料、数量、批号和柜号</span></div></div>
     <div class="table-responsive">
         <table class="table table-sm align-middle">
-            <thead><tr><th>物料编码</th><th>物料名称</th><th>规格</th><th class="text-end">数量</th><th>单位</th><th class="text-end">库存成本单价</th><th>批号</th><th>机号</th></tr></thead>
+            <thead><tr><th>物料编码</th><th>物料名称</th><th>规格</th><th class="text-end">数量</th><th>单位</th><th class="text-end">库存成本单价</th><th>批号</th><th>柜号</th></tr></thead>
             <tbody>
             <tr>
                 <td>{{ order.product_code or order.product_id }}</td>
@@ -105,7 +105,7 @@
                 <td>{{ order.unit or '-' }}</td>
                 <td class="text-end">{{ order.unit_cost|money }}</td>
                 <td>{{ order.lot_no or '-' }}</td>
-                <td>{{ order.serial_no or '-' }}</td>
+                <td>{{ order.cabinet_no or '-' }}</td>
             </tr>
             </tbody>
         </table>
@@ -113,10 +113,10 @@
 </div>
 
 <div class="page-card mb-3">
-    <div class="section-title"><div><h2>{{ meta.line_label }}</h2><span>子件物料、数量、批号和机号</span></div></div>
+    <div class="section-title"><div><h2>{{ meta.line_label }}</h2><span>子件物料、数量、批号和柜号</span></div></div>
     <div class="table-responsive">
         <table class="table table-sm align-middle">
-            <thead><tr><th>物料编码</th><th>物料名称</th><th>规格</th><th>产品分类</th><th class="text-end">数量</th><th>单位</th><th class="text-end">库存成本单价</th><th>批号</th><th>机号</th></tr></thead>
+            <thead><tr><th>物料编码</th><th>物料名称</th><th>规格</th><th>产品分类</th><th class="text-end">数量</th><th>单位</th><th class="text-end">库存成本单价</th><th>批号</th><th>柜号</th></tr></thead>
             <tbody>
             {% for item in items %}
             <tr>
@@ -128,7 +128,7 @@
                 <td>{{ item.unit or '-' }}</td>
                 <td class="text-end">{{ item.unit_cost|money }}</td>
                 <td>{{ item.lot_no or '-' }}</td>
-                <td>{{ item.serial_no or '-' }}</td>
+                <td>{{ item.cabinet_no or '-' }}</td>
             </tr>
             {% else %}
             <tr><td colspan="9" class="text-muted">暂无明细。</td></tr>
@@ -142,7 +142,7 @@
     <div class="section-title"><div><h2>库存流水</h2><span>按本单号生成的出入库流水</span></div></div>
     <div class="table-responsive">
         <table class="table table-sm align-middle">
-            <thead><tr><th>日期</th><th>类型</th><th>物料</th><th>仓库</th><th>库位</th><th class="text-end">数量</th><th class="text-end">成本</th><th>批号</th><th>机号</th></tr></thead>
+            <thead><tr><th>日期</th><th>类型</th><th>物料</th><th>仓库</th><th>库位</th><th class="text-end">数量</th><th class="text-end">成本</th><th>批号</th><th>柜号</th></tr></thead>
             <tbody>
             {% for tx in transactions %}
             <tr>
@@ -154,7 +154,7 @@
                 <td class="text-end">{{ tx.quantity|qty }}</td>
                 <td class="text-end">{{ tx.unit_cost|money }}</td>
                 <td>{{ tx.lot_no or '-' }}</td>
-                <td>{{ tx.serial_no or '-' }}</td>
+                <td>{{ tx.cabinet_no or '-' }}</td>
             </tr>
             {% else %}
             <tr><td colspan="9" class="text-muted">暂无库存流水。</td></tr>
@@ -217,7 +217,7 @@
             <div class="section-title">
                 <div>
                     <h2>备注/操作记录</h2>
-                    <span>记录组拆原因、复核说明、项目机号差异和后续处理</span>
+                    <span>记录组拆原因、复核说明、项目柜号差异和后续处理</span>
                 </div>
             </div>
             {% if order.remark %}
@@ -227,7 +227,7 @@
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="col-md-9">
                     <label class="form-label">新增备注</label>
-                    <input class="form-control" name="note" placeholder="输入组拆原因、审批意见、项目机号说明或现场说明" required>
+                    <input class="form-control" name="note" placeholder="输入组拆原因、审批意见、项目柜号说明或现场说明" required>
                 </div>
                 <div class="col-md-3 d-grid">
                     <button class="btn btn-primary" type="submit"><i class="bi bi-clock-history"></i> 记录</button>

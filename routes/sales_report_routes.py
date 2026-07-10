@@ -15,13 +15,13 @@ from services.sales_shipment_report_service import build_sales_shipment_report, 
 from services.sales_report_service import (
     query_sales_order_execution_detail,
     query_receivable_aging_analysis,
-    query_project_serial_sales_tracking,
+    query_project_cabinet_sales_tracking,
     query_shipped_unsettled_detail,
 )
 from services.sales_order_report_service import (
     query_customer_open_order_analysis,
     query_order_execution_summary,
-    query_project_serial_open_order_analysis,
+    query_project_cabinet_open_order_analysis,
     query_sales_summary,
 )
 
@@ -35,8 +35,8 @@ REAL_SALES_REPORT_PATHS = {
     "/sales/reports/order-execution-summary",
     "/sales/reports/order-execution-detail",
     "/sales/reports/customer-open-order-analysis",
-    "/sales/reports/project-serial-open-order-analysis",
-    "/sales/reports/project-serial-order-tracking",
+    "/sales/reports/project-cabinet-open-order-analysis",
+    "/sales/reports/project-cabinet-order-tracking",
     "/sales/reports/shipment-execution-detail",
     "/sales/reports/shipped-goods-detail",
     "/sales/reports/shipped-goods-summary",
@@ -45,7 +45,7 @@ REAL_SALES_REPORT_PATHS = {
     "/sales/reports/invoice-summary",
     "/sales/reports/receivable-collection-detail",
     "/sales/reports/receivable-aging",
-    "/sales/reports/project-serial-gross-margin",
+    "/sales/reports/project-cabinet-gross-margin",
     "/sales/reports/price-execution-analysis",
     "/sales/reports/delivery-delay-analysis",
     "/sales/reports/operation-snapshot",
@@ -78,7 +78,7 @@ def register_sales_report_routes(app, deps):
     def _apply_scope_to_report(report_data, field_map, count_keys=None, amount_keys=None):
         """对报表数据进行数据权限过滤，并重算 summary 中的 count/amount 字段。
 
-        field_map: {"project": "project_code", "serial": "serial_no", "customer": "customer_id"}
+        field_map: {"project": "project_code", "cabinet": "cabinet_no", "customer": "customer_id"}
         count_keys: summary 中需要按 len(rows) 重算的键，如 ["order_count"]
         amount_keys: summary 中需要按 sum(rows[field]) 重算的键，如 [("total_order_amount", "order_amount")]
         """
@@ -110,7 +110,7 @@ def register_sales_report_routes(app, deps):
             'date_end': request.args.get('date_end'),
             'customer_name': request.args.get('customer_name'),
             'project_code': request.args.get('project_code'),
-            'serial_no': request.args.get('serial_no'),
+            'cabinet_no': request.args.get('cabinet_no'),
             'status': request.args.get('status'),
             'group_by': request.args.get('group_by'),
         }
@@ -157,7 +157,7 @@ def register_sales_report_routes(app, deps):
         ]
         return render_template('report_center.html', reports=reports)
 
-    _SALES_SCOPE_FIELD_MAP = {"project": "project_code", "serial": "serial_no", "customer": "customer_id"}
+    _SALES_SCOPE_FIELD_MAP = {"project": "project_code", "cabinet": "cabinet_no", "customer": "customer_id"}
 
     @app.route('/sales/reports/pending')
     @login_required
@@ -211,11 +211,11 @@ def register_sales_report_routes(app, deps):
         _apply_scope_to_report(report_data, _SALES_SCOPE_FIELD_MAP)
         return _render_order_report(report_data)
 
-    @app.route('/sales/reports/project-serial-open-order-analysis')
+    @app.route('/sales/reports/project-cabinet-open-order-analysis')
     @login_required
     @sales_report_required
-    def project_serial_open_order_analysis_report():
-        report_data = query_project_serial_open_order_analysis(query_db, _order_report_filters())
+    def project_cabinet_open_order_analysis_report():
+        report_data = query_project_cabinet_open_order_analysis(query_db, _order_report_filters())
         _apply_scope_to_report(report_data, _SALES_SCOPE_FIELD_MAP)
         return _render_order_report(report_data)
 
@@ -304,11 +304,11 @@ def register_sales_report_routes(app, deps):
         _apply_scope_to_report(report, _SALES_SCOPE_FIELD_MAP)
         return render_template('reports/sales_analysis_reports.html', report=report)
 
-    @app.route('/sales/reports/project-serial-gross-margin')
+    @app.route('/sales/reports/project-cabinet-gross-margin')
     @login_required
     @sales_report_required
-    def sales_project_serial_gross_margin_report():
-        return _render_analysis_report('project-serial-gross-margin')
+    def sales_project_cabinet_gross_margin_report():
+        return _render_analysis_report('project-cabinet-gross-margin')
 
     @app.route('/sales/reports/price-execution-analysis')
     @login_required
@@ -347,7 +347,7 @@ def register_sales_report_routes(app, deps):
             'customer_id': request.args.get('customer_id'),
             'customer_name': request.args.get('customer_name'),
             'project_code': request.args.get('project_code'),
-            'serial_no': request.args.get('serial_no'),
+            'cabinet_no': request.args.get('cabinet_no'),
             'status': request.args.get('status'),
         }
 
@@ -380,7 +380,7 @@ def register_sales_report_routes(app, deps):
             {'key': 'order_date', 'label': '订单日期'},
             {'key': 'customer_name', 'label': '客户'},
             {'key': 'project_code', 'label': '项目号'},
-            {'key': 'serial_no', 'label': '机号'},
+            {'key': 'cabinet_no', 'label': '柜号'},
             {'key': 'order_amount', 'label': '订单金额', 'align': 'right', 'format': 'money'},
             {'key': 'shipped_amount', 'label': '已发货', 'align': 'right', 'format': 'money'},
             {'key': 'unshipped_amount', 'label': '未发货', 'align': 'right', 'format': 'money'},
@@ -413,7 +413,7 @@ def register_sales_report_routes(app, deps):
             'customer_id': request.args.get('customer_id'),
             'customer_name': request.args.get('customer_name'),
             'project_code': request.args.get('project_code'),
-            'serial_no': request.args.get('serial_no'),
+            'cabinet_no': request.args.get('cabinet_no'),
             'aging_range': request.args.get('aging_range'),
         }
 
@@ -453,7 +453,7 @@ def register_sales_report_routes(app, deps):
             {'key': 'receivable_no', 'label': '应收单号', 'url_key': 'receivable_url'},
             {'key': 'customer_name', 'label': '客户', 'url_key': 'customer_url'},
             {'key': 'project_code', 'label': '项目号'},
-            {'key': 'serial_no', 'label': '机号'},
+            {'key': 'cabinet_no', 'label': '柜号'},
             {'key': 'source_no', 'label': '来源单号'},
             {'key': 'source_date', 'label': '来源日期'},
             {'key': 'due_date', 'label': '到期日'},
@@ -474,22 +474,22 @@ def register_sales_report_routes(app, deps):
             filters=filters,
         )
 
-    @app.route('/sales/reports/project-serial-order-tracking')
+    @app.route('/sales/reports/project-cabinet-order-tracking')
     @login_required
     @sales_report_required
-    def project_serial_sales_tracking_report():
-        """项目/机号销售订单跟踪报表"""
+    def project_cabinet_sales_tracking_report():
+        """项目/柜号销售订单跟踪报表"""
 
         # 获取筛选参数
         filters = {
             'project_code': request.args.get('project_code'),
-            'serial_no': request.args.get('serial_no'),
+            'cabinet_no': request.args.get('cabinet_no'),
             'customer_id': request.args.get('customer_id'),
             'customer_name': request.args.get('customer_name'),
         }
 
         # 查询数据
-        rows = query_project_serial_sales_tracking(query_db, filters)
+        rows = query_project_cabinet_sales_tracking(query_db, filters)
 
         # 数据权限过滤
         scope = _current_sales_scope()
@@ -511,7 +511,7 @@ def register_sales_report_routes(app, deps):
         # 列定义
         columns = [
             {'key': 'project_code', 'label': '项目号'},
-            {'key': 'serial_no', 'label': '机号'},
+            {'key': 'cabinet_no', 'label': '柜号'},
             {'key': 'customer_name', 'label': '客户'},
             {'key': 'order_no', 'label': '订单号', 'url_key': 'order_url'},
             {'key': 'order_date', 'label': '订单日期'},
@@ -524,8 +524,8 @@ def register_sales_report_routes(app, deps):
         ]
 
         return render_template(
-            'reports/project_serial_sales_tracking.html',
-            title='项目/机号销售订单跟踪',
+            'reports/project_cabinet_sales_tracking.html',
+            title='项目/柜号销售订单跟踪',
             rows=rows,
             columns=columns,
             summary=summary,
@@ -574,7 +574,7 @@ def register_sales_report_routes(app, deps):
             {'key': 'customer_name', 'label': '客户'},
             {'key': 'order_no', 'label': '订单号'},
             {'key': 'project_code', 'label': '项目号'},
-            {'key': 'serial_no', 'label': '机号'},
+            {'key': 'cabinet_no', 'label': '柜号'},
             {'key': 'shipped_amount', 'label': '发货金额', 'align': 'right', 'format': 'money'},
             {'key': 'invoiced_amount', 'label': '已开票', 'align': 'right', 'format': 'money'},
             {'key': 'uninvoiced_amount', 'label': '未开票', 'align': 'right', 'format': 'money'},

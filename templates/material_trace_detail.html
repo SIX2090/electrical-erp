@@ -173,9 +173,9 @@
 </div>
 
 {% for section_title, rows, columns in [
-    ('采购记录', purchase_items, [('order_no','单号'),('order_date','日期'),('supplier_name','供应商'),('project_code','项目号'),('serial_no','机号'),('quantity','数量'),('received_qty','已收'),('amount','金额')]),
-    ('销售记录', sales_items, [('order_no','单号'),('order_date','日期'),('customer_name','客户'),('project_code','项目号'),('serial_no','机号'),('quantity','数量'),('shipped_qty','已发'),('amount','金额')]),
-    ('生产工单', work_orders, [('wo_no','工单'),('wo_date','日期'),('project_code','项目号'),('serial_no','机号'),('quantity','数量'),('status','状态')])
+    ('采购记录', purchase_items, [('order_no','单号'),('order_date','日期'),('supplier_name','供应商'),('project_code','项目号'),('cabinet_no','柜号'),('quantity','数量'),('received_qty','已收'),('amount','金额')]),
+    ('销售记录', sales_items, [('order_no','单号'),('order_date','日期'),('customer_name','客户'),('project_code','项目号'),('cabinet_no','柜号'),('quantity','数量'),('shipped_qty','已发'),('amount','金额')]),
+    ('生产工单', work_orders, [('wo_no','工单'),('wo_date','日期'),('project_code','项目号'),('cabinet_no','柜号'),('quantity','数量'),('status','状态')])
 ] %}
 <div class="page-card mb-3">
     <h2 class="h5 mb-3">{{ section_title }}</h2>

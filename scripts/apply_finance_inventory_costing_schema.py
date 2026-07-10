@@ -117,7 +117,7 @@ def apply_migration():
         print(f"\n创建的表:")
         print(f"  - inventory_costing (存货成本核算表)")
         print(f"  - project_cost_ledger (项目成本台账)")
-        print(f"  - serial_cost_ledger (机号成本台账)")
+        print(f"  - cabinet_cost_ledger (柜号成本台账)")
         print(f"  - project_revenue_ledger (项目收入台账)")
 
         print(f"\n扩展的表:")
@@ -151,7 +151,7 @@ def verify_migration():
             tables = [
                 'inventory_costing',
                 'project_cost_ledger',
-                'serial_cost_ledger',
+                'cabinet_cost_ledger',
                 'project_revenue_ledger'
             ]
 
@@ -224,7 +224,7 @@ def verify_migration():
                 'idx_inventory_costing_product',
                 'idx_inventory_costing_date',
                 'idx_project_cost_project',
-                'idx_serial_cost_serial',
+                'idx_cabinet_cost_serial',
                 'idx_project_revenue_project'
             ]
 
@@ -270,5 +270,5 @@ if __name__ == '__main__':
     print(f"\n下一步:")
     print(f"  1. 开发存货核算服务 (services/inventory_costing_service.py)")
     print(f"  2. 开发项目成本服务 (services/project_cost_service.py)")
-    print(f"  3. 开发机号成本服务 (services/serial_cost_service.py)")
+    print(f"  3. 开发柜号成本服务 (services/cabinet_cost_service.py)")
     print(f"\n")

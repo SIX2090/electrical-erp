@@ -20,7 +20,7 @@
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
         <div>
             <h2 class="h5 mb-1">流水查询</h2>
-            <div class="text-muted small">按来源单号、物料、项目号、批号、机号追溯库存影响；本页不新建业务单据。</div>
+            <div class="text-muted small">按来源单号、物料、项目号、批号、柜号追溯库存影响；本页不新建业务单据。</div>
         </div>
         <div class="d-flex flex-wrap gap-2">
             <a class="btn btn-outline-primary btn-sm" href="/inventory/detail"><i class="bi bi-box-seam"></i> 库存明细</a>
@@ -29,7 +29,7 @@
     </div>
     <form class="row g-2" method="get" action="/transactions">
         <div class="col-lg-5">
-            <input class="form-control" name="keyword" value="{{ filters.keyword }}" placeholder="物料、来源单号、项目号、批号、机号">
+            <input class="form-control" name="keyword" value="{{ filters.keyword }}" placeholder="物料、来源单号、项目号、批号、柜号">
         </div>
         <div class="col-lg-2">
             <input class="form-control" name="project_code" value="{{ filters.project_code }}" placeholder="项目号">
@@ -74,7 +74,7 @@
                 <th>来源类型</th>
                 <th>项目号</th>
                 <th>批号</th>
-                <th>机号</th>
+                <th>柜号</th>
                 <th>备注</th>
                 <th>下一步</th>
                 <th>操作</th>
@@ -100,7 +100,7 @@
                 <td>{{ row.source_type|clean_text }}</td>
                 <td>{{ row.project_code|clean_text }}</td>
                 <td>{{ row.lot_no|clean_text }}</td>
-                <td>{{ row.serial_no|clean_text }}</td>
+                <td>{{ row.cabinet_no|clean_text }}</td>
                 <td>{{ row.remark|clean_text }}</td>
                 <td>
                     {% if (row.quantity or 0) < 0 %}

@@ -13,7 +13,7 @@ from app import create_app  # noqa: E402
 
 ROUTES = [
     ("/work-orders", ("生产", "状态"), ()),
-    ("/work-orders/new", ("生产", "项目", "机号"), ()),
+    ("/work-orders/new", ("生产", "项目", "柜号"), ()),
     ("/production-completions", ("完工", "状态"), ()),
     ("/production-completions/new", ("完工", "来源"), ()),
     ("/production-enhance/quality-inspections", ("质量", "状态"), ()),

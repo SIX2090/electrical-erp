@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-机号成本服务
-实现机号成本归集、标准成本对比和成本差异分析
+柜号成本服务
+实现柜号成本归集、标准成本对比和成本差异分析
 
 核心功能：
-1. 记录机号成本
-2. 计算机号总成本
+1. 记录柜号成本
+2. 计算柜号总成本
 3. 计算BOM标准成本
 4. 计算成本差异
-5. 机号成本明细查询
-6. 机号成本汇总查询
-7. 机号成本差异分析
+5. 柜号成本明细查询
+6. 柜号成本汇总查询
+7. 柜号成本差异分析
 
 作者: AI Assistant
 日期: 2026-06-16
@@ -30,17 +30,17 @@ def _escape_like_wildcards_for_psycopg2(sql: str) -> str:
     return sql.replace("%s", placeholder).replace("%", "%%").replace(placeholder, "%s")
 
 
-def record_serial_cost(
+def record_cabinet_cost(
     query_db,
     execute_db,
     cost_data: Dict
 ) -> Dict:
     """
-    记录机号成本
+    记录柜号成本
 
     Args:
         cost_data: {
-            'serial_no': 机号,
+            'cabinet_no': 柜号,
             'product_id': 产品ID（可选）,
             'project_code': 项目号（可选）,
             'cost_date': 成本日期,
@@ -67,8 +67,8 @@ def record_serial_cost(
     try:
         result = execute_db(
             """
-            INSERT INTO serial_cost_ledger (
-                serial_no,
+            INSERT INTO cabinet_cost_ledger (
+                cabinet_no,
                 product_id,
                 project_code,
                 cost_date,
@@ -89,7 +89,7 @@ def record_serial_cost(
             RETURNING id
             """,
             (
-                cost_data['serial_no'],
+                cost_data['cabinet_no'],
                 cost_data.get('product_id'),
                 cost_data.get('project_code'),
                 cost_data.get('cost_date', datetime.now().date()),
@@ -115,37 +115,37 @@ def record_serial_cost(
             cost_id = result
         else:
             row = query_db(
-                "SELECT id FROM serial_cost_ledger WHERE serial_no=%s AND source_no=%s ORDER BY id DESC LIMIT 1",
-                (cost_data['serial_no'], cost_data.get('source_no')),
+                "SELECT id FROM cabinet_cost_ledger WHERE cabinet_no=%s AND source_no=%s ORDER BY id DESC LIMIT 1",
+                (cost_data['cabinet_no'], cost_data.get('source_no')),
                 one=True,
             )
             cost_id = row.get('id') if row else None
 
         return {
             'success': True,
-            'message': '机号成本记录成功',
+            'message': '柜号成本记录成功',
             'cost_id': cost_id
         }
 
     except Exception as e:
         return {
             'success': False,
-            'message': f'机号成本记录失败: {str(e)}'
+            'message': f'柜号成本记录失败: {str(e)}'
         }
 
 
-def calculate_serial_total_cost(
+def calculate_cabinet_total_cost(
     query_db,
-    serial_no: str,
+    cabinet_no: str,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None
 ) -> Dict:
     """
-    计算机号总成本
+    计算柜号总成本
 
     Args:
         query_db: 数据库查询函数
-        serial_no: 机号
+        cabinet_no: 柜号
         start_date: 开始日期（可选）
         end_date: 结束日期（可选）
 
@@ -160,8 +160,8 @@ def calculate_serial_total_cost(
             'cost_details': [按类型分组的明细]
         }
     """
-    where_clauses = ["serial_no = %s"]
-    params = [serial_no]
+    where_clauses = ["cabinet_no = %s"]
+    params = [cabinet_no]
 
     if start_date:
         where_clauses.append("cost_date >= %s")
@@ -182,8 +182,8 @@ def calculate_serial_total_cost(
             COUNT(*) AS record_count
         FROM (
             SELECT *, {SERIAL_COST_AMOUNT_SQL} AS cost_amount
-            FROM serial_cost_ledger
-        ) serial_cost_ledger
+            FROM cabinet_cost_ledger
+        ) cabinet_cost_ledger
         WHERE {where_sql}
         GROUP BY cost_type
         ORDER BY total_amount DESC
@@ -228,7 +228,7 @@ def calculate_serial_total_cost(
 
 def calculate_bom_standard_cost(
     query_db,
-    serial_no: str
+    cabinet_no: str
 ) -> Dict:
     """
     计算BOM标准成本
@@ -237,7 +237,7 @@ def calculate_bom_standard_cost(
 
     Args:
         query_db: 数据库查询函数
-        serial_no: 机号
+        cabinet_no: 柜号
 
     Returns:
         {
@@ -248,31 +248,31 @@ def calculate_bom_standard_cost(
         }
     """
     try:
-        # 查询机号对应的产品：优先从 serial_cost_ledger，回退到 work_orders
-        serial_product = query_db(
+        # 查询柜号对应的产品：优先从 cabinet_cost_ledger，回退到 work_orders
+        cabinet_product = query_db(
             """
             SELECT product_id
-            FROM serial_cost_ledger
-            WHERE serial_no = %s AND product_id IS NOT NULL
+            FROM cabinet_cost_ledger
+            WHERE cabinet_no = %s AND product_id IS NOT NULL
             LIMIT 1
             """,
-            (serial_no,),
+            (cabinet_no,),
             one=True
         )
 
-        product_id = serial_product.get('product_id') if serial_product else None
+        product_id = cabinet_product.get('product_id') if cabinet_product else None
 
         if not product_id:
-            # 回退：从 work_orders 查找该机号对应的产品
+            # 回退：从 work_orders 查找该柜号对应的产品
             wo_product = query_db(
                 """
                 SELECT product_id
                 FROM work_orders
-                WHERE serial_no = %s AND product_id IS NOT NULL
+                WHERE cabinet_no = %s AND product_id IS NOT NULL
                 ORDER BY id DESC
                 LIMIT 1
                 """,
-                (serial_no,),
+                (cabinet_no,),
                 one=True
             )
             if wo_product:
@@ -281,7 +281,7 @@ def calculate_bom_standard_cost(
         if not product_id:
             return {
                 'success': False,
-                'message': '无法找到机号对应的产品',
+                'message': '无法找到柜号对应的产品',
                 'standard_cost': Decimal('0'),
                 'bom_items': []
             }
@@ -357,7 +357,7 @@ def calculate_bom_standard_cost(
 
 def calculate_cost_variance(
     query_db,
-    serial_no: str,
+    cabinet_no: str,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None
 ) -> Dict:
@@ -368,7 +368,7 @@ def calculate_cost_variance(
 
     Args:
         query_db: 数据库查询函数
-        serial_no: 机号
+        cabinet_no: 柜号
         start_date: 开始日期（可选）
         end_date: 结束日期（可选）
 
@@ -382,11 +382,11 @@ def calculate_cost_variance(
         }
     """
     # 计算实际成本
-    actual_result = calculate_serial_total_cost(query_db, serial_no, start_date, end_date)
+    actual_result = calculate_cabinet_total_cost(query_db, cabinet_no, start_date, end_date)
     actual_cost = actual_result['total_cost']
 
     # 计算标准成本
-    standard_result = calculate_bom_standard_cost(query_db, serial_no)
+    standard_result = calculate_bom_standard_cost(query_db, cabinet_no)
     standard_cost = standard_result['standard_cost']
 
     # 计算差异
@@ -415,16 +415,16 @@ def calculate_cost_variance(
     }
 
 
-def query_serial_cost_detail(
+def query_cabinet_cost_detail(
     query_db,
     filters: Optional[Dict] = None
 ) -> List[Dict]:
     """
-    查询机号成本明细
+    查询柜号成本明细
 
     Args:
         filters: {
-            'serial_no': 机号,
+            'cabinet_no': 柜号,
             'project_code': 项目号,
             'start_date': 开始日期,
             'end_date': 结束日期,
@@ -433,16 +433,16 @@ def query_serial_cost_detail(
         }
 
     Returns:
-        机号成本明细列表
+        柜号成本明细列表
     """
     filters = filters or {}
 
     where_clauses = ["1=1"]
     params = []
 
-    if filters.get('serial_no'):
-        where_clauses.append("scl.serial_no = %s")
-        params.append(filters['serial_no'])
+    if filters.get('cabinet_no'):
+        where_clauses.append("scl.cabinet_no = %s")
+        params.append(filters['cabinet_no'])
 
     if filters.get('project_code'):
         where_clauses.append("scl.project_code = %s")
@@ -473,7 +473,7 @@ def query_serial_cost_detail(
         p.code AS product_code,
         p.name AS product_name,
         u.username AS recorded_by_name
-    FROM serial_cost_ledger scl
+    FROM cabinet_cost_ledger scl
     LEFT JOIN products p ON scl.product_id = p.id
     LEFT JOIN users u ON scl.created_by = u.id
     WHERE {where_sql}
@@ -483,23 +483,23 @@ def query_serial_cost_detail(
     return query_db(sql, tuple(params))
 
 
-def query_serial_cost_summary(
+def query_cabinet_cost_summary(
     query_db,
     filters: Optional[Dict] = None
 ) -> List[Dict]:
     """
-    查询机号成本汇总
+    查询柜号成本汇总
 
     Args:
         filters: {
             'start_date': 开始日期,
             'end_date': 结束日期,
             'project_code': 项目号,
-            'serial_nos': 机号列表（可选）
+            'cabinet_nos': 柜号列表（可选）
         }
 
     Returns:
-        机号成本汇总列表
+        柜号成本汇总列表
     """
     filters = filters or {}
 
@@ -518,16 +518,16 @@ def query_serial_cost_summary(
         where_clauses.append("project_code = %s")
         params.append(filters['project_code'])
 
-    if filters.get('serial_nos'):
-        placeholders = ','.join(['%s'] * len(filters['serial_nos']))
-        where_clauses.append(f"serial_no IN ({placeholders})")
-        params.extend(filters['serial_nos'])
+    if filters.get('cabinet_nos'):
+        placeholders = ','.join(['%s'] * len(filters['cabinet_nos']))
+        where_clauses.append(f"cabinet_no IN ({placeholders})")
+        params.extend(filters['cabinet_nos'])
 
     where_sql = " AND ".join(where_clauses)
 
     sql = f"""
     SELECT
-        serial_no,
+        cabinet_no,
         MAX(project_code) AS project_code,
         MAX(product_id) AS product_id,
         SUM(CASE WHEN cost_type LIKE '%领料%' OR cost_type LIKE '%材料%' THEN normalized_cost_amount ELSE 0 END) AS material_cost,
@@ -542,10 +542,10 @@ def query_serial_cost_summary(
         COUNT(*) AS cost_records
     FROM (
         SELECT *, {SERIAL_COST_AMOUNT_SQL} AS normalized_cost_amount
-        FROM serial_cost_ledger
-    ) serial_cost_ledger
+        FROM cabinet_cost_ledger
+    ) cabinet_cost_ledger
     WHERE {where_sql}
-    GROUP BY serial_no
+    GROUP BY cabinet_no
     ORDER BY total_cost DESC
     """
 
@@ -553,38 +553,38 @@ def query_serial_cost_summary(
     return query_db(sql, tuple(params))
 
 
-def query_serial_cost_variance(
+def query_cabinet_cost_variance(
     query_db,
     filters: Optional[Dict] = None
 ) -> List[Dict]:
     """
-    查询机号成本差异
+    查询柜号成本差异
 
     Args:
         filters: {
             'start_date': 开始日期,
             'end_date': 结束日期,
             'project_code': 项目号,
-            'serial_nos': 机号列表（可选）
+            'cabinet_nos': 柜号列表（可选）
         }
 
     Returns:
-        机号成本差异列表
+        柜号成本差异列表
     """
     filters = filters or {}
 
-    # 获取机号汇总成本
-    summary_list = query_serial_cost_summary(query_db, filters)
+    # 获取柜号汇总成本
+    summary_list = query_cabinet_cost_summary(query_db, filters)
 
-    # 计算每个机号的差异
+    # 计算每个柜号的差异
     variance_list = []
 
     for summary in summary_list:
-        serial_no = summary['serial_no']
+        cabinet_no = summary['cabinet_no']
         actual_cost = Decimal(str(summary.get('total_cost') or 0))
 
         # 计算标准成本
-        standard_result = calculate_bom_standard_cost(query_db, serial_no)
+        standard_result = calculate_bom_standard_cost(query_db, cabinet_no)
         standard_cost = standard_result['standard_cost']
 
         # 计算差异
@@ -599,7 +599,7 @@ def query_serial_cost_variance(
             variance_type = '无差异'
 
         variance_list.append({
-            'serial_no': serial_no,
+            'cabinet_no': cabinet_no,
             'project_code': summary.get('project_code'),
             'standard_cost': standard_cost,
             'actual_cost': actual_cost,
@@ -619,9 +619,9 @@ def query_serial_cost_variance(
     return variance_list
 
 
-def get_serial_cost_types(query_db) -> List[str]:
+def get_cabinet_cost_types(query_db) -> List[str]:
     """
-    获取所有机号成本类型
+    获取所有柜号成本类型
 
     Returns:
         成本类型列表
@@ -629,7 +629,7 @@ def get_serial_cost_types(query_db) -> List[str]:
     result = query_db(
         """
         SELECT DISTINCT cost_type
-        FROM serial_cost_ledger
+        FROM cabinet_cost_ledger
         WHERE cost_type IS NOT NULL
         ORDER BY cost_type
         """

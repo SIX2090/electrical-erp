@@ -49,7 +49,7 @@
             <div class="col-md-3"><div class="text-muted small">有效期</div><div>{{ quotation.valid_until or '-' }}</div></div>
             <div class="col-md-3"><div class="text-muted small">来源单</div><div>{{ quotation.source_no or '-' }}</div></div>
             <div class="col-md-3"><div class="text-muted small">项目号</div><div>{{ quotation.project_code or '-' }}</div></div>
-            <div class="col-md-3"><div class="text-muted small">机号</div><div>{{ quotation.serial_no or '-' }}</div></div>
+            <div class="col-md-3"><div class="text-muted small">柜号</div><div>{{ quotation.cabinet_no or '-' }}</div></div>
             <div class="col-md-3"><div class="text-muted small">机型</div><div>{{ quotation.machine_type or '-' }}</div></div>
             <div class="col-md-3"><div class="text-muted small">含税金额</div><div>{{ quotation.amount_with_tax or quotation.total_amount or '0' }}</div></div>
         </div>

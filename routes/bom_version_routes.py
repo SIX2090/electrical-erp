@@ -327,11 +327,11 @@ def register_routes(app, deps):
         product_id = _arg_int_or_none("product_id")
         bom_id = _arg_int_or_none("bom_id")
         project_code = _arg("project_code")
-        serial_no = _arg("serial_no")
+        cabinet_no = _arg("cabinet_no")
         results = analyze_ecn_impact(
             query_db, ecn_id,
             product_id=product_id, bom_id=bom_id,
-            project_code=project_code, serial_no=serial_no,
+            project_code=project_code, cabinet_no=cabinet_no,
         )
         saved = save_impact_results(query_db, execute_db, ecn_id, results)
         if log_action:

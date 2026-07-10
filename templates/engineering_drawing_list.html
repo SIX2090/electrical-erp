@@ -11,7 +11,7 @@
     <div class="section-title">
         <div>
             <h2>查询条件</h2>
-            <span>支持图号、版本、名称、物料、BOM、项目号、机号、负责人、状态、类型和发布日期筛选。</span>
+            <span>支持图号、版本、名称、物料、BOM、项目号、柜号、负责人、状态、类型和发布日期筛选。</span>
         </div>
         <div class="d-flex gap-2">
             <a class="btn btn-outline-secondary btn-sm" href="/engineering/drawings/import-template"><i class="bi bi-file-earmark-spreadsheet"></i> 模板</a>
@@ -23,7 +23,7 @@
     <form method="get" class="row g-2 align-items-end" data-list-filter-form>
         <div class="col-md-3">
             <label class="form-label">综合关键字</label>
-            <input class="form-control form-control-sm" name="keyword" value="{{ filters.keyword }}" placeholder="图号/名称/物料/BOM/项目/机号">
+            <input class="form-control form-control-sm" name="keyword" value="{{ filters.keyword }}" placeholder="图号/名称/物料/BOM/项目/柜号">
         </div>
         <div class="col-md-2">
             <label class="form-label">状态</label>
@@ -46,8 +46,8 @@
             <input class="form-control form-control-sm" name="project_code" value="{{ filters.project_code }}">
         </div>
         <div class="col-md-2">
-            <label class="form-label">机号</label>
-            <input class="form-control form-control-sm" name="serial_no" value="{{ filters.serial_no }}">
+            <label class="form-label">柜号</label>
+            <input class="form-control form-control-sm" name="cabinet_no" value="{{ filters.cabinet_no }}">
         </div>
         <div class="col-md-1 d-grid">
             <button class="btn btn-outline-primary btn-sm" type="submit"><i class="bi bi-search"></i> 查询</button>
@@ -102,7 +102,7 @@
                 <th><a class="text-decoration-none" href="{{ request.path }}?{{ args|urlencode }}">{{ label }}{% if filters.sort == field %} <i class="bi bi-caret-{{ 'up' if filters.order == 'asc' else 'down' }}-fill small"></i>{% endif %}</a></th>
                 {% endfor %}
                 <th>关联物料/BOM</th>
-                <th>项目/机号</th>
+                <th>项目/柜号</th>
                 <th>下一步</th>
                 <th class="text-end">操作菜单</th>
             </tr>
@@ -124,7 +124,7 @@
                 </td>
                 <td>
                     <div>{{ row.project_codes|clean_text or '-' }}</div>
-                    <div class="text-muted small">{{ row.serial_nos|clean_text or '' }}</div>
+                    <div class="text-muted small">{{ row.cabinet_nos|clean_text or '' }}</div>
                 </td>
                 <td>
                     <div>{{ row.next_action|clean_text }}</div>

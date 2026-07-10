@@ -23,7 +23,7 @@
 <div class="page-heading order-form-heading">
     <div>
         <h1>{{ '编辑' if mode == 'edit' else '新增' }}生产工单</h1>
-        <p>建立整机或部件生产任务，后续用于领料、完工入库、质量检验、项目号和机号追踪。</p>
+        <p>建立整机或部件生产任务，后续用于领料、完工入库、质量检验、项目号和柜号追踪。</p>
     </div>
     <a class="btn btn-outline-secondary btn-sm d-none" href="/work-orders">返回列表</a>
 </div>
@@ -37,7 +37,7 @@
         <div class="section-title">
             <div>
                 <h2>工单表头</h2>
-                <span>项目号和机号是建议追踪字段，按项目制造或单机追踪时填写。</span>
+                <span>项目号和柜号是建议追踪字段，按项目制造或单机追踪时填写。</span>
             </div>
         </div>
         <div class="row g-2">
@@ -66,8 +66,8 @@
                 <input class="form-control form-control-sm" name="project_code" value="{{ order.project_code or '' }}" placeholder="可留空，按项目制造时填写">
             </div>
             <div class="col-md-4">
-                <label class="form-label">机号 <span class="text-muted small">建议</span></label>
-                <input class="form-control form-control-sm" name="serial_no" value="{{ order.serial_no or '' }}" placeholder="可留空，按单机追踪时填写">
+                <label class="form-label">柜号 <span class="text-muted small">建议</span></label>
+                <input class="form-control form-control-sm" name="cabinet_no" value="{{ order.cabinet_no or '' }}" placeholder="可留空，按单机追踪时填写">
             </div>
             <div class="col-md-4">
                 <label class="form-label">BOM版本</label>
@@ -136,7 +136,7 @@
                     <th style="min-width:150px;" data-column-key="warehouse">入库仓库 <span class="text-danger">*</span></th>
                     {% if location_management_enabled %}<th style="min-width:150px;" data-column-key="location">入库库位</th>{% endif %}
                     <th style="min-width:120px;" data-column-key="lot_no">批号</th>
-                    <th style="min-width:120px;" data-column-key="serial_no">机号</th>
+                    <th style="min-width:120px;" data-column-key="cabinet_no">柜号</th>
                     <th style="min-width:140px;" data-column-key="project_code">项目号</th>
                     <th style="min-width:110px;" data-column-key="source_line_no">来源行</th>
                 </tr>
@@ -180,7 +180,7 @@
                         </select>
                     </td>
                     <td data-column-key="lot_no"><input class="form-control form-control-sm" name="lot_no" value="{{ order.lot_no or '' }}"></td>
-                    <td data-column-key="serial_no"><input class="form-control form-control-sm js-line-serial-no" name="line_serial_no" value="{{ order.line_serial_no or order.serial_no or '' }}"></td>
+                    <td data-column-key="cabinet_no"><input class="form-control form-control-sm js-line-serial-no" name="line_cabinet_no" value="{{ order.line_cabinet_no or order.cabinet_no or '' }}"></td>
                     <td data-column-key="project_code"><input class="form-control form-control-sm js-line-project-code" name="line_project_code" value="{{ order.line_project_code or order.project_code or '' }}"></td>
                     <td data-column-key="source_line_no"><input class="form-control form-control-sm" name="source_line_no" value="{{ order.source_line_no or 1 }}"></td>
                 </tr>
@@ -234,7 +234,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const unitCost = table.querySelector('.js-unit-cost');
     const amount = table.querySelector('.js-cost-amount');
     const headerProject = document.querySelector('input[name="project_code"]');
-    const headerSerial = document.querySelector('input[name="serial_no"]');
+    const headerSerial = document.querySelector('input[name="cabinet_no"]');
     const lineProject = table.querySelector('.js-line-project-code');
     const lineSerial = table.querySelector('.js-line-serial-no');
 

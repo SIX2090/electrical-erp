@@ -100,7 +100,7 @@ batch AS (
         COALESCE(warehouse_id,  0)  AS warehouse_id,
         COALESCE(location_id,   0)  AS location_id,
         COALESCE(lot_no,       '')  AS lot_no,
-        COALESCE(serial_no,    '')  AS serial_no,
+        COALESCE(cabinet_no,    '')  AS cabinet_no,
         COALESCE(project_code, '')  AS project_code,
         SUM(COALESCE(quantity_available, 0)) AS batch_qty
     FROM batch_tracking
@@ -109,7 +109,7 @@ batch AS (
         COALESCE(warehouse_id,  0),
         COALESCE(location_id,   0),
         COALESCE(lot_no,       ''),
-        COALESCE(serial_no,    ''),
+        COALESCE(cabinet_no,    ''),
         COALESCE(project_code, '')
 ),
 balance AS (
@@ -118,7 +118,7 @@ balance AS (
         COALESCE(warehouse_id,  0)  AS warehouse_id,
         COALESCE(location_id,   0)  AS location_id,
         COALESCE(lot_no,       '')  AS lot_no,
-        COALESCE(serial_no,    '')  AS serial_no,
+        COALESCE(cabinet_no,    '')  AS cabinet_no,
         COALESCE(project_code, '')  AS project_code,
         SUM(COALESCE(quantity, 0)) AS balance_qty
     FROM inventory_balances
@@ -127,7 +127,7 @@ balance AS (
         COALESCE(warehouse_id,  0),
         COALESCE(location_id,   0),
         COALESCE(lot_no,       ''),
-        COALESCE(serial_no,    ''),
+        COALESCE(cabinet_no,    ''),
         COALESCE(project_code, '')
 )
 SELECT
@@ -135,7 +135,7 @@ SELECT
     COALESCE(b.warehouse_id,  i.warehouse_id)  AS warehouse_id,
     COALESCE(b.location_id,   i.location_id)   AS location_id,
     COALESCE(b.lot_no,        i.lot_no)         AS lot_no,
-    COALESCE(b.serial_no,     i.serial_no)      AS serial_no,
+    COALESCE(b.cabinet_no,     i.cabinet_no)      AS cabinet_no,
     COALESCE(b.project_code,  i.project_code)   AS project_code,
     COALESCE(b.batch_qty,   0)                  AS batch_qty,
     COALESCE(i.balance_qty, 0)                  AS balance_qty,
@@ -146,7 +146,7 @@ FULL OUTER JOIN balance i
     AND b.warehouse_id = i.warehouse_id
     AND b.location_id  = i.location_id
     AND b.lot_no       = i.lot_no
-    AND b.serial_no    = i.serial_no
+    AND b.cabinet_no    = i.cabinet_no
     AND b.project_code = i.project_code
 WHERE
     COALESCE(b.batch_qty, 0) <> COALESCE(i.balance_qty, 0)
@@ -158,20 +158,20 @@ LIMIT 500
 # CHECK-B : 负库存检测
 # ─────────────────────────────────────────────────────────────────────────────
 CHECK_B_BATCH_SQL = """
-SELECT product_id, warehouse_id, location_id, lot_no, serial_no, project_code,
+SELECT product_id, warehouse_id, location_id, lot_no, cabinet_no, project_code,
        SUM(quantity_available) AS total_qty
 FROM batch_tracking
-GROUP BY product_id, warehouse_id, location_id, lot_no, serial_no, project_code
+GROUP BY product_id, warehouse_id, location_id, lot_no, cabinet_no, project_code
 HAVING SUM(quantity_available) < 0
 ORDER BY SUM(quantity_available)
 LIMIT 200
 """
 
 CHECK_B_BALANCE_SQL = """
-SELECT product_id, warehouse_id, location_id, lot_no, serial_no, project_code,
+SELECT product_id, warehouse_id, location_id, lot_no, cabinet_no, project_code,
        SUM(quantity) AS total_qty
 FROM inventory_balances
-GROUP BY product_id, warehouse_id, location_id, lot_no, serial_no, project_code
+GROUP BY product_id, warehouse_id, location_id, lot_no, cabinet_no, project_code
 HAVING SUM(quantity) < 0
 ORDER BY SUM(quantity)
 LIMIT 200
@@ -255,7 +255,7 @@ def run_checks() -> int:
                 _w(f"❌ FAIL [CHECK-A] 发现 {len(diffs)} 行差异（最多显示500行）：")
                 fail_count += 1
                 _w(f"   {'product_id':>10} {'warehouse':>9} {'location':>8} "
-                   f"{'lot_no':>12} {'serial_no':>12} {'project':>10} "
+                   f"{'lot_no':>12} {'cabinet_no':>12} {'project':>10} "
                    f"{'batch_qty':>12} {'balance_qty':>12} {'diff_qty':>12}")
                 _w("   " + "-" * 95)
                 for row in diffs:
@@ -264,7 +264,7 @@ def run_checks() -> int:
                         f"{str(row['warehouse_id']):>9} "
                         f"{str(row['location_id']):>8} "
                         f"{str(row['lot_no']):>12} "
-                        f"{str(row['serial_no']):>12} "
+                        f"{str(row['cabinet_no']):>12} "
                         f"{str(row['project_code']):>10} "
                         f"{float(row['batch_qty']):>12.3f} "
                         f"{float(row['balance_qty']):>12.3f} "

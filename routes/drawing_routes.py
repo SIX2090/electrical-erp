@@ -213,7 +213,7 @@ def _drawing_filters():
         "status": _arg("status"),
         "drawing_type": _arg("drawing_type"),
         "project_code": _arg("project_code"),
-        "serial_no": _arg("serial_no"),
+        "cabinet_no": _arg("cabinet_no"),
         "product_code": _arg("product_code"),
         "bom_no": _arg("bom_no"),
         "owner": _arg("owner"),
@@ -233,7 +233,7 @@ def _drawing_where(filters):
             (d.drawing_no ILIKE %s OR d.version ILIKE %s OR d.drawing_name ILIKE %s
              OR d.owner ILIKE %s OR COALESCE(p.code, '') ILIKE %s OR COALESCE(p.name, '') ILIKE %s
              OR COALESCE(b.bom_no, '') ILIKE %s OR COALESCE(dl.project_code, '') ILIKE %s
-             OR COALESCE(dl.serial_no, '') ILIKE %s)
+             OR COALESCE(dl.cabinet_no, '') ILIKE %s)
             """
         )
         params.extend([f"%{filters['keyword']}%"] * 9)
@@ -246,7 +246,7 @@ def _drawing_where(filters):
             params.append(filters[key])
     for key, column in (
         ("project_code", "dl.project_code"),
-        ("serial_no", "dl.serial_no"),
+        ("cabinet_no", "dl.cabinet_no"),
         ("product_code", "p.code"),
         ("bom_no", "b.bom_no"),
         ("owner", "d.owner"),
@@ -275,7 +275,7 @@ def _drawing_list_rows(query_rows, filters, limit: int, offset: int):
                STRING_AGG(DISTINCT NULLIF(p.code, ''), ' / ') AS product_codes,
                STRING_AGG(DISTINCT NULLIF(b.bom_no, ''), ' / ') AS bom_nos,
                STRING_AGG(DISTINCT NULLIF(dl.project_code, ''), ' / ') AS project_codes,
-               STRING_AGG(DISTINCT NULLIF(dl.serial_no, ''), ' / ') AS serial_nos
+               STRING_AGG(DISTINCT NULLIF(dl.cabinet_no, ''), ' / ') AS cabinet_nos
         FROM engineering_drawings d
         LEFT JOIN engineering_drawing_links dl ON dl.drawing_id=d.id
         LEFT JOIN products p ON p.id=dl.product_id
@@ -363,7 +363,7 @@ def _export_drawings(rows):
         "关联物料",
         "关联BOM",
         "项目号",
-        "机号",
+        "柜号",
         "下一步",
         "阻断原因",
     ]]
@@ -384,7 +384,7 @@ def _export_drawings(rows):
             row.get("product_codes") or "",
             row.get("bom_nos") or "",
             row.get("project_codes") or "",
-            row.get("serial_nos") or "",
+            row.get("cabinet_nos") or "",
             row.get("next_action") or "",
             row.get("blocked_reason") or "",
         ])
@@ -478,7 +478,7 @@ def register_drawing_routes(
             return []
         rows = query_rows(
             """
-            SELECT '技术确认单' AS doc_type, confirm_no AS doc_no, project_code, serial_no, status,
+            SELECT '技术确认单' AS doc_type, confirm_no AS doc_no, project_code, cabinet_no, status,
                    id::TEXT AS doc_id, '/engineering/technical-confirmations/' || id AS link_path,
                    '图号+版本直接引用' AS source_basis
             FROM engineering_technical_confirmations
@@ -497,20 +497,20 @@ def register_drawing_routes(
                     WITH drawing_scope AS (
                         SELECT d.drawing_no, dl.product_id, dl.bom_id,
                                NULLIF(dl.project_code, '') AS project_code,
-                               NULLIF(dl.serial_no, '') AS serial_no
+                               NULLIF(dl.cabinet_no, '') AS cabinet_no
                         FROM engineering_drawings d
                         LEFT JOIN engineering_drawing_links dl ON dl.drawing_id=d.id
                         WHERE d.id=%s
                     )
                     SELECT DISTINCT '生产工单' AS doc_type, wo.wo_no AS doc_no,
-                           wo.project_code, wo.serial_no, wo.status, wo.id::TEXT AS doc_id,
+                           wo.project_code, wo.cabinet_no, wo.status, wo.id::TEXT AS doc_id,
                            '/work-orders/' || wo.id AS link_path,
                            '按图纸引用范围匹配' AS source_basis
                     FROM work_orders wo
                     LEFT JOIN products p ON p.id=wo.product_id
                     JOIN drawing_scope ds ON (
                            wo.product_id=ds.product_id OR wo.bom_id=ds.bom_id
-                        OR wo.project_code=ds.project_code OR wo.serial_no=ds.serial_no
+                        OR wo.project_code=ds.project_code OR wo.cabinet_no=ds.cabinet_no
                         OR p.drawing_no=ds.drawing_no
                     )
                     WHERE COALESCE(wo.status, '') NOT IN ('已作废','作废','已取消','void','voided','cancelled','canceled')
@@ -526,13 +526,13 @@ def register_drawing_routes(
                     """
                     WITH drawing_scope AS (
                         SELECT d.drawing_no, dl.product_id, NULLIF(dl.project_code, '') AS project_code,
-                               NULLIF(dl.serial_no, '') AS serial_no
+                               NULLIF(dl.cabinet_no, '') AS cabinet_no
                         FROM engineering_drawings d
                         LEFT JOIN engineering_drawing_links dl ON dl.drawing_id=d.id
                         WHERE d.id=%s
                     )
                     SELECT DISTINCT '采购订单' AS doc_type, po.order_no AS doc_no,
-                           po.project_code, po.serial_no, po.status, po.id::TEXT AS doc_id,
+                           po.project_code, po.cabinet_no, po.status, po.id::TEXT AS doc_id,
                            '/purchase_order/' || po.id AS link_path,
                            '按图纸引用范围匹配' AS source_basis
                     FROM purchase_orders po
@@ -540,7 +540,7 @@ def register_drawing_routes(
                     LEFT JOIN products p ON p.id=poi.product_id
                     JOIN drawing_scope ds ON (
                            poi.product_id=ds.product_id OR po.project_code=ds.project_code
-                        OR po.serial_no=ds.serial_no OR p.drawing_no=ds.drawing_no
+                        OR po.cabinet_no=ds.cabinet_no OR p.drawing_no=ds.drawing_no
                     )
                     WHERE COALESCE(po.status, '') NOT IN ('已作废','作废','已取消','void','voided','cancelled','canceled')
                     ORDER BY po.id DESC
@@ -555,13 +555,13 @@ def register_drawing_routes(
                     """
                     WITH drawing_scope AS (
                         SELECT d.drawing_no, dl.product_id, NULLIF(dl.project_code, '') AS project_code,
-                               NULLIF(dl.serial_no, '') AS serial_no
+                               NULLIF(dl.cabinet_no, '') AS cabinet_no
                         FROM engineering_drawings d
                         LEFT JOIN engineering_drawing_links dl ON dl.drawing_id=d.id
                         WHERE d.id=%s
                     )
                     SELECT DISTINCT '委外订单' AS doc_type, sc.order_no AS doc_no,
-                           sc.project_code, sc.serial_no, sc.status, sc.id::TEXT AS doc_id,
+                           sc.project_code, sc.cabinet_no, sc.status, sc.id::TEXT AS doc_id,
                            '/subcontract/' || sc.id AS link_path,
                            '按图纸引用范围匹配' AS source_basis
                     FROM subcontract_orders sc
@@ -569,7 +569,7 @@ def register_drawing_routes(
                     LEFT JOIN products p ON p.id=COALESCE(sc.product_id, si.product_id)
                     JOIN drawing_scope ds ON (
                            sc.product_id=ds.product_id OR si.product_id=ds.product_id
-                        OR sc.project_code=ds.project_code OR sc.serial_no=ds.serial_no
+                        OR sc.project_code=ds.project_code OR sc.cabinet_no=ds.cabinet_no
                         OR p.drawing_no=ds.drawing_no
                     )
                     WHERE COALESCE(sc.status, '') NOT IN ('已作废','作废','已取消','void','voided','cancelled','canceled')
@@ -585,13 +585,13 @@ def register_drawing_routes(
                     """
                     WITH drawing_scope AS (
                         SELECT d.drawing_no, dl.product_id, NULLIF(dl.project_code, '') AS project_code,
-                               NULLIF(dl.serial_no, '') AS serial_no
+                               NULLIF(dl.cabinet_no, '') AS cabinet_no
                         FROM engineering_drawings d
                         LEFT JOIN engineering_drawing_links dl ON dl.drawing_id=d.id
                         WHERE d.id=%s
                     )
                     SELECT DISTINCT '服务单' AS doc_type, so.order_no AS doc_no,
-                           so.project_code, so.serial_no, so.status, so.id::TEXT AS doc_id,
+                           so.project_code, so.cabinet_no, so.status, so.id::TEXT AS doc_id,
                            '/service-orders/' || so.id AS link_path,
                            '按图纸引用范围匹配' AS source_basis
                     FROM machine_service_orders so
@@ -599,7 +599,7 @@ def register_drawing_routes(
                     LEFT JOIN products p ON p.id=soi.product_id
                     JOIN drawing_scope ds ON (
                            soi.product_id=ds.product_id OR so.project_code=ds.project_code
-                        OR so.serial_no=ds.serial_no OR p.drawing_no=ds.drawing_no
+                        OR so.cabinet_no=ds.cabinet_no OR p.drawing_no=ds.drawing_no
                     )
                     WHERE COALESCE(so.status, '') NOT IN ('已作废','作废','已取消','void','voided','cancelled','canceled')
                     ORDER BY so.id DESC
@@ -635,7 +635,7 @@ def register_drawing_routes(
             errors.append("生效日期不能早于发布日期。")
         link_count = query_one("SELECT COUNT(*) AS value FROM engineering_drawing_links WHERE drawing_id=%s", (drawing["id"],))
         if int((link_count or {}).get("value") or 0) <= 0:
-            errors.append("发布图纸至少需要关联物料、BOM、项目号、机号或使用范围之一。")
+            errors.append("发布图纸至少需要关联物料、BOM、项目号、柜号或使用范围之一。")
         released = query_one(
             """
             SELECT id FROM engineering_drawings
@@ -747,7 +747,7 @@ def register_drawing_routes(
             "图号", "版本", "图纸名称", "图纸类型", "状态", "负责人", "发布日期", "生效日期",
             "作废日期", "发布单号", "批准人", "批准日期", "来源系统", "文件位置", "受控等级",
             "文件格式", "校验值", "变更原因", "备注", "物料编码", "BOM编号", "BOM版本",
-            "项目号", "机号", "使用范围", "引用说明", "是否同步物料图号",
+            "项目号", "柜号", "使用范围", "引用说明", "是否同步物料图号",
         ]]
         rows.append([
             "DRW-GTM-001", "A", "滚筒研磨机总装图", "assembly", "draft", "工程部", "",
@@ -774,8 +774,8 @@ def register_drawing_routes(
             return None, "BOM编号存在多个版本，请填写BOM版本。"
         return None, "BOM编号不存在。"
 
-    def _insert_link_if_needed(drawing_id: int, product_id, bom_id, project_code: str, serial_no: str, usage_scope: str, remark: str) -> bool:
-        if not any([product_id, bom_id, project_code, serial_no, usage_scope, remark]):
+    def _insert_link_if_needed(drawing_id: int, product_id, bom_id, project_code: str, cabinet_no: str, usage_scope: str, remark: str) -> bool:
+        if not any([product_id, bom_id, project_code, cabinet_no, usage_scope, remark]):
             return False
         exists = query_one(
             """
@@ -784,21 +784,21 @@ def register_drawing_routes(
               AND COALESCE(product_id, 0)=COALESCE(%s, 0)
               AND COALESCE(bom_id, 0)=COALESCE(%s, 0)
               AND COALESCE(project_code, '')=COALESCE(%s, '')
-              AND COALESCE(serial_no, '')=COALESCE(%s, '')
+              AND COALESCE(cabinet_no, '')=COALESCE(%s, '')
               AND COALESCE(usage_scope, '')=COALESCE(%s, '')
             LIMIT 1
             """,
-            (drawing_id, product_id, bom_id, project_code, serial_no, usage_scope),
+            (drawing_id, product_id, bom_id, project_code, cabinet_no, usage_scope),
         )
         if exists:
             return False
         execute_db(
             """
             INSERT INTO engineering_drawing_links
-                (drawing_id, product_id, bom_id, project_code, serial_no, usage_scope, remark)
+                (drawing_id, product_id, bom_id, project_code, cabinet_no, usage_scope, remark)
             VALUES (%s,%s,%s,%s,%s,%s,%s)
             """,
-            (drawing_id, product_id, bom_id, project_code, serial_no, usage_scope, remark),
+            (drawing_id, product_id, bom_id, project_code, cabinet_no, usage_scope, remark),
         )
         return True
 
@@ -919,13 +919,13 @@ def register_drawing_routes(
                 import_errors.append(f"第 {line_no} 行{bom_error}")
                 continue
             project_code = csv_cell(row, "project_code", "项目号")
-            serial_no = csv_cell(row, "serial_no", "机号")
+            cabinet_no = csv_cell(row, "cabinet_no", "柜号")
             usage_scope = csv_cell(row, "usage_scope", "使用范围")
             link_remark = csv_cell(row, "link_remark", "引用说明")
             if usage_scope and usage_scope not in VALID_USAGE_SCOPES:
                 import_errors.append(f"第 {line_no} 行使用范围不正确。")
                 continue
-            if _insert_link_if_needed(drawing_id, product["id"] if product else None, bom["id"] if bom else None, project_code, serial_no, usage_scope, link_remark):
+            if _insert_link_if_needed(drawing_id, product["id"] if product else None, bom["id"] if bom else None, project_code, cabinet_no, usage_scope, link_remark):
                 linked += 1
             if product and csv_cell(row, "sync_product_drawing_no", "是否同步物料图号") in {"是", "Y", "y", "1", "true", "True"}:
                 execute_db("UPDATE products SET drawing_no=%s, updated_at=CURRENT_TIMESTAMP WHERE id=%s", (drawing_no, product["id"]))
@@ -1096,12 +1096,12 @@ def register_drawing_routes(
         product_id = _int_or_none("product_id")
         bom_id = _int_or_none("bom_id")
         project_code = _text("project_code")
-        serial_no = _text("serial_no")
+        cabinet_no = _text("cabinet_no")
         usage_scope = _text("usage_scope")
         link_remark = _text("link_remark")
         errors = []
-        if not any([product_id, bom_id, project_code, serial_no, usage_scope, link_remark]):
-            errors.append("请至少选择物料、BOM、项目号、机号或填写使用范围。")
+        if not any([product_id, bom_id, project_code, cabinet_no, usage_scope, link_remark]):
+            errors.append("请至少选择物料、BOM、项目号、柜号或填写使用范围。")
         if not usage_scope:
             errors.append("使用范围不能为空。")
         elif usage_scope not in VALID_USAGE_SCOPES:
@@ -1123,17 +1123,17 @@ def register_drawing_routes(
               AND COALESCE(product_id, 0)=COALESCE(%s, 0)
               AND COALESCE(bom_id, 0)=COALESCE(%s, 0)
               AND COALESCE(project_code, '')=COALESCE(%s, '')
-              AND COALESCE(serial_no, '')=COALESCE(%s, '')
+              AND COALESCE(cabinet_no, '')=COALESCE(%s, '')
               AND COALESCE(usage_scope, '')=COALESCE(%s, '')
             LIMIT 1
             """,
-            (drawing["id"], product_id, bom_id, project_code, serial_no, usage_scope),
+            (drawing["id"], product_id, bom_id, project_code, cabinet_no, usage_scope),
         )
         if exists:
             errors.append("该业务引用已存在。")
         if errors:
             return errors
-        _insert_link_if_needed(drawing["id"], product_id, bom_id, project_code, serial_no, usage_scope, link_remark)
+        _insert_link_if_needed(drawing["id"], product_id, bom_id, project_code, cabinet_no, usage_scope, link_remark)
         if update_product and product_id:
             execute_db(
                 "UPDATE products SET drawing_no=%s, updated_at=CURRENT_TIMESTAMP WHERE id=%s",

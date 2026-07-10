@@ -139,7 +139,7 @@ def render_pending_documents(query_rows, render_dashboard, columns):
         ],
         shortcuts=[
             {"label": "采购建议", "url": "/procurement/suggestions", "icon": "bi-clipboard-plus"},
-            {"label": "项目/机号台账", "url": "/projects", "icon": "bi-kanban"},
+            {"label": "项目/柜号台账", "url": "/projects", "icon": "bi-kanban"},
             {"label": "库存明细", "url": "/inventory/detail", "icon": "bi-box-seam"},
         ],
         sections=[

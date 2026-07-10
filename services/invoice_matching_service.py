@@ -39,9 +39,9 @@ def query_sales_three_way_match(query_db, filters=None):
         where_clauses.append("so.project_code ILIKE %s")
         params.append(f"%{filters['project_code']}%")
 
-    if filters.get("serial_no"):
-        where_clauses.append("so.serial_no ILIKE %s")
-        params.append(f"%{filters['serial_no']}%")
+    if filters.get("cabinet_no"):
+        where_clauses.append("so.cabinet_no ILIKE %s")
+        params.append(f"%{filters['cabinet_no']}%")
 
     if filters.get("start_date"):
         where_clauses.append("so.order_date >= %s")
@@ -65,7 +65,7 @@ def query_sales_three_way_match(query_db, filters=None):
         so.customer_id,
         c.name AS customer_name,
         so.project_code,
-        so.serial_no,
+        so.cabinet_no,
         soi.id AS order_item_id,
         soi.product_id,
         soi.product_code,
@@ -142,7 +142,7 @@ def query_sales_three_way_match(query_db, filters=None):
         so.customer_id,
         c.name AS customer_name,
         so.project_code,
-        so.serial_no,
+        so.cabinet_no,
         soi.id AS order_item_id,
         soi.product_id,
         COALESCE(soi.material_code, p.code, '') AS product_code,
@@ -229,9 +229,9 @@ def query_purchase_three_way_match(query_db, filters=None):
         where_clauses.append("po.project_code ILIKE %s")
         params.append(f"%{filters['project_code']}%")
 
-    if filters.get("serial_no"):
-        where_clauses.append("po.serial_no ILIKE %s")
-        params.append(f"%{filters['serial_no']}%")
+    if filters.get("cabinet_no"):
+        where_clauses.append("po.cabinet_no ILIKE %s")
+        params.append(f"%{filters['cabinet_no']}%")
 
     if filters.get("start_date"):
         where_clauses.append("po.order_date >= %s")
@@ -251,7 +251,7 @@ def query_purchase_three_way_match(query_db, filters=None):
         po.supplier_id,
         s.name AS supplier_name,
         po.project_code,
-        po.serial_no,
+        po.cabinet_no,
         poi.id AS order_item_id,
         poi.product_id,
         poi.product_code,
@@ -328,7 +328,7 @@ def query_purchase_three_way_match(query_db, filters=None):
         po.supplier_id,
         s.name AS supplier_name,
         po.project_code,
-        po.serial_no,
+        po.cabinet_no,
         poi.id AS order_item_id,
         poi.product_id,
         COALESCE(poi.material_code, p.code, '') AS product_code,

@@ -50,7 +50,7 @@
             <tr>
                 <th>单据类型</th>
                 <th>单号</th>
-                <th>项目/机号</th>
+                <th>项目/柜号</th>
                 <th>状态</th>
                 <th class="text-end">行数</th>
                 <th class="text-end">数量</th>
@@ -66,7 +66,7 @@
             <tr>
                 <td>{{ row.doc_type|clean_text }}</td>
                 <td><a href="{{ row.detail_url }}">{{ row.doc_no|clean_text }}</a><div class="text-muted small">{{ row.doc_date or '-' }}</div></td>
-                <td>{{ row.project_code|clean_text }} / {{ row.serial_no|clean_text }}</td>
+                <td>{{ row.project_code|clean_text }} / {{ row.cabinet_no|clean_text }}</td>
                 <td><span class="badge bg-light text-dark border">{{ row.status|clean_text }}</span></td>
                 <td class="text-end">{{ row.line_count }}</td>
                 <td class="text-end">{{ row.qty|qty }}</td>
@@ -88,14 +88,14 @@
     <div class="section-title"><div><h2>负库存风险队列</h2><span>{{ negative_rows|length if negative_rows else 0 }} 条</span></div></div>
     <div class="table-responsive">
         <table class="table table-sm table-hover align-middle erp-list-table">
-            <thead><tr><th>物料</th><th>仓库</th><th>库位</th><th>项目/机号</th><th>批号</th><th class="text-end">数量</th><th>下一步</th></tr></thead>
+            <thead><tr><th>物料</th><th>仓库</th><th>库位</th><th>项目/柜号</th><th>批号</th><th class="text-end">数量</th><th>下一步</th></tr></thead>
             <tbody>
             {% for row in negative_rows %}
             <tr>
                 <td>{{ row.product_code|clean_text }} / {{ row.product_name|clean_text }}</td>
                 <td>{{ row.warehouse_name|clean_text }}</td>
                 <td>{{ row.location_code|clean_text }}</td>
-                <td>{{ row.project_code|clean_text }} / {{ row.serial_no|clean_text }}</td>
+                <td>{{ row.project_code|clean_text }} / {{ row.cabinet_no|clean_text }}</td>
                 <td>{{ row.lot_no|clean_text }}</td>
                 <td class="text-end fw-semibold text-danger">{{ row.quantity|qty }}</td>
                 <td>按来源流水核对出库、领料、调拨或盘点差异，必要时补入库或做调整审批。</td>

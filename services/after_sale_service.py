@@ -52,19 +52,19 @@ def service_order_flow_fields(service, card=None):
     status = (service.get("status") or "").strip()
     warranty = warranty_policy_for_card(card or service)
     project_missing = not (service.get("project_code") or "").strip()
-    serial_missing = not (service.get("serial_no") or "").strip()
+    cabinet_missing = not (service.get("cabinet_no") or "").strip()
     if status in SERVICE_CLOSED_STATUSES:
         return {
             "owner": "售后主管",
             "blocked_reason": "",
-            "next_action": "服务单已关闭，按机号成本报表复核成本",
-            "downstream_impact": "进入售后成本和项目/机号成本分析",
+            "next_action": "服务单已关闭，按柜号成本报表复核成本",
+            "downstream_impact": "进入售后成本和项目/柜号成本分析",
             "warranty_policy": warranty["scope"],
             "warranty_decision_basis": warranty["basis"],
         }
-    if project_missing or serial_missing:
-        blocked = "缺少项目号或机号"
-        next_action = "补齐项目号和机号后继续派工、备件消耗和RMA"
+    if project_missing or cabinet_missing:
+        blocked = "缺少项目号或柜号"
+        next_action = "补齐项目号和柜号后继续派工、备件消耗和RMA"
     elif status in {"", "新建", "待派工", "open", "pending", "draft"}:
         blocked = ""
         next_action = "登记外勤派工计划"
@@ -87,7 +87,7 @@ def service_order_flow_fields(service, card=None):
         "owner": "售后内勤",
         "blocked_reason": blocked,
         "next_action": next_action,
-        "downstream_impact": "影响客户验收、备件库存、RMA索赔和机号售后成本",
+        "downstream_impact": "影响客户验收、备件库存、RMA索赔和柜号售后成本",
         "warranty_policy": warranty["scope"],
         "warranty_decision_basis": warranty["basis"],
     }
@@ -116,7 +116,7 @@ def rma_flow_fields(rma):
         "owner": "售后/质量/采购",
         "blocked_reason": blocked,
         "next_action": next_action,
-        "downstream_impact": "影响供应商索赔、售后损失抵减和机号成本分析",
+        "downstream_impact": "影响供应商索赔、售后损失抵减和柜号成本分析",
     }
 
 

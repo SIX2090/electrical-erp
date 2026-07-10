@@ -8,7 +8,7 @@
 2. 扩展 inventory_transactions 表，添加成本字段
 3. 创建 inventory_costing 表（存货成本核算表）
 4. 创建 project_cost_ledger 表（项目成本台账）
-5. 创建 serial_cost_ledger 表（机号成本台账）
+5. 创建 cabinet_cost_ledger 表（柜号成本台账）
 6. 创建 project_revenue_ledger 表（项目收入台账）
 7. 创建相关索引
 
@@ -86,7 +86,7 @@ def get_migration_sql():
             balance_amount NUMERIC(14,2) NOT NULL,
             avg_cost NUMERIC(14,4) NOT NULL,
             project_code VARCHAR(120),
-            serial_no VARCHAR(120),
+            cabinet_no VARCHAR(120),
             warehouse_id INTEGER,
             costed_by INTEGER REFERENCES users(id),
             costed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -134,7 +134,7 @@ def get_migration_sql():
 
         """
         CREATE INDEX IF NOT EXISTS idx_inventory_costing_serial
-        ON inventory_costing(serial_no);
+        ON inventory_costing(cabinet_no);
         """,
 
         """
@@ -198,11 +198,11 @@ def get_migration_sql():
         ON project_cost_ledger(source_type, source_no);
         """,
 
-        # 5. 创建 serial_cost_ledger 表
+        # 5. 创建 cabinet_cost_ledger 表
         """
-        CREATE TABLE IF NOT EXISTS serial_cost_ledger (
+        CREATE TABLE IF NOT EXISTS cabinet_cost_ledger (
             id SERIAL PRIMARY KEY,
-            serial_no VARCHAR(120) NOT NULL,
+            cabinet_no VARCHAR(120) NOT NULL,
             product_id INTEGER REFERENCES products(id),
             project_code VARCHAR(120),
             cost_date DATE NOT NULL,
@@ -224,36 +224,36 @@ def get_migration_sql():
         """,
 
         """
-        COMMENT ON TABLE serial_cost_ledger IS '机号成本台账';
+        COMMENT ON TABLE cabinet_cost_ledger IS '柜号成本台账';
         """,
 
         """
-        COMMENT ON COLUMN serial_cost_ledger.cost_type IS '成本类型：领料成本、采购成本、委外成本、人工成本等';
+        COMMENT ON COLUMN cabinet_cost_ledger.cost_type IS '成本类型：领料成本、采购成本、委外成本、人工成本等';
         """,
 
         """
-        CREATE INDEX IF NOT EXISTS idx_serial_cost_serial
-        ON serial_cost_ledger(serial_no);
+        CREATE INDEX IF NOT EXISTS idx_cabinet_cost_serial
+        ON cabinet_cost_ledger(cabinet_no);
         """,
 
         """
-        CREATE INDEX IF NOT EXISTS idx_serial_cost_date
-        ON serial_cost_ledger(cost_date);
+        CREATE INDEX IF NOT EXISTS idx_cabinet_cost_date
+        ON cabinet_cost_ledger(cost_date);
         """,
 
         """
-        CREATE INDEX IF NOT EXISTS idx_serial_cost_project
-        ON serial_cost_ledger(project_code);
+        CREATE INDEX IF NOT EXISTS idx_cabinet_cost_project
+        ON cabinet_cost_ledger(project_code);
         """,
 
         """
-        CREATE INDEX IF NOT EXISTS idx_serial_cost_product
-        ON serial_cost_ledger(product_id);
+        CREATE INDEX IF NOT EXISTS idx_cabinet_cost_product
+        ON cabinet_cost_ledger(product_id);
         """,
 
         """
-        CREATE INDEX IF NOT EXISTS idx_serial_cost_source
-        ON serial_cost_ledger(source_type, source_no);
+        CREATE INDEX IF NOT EXISTS idx_cabinet_cost_source
+        ON cabinet_cost_ledger(source_type, source_no);
         """,
 
         # 6. 创建 project_revenue_ledger 表
@@ -326,11 +326,11 @@ def get_rollback_sql():
         "DROP INDEX IF EXISTS idx_project_revenue_date;",
         "DROP INDEX IF EXISTS idx_project_revenue_project;",
 
-        "DROP INDEX IF EXISTS idx_serial_cost_source;",
-        "DROP INDEX IF EXISTS idx_serial_cost_product;",
-        "DROP INDEX IF EXISTS idx_serial_cost_project;",
-        "DROP INDEX IF EXISTS idx_serial_cost_date;",
-        "DROP INDEX IF EXISTS idx_serial_cost_serial;",
+        "DROP INDEX IF EXISTS idx_cabinet_cost_source;",
+        "DROP INDEX IF EXISTS idx_cabinet_cost_product;",
+        "DROP INDEX IF EXISTS idx_cabinet_cost_project;",
+        "DROP INDEX IF EXISTS idx_cabinet_cost_date;",
+        "DROP INDEX IF EXISTS idx_cabinet_cost_serial;",
 
         "DROP INDEX IF EXISTS idx_project_cost_source;",
         "DROP INDEX IF EXISTS idx_project_cost_type;",
@@ -345,7 +345,7 @@ def get_rollback_sql():
 
         # 删除表
         "DROP TABLE IF EXISTS project_revenue_ledger;",
-        "DROP TABLE IF EXISTS serial_cost_ledger;",
+        "DROP TABLE IF EXISTS cabinet_cost_ledger;",
         "DROP TABLE IF EXISTS project_cost_ledger;",
         "DROP TABLE IF EXISTS inventory_costing;",
 

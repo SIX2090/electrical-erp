@@ -40,7 +40,7 @@ def fetch_one(cur, sql, params):
 
 def ensure_finished_good_stock(cur, values, work_order):
     project_code = values["项目号"]
-    serial_no = values["机号"]
+    cabinet_no = values["柜号"]
     cur.execute("SELECT id, standard_price FROM products WHERE code=%s", (values["产品编码"],))
     product = cur.fetchone()
     if not product:
@@ -49,40 +49,40 @@ def ensure_finished_good_stock(cur, values, work_order):
         """
         UPDATE inventory_balances
         SET project_code=%s
-        WHERE product_id=%s AND serial_no=%s AND COALESCE(project_code, '')=''
+        WHERE product_id=%s AND cabinet_no=%s AND COALESCE(project_code, '')=''
         """,
-        (project_code, product["id"], serial_no),
+        (project_code, product["id"], cabinet_no),
     )
     cur.execute(
         """
         SELECT COALESCE(SUM(quantity), 0) AS qty
         FROM inventory_balances
-        WHERE product_id=%s AND serial_no=%s AND warehouse_id=%s
+        WHERE product_id=%s AND cabinet_no=%s AND warehouse_id=%s
         """,
-        (product["id"], serial_no, work_order.get("warehouse_id")),
+        (product["id"], cabinet_no, work_order.get("warehouse_id")),
     )
     if (cur.fetchone() or {}).get("qty", 0) > 0:
         return product
     cur.execute(
         """
         INSERT INTO inventory_balances
-            (product_id, warehouse_id, location_id, lot_no, serial_no, quantity, locked_qty, unit_cost, updated_at, project_code)
+            (product_id, warehouse_id, location_id, lot_no, cabinet_no, quantity, locked_qty, unit_cost, updated_at, project_code)
         VALUES (%s, %s, NULL, '', %s, 1, 0, %s, NOW(), %s)
         """,
-        (product["id"], work_order.get("warehouse_id"), serial_no, product.get("standard_price") or 0, project_code),
+        (product["id"], work_order.get("warehouse_id"), cabinet_no, product.get("standard_price") or 0, project_code),
     )
     cur.execute(
         """
         INSERT INTO stock_transactions
             (transaction_date, transaction_type, product_id, quantity, unit_cost, reference_no,
-             lot_no, serial_no, project_code, location, remark, warehouse_id, location_id)
+             lot_no, cabinet_no, project_code, location, remark, warehouse_id, location_id)
         VALUES (CURRENT_DATE, '工单完工入库', %s, 1, %s, %s, '', %s, %s, '', %s, %s, NULL)
         """,
         (
             product["id"],
             product.get("standard_price") or 0,
             work_order["wo_no"],
-            serial_no,
+            cabinet_no,
             project_code,
             "first machine completion repair",
             work_order.get("warehouse_id"),
@@ -136,7 +136,7 @@ def repair_receivable(cur, sales_order):
         """
         INSERT INTO customer_receivables
             (customer_id, source_type, source_id, source_no, receivable_date, total_amount,
-             received_amount, balance, status, due_date, remark, cost_object_id, project_code, serial_no)
+             received_amount, balance, status, due_date, remark, cost_object_id, project_code, cabinet_no)
         SELECT %s, 'sales_order', %s, %s, COALESCE(%s, CURRENT_DATE), COALESCE(%s, %s, 0),
                0, COALESCE(%s, %s, 0), '未收款', %s, 'first machine sales receivable repair',
                %s, %s, %s
@@ -157,7 +157,7 @@ def repair_receivable(cur, sales_order):
             sales_order.get("delivery_date"),
             sales_order.get("cost_object_id"),
             sales_order.get("project_code"),
-            sales_order.get("serial_no"),
+            sales_order.get("cabinet_no"),
             sales_order["id"],
         ),
     )
@@ -170,7 +170,7 @@ def main():
     os.environ.setdefault("WTF_CSRF_ENABLED", "0")
     values = load_values()
     project_code = values["项目号"]
-    serial_no = values["机号"]
+    cabinet_no = values["柜号"]
     checks = []
 
     conn = connect_db(get_db_config())
@@ -181,22 +181,22 @@ def main():
                 """
                 SELECT *
                 FROM work_orders
-                WHERE project_code=%s AND serial_no=%s
+                WHERE project_code=%s AND cabinet_no=%s
                 ORDER BY id DESC
                 LIMIT 1
                 """,
-                (project_code, serial_no),
+                (project_code, cabinet_no),
             )
             sales_order = fetch_one(
                 cur,
                 """
                 SELECT *
                 FROM sales_orders
-                WHERE project_code=%s AND serial_no=%s
+                WHERE project_code=%s AND cabinet_no=%s
                 ORDER BY id DESC
                 LIMIT 1
                 """,
-                (project_code, serial_no),
+                (project_code, cabinet_no),
             )
             checks.append(("work_order_exists", bool(work_order), work_order.get("wo_no") if work_order else "missing"))
             checks.append(("sales_order_exists", bool(sales_order), sales_order.get("order_no") if sales_order else "missing"))
@@ -207,9 +207,9 @@ def main():
                     """
                     UPDATE sales_orders
                     SET warehouse_id=%s
-                    WHERE project_code=%s AND serial_no=%s AND warehouse_id IS NULL
+                    WHERE project_code=%s AND cabinet_no=%s AND warehouse_id IS NULL
                     """,
-                    (work_order.get("warehouse_id"), project_code, serial_no),
+                    (work_order.get("warehouse_id"), project_code, cabinet_no),
                 )
             if sales_order:
                 repair_receivable(cur, sales_order)
@@ -228,8 +228,8 @@ def main():
         try:
             with conn.cursor() as cur:
                 cur.execute(
-                    "SELECT COALESCE(SUM(qty), 0) AS qty FROM wo_complete_items WHERE wo_id=%s AND serial_no=%s",
-                    (work_order["id"], serial_no),
+                    "SELECT COALESCE(SUM(qty), 0) AS qty FROM wo_complete_items WHERE wo_id=%s AND cabinet_no=%s",
+                    (work_order["id"], cabinet_no),
                 )
                 completed_qty = (cur.fetchone() or {}).get("qty", 0)
             conn.commit()
@@ -238,7 +238,7 @@ def main():
         if completed_qty <= 0:
             response = client.post(
                 f"/work-orders/{work_order['id']}/complete",
-                data={"quantity": "1", "serial_no": serial_no, "remark": "first machine completion"},
+                data={"quantity": "1", "cabinet_no": cabinet_no, "remark": "first machine completion"},
                 follow_redirects=False,
             )
             checks.append(("complete_work_order", response.status_code in {302, 303}, response.status_code))
@@ -253,8 +253,8 @@ def main():
             with conn.cursor() as cur:
                 cur.execute("UPDATE sales_orders SET status='已审核' WHERE id=%s", (sales_order["id"],))
                 cur.execute(
-                    "SELECT COUNT(*) AS value FROM sales_shipments WHERE order_id=%s AND project_code=%s AND serial_no=%s",
-                    (sales_order["id"], project_code, serial_no),
+                    "SELECT COUNT(*) AS value FROM sales_shipments WHERE order_id=%s AND project_code=%s AND cabinet_no=%s",
+                    (sales_order["id"], project_code, cabinet_no),
                 )
                 existing_shipments = int((cur.fetchone() or {}).get("value") or 0)
             conn.commit()
@@ -278,9 +278,9 @@ def main():
                     """
                     SELECT COUNT(*) AS lines, COALESCE(SUM(qty), 0) AS qty
                     FROM wo_complete_items
-                    WHERE wo_id=%s AND serial_no=%s
+                    WHERE wo_id=%s AND cabinet_no=%s
                     """,
-                    (work_order["id"], serial_no),
+                    (work_order["id"], cabinet_no),
                 )
                 completions = cur.fetchone() or {}
                 checks.append(("work_order_completion_recorded", int(completions.get("lines") or 0) >= 1, completions.get("lines")))
@@ -290,9 +290,9 @@ def main():
                 """
                 SELECT COUNT(*) AS value
                 FROM sales_shipments
-                WHERE project_code=%s AND serial_no=%s
+                WHERE project_code=%s AND cabinet_no=%s
                 """,
-                (project_code, serial_no),
+                (project_code, cabinet_no),
             )
             shipment_count = int((cur.fetchone() or {}).get("value") or 0)
             checks.append(("sales_shipment_created", shipment_count >= 1, shipment_count))
@@ -301,9 +301,9 @@ def main():
                 """
                 SELECT COUNT(*) AS value
                 FROM machine_service_cards
-                WHERE project_code=%s AND serial_no=%s
+                WHERE project_code=%s AND cabinet_no=%s
                 """,
-                (project_code, serial_no),
+                (project_code, cabinet_no),
             )
             service_card_count = int((cur.fetchone() or {}).get("value") or 0)
             checks.append(("service_card_created", service_card_count >= 1, service_card_count))
@@ -312,9 +312,9 @@ def main():
                 """
                 SELECT COUNT(*) AS value, COALESCE(SUM(balance), 0) AS balance
                 FROM customer_receivables
-                WHERE project_code=%s AND serial_no=%s
+                WHERE project_code=%s AND cabinet_no=%s
                 """,
-                (project_code, serial_no),
+                (project_code, cabinet_no),
             )
             receivable = cur.fetchone() or {}
             checks.append(("customer_receivable_traceable", int(receivable.get("value") or 0) >= 1, receivable.get("value")))
@@ -325,9 +325,9 @@ def main():
                 SELECT COUNT(*) AS value, COALESCE(SUM(wcl.amount), 0) AS amount
                 FROM work_orders wo
                 JOIN work_order_cost_lines wcl ON wcl.work_order_id=wo.id
-                WHERE wo.project_code=%s AND wo.serial_no=%s
+                WHERE wo.project_code=%s AND wo.cabinet_no=%s
                 """,
-                (project_code, serial_no),
+                (project_code, cabinet_no),
             )
             cost_lines = cur.fetchone() or {}
             checks.append(("work_order_cost_lines_traceable", int(cost_lines.get("value") or 0) >= 1, cost_lines.get("value")))
@@ -337,10 +337,10 @@ def main():
                 """
                 SELECT COUNT(*) AS value
                 FROM stock_transactions
-                WHERE project_code=%s AND serial_no=%s
+                WHERE project_code=%s AND cabinet_no=%s
                   AND transaction_type IN ('工单完工入库', '销售出库')
                 """,
-                (project_code, serial_no),
+                (project_code, cabinet_no),
             )
             stock_flow_count = int((cur.fetchone() or {}).get("value") or 0)
             checks.append(("completion_and_shipment_stock_flow", stock_flow_count >= 1, stock_flow_count))
@@ -350,10 +350,10 @@ def main():
 
     if sales_login.status_code == 302:
         sales_page_expectations = [
-            (f"/shipments?keyword={project_code}", [project_code, serial_no]),
-            (f"/service-cards?keyword={serial_no}", [project_code, serial_no]),
-            (f"/receivables?keyword={project_code}", [project_code, serial_no]),
-            (f"/projects?keyword={project_code}", [project_code, serial_no]),
+            (f"/shipments?keyword={project_code}", [project_code, cabinet_no]),
+            (f"/service-cards?keyword={cabinet_no}", [project_code, cabinet_no]),
+            (f"/receivables?keyword={project_code}", [project_code, cabinet_no]),
+            (f"/projects?keyword={project_code}", [project_code, cabinet_no]),
         ]
         for path, expected in sales_page_expectations:
             response = client.get(path)
@@ -371,7 +371,7 @@ def main():
         response = warehouse_client.get(path)
         body = response.get_data(as_text=True)
         checks.append((f"{path}:status", response.status_code == 200, response.status_code))
-        for marker in [project_code, serial_no]:
+        for marker in [project_code, cabinet_no]:
             checks.append((f"{path}:visible:{marker}", marker in body, "visible"))
         checks.append((f"{path}:clean", not any(marker in body for marker in ["\ufffd", "???", "\u9435", "\u93bf", "\u93b5"]), "clean"))
 
@@ -379,7 +379,7 @@ def main():
     print("first_machine_completion_shipment_finance_audit=ok" if not failures else "first_machine_completion_shipment_finance_audit=failed")
     print(f"checked_items={len(checks)}")
     print(f"project_code={project_code}")
-    print(f"serial_no={serial_no}")
+    print(f"cabinet_no={cabinet_no}")
     for name, ok, detail in checks:
         print(f"{'ok' if ok else 'failed'} | {name} | {detail}")
     return 1 if failures else 0

@@ -37,7 +37,7 @@ def main() -> int:
         require("table_links", "CREATE TABLE IF NOT EXISTS engineering_drawing_links" in route_text, "business reference table is created"),
         require("table_change_logs", "CREATE TABLE IF NOT EXISTS engineering_drawing_change_logs" in route_text, "drawing change log table is created"),
         require("version_unique", "UNIQUE (drawing_no, version)" in route_text, "drawing number and version are unique together"),
-        require("business_refs", all(token in route_text for token in ("product_id", "bom_id", "project_code", "serial_no")), "material/BOM/project/serial references are supported"),
+        require("business_refs", all(token in route_text for token in ("product_id", "bom_id", "project_code", "cabinet_no")), "material/BOM/project/cabinet references are supported"),
         require("release_fields", all(token in route_text for token in ("effective_date", "obsolete_date", "release_no", "approved_by", "approval_date")), "release and lifecycle fields are tracked"),
         require("pagination_sort", all(token in route_text + list_text for token in ("per_page", "total_pages", "DRAWING_SORT_COLUMNS", "pagination")), "drawing list supports pagination and sorting"),
         require("csv_export", "engineering-drawings.csv" in route_text and "export=csv" in list_text, "drawing ledger can be exported as CSV"),

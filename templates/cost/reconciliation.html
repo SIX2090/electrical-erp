@@ -17,7 +17,7 @@
     <div class="section-title">
         <div>
             <h2>发起成本对账</h2>
-            <span>选择对账类型，按期间、项目号、机号对比业务成本与库存/总账成本。</span>
+            <span>选择对账类型，按期间、项目号、柜号对比业务成本与库存/总账成本。</span>
         </div>
         <span class="badge text-bg-light">document entry</span>
     </div>
@@ -39,8 +39,8 @@
             <input class="form-control" name="project_code" placeholder="项目号">
         </div>
         <div class="col-lg-2">
-            <label class="form-label small">机号</label>
-            <input class="form-control" name="serial_no" placeholder="机号">
+            <label class="form-label small">柜号</label>
+            <input class="form-control" name="cabinet_no" placeholder="柜号">
         </div>
         <div class="col-lg-3 d-grid align-self-end">
             <button class="btn btn-primary" type="submit"><i class="bi bi-arrow-left-right"></i> 执行成本对账</button>
@@ -64,7 +64,7 @@
             <input class="form-control" name="project_code" value="{{ filters.project_code }}" placeholder="项目号">
         </div>
         <div class="col-lg-2">
-            <input class="form-control" name="serial_no" value="{{ filters.serial_no }}" placeholder="机号">
+            <input class="form-control" name="cabinet_no" value="{{ filters.cabinet_no }}" placeholder="柜号">
         </div>
         <div class="col-lg-2">
             <select class="form-select" name="status">
@@ -85,7 +85,7 @@
                     <th>ID</th>
                     <th>期间</th>
                     <th>项目号</th>
-                    <th>机号</th>
+                    <th>柜号</th>
                     <th class="text-end">业务成本</th>
                     <th class="text-end">库存成本</th>
                     <th class="text-end">总账成本</th>
@@ -101,7 +101,7 @@
                     <td>{{ r.id }}</td>
                     <td>{{ r.period or '-' }}</td>
                     <td>{{ r.project_code or '-' }}</td>
-                    <td>{{ r.serial_no or '-' }}</td>
+                    <td>{{ r.cabinet_no or '-' }}</td>
                     <td class="text-end">{{ money(r.business_cost) }}</td>
                     <td class="text-end">{{ money(r.inventory_cost) }}</td>
                     <td class="text-end">{{ money(r.gl_cost) }}</td>

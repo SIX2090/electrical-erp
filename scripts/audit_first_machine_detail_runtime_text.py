@@ -19,13 +19,13 @@ DETAIL_CASES = [
     ("purchase request detail", "purchase_requisitions", "/purchase_request/{id}", ("采购申请", "申请明细")),
     ("purchase order detail", "purchase_orders", "/purchase_order/{id}", ("当前状态", "下一步", "物料明细")),
     ("purchase receipt detail", "purchase_receipts", "/purchase_receipts/{id}", ("收货信息", "收货物料明细")),
-    ("subcontract detail", "subcontract_orders", "/subcontract/{id}", ("委外", "项目", "机号")),
+    ("subcontract detail", "subcontract_orders", "/subcontract/{id}", ("委外", "项目", "柜号")),
     ("work order detail", "work_orders", "/work-orders/{id}", ("当前状态", "基本信息", "领料需求")),
-    ("shipment detail", "sales_shipments", "/shipments/{id}", ("销售发货", "项目号", "机号")),
+    ("shipment detail", "sales_shipments", "/shipments/{id}", ("销售发货", "项目号", "柜号")),
     ("receivable detail", "customer_receivables", "/receivables/{id}", ("应收", "状态", "详情")),
-    ("service card detail", "machine_service_cards", "/service-cards/{id}", ("设备服务档案", "项目号", "机号")),
-    ("service order detail", "machine_service_orders", "/service-orders/{id}", ("服务单", "项目号", "机号")),
-    ("service rma detail", "machine_service_rmas", "/service-rmas/{id}", ("RMA", "项目号", "机号")),
+    ("service card detail", "machine_service_cards", "/service-cards/{id}", ("设备服务档案", "项目号", "柜号")),
+    ("service order detail", "machine_service_orders", "/service-orders/{id}", ("服务单", "项目号", "柜号")),
+    ("service rma detail", "machine_service_rmas", "/service-rmas/{id}", ("RMA", "项目号", "柜号")),
 ]
 
 
@@ -46,7 +46,7 @@ def get_db_config():
 def load_trial_values():
     values = {
         "project_code": "PJ-GT-TRIAL-20260526-001",
-        "serial_no": "SN-GT-TRIAL-20260526-001",
+        "cabinet_no": "SN-GT-TRIAL-20260526-001",
     }
     if not TEMPLATE.exists():
         return values
@@ -58,7 +58,7 @@ def load_trial_values():
             if actual.startswith("PJ-GT-"):
                 values["project_code"] = actual
             elif actual.startswith("SN-GT-"):
-                values["serial_no"] = actual
+                values["cabinet_no"] = actual
     return values
 
 
@@ -67,7 +67,7 @@ def load_password(username):
 
     return prepare_trial_audit_passwords([username]).get(username, "")
 
-def fetch_detail_ids(project_code, serial_no):
+def fetch_detail_ids(project_code, cabinet_no):
     ids = {}
     conn = connect_db(get_db_config())
     try:
@@ -77,11 +77,11 @@ def fetch_detail_ids(project_code, serial_no):
                     f"""
                     SELECT id
                     FROM {table}
-                    WHERE project_code=%s AND serial_no=%s
+                    WHERE project_code=%s AND cabinet_no=%s
                     ORDER BY id DESC
                     LIMIT 1
                     """,
-                    (project_code, serial_no),
+                    (project_code, cabinet_no),
                 )
                 row = cur.fetchone()
                 ids[table] = row["id"] if row else None
@@ -100,8 +100,8 @@ def main():
 
     values = load_trial_values()
     project_code = values["project_code"]
-    serial_no = values["serial_no"]
-    detail_ids = fetch_detail_ids(project_code, serial_no)
+    cabinet_no = values["cabinet_no"]
+    detail_ids = fetch_detail_ids(project_code, cabinet_no)
 
     app = create_app({"TESTING": True, "LOGIN_RATE_LIMIT": 1000, "WTF_CSRF_ENABLED": False})
     client = app.test_client()
@@ -122,7 +122,7 @@ def main():
             body = response.get_data(as_text=True)
             checks.append((f"{label}:status", response.status_code == 200, response.status_code))
             checks.append((f"{label}:project", project_code in body, "project visible"))
-            checks.append((f"{label}:serial", serial_no in body, "serial visible"))
+            checks.append((f"{label}:serial", cabinet_no in body, "cabinet visible"))
             for marker in required_markers:
                 checks.append((f"{label}:operator_text:{marker}", marker in body, "visible"))
             checks.append((f"{label}:dirty_markers", not has_dirty_text(body), "clean" if not has_dirty_text(body) else "dirty"))
@@ -131,7 +131,7 @@ def main():
     print("first_machine_detail_runtime_text_audit=ok" if not failures else "first_machine_detail_runtime_text_audit=failed")
     print(f"checked_items={len(checks)}")
     print(f"project_code={project_code}")
-    print(f"serial_no={serial_no}")
+    print(f"cabinet_no={cabinet_no}")
     for name, ok, detail in checks:
         print(f"{'ok' if ok else 'failed'} | {name} | {detail}")
     return 1 if failures else 0

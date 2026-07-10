@@ -64,7 +64,7 @@
         <div class="col-md-3"><div class="text-muted small">有效期</div><div>{{ quote.valid_until or '-' }}</div></div>
         <div class="col-md-3"><div class="text-muted small">来源单号</div><div>{{ quote.source_no|clean_text or '-' }}</div></div>
         <div class="col-md-3"><div class="text-muted small">项目号</div><div>{{ quote.project_code|clean_text or '-' }}</div></div>
-        <div class="col-md-3"><div class="text-muted small">机号</div><div>{{ quote.serial_no|clean_text or '-' }}</div></div>
+        <div class="col-md-3"><div class="text-muted small">柜号</div><div>{{ quote.cabinet_no|clean_text or '-' }}</div></div>
         <div class="col-md-3"><div class="text-muted small">未税金额</div><div>{{ '%.2f'|format(quote.total_amount or 0) }}</div></div>
         <div class="col-md-3"><div class="text-muted small">含税金额</div><div>{{ '%.2f'|format(quote.amount_with_tax or quote.total_amount or 0) }}</div></div>
         <div class="col-md-12"><div class="text-muted small">备注</div><div>{{ quote.remark|clean_text or '-' }}</div></div>

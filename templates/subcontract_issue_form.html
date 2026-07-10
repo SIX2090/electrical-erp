@@ -9,11 +9,11 @@
         <div class="section-title"><div><h2>表头</h2></div></div>
         <div class="row g-2">
             <div class="col-md-6 col-xl-4"><label class="form-label">单据编号</label><input class="form-control form-control-sm" type="text" value="{{ form_order.issue_no|default('') }}" placeholder="保存时自动生成" readonly></div>
-            <div class="col-md-6 col-xl-4"><label class="form-label">外协订单 <span class="text-danger">*</span></label><select class="form-select form-select-sm" name="subcontract_order_id" id="subcontractOrder" required><option value="">请选择</option>{% for source in orders %}<option value="{{ source.id }}" data-supplier="{{ source.supplier_name or '' }}" data-project="{{ source.project_code or '' }}" data-serial="{{ source.serial_no or '' }}" data-code="{{ source.product_code or '' }}" data-name="{{ source.product_name or '' }}" data-spec="{{ source.specification or '' }}" data-unit="{{ source.unit or '' }}" data-open="{{ source.open_qty or source.quantity or 0 }}" {% if selected_order_id == source.id %}selected{% endif %}>{{ source.order_no }} / {{ source.supplier_name }} / {{ source.project_code or '-' }} / {{ source.serial_no or '-' }}</option>{% endfor %}</select></div>
+            <div class="col-md-6 col-xl-4"><label class="form-label">外协订单 <span class="text-danger">*</span></label><select class="form-select form-select-sm" name="subcontract_order_id" id="subcontractOrder" required><option value="">请选择</option>{% for source in orders %}<option value="{{ source.id }}" data-supplier="{{ source.supplier_name or '' }}" data-project="{{ source.project_code or '' }}" data-cabinet="{{ source.cabinet_no or '' }}" data-code="{{ source.product_code or '' }}" data-name="{{ source.product_name or '' }}" data-spec="{{ source.specification or '' }}" data-unit="{{ source.unit or '' }}" data-open="{{ source.open_qty or source.quantity or 0 }}" {% if selected_order_id == source.id %}selected{% endif %}>{{ source.order_no }} / {{ source.supplier_name }} / {{ source.project_code or '-' }} / {{ source.cabinet_no or '-' }}</option>{% endfor %}</select></div>
             <div class="col-md-6 col-xl-4"><label class="form-label">发料日期</label><input class="form-control form-control-sm" type="date" name="date" value="{{ form_order.date or today().isoformat() }}"></div>
             <div class="col-md-6 col-xl-4"><label class="form-label">加工商</label><input class="form-control form-control-sm" id="supplierName" readonly></div>
             <div class="col-md-6 col-xl-4"><label class="form-label">项目号</label><input class="form-control form-control-sm" id="projectCode" readonly></div>
-            <div class="col-md-6 col-xl-4"><label class="form-label">机号</label><input class="form-control form-control-sm" id="serialNo" readonly></div>
+            <div class="col-md-6 col-xl-4"><label class="form-label">柜号</label><input class="form-control form-control-sm" id="serialNo" readonly></div>
             <div class="col-12"><label class="form-label">备注</label><input class="form-control form-control-sm" name="remark" value="{{ form_order.remark or '' }}"></div>
         </div>
     </div>
@@ -27,7 +27,7 @@
     const select = document.getElementById('subcontractOrder');
     function fill() {
         const data = select.selectedOptions[0] ? select.selectedOptions[0].dataset : {};
-        supplierName.value = data.supplier || ''; projectCode.value = data.project || ''; serialNo.value = data.serial || '';
+        supplierName.value = data.supplier || ''; projectCode.value = data.project || ''; serialNo.value = data.cabinet || '';
         productCode.value = data.code || ''; productName.value = data.name || ''; specification.value = data.spec || ''; unitName.value = data.unit || '';
         if (!quantity.value) quantity.value = data.open || '';
     }

@@ -43,7 +43,7 @@ def render_sales_order_detail(
         return render_template("simple_detail.html", title="销售订单详情", row=None, back_url=back_url, labels={})
 
     project_code = order.get("project_code")
-    serial_no = order.get("serial_no")
+    cabinet_no = order.get("cabinet_no")
     cost_object_id = order.get("cost_object_id")
     context = {
         "doc_type": "销售订单",
@@ -98,10 +98,10 @@ def render_sales_order_detail(
                     """
                     SELECT id, shipment_no AS doc_no, shipment_date AS doc_date, status, remark
                     FROM sales_shipments
-                    WHERE order_id=%s OR (%s IS NOT NULL AND project_code=%s) OR (%s IS NOT NULL AND serial_no=%s)
+                    WHERE order_id=%s OR (%s IS NOT NULL AND project_code=%s) OR (%s IS NOT NULL AND cabinet_no=%s)
                     ORDER BY id DESC LIMIT 20
                     """,
-                    (order_id, project_code, project_code, serial_no, serial_no),
+                    (order_id, project_code, project_code, cabinet_no, cabinet_no),
                 ),
                 "columns": columns(("doc_no", "单号"), ("doc_date", "日期"), ("status", "状态"), ("remark", "备注")),
             },
@@ -112,7 +112,7 @@ def render_sales_order_detail(
                     SELECT id, source_no AS doc_no, receivable_date AS doc_date, total_amount, received_amount, balance, status
                     FROM customer_receivables
                     WHERE source_id=%s OR source_no=%s OR (%s IS NOT NULL AND cost_object_id=%s)
-                       OR (%s IS NOT NULL AND project_code=%s) OR (%s IS NOT NULL AND serial_no=%s)
+                       OR (%s IS NOT NULL AND project_code=%s) OR (%s IS NOT NULL AND cabinet_no=%s)
                     ORDER BY id DESC LIMIT 20
                     """,
                     (
@@ -122,8 +122,8 @@ def render_sales_order_detail(
                         cost_object_id,
                         project_code,
                         project_code,
-                        serial_no,
-                        serial_no,
+                        cabinet_no,
+                        cabinet_no,
                     ),
                 ),
                 "columns": columns(
@@ -166,7 +166,7 @@ def render_purchase_order_detail(
         return render_template("simple_detail.html", title="采购订单详情", row=None, back_url=back_url, labels={})
 
     project_code = order.get("project_code")
-    serial_no = order.get("serial_no")
+    cabinet_no = order.get("cabinet_no")
     context = {
         "doc_type": "采购订单",
         "doc_kind": "purchase",
@@ -209,13 +209,13 @@ def render_purchase_order_detail(
                 "rows": query_rows(
                     """
                     SELECT pr.id, pr.req_no, pr.req_date, pr.status,
-                           pri.project_code, pri.serial_no,
+                           pri.project_code, pri.cabinet_no,
                            COUNT(pri.id) AS item_count,
                            COALESCE(SUM(pri.quantity), 0) AS quantity
                     FROM purchase_requisition_items pri
                     LEFT JOIN purchase_requisitions pr ON pr.id=pri.req_id
                     WHERE pri.po_order_id=%s
-                    GROUP BY pr.id, pri.project_code, pri.serial_no
+                    GROUP BY pr.id, pri.project_code, pri.cabinet_no
                     ORDER BY pr.id DESC
                     LIMIT 20
                     """,
@@ -225,7 +225,7 @@ def render_purchase_order_detail(
                     ("req_no", "申请单"),
                     ("req_date", "日期"),
                     ("project_code", "项目号"),
-                    ("serial_no", "机号"),
+                    ("cabinet_no", "柜号"),
                     ("item_count", "行数"),
                     ("quantity", "数量"),
                     ("status", "状态"),
@@ -237,10 +237,10 @@ def render_purchase_order_detail(
                     """
                     SELECT id, receipt_no AS doc_no, receipt_date AS doc_date, status, remark
                     FROM purchase_receipts
-                    WHERE order_id=%s OR (%s IS NOT NULL AND project_code=%s) OR (%s IS NOT NULL AND serial_no=%s)
+                    WHERE order_id=%s OR (%s IS NOT NULL AND project_code=%s) OR (%s IS NOT NULL AND cabinet_no=%s)
                     ORDER BY id DESC LIMIT 20
                     """,
-                    (order_id, project_code, project_code, serial_no, serial_no),
+                    (order_id, project_code, project_code, cabinet_no, cabinet_no),
                 ),
                 "columns": columns(("doc_no", "单号"), ("doc_date", "日期"), ("status", "状态"), ("remark", "备注")),
             },

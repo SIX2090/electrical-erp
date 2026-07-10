@@ -20,7 +20,7 @@
                 <option value="">请选择工单</option>
                 {% for row in orders %}
                 <option value="{{ row.id }}" {% if order and order.id == row.id %}selected{% endif %}>
-                    {{ row.wo_no }} / 项目 {{ row.project_code or '-' }} / 机号 {{ row.serial_no or '-' }} / 状态 {{ row.status or '-' }}
+                    {{ row.wo_no }} / 项目 {{ row.project_code or '-' }} / 柜号 {{ row.cabinet_no or '-' }} / 状态 {{ row.status or '-' }}
                 </option>
                 {% endfor %}
             </select>

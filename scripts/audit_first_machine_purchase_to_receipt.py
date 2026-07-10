@@ -82,36 +82,36 @@ def ensure_trial_suppliers(cur, values):
     return created
 
 
-def latest_project_row(cur, table, project_code, serial_no):
+def latest_project_row(cur, table, project_code, cabinet_no):
     cur.execute(
         f"""
         SELECT *
         FROM {table}
-        WHERE project_code=%s AND serial_no=%s
+        WHERE project_code=%s AND cabinet_no=%s
         ORDER BY id DESC
         LIMIT 1
         """,
-        (project_code, serial_no),
+        (project_code, cabinet_no),
     )
     return cur.fetchone()
 
 
-def ensure_purchase_requisition_and_receipt(cur, values, project_code, serial_no):
+def ensure_purchase_requisition_and_receipt(cur, values, project_code, cabinet_no):
     cur.execute("SELECT id FROM warehouses WHERE code=%s OR name=%s LIMIT 1", (values["warehouse_code"], values["warehouse_code"]))
     warehouse = cur.fetchone()
     warehouse_id = warehouse["id"] if warehouse else None
     cur.execute(
         """
         INSERT INTO purchase_requisitions
-            (req_no, req_date, department, purpose, status, remark, cost_object_id, project_code, serial_no)
+            (req_no, req_date, department, purpose, status, remark, cost_object_id, project_code, cabinet_no)
         SELECT %s, CURRENT_DATE, 'production', 'first machine MRP shortage', '已审核',
                'first machine purchase closure baseline', so.cost_object_id, %s, %s
         FROM sales_orders so
-        WHERE so.project_code=%s AND so.serial_no=%s
+        WHERE so.project_code=%s AND so.cabinet_no=%s
         LIMIT 1
         ON CONFLICT (req_no) DO NOTHING
         """,
-        (f"PR-{project_code}", project_code, serial_no, project_code, serial_no),
+        (f"PR-{project_code}", project_code, cabinet_no, project_code, cabinet_no),
     )
     cur.execute("SELECT * FROM purchase_requisitions WHERE req_no=%s", (f"PR-{project_code}",))
     req = cur.fetchone()
@@ -122,7 +122,7 @@ def ensure_purchase_requisition_and_receipt(cur, values, project_code, serial_no
         """
         INSERT INTO purchase_requisition_items
             (req_id, product_id, quantity, unit_price, amount, need_date, suggested_supplier_id,
-             remark, cost_object_id, project_code, serial_no, warehouse_id, source_line_no,
+             remark, cost_object_id, project_code, cabinet_no, warehouse_id, source_line_no,
              material_code, material_name, material_spec, material_unit)
         SELECT %s, mr.product_id, mr.shortage_quantity, COALESCE(sp.unit_price, p.standard_price, 0),
                mr.shortage_quantity * COALESCE(sp.unit_price, p.standard_price, 0),
@@ -133,14 +133,14 @@ def ensure_purchase_requisition_and_receipt(cur, values, project_code, serial_no
         JOIN products p ON p.id=mr.product_id
         LEFT JOIN supplier_prices sp ON sp.product_id=p.id AND sp.is_active=TRUE
         WHERE mr.project_code=%s
-          AND mr.serial_no=%s
+          AND mr.cabinet_no=%s
           AND COALESCE(mr.shortage_quantity, 0) > 0
           AND NOT EXISTS (
               SELECT 1 FROM purchase_requisition_items pri
               WHERE pri.req_id=%s AND pri.product_id=mr.product_id
           )
         """,
-        (req["id"], project_code, serial_no, warehouse_id, project_code, serial_no, req["id"]),
+        (req["id"], project_code, cabinet_no, warehouse_id, project_code, cabinet_no, req["id"]),
     )
 
     cur.execute(
@@ -167,7 +167,7 @@ def ensure_purchase_requisition_and_receipt(cur, values, project_code, serial_no
         """
         INSERT INTO purchase_orders
             (order_no, supplier_id, order_date, expected_date, status, total_amount,
-             tax_amount, amount_with_tax, remark, cost_object_id, project_code, serial_no)
+             tax_amount, amount_with_tax, remark, cost_object_id, project_code, cabinet_no)
         SELECT %s, %s, CURRENT_DATE, CURRENT_DATE + INTERVAL '7 days', '已审核',
                COALESCE(SUM(amount), 0), 0, COALESCE(SUM(amount), 0),
                'first machine purchase closure baseline', cost_object_id, %s, %s
@@ -176,7 +176,7 @@ def ensure_purchase_requisition_and_receipt(cur, values, project_code, serial_no
         GROUP BY cost_object_id
         ON CONFLICT (order_no) DO NOTHING
         """,
-        (f"PO-{project_code}", supplier_id, project_code, serial_no, req["id"]),
+        (f"PO-{project_code}", supplier_id, project_code, cabinet_no, req["id"]),
     )
     cur.execute("SELECT * FROM purchase_orders WHERE order_no=%s", (f"PO-{project_code}",))
     order = cur.fetchone()
@@ -189,7 +189,7 @@ def ensure_purchase_requisition_and_receipt(cur, values, project_code, serial_no
             (order_id, product_id, quantity, received_qty, unit_price, amount, tax_rate,
              tax_amount, amount_with_tax, price_source, price_source_label,
              source_supplier_id, material_code, material_name, material_spec,
-             material_unit, source_line_no, line_project_code, line_serial_no)
+             material_unit, source_line_no, line_project_code, line_cabinet_no)
         SELECT %s, pri.product_id, pri.quantity, 0, pri.unit_price, pri.amount, 13,
                0, pri.amount, 'trial_baseline', 'first machine baseline',
                pri.suggested_supplier_id, pri.material_code, pri.material_name,
@@ -201,19 +201,19 @@ def ensure_purchase_requisition_and_receipt(cur, values, project_code, serial_no
               WHERE poi.order_id=%s AND poi.product_id=pri.product_id
           )
         """,
-        (order["id"], project_code, serial_no, req["id"], order["id"]),
+        (order["id"], project_code, cabinet_no, req["id"], order["id"]),
     )
 
     cur.execute(
         """
         INSERT INTO purchase_receipts
             (receipt_no, order_id, receipt_date, warehouse_id, status, remark,
-             cost_object_id, project_code, serial_no)
+             cost_object_id, project_code, cabinet_no)
         VALUES (%s, %s, CURRENT_DATE, %s, '已入库',
                 'first machine purchase receipt baseline', %s, %s, %s)
         ON CONFLICT (receipt_no) DO NOTHING
         """,
-        (f"RC-{project_code}", order["id"], warehouse_id, order.get("cost_object_id"), project_code, serial_no),
+        (f"RC-{project_code}", order["id"], warehouse_id, order.get("cost_object_id"), project_code, cabinet_no),
     )
     cur.execute("SELECT * FROM purchase_receipts WHERE receipt_no=%s", (f"RC-{project_code}",))
     receipt = cur.fetchone()
@@ -244,7 +244,7 @@ def ensure_purchase_requisition_and_receipt(cur, values, project_code, serial_no
         """
         INSERT INTO stock_transactions
             (transaction_date, transaction_type, product_id, quantity, unit_cost,
-             reference_no, lot_no, serial_no, project_code, location, remark,
+             reference_no, lot_no, cabinet_no, project_code, location, remark,
              warehouse_id, location_id, source_type, material_code, material_name,
              material_spec, material_unit, amount, source_doc_type, source_doc_no, source_line_no)
         SELECT CURRENT_TIMESTAMP, '采购入库', pri.product_id, pri.quantity, COALESCE(pri.unit_cost, 0),
@@ -261,24 +261,24 @@ def ensure_purchase_requisition_and_receipt(cur, values, project_code, serial_no
               WHERE st.reference_no=%s AND st.product_id=pri.product_id AND st.transaction_type='采购入库'
           )
         """,
-        (receipt["receipt_no"], serial_no, project_code, warehouse_id, receipt["receipt_no"], receipt["id"], receipt["receipt_no"]),
+        (receipt["receipt_no"], cabinet_no, project_code, warehouse_id, receipt["receipt_no"], receipt["id"], receipt["receipt_no"]),
     )
 
     cur.execute(
         """
         INSERT INTO inventory_balances
-            (product_id, warehouse_id, location_id, lot_no, serial_no, quantity, locked_qty, unit_cost, updated_at)
+            (product_id, warehouse_id, location_id, lot_no, cabinet_no, quantity, locked_qty, unit_cost, updated_at)
         SELECT pri.product_id, %s, pri.location_id, '', %s, pri.quantity, 0, COALESCE(pri.unit_cost, 0), NOW()
         FROM purchase_receipt_items pri
         WHERE pri.receipt_id=%s
         ON CONFLICT DO NOTHING
         """,
-        (warehouse_id, serial_no, receipt["id"]),
+        (warehouse_id, cabinet_no, receipt["id"]),
     )
-    repair_existing_trial_closure(cur, project_code, serial_no)
+    repair_existing_trial_closure(cur, project_code, cabinet_no)
 
 
-def repair_existing_trial_closure(cur, project_code, serial_no):
+def repair_existing_trial_closure(cur, project_code, cabinet_no):
     cur.execute(
         """
         UPDATE stock_transactions st
@@ -286,10 +286,10 @@ def repair_existing_trial_closure(cur, project_code, serial_no):
         FROM purchase_receipts pr
         WHERE st.reference_no=pr.receipt_no
           AND pr.project_code=%s
-          AND pr.serial_no=%s
+          AND pr.cabinet_no=%s
           AND COALESCE(st.project_code, '')=''
         """,
-        (project_code, serial_no),
+        (project_code, cabinet_no),
     )
     cur.execute(
         """
@@ -302,14 +302,14 @@ def repair_existing_trial_closure(cur, project_code, serial_no):
                '未付款', 'first machine trial purchase closure repair', po.expected_date
         FROM purchase_orders po
         WHERE po.project_code=%s
-          AND po.serial_no=%s
+          AND po.cabinet_no=%s
           AND NOT EXISTS (
               SELECT 1
               FROM supplier_payables sp
               WHERE sp.doc_type='purchase_order' AND sp.doc_id=po.id
           )
         """,
-        (project_code, serial_no),
+        (project_code, cabinet_no),
     )
 
 
@@ -320,7 +320,7 @@ def main():
     os.environ.setdefault("WTF_CSRF_ENABLED", "0")
     values = load_values()
     project_code = values["项目号"]
-    serial_no = values["机号"]
+    cabinet_no = values["柜号"]
     checks = []
 
     conn = connect_db(get_db_config())
@@ -344,7 +344,7 @@ def main():
         conn = connect_db(get_db_config())
         try:
             with conn.cursor() as cur:
-                req = latest_project_row(cur, "purchase_requisitions", project_code, serial_no)
+                req = latest_project_row(cur, "purchase_requisitions", project_code, cabinet_no)
             conn.commit()
         finally:
             conn.close()
@@ -358,7 +358,7 @@ def main():
         conn = connect_db(get_db_config())
         try:
             with conn.cursor() as cur:
-                req = latest_project_row(cur, "purchase_requisitions", project_code, serial_no)
+                req = latest_project_row(cur, "purchase_requisitions", project_code, cabinet_no)
                 checks.append(("purchase_requisition_created", bool(req), req.get("req_no") if req else "missing"))
                 if req:
                     cur.execute(
@@ -366,12 +366,12 @@ def main():
                         SELECT COUNT(*) AS lines, COALESCE(SUM(quantity), 0) AS qty,
                                COUNT(*) FILTER (WHERE COALESCE(suggested_supplier_id, 0) > 0) AS supplier_lines
                         FROM purchase_requisition_items
-                        WHERE req_id=%s AND project_code=%s AND serial_no=%s
+                        WHERE req_id=%s AND project_code=%s AND cabinet_no=%s
                         """,
-                        (req["id"], project_code, serial_no),
+                        (req["id"], project_code, cabinet_no),
                     )
                     req_items = cur.fetchone() or {}
-                    checks.append(("requisition_lines_project_serial", int(req_items.get("lines") or 0) >= 1, req_items.get("lines")))
+                    checks.append(("requisition_lines_project_cabinet", int(req_items.get("lines") or 0) >= 1, req_items.get("lines")))
                     checks.append(("requisition_lines_have_supplier", int(req_items.get("supplier_lines") or 0) >= 1, req_items.get("supplier_lines")))
             conn.commit()
         finally:
@@ -385,9 +385,9 @@ def main():
                         """
                         SELECT COUNT(*) AS value
                         FROM purchase_orders
-                        WHERE project_code=%s AND serial_no=%s
+                        WHERE project_code=%s AND cabinet_no=%s
                         """,
-                        (project_code, serial_no),
+                        (project_code, cabinet_no),
                     )
                     existing_po_count = int((cur.fetchone() or {}).get("value") or 0)
                 conn.commit()
@@ -400,19 +400,19 @@ def main():
         conn = connect_db(get_db_config())
         try:
             with conn.cursor() as cur:
-                repair_existing_trial_closure(cur, project_code, serial_no)
+                repair_existing_trial_closure(cur, project_code, cabinet_no)
                 cur.execute(
                     """
                     SELECT id, order_no, status
                     FROM purchase_orders
-                    WHERE project_code=%s AND serial_no=%s
+                    WHERE project_code=%s AND cabinet_no=%s
                     ORDER BY id DESC
                     """,
-                    (project_code, serial_no),
+                    (project_code, cabinet_no),
                 )
                 orders = cur.fetchall()
                 checks.append(("purchase_order_created", len(orders) >= 1, len(orders)))
-                ensure_purchase_requisition_and_receipt(cur, values, project_code, serial_no)
+                ensure_purchase_requisition_and_receipt(cur, values, project_code, cabinet_no)
             conn.commit()
         finally:
             conn.close()
@@ -432,9 +432,9 @@ def main():
                     SELECT COUNT(*) AS lines, COALESCE(SUM(poi.received_qty), 0) AS received_qty
                     FROM purchase_orders po
                     JOIN purchase_order_items poi ON poi.order_id=po.id
-                    WHERE po.project_code=%s AND po.serial_no=%s
+                    WHERE po.project_code=%s AND po.cabinet_no=%s
                     """,
-                    (project_code, serial_no),
+                    (project_code, cabinet_no),
                 )
                 received = cur.fetchone() or {}
                 checks.append(("purchase_order_received_qty", received.get("received_qty", 0) > 0, received.get("received_qty")))
@@ -443,9 +443,9 @@ def main():
                     """
                     SELECT COUNT(*) AS value
                     FROM purchase_receipts
-                    WHERE project_code=%s AND serial_no=%s
+                    WHERE project_code=%s AND cabinet_no=%s
                     """,
-                    (project_code, serial_no),
+                    (project_code, cabinet_no),
                 )
                 receipt_count = int((cur.fetchone() or {}).get("value") or 0)
                 checks.append(("purchase_receipt_created", receipt_count >= 1, receipt_count))
@@ -454,21 +454,21 @@ def main():
                     """
                     SELECT COUNT(*) AS value
                     FROM stock_transactions
-                    WHERE project_code=%s AND serial_no=%s AND transaction_type='采购入库'
+                    WHERE project_code=%s AND cabinet_no=%s AND transaction_type='采购入库'
                     """,
-                    (project_code, serial_no),
+                    (project_code, cabinet_no),
                 )
                 stock_tx_count = int((cur.fetchone() or {}).get("value") or 0)
-                checks.append(("purchase_stock_transaction_project_serial", stock_tx_count >= 1, stock_tx_count))
+                checks.append(("purchase_stock_transaction_project_cabinet", stock_tx_count >= 1, stock_tx_count))
 
                 cur.execute(
                     """
                     SELECT COUNT(*) AS value
                     FROM supplier_payables sp
                     JOIN purchase_orders po ON po.id=sp.doc_id AND sp.doc_type='purchase_order'
-                    WHERE po.project_code=%s AND po.serial_no=%s AND COALESCE(sp.balance, 0) > 0
+                    WHERE po.project_code=%s AND po.cabinet_no=%s AND COALESCE(sp.balance, 0) > 0
                     """,
-                    (project_code, serial_no),
+                    (project_code, cabinet_no),
                 )
                 payable_count = int((cur.fetchone() or {}).get("value") or 0)
                 checks.append(("supplier_payable_traceable", payable_count >= 1, payable_count))
@@ -492,7 +492,7 @@ def main():
     print("first_machine_purchase_to_receipt_audit=ok" if not failures else "first_machine_purchase_to_receipt_audit=failed")
     print(f"checked_items={len(checks)}")
     print(f"project_code={project_code}")
-    print(f"serial_no={serial_no}")
+    print(f"cabinet_no={cabinet_no}")
     for name, ok, detail in checks:
         print(f"{'ok' if ok else 'failed'} | {name} | {detail}")
     return 1 if failures else 0

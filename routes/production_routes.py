@@ -46,8 +46,8 @@ def _source_axis_text(row):
     parts = []
     if row.get("project_code"):
         parts.append(f"项目号 {row.get('project_code')}")
-    if row.get("serial_no"):
-        parts.append(f"机号 {row.get('serial_no')}")
+    if row.get("cabinet_no"):
+        parts.append(f"柜号 {row.get('cabinet_no')}")
     return " / ".join(parts) or "-"
 
 
@@ -63,7 +63,7 @@ def _decorate_work_order_source(row):
         row["source_trace_status"] = "已关联销售来源"
         row["source_next_step"] = "按销售需求核对BOM、齐套、领料和完工"
         row["source_owner_role"] = "生产计划"
-    elif row.get("project_code") or row.get("serial_no"):
+    elif row.get("project_code") or row.get("cabinet_no"):
         row["source_document"] = "项目需求"
         row["source_trace_status"] = "待补销售订单"
         row["source_next_step"] = "补齐销售订单或工程确认来源，继续按项目轴推进"
@@ -71,7 +71,7 @@ def _decorate_work_order_source(row):
     else:
         row["source_document"] = "未关联来源"
         row["source_trace_status"] = "来源缺失"
-        row["source_next_step"] = "补录销售订单、项目号、机号、BOM和来源行"
+        row["source_next_step"] = "补录销售订单、项目号、柜号、BOM和来源行"
         row["source_owner_role"] = "生产计划"
         row["blocked_reason"] = "缺少销售/项目来源，需先补齐追溯轴"
         row["downstream_impact"] = "影响领料、完工入库、发货、服务和成本追溯"
@@ -252,7 +252,7 @@ def _decorate_quality_rows(rows):
             row["release_status"] = "已放行"
             row["unreleased_reason"] = ""
             row["owner_role"] = "质量"
-            row["next_step"] = "核对完工入库、项目机号和质量记录"
+            row["next_step"] = "核对完工入库、项目柜号和质量记录"
         else:
             row["release_status"] = "待判定"
             row["unreleased_reason"] = "质检结果未判定。"
@@ -271,7 +271,7 @@ def _build_quality_summary(order, quality_rows, completions):
             "release_status": "未登记",
             "unreleased_reason": f"当前工单没有质量记录，{timing}需要登记调试、终检或关键控制点质检。",
             "owner_role": "质量",
-            "next_step": "补录质检记录后再核对完工入库和项目机号追溯",
+            "next_step": "补录质检记录后再核对完工入库和项目柜号追溯",
             "downstream_impact": "仅提示质量放行风险，不阻断现有工单操作。",
             "sample_size": total_sample,
             "passed_quantity": total_passed,
@@ -297,7 +297,7 @@ def _build_quality_summary(order, quality_rows, completions):
         release_status = "已放行"
         unreleased_reason = ""
         owner_role = "质量"
-        next_step = "核对完工入库、项目机号和质量记录"
+        next_step = "核对完工入库、项目柜号和质量记录"
     return {
         "release_status": release_status,
         "unreleased_reason": unreleased_reason,
@@ -479,7 +479,7 @@ def _build_work_order_cost_reconciliation(order, material_items, subcontract_row
         reconcile_status = "待完工入库"
         pending_reason = "尚未登记完工入库，成本只能核到投入端"
         owner = "生产"
-        next_action = "登记合格数量、批号/机号和完工入库成本"
+        next_action = "登记合格数量、批号/柜号和完工入库成本"
         blockers.append("未登记完工入库")
     elif pending_material_qty > 0:
         reconcile_status = "待领料齐套"
@@ -528,7 +528,7 @@ def _build_work_order_cost_reconciliation(order, material_items, subcontract_row
         collection_status = "可归集待确认"
         collection_action = "生产确认领退料、委外、报工和完工入库均已完整，财务按受控流程确认成本归集"
         settlement_status = "建议结转待财务确认"
-        settlement_advice = "可作为项目/机号成本结转建议；财务在财务模块受控确认，不在生产页面过账"
+        settlement_advice = "可作为项目/柜号成本结转建议；财务在财务模块受控确认，不在生产页面过账"
         settlement_blocked_reason = "无硬阻断，缺少正式成本归集确认记录"
     else:
         collection_status = "已正式归集"
@@ -552,7 +552,7 @@ def _build_work_order_cost_reconciliation(order, material_items, subcontract_row
         {"label": "委外成本", "amount": subcontract_cost, "basis": "关联委外订单金额；收回状态用于闭环判断", "owner": "委外/采购", "status": "委外待收" if subcontract_pending else ("已核入" if subcontract_cost else "无委外"), "next_action": "核对委外发出、收回、报废短收和应付"},
         {"label": "报工人工成本", "amount": labor_cost, "basis": operation_basis, "owner": "生产/财务", "status": "报工待审" if pending_operation_reports else ("已核入" if labor_cost else "未归集"), "next_action": "审核报工并确认员工/工作中心工时费率"},
         {"label": "报工设备/制造费用", "amount": equipment_cost, "basis": operation_basis, "owner": "生产/财务", "status": "报工待审" if pending_operation_reports else ("已核入" if equipment_cost else "未归集"), "next_action": "确认设备工时和工作中心制造费用费率"},
-        {"label": "完工入库成本", "amount": completion_inbound_cost, "basis": "完工数量 x 入库成本单价", "owner": "生产/仓库", "status": "已入库" if completions else "待入库", "next_action": "核对完工入库单、批号/机号和库存流水"},
+        {"label": "完工入库成本", "amount": completion_inbound_cost, "basis": "完工数量 x 入库成本单价", "owner": "生产/仓库", "status": "已入库" if completions else "待入库", "next_action": "核对完工入库单、批号/柜号和库存流水"},
         {"label": "差异/待核金额", "amount": variance, "basis": "归集成本 - 完工入库成本", "owner": owner, "status": "需调整建议" if variance else "无差异", "next_action": variance_adjustment_suggestion},
     ]
     return {
@@ -659,7 +659,7 @@ def build_work_order_completion_gate(order, material_items, quality_rows, proces
             candidate.get("complete_date"),
             candidate_qty,
             candidate.get("lot_no") or "",
-            candidate.get("serial_no") or order.get("serial_no") or "",
+            candidate.get("cabinet_no") or order.get("cabinet_no") or "",
             candidate.get("warehouse_id") or order.get("warehouse_id"),
             candidate.get("location_id") or order.get("location_id"),
         )
@@ -668,12 +668,12 @@ def build_work_order_completion_gate(order, material_items, quality_rows, proces
                 row.get("complete_date"),
                 as_decimal(row.get("qty")),
                 row.get("lot_no") or "",
-                row.get("serial_no") or "",
+                row.get("cabinet_no") or "",
                 row.get("warehouse_id") or order.get("warehouse_id"),
                 row.get("location_id") or order.get("location_id"),
             )
             if row_key == duplicate_key:
-                blockers.append("存在相同日期、数量、批号、机号、仓库和库位的完工记录，请核对是否重复入库。")
+                blockers.append("存在相同日期、数量、批号、柜号、仓库和库位的完工记录，请核对是否重复入库。")
                 break
     if len([row for row in stock_rows if row.get("transaction_type") == "工单完工入库"]) and not completions:
         blockers.append("存在工单完工入库库存流水但没有完工明细，请先核对库存流水。")
@@ -1151,8 +1151,8 @@ def render_work_order_detail(
                         AND COALESCE(NULLIF(soi.line_project_code, ''), NULLIF(so.project_code, ''))=wo.project_code
                     )
                     OR (
-                        NULLIF(wo.serial_no, '') IS NOT NULL
-                        AND COALESCE(NULLIF(soi.line_serial_no, ''), NULLIF(so.serial_no, ''))=wo.serial_no
+                        NULLIF(wo.cabinet_no, '') IS NOT NULL
+                        AND COALESCE(NULLIF(soi.line_cabinet_no, ''), NULLIF(so.cabinet_no, ''))=wo.cabinet_no
                     )
                   )
               AND (
@@ -1171,7 +1171,7 @@ def render_work_order_detail(
         return render_template("simple_detail.html", title="工单详情", row=None, back_url=back_url, labels={})
 
     project_code = order.get("project_code")
-    serial_no = order.get("serial_no")
+    cabinet_no = order.get("cabinet_no")
     cost_object_id = order.get("cost_object_id")
     material_items = query_rows(
         """
@@ -1191,7 +1191,7 @@ def render_work_order_detail(
                COALESCE(p.unit, '') AS unit, mi.required_qty, mi.issued_qty, mi.returned_qty,
                GREATEST(COALESCE(mi.required_qty,0)-COALESCE(mi.issued_qty,0)+COALESCE(mi.returned_qty,0),0) AS shortage_qty,
                mi.unit_cost, mi.amount, mi.warehouse_id, mi.location_id, mi.lot_no,
-               mi.source_line_no, mi.line_project_code, mi.line_serial_no, mi.remark,
+               mi.source_line_no, mi.line_project_code, mi.line_cabinet_no, mi.remark,
                w.name AS line_warehouse_name, l.code AS line_location_code, COALESCE(l.name, l.code) AS line_location_name
         FROM wo_material_items mi
         LEFT JOIN products p ON p.id=mi.product_id
@@ -1270,7 +1270,7 @@ def render_work_order_detail(
                COALESCE(p.batch_control, FALSE) AS batch_control,
                COALESCE(p.serial_control, FALSE) AS serial_control,
                COALESCE(p.inspection_required, FALSE) AS inspection_required,
-                COALESCE(p.unit, '') AS unit, wc.qty, wc.lot_no, wc.serial_no, wc.unit_cost,
+                COALESCE(p.unit, '') AS unit, wc.qty, wc.lot_no, wc.cabinet_no, wc.unit_cost,
                 wc.warehouse_id, wc.location_id,
                 w.name AS warehouse_name, l.code AS location_code, COALESCE(l.name, l.code) AS location_name
         FROM wo_complete_items wc
@@ -1302,11 +1302,11 @@ def render_work_order_detail(
         FROM quality_inspection_records
         WHERE source_document_type='work_order' AND source_document_id=%s
            OR (%s IS NOT NULL AND project_code=%s)
-           OR (%s IS NOT NULL AND serial_no=%s)
+           OR (%s IS NOT NULL AND cabinet_no=%s)
         ORDER BY id DESC
         LIMIT 30
         """,
-        (work_order_id, project_code, project_code, serial_no, serial_no),
+        (work_order_id, project_code, project_code, cabinet_no, cabinet_no),
     )
     has_cost_table = _optional_table_exists("work_order_costs", query_one)
     has_cost_line_table = _optional_table_exists("work_order_cost_lines", query_one)
@@ -1344,7 +1344,7 @@ def render_work_order_detail(
                COALESCE(p.batch_control, FALSE) AS batch_control,
                COALESCE(p.serial_control, FALSE) AS serial_control,
                COALESCE(p.inspection_required, FALSE) AS inspection_required,
-               st.quantity, st.unit_cost, st.amount, st.reference_no, st.source_line_no, st.lot_no, st.serial_no, st.remark
+               st.quantity, st.unit_cost, st.amount, st.reference_no, st.source_line_no, st.lot_no, st.cabinet_no, st.remark
         FROM stock_transactions st
         LEFT JOIN products p ON p.id=st.product_id
         LEFT JOIN product_categories pc ON pc.id=p.category_id
@@ -1358,11 +1358,11 @@ def render_work_order_detail(
             LIMIT 1
         ) bom ON TRUE
         WHERE st.reference_no=%s
-           OR (%s IS NOT NULL AND st.serial_no=%s)
+           OR (%s IS NOT NULL AND st.cabinet_no=%s)
         ORDER BY st.id DESC
         LIMIT 50
         """,
-        (order.get("wo_no"), serial_no, serial_no),
+        (order.get("wo_no"), cabinet_no, cabinet_no),
     )
     subcontract_rows = query_rows(
         """
@@ -1388,11 +1388,11 @@ def render_work_order_detail(
         ) receive_sum ON TRUE
         WHERE sc.parent_work_order_id=%s
            OR (%s IS NOT NULL AND sc.project_code=%s)
-           OR (%s IS NOT NULL AND sc.serial_no=%s)
+           OR (%s IS NOT NULL AND sc.cabinet_no=%s)
         ORDER BY sc.id DESC
         LIMIT 30
         """,
-        (work_order_id, project_code, project_code, serial_no, serial_no),
+        (work_order_id, project_code, project_code, cabinet_no, cabinet_no),
     )
     mrp_rows = query_rows(
         """
@@ -1418,11 +1418,11 @@ def render_work_order_detail(
         ) bom ON TRUE
         WHERE mr.work_order_id=%s
            OR (%s IS NOT NULL AND mr.project_code=%s)
-           OR (%s IS NOT NULL AND mr.serial_no=%s)
+           OR (%s IS NOT NULL AND mr.cabinet_no=%s)
         ORDER BY mr.id DESC
         LIMIT 40
         """,
-        (work_order_id, project_code, project_code, serial_no, serial_no),
+        (work_order_id, project_code, project_code, cabinet_no, cabinet_no),
     )
     order["bom_display"] = _bom_display_text(order)
     order["control_display"] = _manufacturing_control_text(order)
@@ -1448,7 +1448,7 @@ def render_work_order_detail(
         (work_order_id,),
     )
     _decorate_work_order_progress(order, subcontract_rows)
-    kit_rows = project_kit_rows(work_order_id, project_code, serial_no, cost_object_id) if project_kit_rows else []
+    kit_rows = project_kit_rows(work_order_id, project_code, cabinet_no, cost_object_id) if project_kit_rows else []
     kit_summary = build_kit_summary(kit_rows) if build_kit_summary else {}
     material_summary = summarize_material_rows(material_items)
     total_required = material_summary["required_qty"]
@@ -1553,7 +1553,7 @@ def render_production_dashboard(query_rows, count_rows, columns, render_module_d
     ]
     work_orders = query_rows(
         """
-        SELECT wo.id, wo.wo_no, wo.wo_date, wo.project_code, wo.serial_no, wo.status,
+        SELECT wo.id, wo.wo_no, wo.wo_date, wo.project_code, wo.cabinet_no, wo.status,
                wo.quantity, wo.production_stage, wo.production_type, wo.planned_start_date, wo.planned_end_date,
                wo.actual_start_date, wo.actual_end_date,
                p.code AS product_code, p.name AS product_name,
@@ -1606,7 +1606,7 @@ def render_production_dashboard(query_rows, count_rows, columns, render_module_d
                   AND (mi.warehouse_id IS NULL OR ib.warehouse_id=mi.warehouse_id)
                   AND (mi.location_id IS NULL OR ib.location_id=mi.location_id)
                   AND (COALESCE(mi.line_project_code, '')='' OR COALESCE(ib.project_code, '')=COALESCE(mi.line_project_code, ''))
-                  AND (COALESCE(mi.line_serial_no, '')='' OR COALESCE(ib.serial_no, '')=COALESCE(mi.line_serial_no, ''))
+                  AND (COALESCE(mi.line_cabinet_no, '')='' OR COALESCE(ib.cabinet_no, '')=COALESCE(mi.line_cabinet_no, ''))
             ) inv ON TRUE
             WHERE mi.wo_id=wo.id
         ) material ON TRUE
@@ -1616,7 +1616,7 @@ def render_production_dashboard(query_rows, count_rows, columns, render_module_d
             WHERE COALESCE(mr.shortage_quantity, 0) > 0
               AND (
                   (wo.project_code IS NOT NULL AND mr.project_code=wo.project_code)
-                  OR (wo.serial_no IS NOT NULL AND mr.serial_no=wo.serial_no)
+                  OR (wo.cabinet_no IS NOT NULL AND mr.cabinet_no=wo.cabinet_no)
               )
         ) mrp_shortage ON TRUE
         LEFT JOIN LATERAL (
@@ -1653,7 +1653,7 @@ def render_production_dashboard(query_rows, count_rows, columns, render_module_d
             ) receive_sum ON TRUE
             WHERE sc.parent_work_order_id=wo.id
                OR (wo.project_code IS NOT NULL AND sc.project_code=wo.project_code)
-               OR (wo.serial_no IS NOT NULL AND sc.serial_no=wo.serial_no)
+               OR (wo.cabinet_no IS NOT NULL AND sc.cabinet_no=wo.cabinet_no)
         ) subcontract ON TRUE
         LEFT JOIN LATERAL (
             SELECT db.bom_no, db.version
@@ -1675,8 +1675,8 @@ def render_production_dashboard(query_rows, count_rows, columns, render_module_d
                         AND COALESCE(NULLIF(soi.line_project_code, ''), NULLIF(so.project_code, ''))=wo.project_code
                     )
                     OR (
-                        NULLIF(wo.serial_no, '') IS NOT NULL
-                        AND COALESCE(NULLIF(soi.line_serial_no, ''), NULLIF(so.serial_no, ''))=wo.serial_no
+                        NULLIF(wo.cabinet_no, '') IS NOT NULL
+                        AND COALESCE(NULLIF(soi.line_cabinet_no, ''), NULLIF(so.cabinet_no, ''))=wo.cabinet_no
                     )
                   )
               AND (
@@ -1713,7 +1713,7 @@ def render_production_dashboard(query_rows, count_rows, columns, render_module_d
     ][:12]
     shortages = query_rows(
         """
-        SELECT mr.id, mr.requirement_date, mr.project_code, mr.serial_no, p.code AS product_code,
+        SELECT mr.id, mr.requirement_date, mr.project_code, mr.cabinet_no, p.code AS product_code,
                p.name AS product_name, mr.quantity, mr.available_quantity, mr.shortage_quantity, mr.status
         FROM mrp_requirements mr
         LEFT JOIN products p ON p.id=mr.product_id
@@ -1747,7 +1747,7 @@ def render_production_dashboard(query_rows, count_rows, columns, render_module_d
                     ("schedule_compare", "计划/实际对比"),
                     ("product_code", "物料编码"),
                     ("product_name", "物料名称"),
-                    ("source_axis", "项目/机号"),
+                    ("source_axis", "项目/柜号"),
                     ("pending_issue_qty", "未领"),
                     ("completed_qty", "完工"),
                     ("delivery_warning", "交期预警"),
@@ -1764,7 +1764,7 @@ def render_production_dashboard(query_rows, count_rows, columns, render_module_d
                 "columns": columns(
                     ("requirement_date", "需求日期"),
                     ("project_code", "项目号"),
-                    ("serial_no", "机号"),
+                    ("cabinet_no", "柜号"),
                     ("product_code", "物料编码"),
                     ("product_name", "物料名称"),
                     ("shortage_quantity", "缺料"),
@@ -1782,7 +1782,7 @@ def render_production_dashboard(query_rows, count_rows, columns, render_module_d
 def render_work_order_list(query_rows, columns, render_template_func=render_template, scope_clause="", scope_params=()):
     rows = query_rows(
         f"""
-        SELECT wo.id, wo.wo_no, wo.wo_date, wo.project_code, wo.serial_no, wo.status,
+        SELECT wo.id, wo.wo_no, wo.wo_date, wo.project_code, wo.cabinet_no, wo.status,
                wo.production_type,
                wo.quantity, wo.production_stage, p.code AS product_code, p.name AS product_name,
                COALESCE(pc.name, p.category, '') AS product_family,
@@ -1835,7 +1835,7 @@ def render_work_order_list(query_rows, columns, render_template_func=render_temp
                   AND (mi.warehouse_id IS NULL OR ib.warehouse_id=mi.warehouse_id)
                   AND (mi.location_id IS NULL OR ib.location_id=mi.location_id)
                   AND (COALESCE(mi.line_project_code, '')='' OR COALESCE(ib.project_code, '')=COALESCE(mi.line_project_code, ''))
-                  AND (COALESCE(mi.line_serial_no, '')='' OR COALESCE(ib.serial_no, '')=COALESCE(mi.line_serial_no, ''))
+                  AND (COALESCE(mi.line_cabinet_no, '')='' OR COALESCE(ib.cabinet_no, '')=COALESCE(mi.line_cabinet_no, ''))
             ) inv ON TRUE
             WHERE mi.wo_id=wo.id
         ) material ON TRUE
@@ -1845,7 +1845,7 @@ def render_work_order_list(query_rows, columns, render_template_func=render_temp
             WHERE COALESCE(mr.shortage_quantity, 0) > 0
               AND (
                   (wo.project_code IS NOT NULL AND mr.project_code=wo.project_code)
-                  OR (wo.serial_no IS NOT NULL AND mr.serial_no=wo.serial_no)
+                  OR (wo.cabinet_no IS NOT NULL AND mr.cabinet_no=wo.cabinet_no)
               )
         ) mrp_shortage ON TRUE
         LEFT JOIN LATERAL (
@@ -1882,7 +1882,7 @@ def render_work_order_list(query_rows, columns, render_template_func=render_temp
             ) receive_sum ON TRUE
             WHERE sc.parent_work_order_id=wo.id
                OR (wo.project_code IS NOT NULL AND sc.project_code=wo.project_code)
-               OR (wo.serial_no IS NOT NULL AND sc.serial_no=wo.serial_no)
+               OR (wo.cabinet_no IS NOT NULL AND sc.cabinet_no=wo.cabinet_no)
         ) subcontract ON TRUE
         LEFT JOIN LATERAL (
             SELECT db.bom_no, db.version
@@ -1902,8 +1902,8 @@ def render_work_order_list(query_rows, columns, render_template_func=render_temp
                         AND COALESCE(NULLIF(soi.line_project_code, ''), NULLIF(so.project_code, ''))=wo.project_code
                     )
                     OR (
-                        NULLIF(wo.serial_no, '') IS NOT NULL
-                        AND COALESCE(NULLIF(soi.line_serial_no, ''), NULLIF(so.serial_no, ''))=wo.serial_no
+                        NULLIF(wo.cabinet_no, '') IS NOT NULL
+                        AND COALESCE(NULLIF(soi.line_cabinet_no, ''), NULLIF(so.cabinet_no, ''))=wo.cabinet_no
                     )
                   )
               AND (
@@ -1943,7 +1943,7 @@ def render_work_order_list(query_rows, columns, render_template_func=render_temp
             ("product_code", "物料编码"),
             ("product_name", "物料名称"),
             ("product_family", "产品分类"),
-            ("source_axis", "项目/机号追踪"),
+            ("source_axis", "项目/柜号追踪"),
             ("production_stage", "生产阶段"),
             ("status", "单据状态"),
             ("quantity", "数量"),
@@ -2029,7 +2029,7 @@ def render_work_order_operation_print(kind, work_order_id, query_one, query_rows
     else:
         rows = query_rows(
             """
-            SELECT wc.complete_date, wc.qty AS quantity, wc.unit_cost, wc.lot_no, wc.serial_no,
+            SELECT wc.complete_date, wc.qty AS quantity, wc.unit_cost, wc.lot_no, wc.cabinet_no,
                    p.code AS product_code, p.name AS product_name, p.specification, p.unit,
                    COALESCE(pc.name, p.category, '') AS product_family,
                    bom.bom_no AS default_bom_no,
@@ -2072,7 +2072,7 @@ def render_work_order_operation_print(kind, work_order_id, query_one, query_rows
             ("unit_cost", "成本", "money right"),
             ("amount", "金额", "money right"),
             ("lot_no", "批号", ""),
-            ("serial_no", "机号", ""),
+            ("cabinet_no", "柜号", ""),
             ("warehouse_name", "入库仓库", ""),
         ]
         total_quantity = sum((as_decimal(row.get("quantity")) for row in rows), Decimal("0"))
@@ -2086,7 +2086,7 @@ def render_work_order_operation_print(kind, work_order_id, query_one, query_rows
             ("产品", f"{order.get('product_code') or ''} / {order.get('product_name') or ''}"),
             ("计划数量", order.get("quantity")),
             ("项目号", order.get("project_code")),
-            ("机号", order.get("serial_no")),
+            ("柜号", order.get("cabinet_no")),
             ("仓库", order.get("warehouse_name")),
             ("备注", order.get("remark")),
         ],

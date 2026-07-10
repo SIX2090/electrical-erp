@@ -96,7 +96,7 @@ def add_migration_to_schema():
             credit_amount NUMERIC(16, 2) DEFAULT 0,
             summary TEXT,
             project_code VARCHAR(120),
-            serial_no VARCHAR(120),
+            cabinet_no VARCHAR(120),
             partner_type VARCHAR(50),
             partner_id INTEGER,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -148,9 +148,9 @@ def add_migration_to_schema():
             ON project_cost_ledger(cost_date);
 
         -- 6. 序列号成本台账
-        CREATE TABLE IF NOT EXISTS serial_cost_ledger (
+        CREATE TABLE IF NOT EXISTS cabinet_cost_ledger (
             id SERIAL PRIMARY KEY,
-            serial_no VARCHAR(120) NOT NULL,
+            cabinet_no VARCHAR(120) NOT NULL,
             cost_date DATE NOT NULL,
             cost_type VARCHAR(80),
             source_type VARCHAR(80),
@@ -164,10 +164,10 @@ def add_migration_to_schema():
             remark TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
-        CREATE INDEX IF NOT EXISTS idx_serial_cost_ledger_serial
-            ON serial_cost_ledger(serial_no);
-        CREATE INDEX IF NOT EXISTS idx_serial_cost_ledger_date
-            ON serial_cost_ledger(cost_date);
+        CREATE INDEX IF NOT EXISTS idx_cabinet_cost_ledger_serial
+            ON cabinet_cost_ledger(cabinet_no);
+        CREATE INDEX IF NOT EXISTS idx_cabinet_cost_ledger_date
+            ON cabinet_cost_ledger(cost_date);
 
         -- 7. 库存成本计算表
         CREATE TABLE IF NOT EXISTS inventory_costing (
@@ -198,7 +198,7 @@ def add_migration_to_schema():
             location_id INTEGER,
             reference_no VARCHAR(120),
             project_code VARCHAR(120),
-            serial_no VARCHAR(120),
+            cabinet_no VARCHAR(120),
             remark TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );

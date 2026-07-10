@@ -71,7 +71,7 @@
                 <th class="text-end">贷方</th>
                 <th class="text-end">余额</th>
                 <th>项目号</th>
-                <th>机号</th>
+                <th>柜号</th>
             </tr>
         </thead>
         <tbody>
@@ -85,7 +85,7 @@
                 <td class="text-end">{{ row.credit_amount | money }}</td>
                 <td class="text-end fw-bold {% if row.running_balance < 0 %}text-danger{% endif %}">{{ row.running_balance | money }}</td>
                 <td>{{ row.project_code or '-' }}</td>
-                <td>{{ row.serial_no or '-' }}</td>
+                <td>{{ row.cabinet_no or '-' }}</td>
             </tr>
             {% endfor %}
             {% else %}

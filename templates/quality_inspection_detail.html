@@ -11,7 +11,7 @@
     {'label': '关闭', 'type': 'button', 'event': 'focus-close', 'disabled': not actions.can_close, 'icon': 'bi-stop-circle'},
     {'label': '联查', 'type': 'dropdown', 'icon': 'bi-diagram-3', 'items': [
         {'label': '来源单据', 'type': 'link', 'href': inspection.source_link or '#', 'disabled': not inspection.source_link},
-        {'label': '项目台账', 'type': 'link', 'href': '/projects?keyword=' ~ ((inspection.project_code or inspection.serial_no or inspection.inspection_no)|urlencode)},
+        {'label': '项目台账', 'type': 'link', 'href': '/projects?keyword=' ~ ((inspection.project_code or inspection.cabinet_no or inspection.inspection_no)|urlencode)},
         {'label': '质量列表', 'type': 'link', 'href': '/production-enhance/quality-inspections?keyword=' ~ (inspection.inspection_no|urlencode)}
     ]},
     {'label': '附件/备注', 'type': 'button', 'event': 'focus-attachments', 'icon': 'bi-paperclip'},
@@ -71,7 +71,7 @@
                 <div class="col-md-4"><span class="text-muted">BOM：</span>{{ inspection.bom_display }}</div>
                 <div class="col-md-4"><span class="text-muted">控制要求：</span>{{ inspection.control_display }}</div>
                 <div class="col-md-4"><span class="text-muted">项目号：</span>{{ inspection.project_code or '-' }}</div>
-                <div class="col-md-4"><span class="text-muted">机号：</span>{{ inspection.serial_no or '-' }}</div>
+                <div class="col-md-4"><span class="text-muted">柜号：</span>{{ inspection.cabinet_no or '-' }}</div>
                 <div class="col-md-4"><span class="text-muted">批号：</span>{{ inspection.batch_no or '-' }}</div>
                 <div class="col-md-4"><span class="text-muted">检验员：</span>{{ inspection.inspector or '-' }}</div>
                 <div class="col-md-4"><span class="text-muted">责任岗位：</span>{{ inspection.owner_role or '-' }}</div>

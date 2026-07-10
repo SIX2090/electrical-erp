@@ -98,7 +98,7 @@ def _collect_bom_product_ids(query_db, bom_id) -> List[int]:
     return product_ids
 
 
-def _affected_sales_orders(query_db, product_id, bom_id, project_code, serial_no) -> List[Dict[str, Any]]:
+def _affected_sales_orders(query_db, product_id, bom_id, project_code, cabinet_no) -> List[Dict[str, Any]]:
     where_parts: List[str] = []
     params: List[Any] = []
     if product_id:
@@ -107,14 +107,14 @@ def _affected_sales_orders(query_db, product_id, bom_id, project_code, serial_no
     if project_code:
         where_parts.append("COALESCE(so.project_code, '')=%s")
         params.append(project_code)
-    if serial_no:
-        where_parts.append("COALESCE(so.serial_no, '')=%s")
-        params.append(serial_no)
+    if cabinet_no:
+        where_parts.append("COALESCE(so.cabinet_no, '')=%s")
+        params.append(cabinet_no)
     where_parts.append("COALESCE(so.status, '') NOT IN ('已作废','作废','void','cancelled')")
     where_sql = "WHERE " + " AND ".join(where_parts)
     rows = query_db(
         f"""
-        SELECT DISTINCT so.id, so.order_no, so.project_code, so.serial_no,
+        SELECT DISTINCT so.id, so.order_no, so.project_code, so.cabinet_no,
                so.delivery_date, so.status,
                c.name AS customer_name,
                p.code AS product_code, p.name AS product_name
@@ -136,7 +136,7 @@ def _affected_purchase_orders(query_db, product_ids) -> List[Dict[str, Any]]:
         return []
     rows = query_db(
         """
-        SELECT DISTINCT po.id, po.order_no, po.project_code, po.serial_no, po.status,
+        SELECT DISTINCT po.id, po.order_no, po.project_code, po.cabinet_no, po.status,
                          s.name AS supplier_name,
                          p.code AS product_code, p.name AS product_name,
                          poi.quantity, poi.received_qty,
@@ -155,7 +155,7 @@ def _affected_purchase_orders(query_db, product_ids) -> List[Dict[str, Any]]:
     return [_as_dict(row) for row in rows or []]
 
 
-def _affected_work_orders(query_db, product_id, bom_id, project_code, serial_no) -> List[Dict[str, Any]]:
+def _affected_work_orders(query_db, product_id, bom_id, project_code, cabinet_no) -> List[Dict[str, Any]]:
     where_parts: List[str] = []
     params: List[Any] = []
     if product_id:
@@ -167,14 +167,14 @@ def _affected_work_orders(query_db, product_id, bom_id, project_code, serial_no)
     if project_code:
         where_parts.append("COALESCE(wo.project_code, '')=%s")
         params.append(project_code)
-    if serial_no:
-        where_parts.append("COALESCE(wo.serial_no, '')=%s")
-        params.append(serial_no)
+    if cabinet_no:
+        where_parts.append("COALESCE(wo.cabinet_no, '')=%s")
+        params.append(cabinet_no)
     where_parts.append("COALESCE(wo.status, '') NOT IN ('已完工','已完成','已关闭','已作废','closed','completed','cancelled','void')")
     where_sql = "WHERE " + " AND ".join(where_parts)
     rows = query_db(
         f"""
-        SELECT wo.id, wo.wo_no, wo.project_code, wo.serial_no, wo.status,
+        SELECT wo.id, wo.wo_no, wo.project_code, wo.cabinet_no, wo.status,
                wo.quantity, wo.planned_end_date,
                p.code AS product_code, p.name AS product_name,
                b.bom_no, b.version AS bom_version
@@ -190,7 +190,7 @@ def _affected_work_orders(query_db, product_id, bom_id, project_code, serial_no)
     return [_as_dict(row) for row in rows or []]
 
 
-def _affected_subcontract_orders(query_db, product_ids, project_code, serial_no) -> List[Dict[str, Any]]:
+def _affected_subcontract_orders(query_db, product_ids, project_code, cabinet_no) -> List[Dict[str, Any]]:
     where_parts: List[str] = []
     params: List[Any] = []
     if product_ids:
@@ -199,14 +199,14 @@ def _affected_subcontract_orders(query_db, product_ids, project_code, serial_no)
     if project_code:
         where_parts.append("COALESCE(so.project_code, '')=%s")
         params.append(project_code)
-    if serial_no:
-        where_parts.append("COALESCE(so.serial_no, '')=%s")
-        params.append(serial_no)
+    if cabinet_no:
+        where_parts.append("COALESCE(so.cabinet_no, '')=%s")
+        params.append(cabinet_no)
     where_parts.append("COALESCE(so.status, '') NOT IN ('已作废','作废','cancelled','已关闭')")
     where_sql = "WHERE " + " AND ".join(where_parts)
     rows = query_db(
         f"""
-        SELECT DISTINCT so.id, so.order_no, so.project_code, so.serial_no, so.status,
+        SELECT DISTINCT so.id, so.order_no, so.project_code, so.cabinet_no, so.status,
                          s.name AS supplier_name,
                          p.code AS product_code, p.name AS product_name
         FROM subcontract_items soi
@@ -243,10 +243,10 @@ def _affected_inventory(query_db, product_ids) -> List[Dict[str, Any]]:
     return [_as_dict(row) for row in rows or []]
 
 
-def _affected_drawings(query_db, product_ids, bom_id, project_code, serial_no) -> List[Dict[str, Any]]:
-    """B-4 enhancement: find engineering drawings linked to the affected product/BOM/project/serial.
+def _affected_drawings(query_db, product_ids, bom_id, project_code, cabinet_no) -> List[Dict[str, Any]]:
+    """B-4 enhancement: find engineering drawings linked to the affected product/BOM/project/cabinet.
 
-    Matches via engineering_drawing_links on product_id, bom_id, project_code, or serial_no.
+    Matches via engineering_drawing_links on product_id, bom_id, project_code, or cabinet_no.
     Only released/approved drawings are returned (drafts are not yet in effect).
     """
     where_parts: List[str] = []
@@ -262,19 +262,19 @@ def _affected_drawings(query_db, product_ids, bom_id, project_code, serial_no) -
     if project_code:
         where_parts.append("COALESCE(dl.project_code,'')=%s")
         params.append(project_code)
-    serial_no = _clean(serial_no)
-    if serial_no:
-        where_parts.append("COALESCE(dl.serial_no,'')=%s")
-        params.append(serial_no)
+    cabinet_no = _clean(cabinet_no)
+    if cabinet_no:
+        where_parts.append("COALESCE(dl.cabinet_no,'')=%s")
+        params.append(cabinet_no)
     if not where_parts:
         return []
-    # OR: a drawing link may be associated by any one of product/bom/project/serial
+    # OR: a drawing link may be associated by any one of product/bom/project/cabinet
     where_sql = " OR ".join(where_parts)
     rows = query_db(
         f"""
         SELECT DISTINCT d.id, d.drawing_no, d.version, d.drawing_name,
                d.drawing_type, d.status, d.released_date, d.file_location,
-               dl.product_id, dl.bom_id, dl.project_code, dl.serial_no,
+               dl.product_id, dl.bom_id, dl.project_code, dl.cabinet_no,
                p.code AS product_code, p.name AS product_name
         FROM engineering_drawing_links dl
         LEFT JOIN engineering_drawings d ON d.id=dl.drawing_id
@@ -317,7 +317,7 @@ def analyze_ecn_impact(
     product_id=None,
     bom_id=None,
     project_code=None,
-    serial_no=None,
+    cabinet_no=None,
 ) -> List[Dict[str, Any]]:
     """Analyze what's affected by an ECN.
 
@@ -331,12 +331,12 @@ def analyze_ecn_impact(
     resolved_bom_id = _to_int(bom_id) or _to_int(ecn.get("source_bom_id")) or _to_int(ecn.get("target_bom_id"))
     resolved_product_id = _to_int(product_id) or _to_int(ecn.get("source_product_id"))
     resolved_project_code = _clean(project_code) or _clean(ecn.get("project_code"))
-    resolved_serial_no = _clean(serial_no)
+    resolved_cabinet_no = _clean(cabinet_no)
     bom_product_ids = _collect_bom_product_ids(query_db, resolved_bom_id)
     if resolved_product_id and resolved_product_id not in bom_product_ids:
         bom_product_ids.insert(0, resolved_product_id)
     results: List[Dict[str, Any]] = []
-    sales_rows = _affected_sales_orders(query_db, resolved_product_id, resolved_bom_id, resolved_project_code, resolved_serial_no)
+    sales_rows = _affected_sales_orders(query_db, resolved_product_id, resolved_bom_id, resolved_project_code, resolved_cabinet_no)
     results.extend(_build_result(
         IMPACT_TYPE_SALES_ORDER, sales_rows, "id", "order_no",
         "评估是否需要通知客户、调整交期或换型", IMPACT_LEVEL_HIGH,
@@ -346,12 +346,12 @@ def analyze_ecn_impact(
         IMPACT_TYPE_PURCHASE_ORDER, purchase_rows, "id", "order_no",
         "评估采购未到量是否需要变更、退换或转用", IMPACT_LEVEL_MEDIUM,
     ))
-    work_order_rows = _affected_work_orders(query_db, resolved_product_id, resolved_bom_id, resolved_project_code, resolved_serial_no)
+    work_order_rows = _affected_work_orders(query_db, resolved_product_id, resolved_bom_id, resolved_project_code, resolved_cabinet_no)
     results.extend(_build_result(
         IMPACT_TYPE_WORK_ORDER, work_order_rows, "id", "wo_no",
         "评估在制工单是否需要切版、补料或暂停", IMPACT_LEVEL_HIGH,
     ))
-    subcontract_rows = _affected_subcontract_orders(query_db, bom_product_ids, resolved_project_code, resolved_serial_no)
+    subcontract_rows = _affected_subcontract_orders(query_db, bom_product_ids, resolved_project_code, resolved_cabinet_no)
     results.extend(_build_result(
         IMPACT_TYPE_SUBCONTRACT, subcontract_rows, "id", "order_no",
         "评估委外在制订单是否需要变更或回收", IMPACT_LEVEL_MEDIUM,
@@ -361,7 +361,7 @@ def analyze_ecn_impact(
         IMPACT_TYPE_INVENTORY, inventory_rows, "product_id", "product_code",
         "评估库存是否需要冻结、转用或报废", IMPACT_LEVEL_LOW,
     ))
-    drawing_rows = _affected_drawings(query_db, bom_product_ids, resolved_bom_id, resolved_project_code, resolved_serial_no)
+    drawing_rows = _affected_drawings(query_db, bom_product_ids, resolved_bom_id, resolved_project_code, resolved_cabinet_no)
     results.extend(_build_result(
         IMPACT_TYPE_DRAWING, drawing_rows, "id", "drawing_no",
         "评估关联图纸是否需要升版、替换或废止", IMPACT_LEVEL_MEDIUM,

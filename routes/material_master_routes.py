@@ -205,7 +205,7 @@ def render_material_dashboard(
         params.append(unit)
     if control == "batch":
         where_parts.append("COALESCE(p.batch_control, false)=true")
-    elif control == "serial":
+    elif control == "cabinet":
         where_parts.append("COALESCE(p.serial_control, false)=true")
     elif control == "inspection":
         where_parts.append("COALESCE(p.inspection_required, false)=true")
@@ -502,7 +502,7 @@ def render_material_detail(
         "purchase_items": query_rows(
             """
             SELECT poi.id, po.order_no, po.order_date, po.status, s.name AS supplier_name,
-                   po.project_code, po.serial_no, poi.quantity, poi.received_qty, poi.unit_price, poi.amount
+                   po.project_code, po.cabinet_no, poi.quantity, poi.received_qty, poi.unit_price, poi.amount
             FROM purchase_order_items poi
             LEFT JOIN purchase_orders po ON po.id=poi.order_id
             LEFT JOIN suppliers s ON s.id=po.supplier_id
@@ -515,7 +515,7 @@ def render_material_detail(
         "sales_items": query_rows(
             """
             SELECT soi.id, so.order_no, so.order_date, so.status, c.name AS customer_name,
-                   so.project_code, so.serial_no, soi.quantity, soi.shipped_qty, soi.unit_price, soi.amount
+                   so.project_code, so.cabinet_no, soi.quantity, soi.shipped_qty, soi.unit_price, soi.amount
             FROM sales_order_items soi
             LEFT JOIN sales_orders so ON so.id=soi.order_id
             LEFT JOIN customers c ON c.id=so.customer_id
@@ -527,7 +527,7 @@ def render_material_detail(
         ),
         "work_orders": query_rows(
             """
-            SELECT wo.id, wo.wo_no, wo.wo_date, wo.status, wo.project_code, wo.serial_no,
+            SELECT wo.id, wo.wo_no, wo.wo_date, wo.status, wo.project_code, wo.cabinet_no,
                    wo.quantity, wo.planned_start_date, wo.planned_end_date
             FROM work_orders wo
             WHERE wo.product_id=%s

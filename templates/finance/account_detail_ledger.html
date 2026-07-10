@@ -134,9 +134,9 @@
                            value="{{ filters.project_code or '' }}" placeholder="项目号">
                 </div>
                 <div class="filter-field">
-                    <label class="form-label">机号</label>
-                    <input type="text" name="serial_no" class="form-control"
-                           value="{{ filters.serial_no or '' }}" placeholder="机号">
+                    <label class="form-label">柜号</label>
+                    <input type="text" name="cabinet_no" class="form-control"
+                           value="{{ filters.cabinet_no or '' }}" placeholder="柜号">
                 </div>
                 <div class="filter-field">
                     <button type="submit" class="btn btn-primary w-100">
@@ -180,7 +180,7 @@
                             <th style="width: 8%;">余额方向</th>
                             <th style="width: 10%;">余额</th>
                             <th style="width: 8%;">项目号</th>
-                            <th style="width: 8%;">机号</th>
+                            <th style="width: 8%;">柜号</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -229,7 +229,7 @@
                                     <td class="text-center">{{ row.balance_direction }}</td>
                                     <td class="text-end balance-value">{{ '%.2f'|format(row.balance) }}</td>
                                     <td>{{ row.project_code or '' }}</td>
-                                    <td>{{ row.serial_no or '' }}</td>
+                                    <td>{{ row.cabinet_no or '' }}</td>
                                 </tr>
                                 {% endif %}
                             {% endfor %}

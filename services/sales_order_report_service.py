@@ -9,7 +9,7 @@ REPORT_TITLES = {
     "summary": "销售汇总表",
     "order_execution_summary": "销售订单执行汇总",
     "customer_open_order_analysis": "客户未交订单分析",
-    "project_serial_open_order_analysis": "项目/机号未交订单分析",
+    "project_cabinet_open_order_analysis": "项目/柜号未交订单分析",
 }
 
 
@@ -38,7 +38,7 @@ def _clean_filters(filters):
         "date_end": (filters.get("date_end") or "").strip(),
         "customer_name": (filters.get("customer_name") or "").strip(),
         "project_code": (filters.get("project_code") or "").strip(),
-        "serial_no": (filters.get("serial_no") or "").strip(),
+        "cabinet_no": (filters.get("cabinet_no") or "").strip(),
         "status": (filters.get("status") or "").strip(),
         "group_by": (filters.get("group_by") or "").strip(),
     }
@@ -57,9 +57,9 @@ def _append_order_filters(where, params, filters):
     if filters["project_code"]:
         where.append("so.project_code ILIKE %s")
         params.append(f"%{filters['project_code']}%")
-    if filters["serial_no"]:
-        where.append("so.serial_no ILIKE %s")
-        params.append(f"%{filters['serial_no']}%")
+    if filters["cabinet_no"]:
+        where.append("so.cabinet_no ILIKE %s")
+        params.append(f"%{filters['cabinet_no']}%")
     if filters["status"]:
         where.append("so.status = %s")
         params.append(filters["status"])
@@ -119,7 +119,7 @@ def _base_order_execution_cte():
                 c.id AS customer_id,
                 c.name AS customer_name,
                 so.project_code,
-                so.serial_no,
+                so.cabinet_no,
                 COALESCE(ol.line_count, 0) AS line_count,
                 COALESCE(ol.order_qty, 0) AS order_qty,
                 COALESCE(ol.shipped_qty, 0) AS shipped_qty,
@@ -197,9 +197,9 @@ def query_sales_summary(query_db, filters=None):
 
     group_by = filters.get("group_by") or "customer"
     dimensions = {
-        "customer": ("customer_id, customer_name, NULL::varchar AS project_code, NULL::varchar AS serial_no", "customer_id, customer_name", "customer_name"),
-        "project": ("MIN(customer_id) AS customer_id, MIN(customer_name) AS customer_name, project_code, NULL::varchar AS serial_no", "project_code", "project_code"),
-        "serial": ("MIN(customer_id) AS customer_id, MIN(customer_name) AS customer_name, NULL::varchar AS project_code, serial_no", "serial_no", "serial_no"),
+        "customer": ("customer_id, customer_name, NULL::varchar AS project_code, NULL::varchar AS cabinet_no", "customer_id, customer_name", "customer_name"),
+        "project": ("MIN(customer_id) AS customer_id, MIN(customer_name) AS customer_name, project_code, NULL::varchar AS cabinet_no", "project_code", "project_code"),
+        "cabinet": ("MIN(customer_id) AS customer_id, MIN(customer_name) AS customer_name, NULL::varchar AS project_code, cabinet_no", "cabinet_no", "cabinet_no"),
     }
     select_expr, group_expr, order_expr = dimensions.get(group_by, dimensions["customer"])
     sql = f"""
@@ -228,7 +228,7 @@ def query_sales_summary(query_db, filters=None):
     columns = [
         {"key": "customer_name", "label": "客户", "url_key": "customer_url"},
         {"key": "project_code", "label": "项目号"},
-        {"key": "serial_no", "label": "机号"},
+        {"key": "cabinet_no", "label": "柜号"},
         {"key": "order_count", "label": "订单数", "align": "right"},
         {"key": "order_qty", "label": "订单数量", "align": "right", "format": "qty"},
         {"key": "shipped_qty", "label": "已发数量", "align": "right", "format": "qty"},
@@ -262,7 +262,7 @@ def query_order_execution_summary(query_db, filters=None):
         {"key": "order_date", "label": "订单日期"},
         {"key": "customer_name", "label": "客户", "url_key": "customer_url"},
         {"key": "project_code", "label": "项目号"},
-        {"key": "serial_no", "label": "机号"},
+        {"key": "cabinet_no", "label": "柜号"},
         {"key": "status", "label": "订单状态"},
         {"key": "execution_status", "label": "执行状态"},
         {"key": "delivery_date", "label": "交付日期"},
@@ -328,7 +328,7 @@ def query_customer_open_order_analysis(query_db, filters=None):
     return {"title": REPORT_TITLES["customer_open_order_analysis"], "filters": filters, "summary": _summarize(rows), "columns": columns, "rows": rows}
 
 
-def query_project_serial_open_order_analysis(query_db, filters=None):
+def query_project_cabinet_open_order_analysis(query_db, filters=None):
     filters = _clean_filters(filters)
     where = [
         "open_qty > 0",
@@ -344,7 +344,7 @@ def query_project_serial_open_order_analysis(query_db, filters=None):
             MIN(customer_id) AS customer_id,
             MIN(customer_name) AS customer_name,
             project_code,
-            serial_no,
+            cabinet_no,
             COUNT(*) AS order_count,
             SUM(order_qty) AS order_qty,
             SUM(shipped_qty) AS shipped_qty,
@@ -363,14 +363,14 @@ def query_project_serial_open_order_analysis(query_db, filters=None):
             END AS delivery_risk
         FROM order_base
         WHERE {" AND ".join(where)}
-        GROUP BY project_code, serial_no
-        ORDER BY max_overdue_days DESC, open_amount DESC, project_code NULLS LAST, serial_no NULLS LAST
+        GROUP BY project_code, cabinet_no
+        ORDER BY max_overdue_days DESC, open_amount DESC, project_code NULLS LAST, cabinet_no NULLS LAST
         LIMIT 500
     """
     rows = _decorate_rows(query_db(sql, tuple(params)))
     columns = [
         {"key": "project_code", "label": "项目号"},
-        {"key": "serial_no", "label": "机号"},
+        {"key": "cabinet_no", "label": "柜号"},
         {"key": "customer_name", "label": "客户", "url_key": "customer_url"},
         {"key": "order_count", "label": "未交订单数", "align": "right"},
         {"key": "open_qty", "label": "未交数量", "align": "right", "format": "qty"},
@@ -379,4 +379,4 @@ def query_project_serial_open_order_analysis(query_db, filters=None):
         {"key": "max_overdue_days", "label": "最大逾期天数", "align": "right"},
         {"key": "delivery_risk", "label": "交付风险"},
     ]
-    return {"title": REPORT_TITLES["project_serial_open_order_analysis"], "filters": filters, "summary": _summarize(rows), "columns": columns, "rows": rows}
+    return {"title": REPORT_TITLES["project_cabinet_open_order_analysis"], "filters": filters, "summary": _summarize(rows), "columns": columns, "rows": rows}

@@ -20,7 +20,7 @@ print("\n1. 检查服务层文件...")
 service_files = [
     'services/inventory_costing_service.py',
     'services/project_cost_service.py',
-    'services/serial_cost_service.py',
+    'services/cabinet_cost_service.py',
 ]
 
 for file_path in service_files:
@@ -36,7 +36,7 @@ print("\n2. 检查路由层文件...")
 route_files = [
     'routes/inventory_costing_routes.py',
     'routes/project_cost_reports_routes.py',
-    'routes/serial_cost_reports_routes.py',
+    'routes/cabinet_cost_reports_routes.py',
 ]
 
 for file_path in route_files:
@@ -64,9 +64,9 @@ template_files = [
     'templates/finance/project_cost_detail.html',
     'templates/finance/project_cost_summary.html',
     'templates/finance/project_gross_profit.html',
-    'templates/finance/serial_cost_detail.html',
-    'templates/finance/serial_cost_summary.html',
-    'templates/finance/serial_cost_variance.html',
+    'templates/finance/cabinet_cost_detail.html',
+    'templates/finance/cabinet_cost_summary.html',
+    'templates/finance/cabinet_cost_variance.html',
 ]
 
 for file_path in template_files:
@@ -95,13 +95,13 @@ if app_file.exists():
     imports = [
         'from routes.inventory_costing_routes import register_inventory_costing_routes',
         'from routes.project_cost_reports_routes import register_project_cost_routes',
-        'from routes.serial_cost_reports_routes import register_serial_cost_routes',
+        'from routes.cabinet_cost_reports_routes import register_cabinet_cost_routes',
     ]
 
     registers = [
         'register_inventory_costing_routes(',
         'register_project_cost_reports_routes(',
-        'register_serial_cost_routes(',
+        'register_cabinet_cost_routes(',
     ]
 
     print("  导入检查:")
@@ -132,9 +132,9 @@ if base_template.exists():
         '/finance/project-cost/detail',
         '/finance/project-cost/summary',
         '/finance/project-cost/gross-profit',
-        '/finance/serial-cost/detail',
-        '/finance/serial-cost/summary',
-        '/finance/serial-cost/variance',
+        '/finance/cabinet-cost/detail',
+        '/finance/cabinet-cost/summary',
+        '/finance/cabinet-cost/variance',
     ]
 
     for item in menu_items:

@@ -29,7 +29,7 @@
     <div class="section-title">
         <div>
             <h2>发起成本计算</h2>
-            <span>按期间、项目号、机号或工单 ID 归集材料、人工、制造费用、委外、售后、质量成本，生成一次成本运行。</span>
+            <span>按期间、项目号、柜号或工单 ID 归集材料、人工、制造费用、委外、售后、质量成本，生成一次成本运行。</span>
         </div>
         <span class="badge text-bg-light">document entry</span>
     </div>
@@ -44,8 +44,8 @@
             <input class="form-control" name="project_code" placeholder="项目号">
         </div>
         <div class="col-lg-2">
-            <label class="form-label small">机号</label>
-            <input class="form-control" name="serial_no" placeholder="机号">
+            <label class="form-label small">柜号</label>
+            <input class="form-control" name="cabinet_no" placeholder="柜号">
         </div>
         <div class="col-lg-2">
             <label class="form-label small">工单 ID</label>
@@ -79,7 +79,7 @@
             <input class="form-control" name="project_code" value="{{ filters.project_code }}" placeholder="项目号">
         </div>
         <div class="col-lg-2">
-            <input class="form-control" name="serial_no" value="{{ filters.serial_no }}" placeholder="机号">
+            <input class="form-control" name="cabinet_no" value="{{ filters.cabinet_no }}" placeholder="柜号">
         </div>
         <div class="col-lg-2">
             <select class="form-select" name="status">
@@ -99,7 +99,7 @@
                     <th>运行编号</th>
                     <th>期间</th>
                     <th>项目号</th>
-                    <th>机号</th>
+                    <th>柜号</th>
                     <th>工单</th>
                     <th>状态</th>
                     <th class="text-end">材料</th>
@@ -115,7 +115,7 @@
                     <td><a href="/cost/runs/{{ run.id }}">{{ run.run_no }}</a></td>
                     <td>{{ run.period or '-' }}</td>
                     <td>{{ run.project_code or '-' }}</td>
-                    <td>{{ run.serial_no or '-' }}</td>
+                    <td>{{ run.cabinet_no or '-' }}</td>
                     <td>{{ run.work_order_id or '-' }}</td>
                     <td>
                         {% if run.status == 'completed' %}

@@ -113,7 +113,7 @@ def _filters():
     return {
         "keyword": (request.args.get("keyword") or "").strip(),
         "project_code": (request.args.get("project_code") or "").strip(),
-        "serial_no": (request.args.get("serial_no") or "").strip(),
+        "cabinet_no": (request.args.get("cabinet_no") or "").strip(),
         "source_type": source_type,
         "date_start": (request.args.get("date_start") or "").strip(),
         "date_end": (request.args.get("date_end") or "").strip(),
@@ -127,9 +127,9 @@ def _where_from_filters(filters, *, detail_kind):
     if filters["project_code"]:
         clauses.append("COALESCE(project_code, '') ILIKE %s")
         params.append(f"%{filters['project_code']}%")
-    if filters["serial_no"]:
-        clauses.append("COALESCE(serial_no, '') ILIKE %s")
-        params.append(f"%{filters['serial_no']}%")
+    if filters["cabinet_no"]:
+        clauses.append("COALESCE(cabinet_no, '') ILIKE %s")
+        params.append(f"%{filters['cabinet_no']}%")
     if filters["source_type"]:
         clauses.append("source_type=%s")
         params.append(filters["source_type"])
@@ -142,12 +142,12 @@ def _where_from_filters(filters, *, detail_kind):
     if filters["keyword"]:
         if detail_kind == "machine":
             clauses.append(
-                "(COALESCE(serial_no, '') ILIKE %s OR COALESCE(project_code, '') ILIKE %s "
+                "(COALESCE(cabinet_no, '') ILIKE %s OR COALESCE(project_code, '') ILIKE %s "
                 "OR COALESCE(source_no, '') ILIKE %s OR COALESCE(source_name, '') ILIKE %s)"
             )
         else:
             clauses.append(
-                "(COALESCE(project_code, '') ILIKE %s OR COALESCE(serial_no, '') ILIKE %s "
+                "(COALESCE(project_code, '') ILIKE %s OR COALESCE(cabinet_no, '') ILIKE %s "
                 "OR COALESCE(source_no, '') ILIKE %s OR COALESCE(source_name, '') ILIKE %s)"
             )
         params.extend([f"%{filters['keyword']}%"] * 4)
@@ -200,13 +200,13 @@ def _cost_union_sql(query_rows):
     return f"""
     WITH cost_sources AS (
         SELECT '{PURCHASE_COST}' AS source_type, po.id AS source_id, po.order_no AS source_no,
-               po.order_date AS cost_date, po.project_code, po.serial_no, s.name AS partner_name,
+               po.order_date AS cost_date, po.project_code, po.cabinet_no, s.name AS partner_name,
                {purchase_amount} AS cost_amount, 0::numeric AS standard_amount,
                0::numeric AS quantity, po.status,
-               '采购入库或发票应付金额，用于项目/机号材料成本归集；本页不执行应付核销。' AS basis_note,
+               '采购入库或发票应付金额，用于项目/柜号材料成本归集；本页不执行应付核销。' AS basis_note,
                '采购应付来源' AS source_name
         FROM (
-            SELECT id, doc_no AS order_no, doc_date AS order_date, project_code, serial_no,
+            SELECT id, doc_no AS order_no, doc_date AS order_date, project_code, cabinet_no,
                    supplier_id, COALESCE(NULLIF(confirmed_amount, 0), amount, 0) AS amount_with_tax,
                    amount AS total_amount, status
             FROM supplier_payables
@@ -218,13 +218,13 @@ def _cost_union_sql(query_rows):
 
         UNION ALL
         SELECT '{SUBCONTRACT_COST}' AS source_type, sc.id AS source_id, sc.order_no AS source_no,
-               sc.order_date AS cost_date, sc.project_code, sc.serial_no, s.name AS partner_name,
+               sc.order_date AS cost_date, sc.project_code, sc.cabinet_no, s.name AS partner_name,
                COALESCE(sc.total_amount, 0) AS cost_amount, 0::numeric AS standard_amount,
                COALESCE(sc.quantity, 0) AS quantity, sc.status,
                '委外收货应付金额，用于单台设备委外加工费归集；本页不生成应付或凭证。' AS basis_note,
                '委外收货来源' AS source_name
         FROM (
-            SELECT id, doc_no AS order_no, doc_date AS order_date, project_code, serial_no,
+            SELECT id, doc_no AS order_no, doc_date AS order_date, project_code, cabinet_no,
                    supplier_id, COALESCE(NULLIF(confirmed_amount, 0), amount, 0) AS total_amount,
                    0::numeric AS quantity, status
             FROM supplier_payables
@@ -237,7 +237,7 @@ def _cost_union_sql(query_rows):
         UNION ALL
         SELECT '{WORK_ORDER_COST}' AS source_type, wo.id AS source_id, wo.wo_no AS source_no,
                COALESCE(woc.last_calculated_at::date, wo.wo_date) AS cost_date,
-               wo.project_code, wo.serial_no, wo.wo_no AS partner_name,
+               wo.project_code, wo.cabinet_no, wo.wo_no AS partner_name,
                COALESCE(woc.total_cost, 0) AS cost_amount,
                COALESCE(wo.quantity, 0) * COALESCE({standard_price}, 0) AS standard_amount,
                COALESCE(wo.quantity, 0) AS quantity, wo.status,
@@ -254,7 +254,7 @@ def _cost_union_sql(query_rows):
 
         UNION ALL
         SELECT '{SERVICE_COST}' AS source_type, mso.id AS source_id, mso.order_no AS source_no,
-               mso.service_date AS cost_date, mso.project_code, mso.serial_no,
+               mso.service_date AS cost_date, mso.project_code, mso.cabinet_no,
                mso.service_type AS partner_name, COALESCE(mso.total_cost, 0) AS cost_amount,
                0::numeric AS standard_amount, 0::numeric AS quantity, mso.status,
                CONCAT('服务单成本：备件 ', {service_parts}, '，人工 ', {service_labor}, '，差旅 ', {service_travel}, '。') AS basis_note,
@@ -264,7 +264,7 @@ def _cost_union_sql(query_rows):
 
         UNION ALL
         SELECT '{INVENTORY_ISSUE_COST}' AS source_type, st.id AS source_id, {source_doc_no} AS source_no,
-               {stock_date} AS cost_date, st.project_code, st.serial_no, {material_name} AS partner_name,
+               {stock_date} AS cost_date, st.project_code, st.cabinet_no, {material_name} AS partner_name,
                {amount_expr} AS cost_amount, 0::numeric AS standard_amount,
                ABS(COALESCE(st.quantity, 0)) AS quantity, st.transaction_type AS status,
                '库存出库流水金额，仅用于核对非工单领料类耗用来源；本页不调整库存成本。' AS basis_note,
@@ -276,7 +276,7 @@ def _cost_union_sql(query_rows):
 
         UNION ALL
         SELECT '{SALES_INCOME}' AS source_type, so.id AS source_id, so.order_no AS source_no,
-               so.order_date AS cost_date, so.project_code, so.serial_no, c.name AS partner_name,
+               so.order_date AS cost_date, so.project_code, so.cabinet_no, c.name AS partner_name,
                -1 * {sales_amount} AS cost_amount, 0::numeric AS standard_amount,
                0::numeric AS quantity, so.status,
                '销售订单金额以负数显示为收入参考，便于同页查看毛利口径；本页不生成应收。' AS basis_note,
@@ -333,7 +333,7 @@ def _period_status(query_rows, filters, totals):
             "label": "未选择期间",
             "blocked_reason": "未选择期间，不能判断结转准备。",
             "next_action": "输入期间后复核成本来源和期间快照。",
-            "downstream_impact": "影响项目/机号成本结转准备判断，不影响当前只读查询。",
+            "downstream_impact": "影响项目/柜号成本结转准备判断，不影响当前只读查询。",
             "snapshot": None,
         }
     if not snapshot:
@@ -356,7 +356,7 @@ def _period_status(query_rows, filters, totals):
         "label": "可复核",
         "blocked_reason": "未发现报表层阻塞项。",
         "next_action": "按来源明细核对后，进入正式期间结账流程。",
-        "downstream_impact": "可作为项目/机号成本结转准备参考，不替代总账结账。",
+        "downstream_impact": "可作为项目/柜号成本结转准备参考，不替代总账结账。",
         "snapshot": snapshot,
     }
 
@@ -372,9 +372,9 @@ def _decorate_groups(groups):
         if not row.get("project_code") or row.get("project_code") == "-":
             row["blocked_reason"] = "缺项目号，不能完整归集项目成本。"
             row["next_action"] = "补齐源单项目号或维护项目档案。"
-        elif not row.get("serial_no") or row.get("serial_no") == "-":
-            row["blocked_reason"] = "缺机号，不能形成单台设备成本。"
-            row["next_action"] = "补齐销售、工单、委外、库存或服务源单机号。"
+        elif not row.get("cabinet_no") or row.get("cabinet_no") == "-":
+            row["blocked_reason"] = "缺柜号，不能形成单台设备成本。"
+            row["next_action"] = "补齐销售、工单、委外、库存或服务源单柜号。"
         elif actual <= 0:
             row["blocked_reason"] = "实际成本为零。"
             row["next_action"] = "复核工单成本、委外应付、库存出库和服务成本。"
@@ -395,15 +395,15 @@ def _decorate_groups(groups):
 def _load_report(query_rows, *, detail_kind):
     filters = _filters()
     where_sql, params = _where_from_filters(filters, detail_kind=detail_kind)
-    group_field = "serial_no" if detail_kind == "machine" else "project_code"
-    empty_group_label = "未填写机号" if detail_kind == "machine" else "未填写项目号"
+    group_field = "cabinet_no" if detail_kind == "machine" else "project_code"
+    empty_group_label = "未填写柜号" if detail_kind == "machine" else "未填写项目号"
     cost_union = _cost_union_sql(query_rows)
     groups = query_rows(
         cost_union
         + f"""
         SELECT COALESCE(NULLIF({group_field}, ''), %s) AS group_key,
                MAX(COALESCE(NULLIF(project_code, ''), '-')) AS project_code,
-               MAX(COALESCE(NULLIF(serial_no, ''), '-')) AS serial_no,
+               MAX(COALESCE(NULLIF(cabinet_no, ''), '-')) AS cabinet_no,
                COUNT(*) AS source_count,
                SUM(CASE WHEN source_type=%s THEN -cost_amount ELSE 0 END) AS sales_amount,
                SUM(CASE WHEN source_type=%s THEN cost_amount ELSE 0 END) AS purchase_cost,
@@ -442,7 +442,7 @@ def _load_report(query_rows, *, detail_kind):
     rows = query_rows(
         cost_union
         + f"""
-        SELECT source_type, source_id, source_no, cost_date, project_code, serial_no, source_name,
+        SELECT source_type, source_id, source_no, cost_date, project_code, cabinet_no, source_name,
                partner_name, quantity, cost_amount, standard_amount,
                cost_amount - standard_amount AS variance_amount,
                status, basis_note
@@ -468,7 +468,7 @@ def _load_report(query_rows, *, detail_kind):
         "gross_profit": sum(_as_decimal(row.get("gross_profit")) for row in groups),
     }
     period_status = _period_status(query_rows, filters, totals)
-    group_hint = "按项目号汇总" if detail_kind == "project" else "按机号汇总"
+    group_hint = "按项目号汇总" if detail_kind == "project" else "按柜号汇总"
     metrics = [
         {"label": "归集对象", "value": len(groups), "hint": group_hint},
         {"label": "实际成本", "value": _money(totals["total_cost"]), "hint": "材料/委外/工单/出库/售后"},
@@ -504,10 +504,10 @@ def render_machine_cost_report(query_rows):
     filters, groups, rows, totals, metrics, period_status = _load_report(query_rows, detail_kind="machine")
     return render_template(
         "project_cost_report.html",
-        title="机号成本明细",
-        subtitle="按机号汇总单台设备实际成本、标准成本、成本差异、委外成本、售后成本和期间结转准备；只读查询，不改总账。",
+        title="柜号成本明细",
+        subtitle="按柜号汇总单台设备实际成本、标准成本、成本差异、委外成本、售后成本和期间结转准备；只读查询，不改总账。",
         detail_kind="machine",
-        group_label="机号",
+        group_label="柜号",
         source_types=SOURCE_TYPES,
         filters=filters,
         groups=groups,

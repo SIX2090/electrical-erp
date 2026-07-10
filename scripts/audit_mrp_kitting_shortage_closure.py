@@ -82,7 +82,7 @@ def main() -> int:
             SELECT COUNT(*)
             FROM mrp_requirements
             WHERE COALESCE(shortage_quantity, 0) > 0
-              AND (COALESCE(project_code, '') <> '' OR COALESCE(serial_no, '') <> '')
+              AND (COALESCE(project_code, '') <> '' OR COALESCE(cabinet_no, '') <> '')
             """,
         )
         covered_rows = scalar(
@@ -91,31 +91,31 @@ def main() -> int:
             WITH req AS (
                 SELECT pri.product_id,
                        COALESCE(NULLIF(pri.project_code, ''), '-') AS project_code,
-                       COALESCE(NULLIF(pri.serial_no, ''), '-') AS serial_no,
+                       COALESCE(NULLIF(pri.cabinet_no, ''), '-') AS cabinet_no,
                        SUM(GREATEST(COALESCE(pri.quantity, 0), 0)) AS requested_qty
                 FROM purchase_requisition_items pri
                 LEFT JOIN purchase_requisitions pr ON pr.id=pri.req_id
                 WHERE COALESCE(pr.status, '') NOT IN ('已作废','作废','cancelled','canceled','rejected','已驳回','已完成','已关闭','completed','closed')
-                GROUP BY pri.product_id, COALESCE(NULLIF(pri.project_code, ''), '-'), COALESCE(NULLIF(pri.serial_no, ''), '-')
+                GROUP BY pri.product_id, COALESCE(NULLIF(pri.project_code, ''), '-'), COALESCE(NULLIF(pri.cabinet_no, ''), '-')
             ),
             po AS (
                 SELECT poi.product_id,
                        COALESCE(NULLIF(po.project_code, ''), '-') AS project_code,
-                       COALESCE(NULLIF(po.serial_no, ''), '-') AS serial_no,
+                       COALESCE(NULLIF(po.cabinet_no, ''), '-') AS cabinet_no,
                        SUM(GREATEST(COALESCE(poi.quantity, 0)-COALESCE(poi.received_qty, 0), 0)) AS pending_po_qty
                 FROM purchase_order_items poi
                 LEFT JOIN purchase_orders po ON po.id=poi.order_id
                 WHERE COALESCE(po.status, '') NOT IN ('已作废','作废','cancelled','canceled','rejected','已驳回','已完成','已关闭','completed','closed')
-                GROUP BY poi.product_id, COALESCE(NULLIF(po.project_code, ''), '-'), COALESCE(NULLIF(po.serial_no, ''), '-')
+                GROUP BY poi.product_id, COALESCE(NULLIF(po.project_code, ''), '-'), COALESCE(NULLIF(po.cabinet_no, ''), '-')
             )
             SELECT COUNT(*)
             FROM mrp_requirements mr
             LEFT JOIN req ON req.product_id=mr.product_id
                 AND req.project_code=COALESCE(NULLIF(mr.project_code, ''), '-')
-                AND req.serial_no=COALESCE(NULLIF(mr.serial_no, ''), '-')
+                AND req.cabinet_no=COALESCE(NULLIF(mr.cabinet_no, ''), '-')
             LEFT JOIN po ON po.product_id=mr.product_id
                 AND po.project_code=COALESCE(NULLIF(mr.project_code, ''), '-')
-                AND po.serial_no=COALESCE(NULLIF(mr.serial_no, ''), '-')
+                AND po.cabinet_no=COALESCE(NULLIF(mr.cabinet_no, ''), '-')
             WHERE COALESCE(mr.shortage_quantity, 0) > 0
               AND COALESCE(req.requested_qty, 0) + COALESCE(po.pending_po_qty, 0) > 0
             """,
@@ -157,7 +157,7 @@ def main() -> int:
         if shortage_rows <= 0:
             findings.append(Finding("no_mrp_shortage_rows", "No open shortage row is available to audit."))
         if shortage_rows > 0 and trace_rows <= 0:
-            findings.append(Finding("no_project_or_serial_trace", "Open shortages have no project or serial trace axis."))
+            findings.append(Finding("no_project_or_cabinet_trace", "Open shortages have no project or cabinet trace axis."))
         if shortage_rows > 0 and not actionable and covered_rows <= 0:
             findings.append(Finding("no_actionable_purchase_shortage", "No shortage row can become a purchase suggestion."))
         if shortage_rows > 0 and not eta_ready and covered_rows <= 0:

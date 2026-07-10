@@ -25,7 +25,7 @@
         </div>
         <div class="text-muted small text-end">
             <div>项目号：{{ work_order.project_code|clean_text or '-' }}</div>
-            <div>机号：{{ work_order.serial_no|clean_text or '-' }}</div>
+            <div>柜号：{{ work_order.cabinet_no|clean_text or '-' }}</div>
             <div>状态：{{ work_order.status|clean_text or '-' }}</div>
         </div>
     </div>

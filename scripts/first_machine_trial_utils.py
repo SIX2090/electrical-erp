@@ -12,7 +12,7 @@ DEFAULT_TEMPLATE = ROOT / "release" / "trial_run" / "first_machine_data_template
 
 FIELD_ALIASES = {
     "project_code": ("\u9879\u76ee\u53f7",),
-    "serial_no": ("\u673a\u53f7",),
+    "cabinet_no": ("\u673a\u53f7",),
     "product_code": ("\u4ea7\u54c1\u7f16\u7801",),
     "bom_no": ("BOM\u7f16\u53f7",),
     "sales_qty": ("\u9500\u552e\u6570\u91cf",),
@@ -117,7 +117,7 @@ def _fetch_one(cur, sql: str, params=()):
 
 def ensure_first_machine_demand_baseline(cur, values: dict[str, str]) -> None:
     project_code = values["project_code"]
-    serial_no = values["serial_no"]
+    cabinet_no = values["cabinet_no"]
     sales_qty = values.get("sales_qty") or "1"
 
     cur.execute("SELECT * FROM sales_orders WHERE order_no=%s", (values["sales_order_no"],))
@@ -137,7 +137,7 @@ def ensure_first_machine_demand_baseline(cur, values: dict[str, str]) -> None:
             INSERT INTO sales_order_items
                 (order_id, product_id, quantity, shipped_qty, unit_price, amount, tax_rate,
                  tax_amount, amount_with_tax, material_code, material_name, material_spec,
-                 material_unit, source_line_no, line_project_code, line_serial_no)
+                 material_unit, source_line_no, line_project_code, line_cabinet_no)
             VALUES (%s, %s, %s, 0, %s, %s, 13, 0, %s, %s, %s, %s, %s, '1', %s, %s)
             """,
             (
@@ -152,7 +152,7 @@ def ensure_first_machine_demand_baseline(cur, values: dict[str, str]) -> None:
                 finished.get("specification") or "",
                 finished.get("unit") or "",
                 project_code,
-                serial_no,
+                cabinet_no,
             ),
         )
 
@@ -160,7 +160,7 @@ def ensure_first_machine_demand_baseline(cur, values: dict[str, str]) -> None:
         """
         INSERT INTO mrp_plans
             (plan_no, name, start_date, end_date, plan_type, status, target_product_id,
-             target_quantity, warehouse_id, cost_object_id, project_code, serial_no, remark)
+             target_quantity, warehouse_id, cost_object_id, project_code, cabinet_no, remark)
         SELECT %s, %s, CURRENT_DATE, CURRENT_DATE + INTERVAL '30 days', 'demand', 'planned',
                %s, %s, %s, %s, %s, %s, 'first machine demand baseline'
         WHERE NOT EXISTS (SELECT 1 FROM mrp_plans WHERE plan_no=%s)
@@ -173,7 +173,7 @@ def ensure_first_machine_demand_baseline(cur, values: dict[str, str]) -> None:
             sales_order.get("warehouse_id"),
             sales_order.get("cost_object_id"),
             project_code,
-            serial_no,
+            cabinet_no,
             f"MRP-{project_code}",
         ),
     )
@@ -189,7 +189,7 @@ def ensure_first_machine_demand_baseline(cur, values: dict[str, str]) -> None:
              source_document_type, source_document_id, planned_quantity, released_quantity,
              fulfilled_quantity, status, available_quantity, shortage_quantity, bom_level,
              parent_product_id, unit, supply_mode, manufacturing_role, cost_object_id,
-             project_code, serial_no)
+             project_code, cabinet_no)
         SELECT %s, bi.product_id, 'production_order', CURRENT_DATE,
                bi.quantity * %s, 'sales_order', %s, 0, 0, 0, 'open',
                0, bi.quantity * %s, 1, %s, bi.unit, 'purchase', 'material',
@@ -210,7 +210,7 @@ def ensure_first_machine_demand_baseline(cur, values: dict[str, str]) -> None:
             finished["id"],
             sales_order.get("cost_object_id"),
             project_code,
-            serial_no,
+            cabinet_no,
             bom["id"],
             plan["id"],
         ),
@@ -220,7 +220,7 @@ def ensure_first_machine_demand_baseline(cur, values: dict[str, str]) -> None:
 def ensure_first_machine_production_inventory_baseline(cur, values: dict[str, str]) -> dict[str, int | str | None]:
     """Ensure the first-machine production and inventory trace baseline exists for audits."""
     project_code = values["project_code"]
-    serial_no = values["serial_no"]
+    cabinet_no = values["cabinet_no"]
     product_code = values["product_code"]
     material_code_1 = values["material_code_1"]
     material_code_2 = values.get("material_code_2") or ""
@@ -282,8 +282,8 @@ def ensure_first_machine_production_inventory_baseline(cur, values: dict[str, st
 
     work_order = _fetch_one(
         cur,
-        "SELECT * FROM work_orders WHERE project_code=%s AND serial_no=%s ORDER BY id DESC LIMIT 1",
-        (project_code, serial_no),
+        "SELECT * FROM work_orders WHERE project_code=%s AND cabinet_no=%s ORDER BY id DESC LIMIT 1",
+        (project_code, cabinet_no),
     )
     if not work_order:
         work_order_id = _insert_dynamic(
@@ -298,7 +298,7 @@ def ensure_first_machine_production_inventory_baseline(cur, values: dict[str, st
                 "warehouse_id": warehouse_id,
                 "location_id": location_id,
                 "project_code": project_code,
-                "serial_no": serial_no,
+                "cabinet_no": cabinet_no,
                 "planned_start_date": date.today(),
                 "planned_end_date": date.today(),
                 "remark": "first machine production baseline",
@@ -330,7 +330,7 @@ def ensure_first_machine_production_inventory_baseline(cur, values: dict[str, st
                     "material_unit": "\u4ef6",
                     "source_line_no": material_code,
                     "line_project_code": project_code,
-                    "line_serial_no": serial_no,
+                    "line_cabinet_no": cabinet_no,
                 },
             )
         stock_qty = max(required_qty * Decimal("3"), Decimal("3"))
@@ -339,10 +339,10 @@ def ensure_first_machine_production_inventory_baseline(cur, values: dict[str, st
             SELECT id FROM inventory_balances
             WHERE product_id=%s AND COALESCE(warehouse_id,0)=COALESCE(%s,0)
               AND COALESCE(location_id,0)=COALESCE(%s,0)
-              AND COALESCE(project_code,'')=%s AND COALESCE(serial_no,'')=%s
+              AND COALESCE(project_code,'')=%s AND COALESCE(cabinet_no,'')=%s
             LIMIT 1
             """,
-            (product_id, warehouse_id, location_id, project_code, serial_no),
+            (product_id, warehouse_id, location_id, project_code, cabinet_no),
         )
         if cur.fetchone():
             cur.execute(
@@ -351,9 +351,9 @@ def ensure_first_machine_production_inventory_baseline(cur, values: dict[str, st
                 SET quantity=GREATEST(COALESCE(quantity,0), %s), unit_cost=%s, updated_at=NOW()
                 WHERE product_id=%s AND COALESCE(warehouse_id,0)=COALESCE(%s,0)
                   AND COALESCE(location_id,0)=COALESCE(%s,0)
-                  AND COALESCE(project_code,'')=%s AND COALESCE(serial_no,'')=%s
+                  AND COALESCE(project_code,'')=%s AND COALESCE(cabinet_no,'')=%s
                 """,
-                (stock_qty, unit_cost, product_id, warehouse_id, location_id, project_code, serial_no),
+                (stock_qty, unit_cost, product_id, warehouse_id, location_id, project_code, cabinet_no),
             )
         else:
             _insert_dynamic(
@@ -364,7 +364,7 @@ def ensure_first_machine_production_inventory_baseline(cur, values: dict[str, st
                     "warehouse_id": warehouse_id,
                     "location_id": location_id,
                     "lot_no": "",
-                    "serial_no": serial_no,
+                    "cabinet_no": cabinet_no,
                     "project_code": project_code,
                     "quantity": stock_qty,
                     "locked_qty": Decimal("0"),
@@ -376,10 +376,10 @@ def ensure_first_machine_production_inventory_baseline(cur, values: dict[str, st
         cur.execute(
             """
             SELECT id FROM stock_transactions
-            WHERE reference_no=%s AND product_id=%s AND project_code=%s AND serial_no=%s
+            WHERE reference_no=%s AND product_id=%s AND project_code=%s AND cabinet_no=%s
             LIMIT 1
             """,
-            (reference_no, product_id, project_code, serial_no),
+            (reference_no, product_id, project_code, cabinet_no),
         )
         if not cur.fetchone():
             _insert_dynamic(
@@ -395,7 +395,7 @@ def ensure_first_machine_production_inventory_baseline(cur, values: dict[str, st
                     "warehouse_id": warehouse_id,
                     "location_id": location_id,
                     "lot_no": "",
-                    "serial_no": serial_no,
+                    "cabinet_no": cabinet_no,
                     "project_code": project_code,
                     "reference_no": reference_no,
                     "source_doc_type": "purchase_receipt",
@@ -404,7 +404,7 @@ def ensure_first_machine_production_inventory_baseline(cur, values: dict[str, st
                     "material_code": material_code,
                     "material_name": "\u9996\u53f0\u673a\u5173\u952e\u7269\u6599",
                     "material_unit": "\u4ef6",
-                    "remark": "first machine project/serial opening receipt",
+                    "remark": "first machine project/cabinet opening receipt",
                 },
             )
 
@@ -420,7 +420,7 @@ def ensure_first_machine_production_inventory_baseline(cur, values: dict[str, st
                 "status": "\u5df2\u8fc7\u8d26",
                 "remark": "first machine trace receipt",
                 "project_code": project_code,
-                "serial_no": serial_no,
+                "cabinet_no": cabinet_no,
             },
         )
     else:
@@ -450,12 +450,12 @@ def ensure_first_machine_production_inventory_baseline(cur, values: dict[str, st
                 source_document_type='work_order'
                 AND source_document_id=%s
                 AND project_code=%s
-                AND serial_no=%s
+                AND cabinet_no=%s
               )
            OR inspection_no=%s
         LIMIT 1
         """,
-        (work_order_id, project_code, serial_no, f"QI-{project_code}"),
+        (work_order_id, project_code, cabinet_no, f"QI-{project_code}"),
     )
     if not inspection:
         _insert_dynamic(
@@ -474,7 +474,7 @@ def ensure_first_machine_production_inventory_baseline(cur, values: dict[str, st
                 "source_document_type": "work_order",
                 "source_document_id": work_order_id,
                 "project_code": project_code,
-                "serial_no": serial_no,
+                "cabinet_no": cabinet_no,
                 "conclusion": "first machine quality passed",
             },
         )
@@ -487,7 +487,7 @@ def ensure_first_machine_production_inventory_baseline(cur, values: dict[str, st
         "material2_id": material2_id,
         "work_order_id": work_order_id,
         "project_code": project_code,
-        "serial_no": serial_no,
+        "cabinet_no": cabinet_no,
     }
 
 
@@ -600,7 +600,7 @@ def _ensure_bom(cur, finished_id: int, material_rows: list[tuple[int, Decimal, s
 
 def _ensure_sales_order(cur, values: dict[str, str], customer_id: int, finished_id: int, warehouse_id: int, cost_object_id: int | None) -> int:
     project_code = values["project_code"]
-    serial_no = values["serial_no"]
+    cabinet_no = values["cabinet_no"]
     order_no = values.get("sales_order_no") or "SO-GT-TRIAL-20260526-001"
     quantity = _decimal(values.get("sales_qty"), "1")
     total_amount = Decimal("168000")
@@ -620,7 +620,7 @@ def _ensure_sales_order(cur, values: dict[str, str], customer_id: int, finished_
         "amount_with_tax": amount_with_tax,
         "cost_object_id": cost_object_id,
         "project_code": project_code,
-        "serial_no": serial_no,
+        "cabinet_no": cabinet_no,
     }
     if row:
         order_id = row["id"]
@@ -644,7 +644,7 @@ def _ensure_sales_order(cur, values: dict[str, str], customer_id: int, finished_
         "material_unit": "set",
         "source_line_no": "1",
         "line_project_code": project_code,
-        "line_serial_no": serial_no,
+        "line_cabinet_no": cabinet_no,
     }
     if item:
         cols = _columns(cur, "sales_order_items")
@@ -675,7 +675,7 @@ def _ensure_mrp(cur, values: dict[str, str], finished_id: int, bom_id: int, sale
             "warehouse_id": warehouse_id,
             "cost_object_id": cost_object_id,
             "project_code": values["project_code"],
-            "serial_no": values["serial_no"],
+            "cabinet_no": values["cabinet_no"],
             "remark": "first machine lifecycle sample",
         },
     )
@@ -707,7 +707,7 @@ def _ensure_mrp(cur, values: dict[str, str], finished_id: int, bom_id: int, sale
                 "manufacturing_role": "material",
                 "cost_object_id": cost_object_id,
                 "project_code": values["project_code"],
-                "serial_no": values["serial_no"],
+                "cabinet_no": values["cabinet_no"],
             },
         )
     return plan_id
@@ -716,7 +716,7 @@ def _ensure_mrp(cur, values: dict[str, str], finished_id: int, bom_id: int, sale
 def _ensure_purchase_order(cur, values: dict[str, str], supplier_id: int, material_rows: list[tuple[int, str, Decimal, Decimal]], warehouse_id: int, cost_object_id: int | None) -> int:
     order_no = "PO-GT-TRIAL-20260526-001"
     project_code = values["project_code"]
-    serial_no = values["serial_no"]
+    cabinet_no = values["cabinet_no"]
     total_amount = sum((qty * unit_cost for _pid, _code, qty, unit_cost in material_rows), Decimal("0"))
     row = _fetch_one(cur, "SELECT id FROM purchase_orders WHERE order_no=%s ORDER BY id LIMIT 1", (order_no,))
     payload = {
@@ -732,7 +732,7 @@ def _ensure_purchase_order(cur, values: dict[str, str], supplier_id: int, materi
         "amount_with_tax": total_amount,
         "cost_object_id": cost_object_id,
         "project_code": project_code,
-        "serial_no": serial_no,
+        "cabinet_no": cabinet_no,
     }
     if row:
         order_id = row["id"]
@@ -756,7 +756,7 @@ def _ensure_purchase_order(cur, values: dict[str, str], supplier_id: int, materi
             "material_unit": "pcs",
             "source_line_no": str(index),
             "line_project_code": project_code,
-            "line_serial_no": serial_no,
+            "line_cabinet_no": cabinet_no,
         }
         if row:
             cols = _columns(cur, "purchase_order_items")
@@ -784,7 +784,7 @@ def _ensure_subcontract_order(cur, values: dict[str, str], supplier_id: int, fin
         "warehouse_id": warehouse_id,
         "cost_object_id": cost_object_id,
         "project_code": values["project_code"],
-        "serial_no": values["serial_no"],
+        "cabinet_no": values["cabinet_no"],
         "product_id": finished_id,
         "quantity": Decimal("1"),
         "unit_price": amount,
@@ -796,7 +796,7 @@ def _ensure_subcontract_order(cur, values: dict[str, str], supplier_id: int, fin
         "location": str(location_id or ""),
         "source_line_no": "1",
         "line_project_code": values["project_code"],
-        "line_serial_no": values["serial_no"],
+        "line_cabinet_no": values["cabinet_no"],
         "received_qty": Decimal("1"),
     }
     if row:
@@ -861,7 +861,7 @@ def _ensure_shipment(cur, values: dict[str, str], sales_order_id: int, finished_
         "remark": "first machine lifecycle sample",
         "cost_object_id": cost_object_id,
         "project_code": values["project_code"],
-        "serial_no": values["serial_no"],
+        "cabinet_no": values["cabinet_no"],
         "customer_id": customer_id,
         "source_type": "sales_order",
         "source_no": values.get("sales_order_no") or "SO-GT-TRIAL-20260526-001",
@@ -889,11 +889,11 @@ def _ensure_shipment(cur, values: dict[str, str], sales_order_id: int, finished_
 
 
 def _ensure_service_chain(cur, values: dict[str, str], sales_order_id: int, finished_id: int, customer_id: int, work_order_id: int, warehouse_id: int, location_id: int | None, cost_object_id: int | None) -> tuple[int, int, int]:
-    card = _fetch_one(cur, "SELECT id FROM machine_service_cards WHERE project_code=%s AND serial_no=%s ORDER BY id LIMIT 1", (values["project_code"], values["serial_no"]))
+    card = _fetch_one(cur, "SELECT id FROM machine_service_cards WHERE project_code=%s AND cabinet_no=%s ORDER BY id LIMIT 1", (values["project_code"], values["cabinet_no"]))
     card_payload = {
         "wo_id": work_order_id,
         "product_id": finished_id,
-        "serial_no": values["serial_no"],
+        "cabinet_no": values["cabinet_no"],
         "customer_id": customer_id,
         "install_date": date.today(),
         "installation_date": date.today(),
@@ -937,7 +937,7 @@ def _ensure_service_chain(cur, values: dict[str, str], sales_order_id: int, fini
         "sales_order_id": sales_order_id,
         "cost_object_id": cost_object_id,
         "project_code": values["project_code"],
-        "serial_no": values["serial_no"],
+        "cabinet_no": values["cabinet_no"],
     }
     if order:
         order_id = order["id"]
@@ -966,7 +966,7 @@ def _ensure_service_chain(cur, values: dict[str, str], sales_order_id: int, fini
         "sales_order_id": sales_order_id,
         "cost_object_id": cost_object_id,
         "project_code": values["project_code"],
-        "serial_no": values["serial_no"],
+        "cabinet_no": values["cabinet_no"],
         "product_id": finished_id,
         "quantity": Decimal("1"),
         "unit_cost": Decimal("0"),
@@ -978,7 +978,7 @@ def _ensure_service_chain(cur, values: dict[str, str], sales_order_id: int, fini
         "material_unit": "set",
         "source_line_no": "1",
         "line_project_code": values["project_code"],
-        "line_serial_no": values["serial_no"],
+        "line_cabinet_no": values["cabinet_no"],
     }
     if rma:
         rma_id = rma["id"]
@@ -1004,7 +1004,7 @@ def _ensure_finance_evidence(cur, values: dict[str, str], customer_id: int, supp
         "remark": "first machine lifecycle sample",
         "cost_object_id": cost_object_id,
         "project_code": values["project_code"],
-        "serial_no": values["serial_no"],
+        "cabinet_no": values["cabinet_no"],
         "expected_amount": Decimal("189840"),
         "confirmed_amount": Decimal("189840"),
     }
@@ -1029,7 +1029,7 @@ def _ensure_finance_evidence(cur, values: dict[str, str], customer_id: int, supp
             "status": "open",
             "finance_remark": "first machine lifecycle sample",
             "project_code": values["project_code"],
-            "serial_no": values["serial_no"],
+            "cabinet_no": values["cabinet_no"],
             "cost_object_id": cost_object_id,
             "source_type": doc_type,
             "source_id": doc_id,
@@ -1057,7 +1057,7 @@ def _clear_first_machine_audit_login_blockers(cur) -> None:
 def ensure_first_machine_lifecycle_sample(cur, values: dict[str, str]) -> dict[str, int | str | None]:
     """Ensure the controlled first-machine lifecycle sample spans every audit checkpoint."""
     project_code = values["project_code"]
-    serial_no = values["serial_no"]
+    cabinet_no = values["cabinet_no"]
     values.setdefault("sales_order_no", "SO-GT-TRIAL-20260526-001")
     values.setdefault("bom_no", "BOM-GT-TRIAL-001")
     values.setdefault("bom_version", "A")
@@ -1099,8 +1099,8 @@ def ensure_first_machine_lifecycle_sample(cur, values: dict[str, str]) -> dict[s
     production = ensure_first_machine_production_inventory_baseline(cur, values)
     work_order_id = int(production["work_order_id"])
     cur.execute(
-        "UPDATE work_orders SET wo_no=%s, bom_id=%s, product_id=%s, quantity=%s, status=%s, cost_object_id=%s, project_code=%s, serial_no=%s WHERE id=%s",
-        ("WO-GT-TRIAL-20260526-001", bom_id, finished_id, _decimal(values.get("sales_qty"), "1"), "completed", None, project_code, serial_no, work_order_id),
+        "UPDATE work_orders SET wo_no=%s, bom_id=%s, product_id=%s, quantity=%s, status=%s, cost_object_id=%s, project_code=%s, cabinet_no=%s WHERE id=%s",
+        ("WO-GT-TRIAL-20260526-001", bom_id, finished_id, _decimal(values.get("sales_qty"), "1"), "completed", None, project_code, cabinet_no, work_order_id),
     )
     purchase_order_id = _ensure_purchase_order(cur, values, supplier_id, material_rows, warehouse_id, None)
     subcontract_order_id = _ensure_subcontract_order(cur, values, supplier_id, finished_id, work_order_id, warehouse_id, location_id, None)
@@ -1112,7 +1112,7 @@ def ensure_first_machine_lifecycle_sample(cur, values: dict[str, str]) -> dict[s
 
     return {
         "project_code": project_code,
-        "serial_no": serial_no,
+        "cabinet_no": cabinet_no,
         "sales_order_id": sales_order_id,
         "bom_id": bom_id,
         "work_order_id": work_order_id,

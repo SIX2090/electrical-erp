@@ -37,19 +37,19 @@ def count_rows(cur, sql, params=()):
     return int((cur.fetchone() or {}).get("value") or 0)
 
 
-def select_stock(cur, serial_no):
+def select_stock(cur, cabinet_no):
     return fetch_one(
         cur,
         """
         SELECT ib.product_id, p.code AS product_code, ib.warehouse_id, ib.location_id,
-               COALESCE(ib.lot_no, '') AS lot_no, ib.serial_no, ib.quantity, ib.unit_cost
+               COALESCE(ib.lot_no, '') AS lot_no, ib.cabinet_no, ib.quantity, ib.unit_cost
         FROM inventory_balances ib
         JOIN products p ON p.id=ib.product_id
-        WHERE ib.serial_no=%s AND COALESCE(ib.quantity, 0) > 0
+        WHERE ib.cabinet_no=%s AND COALESCE(ib.quantity, 0) > 0
         ORDER BY CASE WHEN ib.warehouse_id IS NOT NULL THEN 0 ELSE 1 END, ib.quantity DESC, ib.id
         LIMIT 1
         """,
-        (serial_no,),
+        (cabinet_no,),
     )
 
 
@@ -61,7 +61,7 @@ def select_to_warehouse(cur, from_warehouse_id):
     return row["id"] if row else None
 
 
-def ensure_execution_docs(cur, stock, to_warehouse_id, project_code, serial_no):
+def ensure_execution_docs(cur, stock, to_warehouse_id, project_code, cabinet_no):
     if not stock or not to_warehouse_id:
         return
     transfer_no = f"TO-{project_code}"
@@ -84,7 +84,7 @@ def ensure_execution_docs(cur, stock, to_warehouse_id, project_code, serial_no):
         cur.execute(
             """
             INSERT INTO transfer_order_items
-                (transfer_id, product_id, quantity, lot_no, serial_no, unit_cost, remark,
+                (transfer_id, product_id, quantity, lot_no, cabinet_no, unit_cost, remark,
                  line_project_code, material_code, material_name, material_spec, material_unit, amount)
             SELECT %s, %s, 1, %s, %s, %s, 'first machine inventory execution transfer',
                    %s, p.code, p.name, COALESCE(p.specification, ''), COALESCE(p.unit, ''), %s
@@ -98,7 +98,7 @@ def ensure_execution_docs(cur, stock, to_warehouse_id, project_code, serial_no):
                 transfer["id"],
                 stock["product_id"],
                 stock.get("lot_no") or "",
-                serial_no,
+                cabinet_no,
                 stock.get("unit_cost") or 0,
                 project_code,
                 stock.get("unit_cost") or 0,
@@ -112,7 +112,7 @@ def ensure_execution_docs(cur, stock, to_warehouse_id, project_code, serial_no):
                 """
                 INSERT INTO stock_transactions
                     (transaction_date, transaction_type, product_id, quantity, unit_cost,
-                     reference_no, lot_no, serial_no, project_code, remark, warehouse_id,
+                     reference_no, lot_no, cabinet_no, project_code, remark, warehouse_id,
                      source_type, material_code, material_name, material_spec, material_unit,
                      amount, source_doc_type, source_doc_no)
                 SELECT CURRENT_TIMESTAMP, %s, %s, %s, %s, %s, %s, %s, %s,
@@ -133,7 +133,7 @@ def ensure_execution_docs(cur, stock, to_warehouse_id, project_code, serial_no):
                     stock.get("unit_cost") or 0,
                     transfer_no,
                     stock.get("lot_no") or "",
-                    serial_no,
+                    cabinet_no,
                     project_code,
                     warehouse_id,
                     qty,
@@ -160,20 +160,20 @@ def ensure_execution_docs(cur, stock, to_warehouse_id, project_code, serial_no):
         cur.execute(
             """
             INSERT INTO inventory_check_order_items
-                (check_id, product_id, book_qty, actual_qty, diff_qty, lot_no, serial_no, unit_cost, amount)
+                (check_id, product_id, book_qty, actual_qty, diff_qty, lot_no, cabinet_no, unit_cost, amount)
             SELECT %s, %s, 1, 1, 0, %s, %s, %s, 0
             WHERE NOT EXISTS (
                 SELECT 1 FROM inventory_check_order_items WHERE check_id=%s AND product_id=%s
             )
             """,
-            (check_order["id"], stock["product_id"], stock.get("lot_no") or "", serial_no, stock.get("unit_cost") or 0, check_order["id"], stock["product_id"]),
+            (check_order["id"], stock["product_id"], stock.get("lot_no") or "", cabinet_no, stock.get("unit_cost") or 0, check_order["id"], stock["product_id"]),
         )
 
     cur.execute(
         """
         INSERT INTO inventory_adjustments
             (adj_no, adj_date, product_id, diff_quantity, unit_cost, adj_type, status,
-             lot_no, remark, project_code, warehouse_id, serial_no, line_project_code,
+             lot_no, remark, project_code, warehouse_id, cabinet_no, line_project_code,
              material_code, material_name, material_spec, material_unit, posted_at, amount)
         SELECT %s, CURRENT_DATE, %s, 1, %s, 'execution_check', '生效', %s,
                'first machine inventory execution adjustment', %s, %s, %s, %s,
@@ -189,7 +189,7 @@ def ensure_execution_docs(cur, stock, to_warehouse_id, project_code, serial_no):
             stock.get("lot_no") or "",
             project_code,
             to_warehouse_id,
-            serial_no,
+            cabinet_no,
             project_code,
             stock.get("unit_cost") or 0,
             stock["product_id"],
@@ -200,7 +200,7 @@ def ensure_execution_docs(cur, stock, to_warehouse_id, project_code, serial_no):
         """
         INSERT INTO stock_transactions
             (transaction_date, transaction_type, product_id, quantity, unit_cost,
-             reference_no, lot_no, serial_no, project_code, remark, warehouse_id,
+             reference_no, lot_no, cabinet_no, project_code, remark, warehouse_id,
              source_type, material_code, material_name, material_spec, material_unit,
              amount, source_doc_type, source_doc_no)
         SELECT CURRENT_TIMESTAMP, '库存调整', %s, 1, %s, %s, %s, %s, %s,
@@ -219,7 +219,7 @@ def ensure_execution_docs(cur, stock, to_warehouse_id, project_code, serial_no):
             stock.get("unit_cost") or 0,
             adj_no,
             stock.get("lot_no") or "",
-            serial_no,
+            cabinet_no,
             project_code,
             to_warehouse_id,
             stock.get("unit_cost") or 0,
@@ -238,7 +238,7 @@ def main():
     os.environ.setdefault("WTF_CSRF_ENABLED", "0")
     values = load_first_machine_values(TEMPLATE)
     project_code = values["project_code"]
-    serial_no = values["serial_no"]
+    cabinet_no = values["cabinet_no"]
     checks = []
 
     conn = connect_db(get_db_config())
@@ -246,11 +246,11 @@ def main():
         with conn.cursor() as cur:
             ensure_first_machine_production_inventory_baseline(cur, values)
             conn.commit()
-            stock = select_stock(cur, serial_no)
+            stock = select_stock(cur, cabinet_no)
             checks.append(("stock_ready_for_execution", bool(stock), stock.get("product_code") if stock else "missing"))
             to_warehouse_id = select_to_warehouse(cur, stock.get("warehouse_id") if stock else None) if stock else None
             checks.append(("target_warehouse_ready", bool(to_warehouse_id), to_warehouse_id))
-            ensure_execution_docs(cur, stock, to_warehouse_id, project_code, serial_no)
+            ensure_execution_docs(cur, stock, to_warehouse_id, project_code, cabinet_no)
         conn.commit()
     finally:
         conn.close()
@@ -272,9 +272,9 @@ def main():
             checks.append(("inventory_check_traceable", bool(inventory_check), inventory_check.get("check_no") if inventory_check else "missing"))
             checks.append(("inventory_check_posted", bool(inventory_check) and inventory_check.get("status") == "已过账", inventory_check.get("status") if inventory_check else "missing"))
             checks.append(("inventory_adjustment_traceable", bool(adjustment), adjustment.get("adj_no") if adjustment else "missing"))
-            checks.append(("transfer_stock_flow_recorded", count_rows(cur, "SELECT COUNT(*) AS value FROM stock_transactions WHERE project_code=%s AND serial_no=%s AND reference_no=%s", (project_code, serial_no, transfer.get("transfer_no") if transfer else "")) >= 2, transfer.get("transfer_no") if transfer else "missing"))
+            checks.append(("transfer_stock_flow_recorded", count_rows(cur, "SELECT COUNT(*) AS value FROM stock_transactions WHERE project_code=%s AND cabinet_no=%s AND reference_no=%s", (project_code, cabinet_no, transfer.get("transfer_no") if transfer else "")) >= 2, transfer.get("transfer_no") if transfer else "missing"))
             checks.append(("check_stock_flow_recorded", count_rows(cur, "SELECT COUNT(*) AS value FROM inventory_check_order_items WHERE check_id=%s AND COALESCE(diff_qty,0)<>0", (inventory_check.get("id") if inventory_check else None,)) == 0, inventory_check.get("check_no") if inventory_check else "missing"))
-            checks.append(("adjustment_stock_flow_recorded", count_rows(cur, "SELECT COUNT(*) AS value FROM stock_transactions WHERE project_code=%s AND serial_no=%s AND reference_no=%s", (project_code, serial_no, adjustment.get("adj_no") if adjustment else "")) >= 1, adjustment.get("adj_no") if adjustment else "missing"))
+            checks.append(("adjustment_stock_flow_recorded", count_rows(cur, "SELECT COUNT(*) AS value FROM stock_transactions WHERE project_code=%s AND cabinet_no=%s AND reference_no=%s", (project_code, cabinet_no, adjustment.get("adj_no") if adjustment else "")) >= 1, adjustment.get("adj_no") if adjustment else "missing"))
     finally:
         conn.close()
 
@@ -283,13 +283,13 @@ def main():
             (f"/transfers?keyword={project_code}", [project_code]),
             (f"/inventory_checks?keyword={project_code}", [project_code]),
             (f"/adjustments?keyword={project_code}", [project_code, "IA"]),
-            (f"/transactions?keyword={project_code}", [project_code, serial_no]),
+            (f"/transactions?keyword={project_code}", [project_code, cabinet_no]),
             (f"/projects?keyword={project_code}", [project_code]),
         ]
         if transfer:
-            page_expectations.append((f"/transfers/{transfer['id']}", [project_code, serial_no]))
+            page_expectations.append((f"/transfers/{transfer['id']}", [project_code, cabinet_no]))
         if inventory_check:
-            page_expectations.append((f"/inventory_checks/{inventory_check['id']}", [project_code, serial_no]))
+            page_expectations.append((f"/inventory_checks/{inventory_check['id']}", [project_code, cabinet_no]))
         for path, expected in page_expectations:
             response = client.get(path)
             body = response.get_data(as_text=True)
@@ -302,7 +302,7 @@ def main():
     print("first_machine_inventory_execution_audit=ok" if not failures else "first_machine_inventory_execution_audit=failed")
     print(f"checked_items={len(checks)}")
     print(f"project_code={project_code}")
-    print(f"serial_no={serial_no}")
+    print(f"cabinet_no={cabinet_no}")
     for name, ok, detail in checks:
         print(f"{'ok' if ok else 'failed'} | {name} | {detail}")
     return 1 if failures else 0

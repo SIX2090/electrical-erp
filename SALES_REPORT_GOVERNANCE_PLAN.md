@@ -41,16 +41,16 @@ Source of the full report list: `routes/report_routes.py` under the `sales` repo
 | `/sales/reports/summary` | Generic placeholder | `routes/report_routes.py` + `routes/report_route_registration.py` | Missing permission, navigation, route catalog, and rollout classification. |
 | `/sales/reports/order-execution-detail` | Real implementation, but duplicate registered | `routes/sales_report_routes.py` | Also present in generic report sections and report catalog registration. |
 | `/sales/reports/order-execution-summary` | Generic placeholder | `routes/report_routes.py` + `routes/report_route_registration.py` | Missing permission, navigation, route catalog, and rollout classification. |
-| `/sales/reports/project-serial-order-tracking` | Real implementation, but duplicate registered | `routes/sales_report_routes.py` | Also present in generic report sections and report catalog registration. |
+| `/sales/reports/project-cabinet-order-tracking` | Real implementation, but duplicate registered | `routes/sales_report_routes.py` | Also present in generic report sections and report catalog registration. |
 | `/sales/reports/shipment-execution-detail` | Generic placeholder | `routes/report_routes.py` + `routes/report_route_registration.py` | Missing permission, navigation, route catalog, and rollout classification. |
 | `/sales/reports/shipped-unsettled-detail` | Real implementation, but duplicate registered | `routes/sales_report_routes.py` | Also present in generic report sections and report catalog registration. |
 | `/sales/reports/customer-open-order-analysis` | Generic placeholder | `routes/report_routes.py` + `routes/report_route_registration.py` | Missing permission, navigation, route catalog, and rollout classification. |
-| `/sales/reports/project-serial-open-order-analysis` | Generic placeholder | `routes/report_routes.py` + `routes/report_route_registration.py` | Missing permission, navigation, route catalog, and rollout classification. |
+| `/sales/reports/project-cabinet-open-order-analysis` | Generic placeholder | `routes/report_routes.py` + `routes/report_route_registration.py` | Missing permission, navigation, route catalog, and rollout classification. |
 | `/sales/reports/invoice-execution-detail` | Generic placeholder | `routes/report_routes.py` + `routes/report_route_registration.py` | Missing permission, navigation, route catalog, and rollout classification. |
 | `/sales/reports/invoice-summary` | Generic placeholder | `routes/report_routes.py` + `routes/report_route_registration.py` | Missing permission, navigation, route catalog, and rollout classification. |
 | `/sales/reports/receivable-collection-detail` | Generic placeholder | `routes/report_routes.py` + `routes/report_route_registration.py` | Missing permission, navigation, route catalog, and rollout classification. |
 | `/sales/reports/receivable-aging` | Real implementation, but duplicate registered | `routes/sales_report_routes.py` | Also present in generic report sections and report catalog registration. |
-| `/sales/reports/project-serial-gross-margin` | Generic placeholder | `routes/report_routes.py` + `routes/report_route_registration.py` | Missing permission, navigation, route catalog, and rollout classification. |
+| `/sales/reports/project-cabinet-gross-margin` | Generic placeholder | `routes/report_routes.py` + `routes/report_route_registration.py` | Missing permission, navigation, route catalog, and rollout classification. |
 | `/sales/reports/price-execution-analysis` | Generic placeholder | `routes/report_routes.py` + `routes/report_route_registration.py` | Missing permission, navigation, route catalog, and rollout classification. |
 | `/sales/reports/return-impact-analysis` | Generic placeholder | `routes/report_routes.py` + `routes/report_route_registration.py` | Missing permission, navigation, route catalog, and rollout classification. |
 | `/sales/reports/delivery-delay-analysis` | Generic placeholder | `routes/report_routes.py` + `routes/report_route_registration.py` | Missing permission, navigation, route catalog, and rollout classification. |
@@ -63,7 +63,7 @@ These paths have dedicated HTTP handlers in `routes/sales_report_routes.py` and 
 
 - `/sales/reports/order-execution-detail`
 - `/sales/reports/receivable-aging`
-- `/sales/reports/project-serial-order-tracking`
+- `/sales/reports/project-cabinet-order-tracking`
 - `/sales/reports/shipped-unsettled-detail`
 
 They are already present in:
@@ -81,11 +81,11 @@ Agent ownership proposal:
 
 | Agent | Paths |
 |---|---|
-| Agent 1, sales order reports | `/sales/reports/summary`, `/sales/reports/order-execution-summary`, `/sales/reports/customer-open-order-analysis`, `/sales/reports/project-serial-open-order-analysis` |
+| Agent 1, sales order reports | `/sales/reports/summary`, `/sales/reports/order-execution-summary`, `/sales/reports/customer-open-order-analysis`, `/sales/reports/project-cabinet-open-order-analysis` |
 | Agent 2, shipment and shipped-goods reports | `/sales/reports/shipment-execution-detail` |
 | Agent 3, invoice and tax invoice reports | `/sales/reports/invoice-execution-detail`, `/sales/reports/invoice-summary` |
 | Agent 4, collection and receivable reports | `/sales/reports/receivable-collection-detail` |
-| Agent 5, operation, margin, price, return, and delay reports | `/sales/reports/project-serial-gross-margin`, `/sales/reports/price-execution-analysis`, `/sales/reports/return-impact-analysis`, `/sales/reports/delivery-delay-analysis`, `/sales/reports/operation-snapshot`, `/sales/reports/daily` |
+| Agent 5, operation, margin, price, return, and delay reports | `/sales/reports/project-cabinet-gross-margin`, `/sales/reports/price-execution-analysis`, `/sales/reports/return-impact-analysis`, `/sales/reports/delivery-delay-analysis`, `/sales/reports/operation-snapshot`, `/sales/reports/daily` |
 | Agent 6, governance only | `/sales/reports`, plus route de-duplication, permissions, navigation, catalog, rollout classification, and acceptance checks |
 
 The current navigation-only placeholder paths are:
@@ -102,7 +102,7 @@ The following four real paths are registered multiple times:
 
 - `/sales/reports/order-execution-detail`
 - `/sales/reports/receivable-aging`
-- `/sales/reports/project-serial-order-tracking`
+- `/sales/reports/project-cabinet-order-tracking`
 - `/sales/reports/shipped-unsettled-detail`
 
 Current observed URL map order:
@@ -144,7 +144,7 @@ Currently covered in `services/pilot_permissions.py` sales group:
 - `/sales/reports/execution`
 - `/sales/reports/order-execution-detail`
 - `/sales/reports/receivable-aging`
-- `/sales/reports/project-serial-order-tracking`
+- `/sales/reports/project-cabinet-order-tracking`
 - `/sales/reports/shipped-unsettled-detail`
 
 Missing permission coverage if the remaining placeholders become real routes:
@@ -154,11 +154,11 @@ Missing permission coverage if the remaining placeholders become real routes:
 - `/sales/reports/order-execution-summary`
 - `/sales/reports/shipment-execution-detail`
 - `/sales/reports/customer-open-order-analysis`
-- `/sales/reports/project-serial-open-order-analysis`
+- `/sales/reports/project-cabinet-open-order-analysis`
 - `/sales/reports/invoice-execution-detail`
 - `/sales/reports/invoice-summary`
 - `/sales/reports/receivable-collection-detail`
-- `/sales/reports/project-serial-gross-margin`
+- `/sales/reports/project-cabinet-gross-margin`
 - `/sales/reports/price-execution-analysis`
 - `/sales/reports/return-impact-analysis`
 - `/sales/reports/delivery-delay-analysis`
@@ -180,7 +180,7 @@ Current `templates/base.html` sales report navigation includes:
 - `/sales/reports/execution`
 - `/sales/reports/order-execution-detail`
 - `/sales/reports/receivable-aging`
-- `/sales/reports/project-serial-order-tracking`
+- `/sales/reports/project-cabinet-order-tracking`
 - `/sales/reports/shipped-unsettled-detail`
 
 Recommended final navigation shape:
@@ -192,7 +192,7 @@ Recommended final navigation shape:
   - Shipment and shipped-goods reports.
   - Invoice and tax invoice reports.
   - Collection and receivable reports.
-  - Project and serial trace reports.
+  - Project and cabinet trace reports.
   - Operation analysis reports.
 - Do not expose generic placeholder routes in normal navigation.
 
@@ -209,11 +209,11 @@ When a placeholder becomes a real report, add a route catalog entry for it with 
 | `/sales/reports/order-execution-summary` | `sales_orders` |
 | `/sales/reports/shipment-execution-detail` | `sales_shipments` |
 | `/sales/reports/customer-open-order-analysis` | `sales_orders` |
-| `/sales/reports/project-serial-open-order-analysis` | `sales_orders` |
+| `/sales/reports/project-cabinet-open-order-analysis` | `sales_orders` |
 | `/sales/reports/invoice-execution-detail` | `sales_invoices` |
 | `/sales/reports/invoice-summary` | `sales_invoices` |
 | `/sales/reports/receivable-collection-detail` | `customer_receivables` |
-| `/sales/reports/project-serial-gross-margin` | `sales_orders` |
+| `/sales/reports/project-cabinet-gross-margin` | `sales_orders` |
 | `/sales/reports/price-execution-analysis` | `sales_orders` |
 | `/sales/reports/return-impact-analysis` | `sales_returns` |
 | `/sales/reports/delivery-delay-analysis` | `sales_orders` |
@@ -241,11 +241,11 @@ The following paths need classification once ownership is decided:
 - `/sales/reports/order-execution-summary`
 - `/sales/reports/shipment-execution-detail`
 - `/sales/reports/customer-open-order-analysis`
-- `/sales/reports/project-serial-open-order-analysis`
+- `/sales/reports/project-cabinet-open-order-analysis`
 - `/sales/reports/invoice-execution-detail`
 - `/sales/reports/invoice-summary`
 - `/sales/reports/receivable-collection-detail`
-- `/sales/reports/project-serial-gross-margin`
+- `/sales/reports/project-cabinet-gross-margin`
 - `/sales/reports/price-execution-analysis`
 - `/sales/reports/return-impact-analysis`
 - `/sales/reports/delivery-delay-analysis`

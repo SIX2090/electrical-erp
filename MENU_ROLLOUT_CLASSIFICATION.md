@@ -44,13 +44,13 @@ This file classifies normal-menu and direct routes by page type and rollout stat
 | `/inventory/opening` | opening data | live | warehouse | Material opening balance entry/list for go-live initialization; not normal master archive maintenance. |
 | `/inventory/opening/new` | opening data | live | warehouse | Material opening balance entry form/action; posts opening quantity through the existing inventory posting path only. |
 | `/inventory` | workbench | live | warehouse | Inventory workbench; shows pending queues, exceptions, owner, next action, and downstream impact only, not a full balance ledger. |
-| `/inventory/inbound` | document list | live | warehouse | Other inbound document list; grouped by doc_no on inventory_movement_documents, shows line count, quantity, cost amount, project/serial, status (draft/posted/void), and links to the detail page for audit. |
+| `/inventory/inbound` | document list | live | warehouse | Other inbound document list; grouped by doc_no on inventory_movement_documents, shows line count, quantity, cost amount, project/cabinet, status (draft/posted/void), and links to the detail page for audit. |
 | `/inventory/inbound/new` | document entry | live | warehouse | Manual other inbound entry route; saves a draft header + lines to inventory_movement_documents and redirects to the detail page for audit. |
 | `/inventory/inbound/<doc_no>` | document detail | live | warehouse | Other inbound detail; status-aware audit/unaudit actions; audit posts lines to stock_transactions and inventory_balances atomically; unaudit reverses them. |
 | `/inventory/inbound/<doc_no>/audit` | document entry action | live | warehouse | Audit a draft other inbound document; promotes status to posted and posts every line through the inventory posting service. |
 | `/inventory/inbound/<doc_no>/unaudit` | document entry action | live | warehouse | Reverse an audited other inbound document; reverses balance effects, removes posting stock_transactions rows, and resets status to draft. |
 | `/inventory/inbound/<doc_no>/copy` | document entry action | live | warehouse | Copy an other inbound document to a new draft document number with the same line details; inventory is not posted until the copied document is audited. |
-| `/inventory/outbound` | document list | live | warehouse | Other outbound document list; grouped by doc_no on inventory_movement_documents, shows line count, quantity, cost amount, project/serial, status (draft/posted/void), and links to the detail page for audit. |
+| `/inventory/outbound` | document list | live | warehouse | Other outbound document list; grouped by doc_no on inventory_movement_documents, shows line count, quantity, cost amount, project/cabinet, status (draft/posted/void), and links to the detail page for audit. |
 | `/inventory/outbound/new` | document entry | live | warehouse | Manual other outbound entry route; saves a draft header + lines to inventory_movement_documents and redirects to the detail page for audit. |
 | `/inventory/outbound/<doc_no>` | document detail | live | warehouse | Other outbound detail; status-aware audit/unaudit actions; audit posts lines to stock_transactions and inventory_balances atomically; unaudit reverses them. |
 | `/inventory/outbound/<doc_no>/audit` | document entry action | live | warehouse | Audit a draft other outbound document; promotes status to posted and posts every line through the inventory posting service. |
@@ -87,14 +87,14 @@ This file classifies normal-menu and direct routes by page type and rollout stat
 | `/disassembly-orders/<id>/edit` | document entry | live | warehouse | Inventory disassembly edit route for unposted documents only. |
 | `/disassembly-orders/<id>/delete` | document entry action | live | warehouse | Delete a draft disassembly order only after confirming it has no posted stock transactions; posted disassembly orders must be reversed before deletion. |
 | `/disassembly-orders/<id>/copy` | document entry action | live | warehouse | Copy a disassembly order into a new draft document with the same line details; inventory is not posted until the copied document is audited. |
-| `/inventory/detail` | query list | readonly | warehouse | Inventory balance detail query by material, warehouse, location, lot, project, and serial number. |
+| `/inventory/detail` | query list | readonly | warehouse | Inventory balance detail query by material, warehouse, location, lot, project, and cabinet number. |
 | `/inventory/summary` | query list | readonly | warehouse | Inventory summary query; drill-down only, no document write actions. |
 | `/inventory/aging` | query list | readonly | warehouse | Inventory aging query; drill-down/export only, no document write actions. |
 | `/inventory/expiry` | query list | readonly | warehouse | Inventory expiry query; drill-down/export only, no document write actions. |
 | `/transactions` | query list | readonly | warehouse | Stock transaction trace query; read-only source document and movement review. |
 | `/inventory_alerts` | query list | readonly | warehouse | Inventory alert query; follow-up is handled through controlled documents. |
 | `/inventory/reorder-suggestions` | query list | readonly | warehouse | Reorder suggestion query from inventory alert context; no direct purchase document creation here. |
-| `/batch/tracking` | query list | readonly | warehouse | Batch and serial trace query; drill-down/export only. |
+| `/batch/tracking` | query list | readonly | warehouse | Batch and cabinet trace query; drill-down/export only. |
 | `/batch_trace` | query list | hidden | warehouse | Compatibility batch trace alias; normal navigation uses `/batch/tracking`. |
 | `/inventory/reports` | report | readonly | warehouse | Inventory report center; read-only released inventory reports and export only. |
 | `/inventory/reports/shortage` | report | readonly | warehouse | Inventory shortage report; read-only analysis and export only. |
@@ -119,7 +119,7 @@ This file classifies normal-menu and direct routes by page type and rollout stat
 | `/inventory/monthly-report` | report | hidden | warehouse | Compatibility monthly inventory report alias; normal navigation uses `/inventory/reports/monthly`. |
 | `/subcontract/opening` | opening data | live | subcontracting | Subcontract opening balance entry/list for go-live initialization; not normal master archive maintenance. |
 | `/subcontract` | document list | live | subcontracting | Subcontract order list; shows order status, issue/receive progress, payable, and project-machine trace. |
-| `/subcontract/new` | document entry | live | subcontracting | Subcontract order entry; creates order with multi-line detail items, project/serial trace, and auto-payable. |
+| `/subcontract/new` | document entry | live | subcontracting | Subcontract order entry; creates order with multi-line detail items, project/cabinet trace, and auto-payable. |
 | `/subcontract_issue` | document list | live | subcontracting | Subcontract issue list; shows issue status, quantity, and downstream receive reconciliation. |
 | `/subcontract_issue/new` | document entry | live | subcontracting | Subcontract issue entry; creates issue document from subcontract order with warehouse/location/lot trace. |
 | `/subcontract_issue/<id>/delete` | document entry action | live | subcontracting | Delete a draft subcontract issue only after confirming it has no posted stock transactions; audited issues must be reversed before deletion. |
@@ -164,12 +164,12 @@ This file classifies normal-menu and direct routes by page type and rollout stat
 | `/project-master/new` | master data | live | master data | Project master maintenance form. |
 | `/project-master/<id>` | master data | live | master data | Project master detail page. |
 | `/project-master/<id>/edit` | master data | live | master data | Project master edit form. |
-| `/machine-serial-master` | master data | live | master data | Machine serial master trace axis; serial number is recommended traceability, not universally mandatory. |
-| `/machine-serial-master/import` | master data | live | master data | Machine serial master batch import page; writes only serial archive data. |
-| `/machine-serial-master/download_template` | master data | live | master data | Machine serial master import template endpoint. |
-| `/machine-serial-master/new` | master data | live | master data | Machine serial master maintenance form. |
-| `/machine-serial-master/<id>` | master data | live | master data | Machine serial master detail page. |
-| `/machine-serial-master/<id>/edit` | master data | live | master data | Machine serial master edit form. |
+| `/cabinet-master` | master data | live | master data | Machine cabinet master trace axis; cabinet number is recommended traceability, not universally mandatory. |
+| `/cabinet-master/import` | master data | live | master data | Machine cabinet master batch import page; writes only cabinet archive data. |
+| `/cabinet-master/download_template` | master data | live | master data | Machine cabinet master import template endpoint. |
+| `/cabinet-master/new` | master data | live | master data | Machine cabinet master maintenance form. |
+| `/cabinet-master/<id>` | master data | live | master data | Machine cabinet master detail page. |
+| `/cabinet-master/<id>/edit` | master data | live | master data | Machine cabinet master edit form. |
 | `/customer` | master data | live | master data | Primary customer master entry; normal navigation uses this route. |
 | `/customer/import` | master data | live | master data | Customer master batch import page. |
 | `/customer/download_template` | master data | live | master data | Customer master import template endpoint. |
@@ -258,7 +258,7 @@ This file classifies normal-menu and direct routes by page type and rollout stat
 | `/export/departments` | master data | live | master data | Department master CSV export endpoint. |
 | `/export/employees` | master data | live | master data | Employee master CSV export endpoint. |
 | `/export/project-masters` | master data | live | master data | Project master CSV export endpoint. |
-| `/export/machine-serial-masters` | master data | live | master data | Machine serial master CSV export endpoint. |
+| `/export/cabinet-masters` | master data | live | master data | Machine cabinet master CSV export endpoint. |
 | `/export/product-categories` | master data | live | master data | Product category CSV export endpoint. |
 | `/export/customer-categories` | master data | live | master data | Customer category CSV export endpoint. |
 | `/export/supplier-categories` | master data | live | master data | Supplier category CSV export endpoint. |
@@ -284,25 +284,25 @@ This file classifies normal-menu and direct routes by page type and rollout stat
 | `/sales-returns/<id>/copy` | document entry action | live | sales/warehouse | Copy a sales return into a new draft document with the same line details; inventory is not posted until the copied document is audited. |
 | `/quotations/<id>/copy` | document entry action | live | sales | Copy a sales quotation into a new draft document with the same line details; does not affect customer orders or shipment records. |
 | `/sales/<id>/copy` | document entry action | live | sales | Copy a sales order into a new draft document with the same line details; does not affect original order quantities or shipment records. |
-| `/sales/reports` | report | live | sales | Read-only sales report center; links sales order, shipment, invoice, receivable, collection, project number, and machine serial number reports. |
+| `/sales/reports` | report | live | sales | Read-only sales report center; links sales order, shipment, invoice, receivable, collection, project number, and cabinet number reports. |
 | `/sales/reports/pending` | report | live | sales | Read-only pending sales delivery report; uses customer open order analysis as the operator-facing view. |
 | `/sales/reports/customer-ranking` | report | live | sales | Read-only customer open delivery and open receivable ranking; supports sales follow-up prioritization. |
 | `/sales/reports/execution` | report | live | sales | Read-only sales execution summary; tracks order, shipment, invoice, and collection status. |
 | `/sales/reports/summary` | report | live | sales | Read-only sales summary; aggregates sales amount, shipped amount, open quantity, and receivable balance. |
 | `/sales/reports/order-execution-summary` | report | live | sales | Read-only sales order execution summary; aggregates order, shipment, invoice, receipt, and delivery status. |
-| `/sales/reports/order-execution-detail` | report | live | sales | Read-only sales order execution detail; tracks order, shipment, invoice, receipt, project number, and machine serial number. |
+| `/sales/reports/order-execution-detail` | report | live | sales | Read-only sales order execution detail; tracks order, shipment, invoice, receipt, project number, and cabinet number. |
 | `/sales/reports/customer-open-order-analysis` | report | live | sales | Read-only customer open order analysis; monitors unshipped quantity, open amount, and overdue delivery. |
-| `/sales/reports/project-serial-open-order-analysis` | report | live | sales | Read-only project and machine serial open order analysis; monitors traceable delivery risk. |
-| `/sales/reports/project-serial-order-tracking` | report | live | sales | Read-only project and machine serial sales trace report; links sales order, shipment, receivable balance, and service card count. |
+| `/sales/reports/project-cabinet-open-order-analysis` | report | live | sales | Read-only project and machine cabinet open order analysis; monitors traceable delivery risk. |
+| `/sales/reports/project-cabinet-order-tracking` | report | live | sales | Read-only project and machine cabinet sales trace report; links sales order, shipment, receivable balance, and service card count. |
 | `/sales/reports/shipment-execution-detail` | report | live | sales | Read-only shipment execution detail; tracks shipment lines, inventory posting mark, invoiced amount, received amount, and delivery delay. |
 | `/sales/reports/shipped-goods-detail` | report | live | sales | Read-only shipped goods detail; tracks shipment line issue amount, invoice settlement basis, open quantity basis, and open amount. |
-| `/sales/reports/shipped-goods-summary` | report | live | sales | Read-only shipped goods summary; aggregates issued goods by product, customer, project number, and machine serial number. |
+| `/sales/reports/shipped-goods-summary` | report | live | sales | Read-only shipped goods summary; aggregates issued goods by product, customer, project number, and cabinet number. |
 | `/sales/reports/shipped-unsettled-detail` | report | live | sales | Read-only shipped but unsettled detail; monitors shipped amount, uninvoiced amount, unreceived amount, and aging status. |
 | `/sales/reports/invoice-execution-detail` | report | live | sales | Read-only sales invoice execution detail; compares expected order invoice amount with actual invoice amount. |
 | `/sales/reports/invoice-summary` | report | live | sales | Read-only sales invoice summary; aggregates untaxed amount, tax amount, and tax-included amount. |
 | `/sales/reports/receivable-collection-detail` | report | live | sales | Read-only collection execution detail; shows receipt, settlement, unapplied amount, AR balance, and aging bucket. |
-| `/sales/reports/receivable-aging` | report | live | sales | Read-only sales receivable aging analysis; tracks open AR balance and aging risk by customer, project number, and machine serial number. |
-| `/sales/reports/project-serial-gross-margin` | report | live | sales | Read-only operating gross margin analysis by project number and machine serial number; not financial period-close profit. |
+| `/sales/reports/receivable-aging` | report | live | sales | Read-only sales receivable aging analysis; tracks open AR balance and aging risk by customer, project number, and cabinet number. |
+| `/sales/reports/project-cabinet-gross-margin` | report | live | sales | Read-only operating gross margin analysis by project number and cabinet number; not financial period-close profit. |
 | `/sales/reports/price-execution-analysis` | report | live | sales | Read-only sales price execution analysis; compares order price with customer or quotation reference price. |
 | `/sales/reports/delivery-delay-analysis` | report | live | sales | Read-only delivery delay analysis; tracks planned delivery, shipment date, open quantity, and overdue days. |
 | `/sales/reports/operation-snapshot` | report | live | sales | Read-only sales operation snapshot; summarizes orders, shipments, invoices, receipts, and open items. |
@@ -317,7 +317,7 @@ This file classifies normal-menu and direct routes by page type and rollout stat
 | `/production-issues/<id>/copy` | document entry action | live | production | Copy a production issue document into a new draft document with the same line details; inventory is not posted until the copied document is submitted and audited. |
 | `/production-returns/<id>/copy` | document entry action | live | production | Copy a production return document into a new draft document with the same line details; inventory is not posted until the copied document is submitted and audited. |
 | `/production/operation-reports` | document list | live | production | Operation report list for process start, completion, rework, scrap, and labor/equipment hours. |
-| `/production-schedules` | query list | live | production | Production schedule query list by work order, project number, machine serial number, work center, and dispatch status. |
+| `/production-schedules` | query list | live | production | Production schedule query list by work order, project number, cabinet number, work center, and dispatch status. |
 | `/production-enhance/quality-inspections` | document list | live | production | Production quality inspection list; quality actions remain in inspection document detail pages. |
 | `/engineering/kitting` | query list | live | production | Read-only kitting and shortage query shared with engineering; production uses it for execution readiness, not as a separate workbench. |
 | `/requisition` | query list | live | production | Read-only work-order material requirement and picking query; formal issue/return documents remain separate. |
@@ -340,13 +340,13 @@ This file classifies normal-menu and direct routes by page type and rollout stat
 | `/production/reports/completion-inbound-summary` | report | live | production | Read-only completion inbound summary report. |
 | `/production/reports/operation-report-detail` | report | live | production | Read-only operation reporting detail report. |
 | `/production/reports/operation-report-summary` | report | live | production | Read-only operation reporting summary report. |
-| `/production/reports/project-serial-progress` | report | live | production | Read-only project and machine serial production progress report. |
+| `/production/reports/project-cabinet-progress` | report | live | production | Read-only project and machine cabinet production progress report. |
 | `/production/reports/quality-inspection-detail` | report | live | production | Read-only quality inspection detail report. |
 | `/production/reports/quality-exception-summary` | report | live | production | Read-only quality exception summary report. |
 | `/production/reports/progress-exception` | report | live | production | Read-only production progress exception report. |
 | `/production/reports/wip-balance` | report | live | production | Read-only WIP balance report. |
 | `/production/reports/work-order-cost-detail` | report | live | production | Read-only work-order cost detail report. |
-| `/production/reports/project-serial-production-cost` | report | live | production | Read-only project and machine serial production cost report. |
+| `/production/reports/project-cabinet-production-cost` | report | live | production | Read-only project and machine cabinet production cost report. |
 | `/production/reports/production-cost-variance` | report | live | production | Read-only production cost variance report. |
 | `/production/reports/cost-accounting` | report | live | production | Read-only production cost accounting report. |
 | `/production/reports/monthly-summary` | report | live | production | Read-only production monthly summary report. |
@@ -485,7 +485,7 @@ This file classifies normal-menu and direct routes by page type and rollout stat
 | `/purchase/reports/purchase-price-variance` | report | live | purchase | Read-only purchase price variance analysis. |
 | `/purchase/reports/purchase-exception-list` | report | live | purchase | Read-only purchase exception list for overdue, over-receipt, and invoice lag follow-up. |
 | `/purchase/reports/execution` | report | live | purchase | Read-only purchase execution detail report. |
-| `/purchase/reports/summary` | report | live | purchase | Read-only purchase summary report by supplier, project number, and machine serial number. |
+| `/purchase/reports/summary` | report | live | purchase | Read-only purchase summary report by supplier, project number, and cabinet number. |
 | `/purchase/reports/request-execution-detail` | report | live | purchase | Read-only purchase request execution detail report. |
 | `/purchase/reports/request-execution-summary` | report | live | purchase | Read-only purchase request execution summary report. |
 | `/purchase/reports/order-execution-detail` | report | live | purchase | Read-only purchase order execution detail report. |
@@ -497,7 +497,7 @@ This file classifies normal-menu and direct routes by page type and rollout stat
 | `/purchase/reports/invoice-summary` | report | live | purchase/finance | Read-only purchase invoice summary and tax invoice summary report. |
 | `/purchase/reports/payment-overview` | report | live | purchase/finance | Read-only purchase payment overview. |
 | `/purchase/reports/payable-reconciliation-detail` | report | live | purchase/finance | Read-only purchase payable reconciliation detail. |
-| `/purchase/reports/project-serial-purchase-cost-detail` | report | live | purchase/finance/project | Read-only project and machine serial purchase cost detail. |
+| `/purchase/reports/project-cabinet-purchase-cost-detail` | report | live | purchase/finance/project | Read-only project and machine cabinet purchase cost detail. |
 | `/purchase/reports/daily` | report | live | purchase | Read-only purchase daily report. |
 | `/finance/reports/purchase-payment-reconciliation` | report | live | finance | Read-only purchase payment reconciliation report owned by finance. |
 | `/finance/smart-payments` | finance query list | live | finance | Finance-owned smart payment queue; no direct purchase document creation. |
@@ -507,24 +507,24 @@ This file classifies normal-menu and direct routes by page type and rollout stat
 | Route | Page Type | State | Owner | Notes |
 |---|---|---|---|---|
 | `/mrp` | workbench | live | production/planning | MRP home/workbench; entry to run MRP, view run history, suggestions, and kitting analysis. |
-| `/mrp/run` | document entry action | live | production/planning | Execute MRP run from a sales order, project, serial, work order, or manual product/BOM selection; persists run snapshot, items, and suggestions. |
+| `/mrp/run` | document entry action | live | production/planning | Execute MRP run from a sales order, project, cabinet, work order, or manual product/BOM selection; persists run snapshot, items, and suggestions. |
 | `/mrp/runs` | document list | live | production/planning | MRP run history list; search, status, next action, and detail links only. |
 | `/mrp/runs/<id>` | document detail | live | production/planning | MRP run detail; shows source, BOM version, snapshot, net-requirement items, and suggestions. |
 | `/mrp/suggestions` | document list | live | production/planning | MRP suggestions list; supports single and batch convert to purchase requisition, work order, or subcontract order. |
 | `/mrp/suggestions/<id>/convert` | document entry action | live | production/planning | Convert a single MRP suggestion into a target document; writes trace_link to the new document. |
 | `/mrp/suggestions/batch-convert` | document entry action | live | production/planning | Batch convert selected MRP suggestions into target documents. |
-| `/mrp/kitting` | query list | readonly | production/planning | Kitting analysis query; shows coverage, shortage, and kitting rate by project/serial/work order; no document write actions. |
+| `/mrp/kitting` | query list | readonly | production/planning | Kitting analysis query; shows coverage, shortage, and kitting rate by project/cabinet/work order; no document write actions. |
 | `/api/mrp/runs/<id>/suggestions` | internal API | readonly | production/planning | JSON endpoint returning suggestions for a given MRP run; consumed by the run detail page. |
 
 ## P0-2 Project/Serial Full-Chain Trace Engine
 
 | Route | Page Type | State | Owner | Notes |
 |---|---|---|---|---|
-| `/trace` | workbench | live | production/project | Trace home/workbench; entry to project, serial, and document trace pages. |
+| `/trace` | workbench | live | production/project | Trace home/workbench; entry to project, cabinet, and document trace pages. |
 | `/trace/project/<project_code>` | query list | readonly | project | Forward and reverse trace by project code; read-only graph and timeline. |
-| `/trace/serial/<serial_no>` | query list | readonly | production/service | Forward and reverse trace by machine serial number; read-only graph and timeline. |
+| `/trace/cabinet/<cabinet_no>` | query list | readonly | production/service | Forward and reverse trace by cabinet number; read-only graph and timeline. |
 | `/trace/document/<doc_type>/<doc_id>` | query list | readonly | all | Trace from any business document to its upstream and downstream documents; read-only. |
-| `/trace/integrity` | query list | readonly | system | Trace integrity findings list; shows missing links, missing project/serial fields, and completeness score. |
+| `/trace/integrity` | query list | readonly | system | Trace integrity findings list; shows missing links, missing project/cabinet fields, and completeness score. |
 | `/trace/integrity/<id>/resolve` | system admin action | live | system | Resolve a trace integrity finding after the underlying data is corrected. |
 | `/trace/integrity/scan` | system admin action | live | system | Trigger a trace integrity re-scan; writes new findings to `trace_integrity_findings`. |
 
@@ -532,12 +532,12 @@ This file classifies normal-menu and direct routes by page type and rollout stat
 
 | Route | Page Type | State | Owner | Notes |
 |---|---|---|---|---|
-| `/cost` | workbench | live | finance/production | Cost engine home/workbench; entry to run cost calculation, view runs, project/serial summaries, and reconciliation. |
-| `/cost/run` | document entry action | live | finance | Execute a cost calculation run for a period, project, and/or serial; collects material, labor, overhead, outsource, service, and quality costs. |
+| `/cost` | workbench | live | finance/production | Cost engine home/workbench; entry to run cost calculation, view runs, project/cabinet summaries, and reconciliation. |
+| `/cost/run` | document entry action | live | finance | Execute a cost calculation run for a period, project, and/or cabinet; collects material, labor, overhead, outsource, service, and quality costs. |
 | `/cost/runs` | document list | live | finance | Cost run history list; search, status, next action, and detail links only. |
-| `/cost/runs/<id>` | document detail | live | finance | Cost run detail; shows cost items by type, source document, project, serial, and work order. |
+| `/cost/runs/<id>` | document detail | live | finance | Cost run detail; shows cost items by type, source document, project, cabinet, and work order. |
 | `/cost/project/<project_code>` | query list | readonly | finance/project | Project cost summary; read-only cost composition and source drill-down. |
-| `/cost/serial/<serial_no>` | query list | readonly | finance/production | Serial cost summary; read-only single-machine cost composition and source drill-down. |
+| `/cost/cabinet/<cabinet_no>` | query list | readonly | finance/production | Serial cost summary; read-only single-machine cost composition and source drill-down. |
 | `/cost/reconciliation` | query list | readonly | finance | Cost reconciliation results; compares business cost vs inventory cost vs GL cost. |
 | `/cost/reconciliation/run` | document entry action | live | finance | Execute a cost reconciliation run for a period; saves results to `cost_reconciliation_results`. |
 

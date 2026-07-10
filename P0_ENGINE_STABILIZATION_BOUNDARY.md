@@ -28,20 +28,20 @@ Data owner:
 
 Primary trace axis:
 
-- Use `project_code` and `serial_no`.
-- Do not introduce a second project or machine axis such as `project_id`, `machine_no`, or `machine_serial`.
-- Use line-level `line_project_code` and `line_serial_no` where a document line can override the header. Empty line fields inherit the header values.
+- Use `project_code` and `cabinet_no`.
+- Do not introduce a second project or machine axis such as `project_id`, `machine_no`, or `cabinet`.
+- Use line-level `line_project_code` and `line_cabinet_no` where a document line can override the header. Empty line fields inherit the header values.
 
 ## P0-A: Trace Field Standardization
 
 Goal:
 
-Freeze the current project and serial trace vocabulary before engine coding.
+Freeze the current project and cabinet trace vocabulary before engine coding.
 
 In scope:
 
-- Treat `project_code` and `serial_no` as the canonical business trace fields.
-- Treat `project_masters.project_code` and `machine_serial_masters.serial_no` as the master-data reference sources.
+- Treat `project_code` and `cabinet_no` as the canonical business trace fields.
+- Treat `project_masters.project_code` and `cabinet_masters.cabinet_no` as the master-data reference sources.
 - Prefer `source_doc_type`, `source_doc_id`, `source_doc_no`, and `source_line_no` for new source references.
 - Keep compatibility with existing `source_type`, `source_id`, and `source_no` fields where they already exist.
 
@@ -53,7 +53,7 @@ Out of scope:
 
 Acceptance:
 
-- New code does not add a second project or serial naming convention.
+- New code does not add a second project or cabinet naming convention.
 - Existing audits continue to report clean source integrity and prelaunch status.
 
 ## P0-B: Work Order Execution Snapshots
@@ -90,7 +90,7 @@ Turn current shortage consumption into an explainable, repeatable MRP calculatio
 
 In scope:
 
-- Start from a single `work_order_id`, or from a `project_code + serial_no` context when a work order is available.
+- Start from a single `work_order_id`, or from a `project_code + cabinet_no` context when a work order is available.
 - Use the work-order snapshot BOM when present; otherwise use the existing selected BOM.
 - Calculate gross demand from multi-level BOM quantities and loss rate.
 - Deduct available inventory, locked inventory, purchase requisitions, purchase on-order quantity, and work-order issued/returned quantity where current data supports it.
@@ -140,19 +140,19 @@ Acceptance:
 
 - New trace writes are idempotent.
 - Trace integrity checks do not report duplicate edges.
-- Source and target project/serial values are not silently changed by trace writes.
+- Source and target project/cabinet values are not silently changed by trace writes.
 
 ## P0-E: Cost Collection Proof
 
 Goal:
 
-Prove project and serial cost evidence through existing cost services and reports without changing finance posting rules.
+Prove project and cabinet cost evidence through existing cost services and reports without changing finance posting rules.
 
 In scope:
 
 - Reuse `work_order_cost_service.py` as the work-order cost foundation.
 - Compare material cost from work-order issue/return lines, labor and overhead from operation reports, subcontract cost from payable or subcontract evidence, and service cost from service orders.
-- Keep project and serial cost reports read-only.
+- Keep project and cabinet cost reports read-only.
 
 Out of scope:
 
@@ -164,7 +164,7 @@ Out of scope:
 Acceptance:
 
 - Work-order material cost can be reconciled to issued and returned material lines.
-- Project/serial cost evidence can trace each cost component to a source document.
+- Project/cabinet cost evidence can trace each cost component to a source document.
 - Cost reporting does not post inventory or finance records.
 
 ## P0-F: Data Permission Boundary
@@ -176,7 +176,7 @@ Avoid designing data visibility in a way that conflicts with the current route p
 In scope:
 
 - First implementation should focus on query scope filtering, direct detail access protection, and export using the same scope.
-- Scope dimensions are project, serial, department, customer, and supplier.
+- Scope dimensions are project, cabinet, department, customer, and supplier.
 - Admin and manager can bypass data scope by policy unless later changed by the user.
 
 Out of scope:

@@ -10,7 +10,7 @@ DEFAULT_TEMPLATE = ROOT / "release" / "trial_run" / "first_machine_data_template
 QTY_FIELDS = {"sales_qty", "material_qty_1", "material_qty_2"}
 REQUIRED_FIELDS = {
     "project_code",
-    "serial_no",
+    "cabinet_no",
     "product_code",
     "bom_no",
     "sales_qty",

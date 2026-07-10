@@ -4,7 +4,7 @@ from typing import Any, Dict, Iterable, List, Tuple
 
 
 BYPASS_ROLES = {"admin", "manager"}
-SUPPORTED_SCOPE_TYPES = {"project", "serial", "department", "customer", "supplier"}
+SUPPORTED_SCOPE_TYPES = {"project", "cabinet", "department", "customer", "supplier"}
 
 
 def normalize_role(role):
@@ -39,7 +39,7 @@ def _rule_rows(query_db, *, user_id=None, role=None, permission="view"):
         FROM data_scope_rules
         WHERE permission=%s
           AND status='enabled'
-          AND scope_type IN ('project','serial','department','customer','supplier')
+          AND scope_type IN ('project','cabinet','department','customer','supplier')
           AND ({' OR '.join(subject_filters)})
         ORDER BY subject_type, id
         """,
@@ -94,7 +94,7 @@ def row_allowed(scope: Dict[str, Any], row: Dict[str, Any], field_map: Dict[str,
         return True
     field_map = field_map or {
         "project": "project_code",
-        "serial": "serial_no",
+        "cabinet": "cabinet_no",
         "department": "department_id",
         "customer": "customer_id",
         "supplier": "supplier_id",

@@ -214,15 +214,15 @@ BASIC_IMPORT_CONFIGS = {
             ("\u5907\u6ce8", "remark", False),
         ],
     },
-    "machine_serial": {
+    "cabinet": {
         "label": "\u673a\u53f7\u6863\u6848",
-        "table": "machine_serial_masters",
-        "back_url": "/machine-serial-master",
-        "import_url": "/machine-serial-master/import",
-        "template_url": "/machine-serial-master/download_template",
-        "key": "serial_no",
+        "table": "cabinet_masters",
+        "back_url": "/cabinet-master",
+        "import_url": "/cabinet-master/import",
+        "template_url": "/cabinet-master/download_template",
+        "key": "cabinet_no",
         "columns": [
-            ("\u673a\u53f7", "serial_no", True),
+            ("\u673a\u53f7", "cabinet_no", True),
             ("\u6240\u5c5e\u9879\u76ee\u53f7", "project_code", False),
             ("\u5ba2\u6237\u540d\u79f0", "customer_name", False),
             ("\u6210\u54c1\u7269\u6599\u7f16\u7801", "product_code", False),

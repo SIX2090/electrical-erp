@@ -1,4 +1,4 @@
-"""Trace engine: document link graph and snapshot history for project/serial traceability."""
+"""Trace engine: document link graph and snapshot history for project/cabinet traceability."""
 from __future__ import annotations
 
 import hashlib
@@ -84,7 +84,7 @@ def create_trace_link(
     target_line_no=None,
     link_strength="hard",
     project_code=None,
-    serial_no=None,
+    cabinet_no=None,
     created_by=None,
     created_event=None,
     execute_and_return=None,
@@ -110,7 +110,7 @@ def create_trace_link(
         INSERT INTO trace_links (
             source_doc_type, source_doc_id, source_doc_no, source_line_id, source_line_no,
             target_doc_type, target_doc_id, target_doc_no, target_line_id, target_line_no,
-            link_type, link_strength, project_code, serial_no, created_by, created_event
+            link_type, link_strength, project_code, cabinet_no, created_by, created_event
         )
         VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         ON CONFLICT (
@@ -129,7 +129,7 @@ def create_trace_link(
             target_line_no=COALESCE(EXCLUDED.target_line_no, trace_links.target_line_no),
             link_strength=EXCLUDED.link_strength,
             project_code=COALESCE(EXCLUDED.project_code, trace_links.project_code),
-            serial_no=COALESCE(EXCLUDED.serial_no, trace_links.serial_no),
+            cabinet_no=COALESCE(EXCLUDED.cabinet_no, trace_links.cabinet_no),
             created_by=COALESCE(EXCLUDED.created_by, trace_links.created_by),
             created_event=COALESCE(EXCLUDED.created_event, trace_links.created_event)
         RETURNING id
@@ -148,7 +148,7 @@ def create_trace_link(
             link_type,
             link_strength,
             _clean_text(project_code),
-            _clean_text(serial_no),
+            _clean_text(cabinet_no),
             created_by,
             _clean_text(created_event),
         ),
@@ -171,7 +171,7 @@ def create_trace_snapshot(
     doc_no=None,
     snapshot_by=None,
     project_code=None,
-    serial_no=None,
+    cabinet_no=None,
     execute_and_return=None,
 ) -> Any:
     doc_type = _clean_text(doc_type)
@@ -187,7 +187,7 @@ def create_trace_snapshot(
         execute_and_return,
         """
         INSERT INTO trace_snapshots (
-            doc_type, doc_id, doc_no, snapshot_event, snapshot_by, project_code, serial_no,
+            doc_type, doc_id, doc_no, snapshot_event, snapshot_by, project_code, cabinet_no,
             header_payload, lines_payload, trace_context_payload, source_hash
         )
         VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
@@ -203,7 +203,7 @@ def create_trace_snapshot(
             snapshot_event,
             snapshot_by,
             _clean_text(project_code),
-            _clean_text(serial_no),
+            _clean_text(cabinet_no),
             _json_param(header_payload),
             _json_param(lines_payload),
             _json_param(trace_context_payload),
@@ -379,7 +379,7 @@ def list_trace_snapshots(query_db, doc_type=None, doc_id=None, limit=100) -> Lis
     return query_db(
         f"""
         SELECT id, doc_type, doc_id, doc_no, snapshot_event, snapshot_by,
-               project_code, serial_no, source_hash, created_at
+               project_code, cabinet_no, source_hash, created_at
         FROM trace_snapshots
         {where_sql}
         ORDER BY created_at DESC, id DESC
@@ -394,7 +394,7 @@ def get_trace_snapshot(query_db, snapshot_id: int) -> Optional[Dict[str, Any]]:
     return query_db(
         """
         SELECT id, doc_type, doc_id, doc_no, snapshot_event, snapshot_by,
-               project_code, serial_no, header_payload, lines_payload,
+               project_code, cabinet_no, header_payload, lines_payload,
                trace_context_payload, source_hash, created_at
         FROM trace_snapshots
         WHERE id=%s
@@ -418,17 +418,17 @@ def find_by_project(query_db, project_code, limit=500) -> List[Dict[str, Any]]:
     ) or []
 
 
-def find_by_serial(query_db, serial_no, limit=500) -> List[Dict[str, Any]]:
-    """Return trace_links filtered by serial_no."""
+def find_by_cabinet(query_db, cabinet_no, limit=500) -> List[Dict[str, Any]]:
+    """Return trace_links filtered by cabinet_no."""
     return query_db(
         """
         SELECT *
         FROM trace_links
-        WHERE serial_no=%s
+        WHERE cabinet_no=%s
         ORDER BY created_at DESC, id DESC
         LIMIT %s
         """,
-        (_clean_text(serial_no), int(limit)),
+        (_clean_text(cabinet_no), int(limit)),
     ) or []
 
 

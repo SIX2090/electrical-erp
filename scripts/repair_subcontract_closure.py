@@ -223,11 +223,11 @@ def ensure_trial_lines(cur) -> tuple[int, int]:
         INSERT INTO subcontract_issue_lines
             (issue_id, subcontract_order_id, product_id, material_code, material_name,
              material_spec, unit, quantity, warehouse_id, location_id, lot_no,
-             project_code, serial_no, remark)
+             project_code, cabinet_no, remark)
         SELECT sio.id, so.id, so.product_id, so.material_code, so.material_name,
                so.material_spec, so.material_unit, sio.total_quantity,
                sio.warehouse_id, sio.location_id, so.lot_no, so.project_code,
-               so.serial_no, 'reconstructed trial line'
+               so.cabinet_no, 'reconstructed trial line'
         FROM subcontract_issue_orders sio
         JOIN subcontract_orders so ON so.id=sio.subcontract_order_id
         WHERE sio.issue_no='OSI-GT-TRIAL-20260526-001'
@@ -242,11 +242,11 @@ def ensure_trial_lines(cur) -> tuple[int, int]:
         INSERT INTO subcontract_receive_lines
             (receive_id, subcontract_order_id, product_id, material_code, material_name,
              material_spec, unit, quantity, scrap_quantity, warehouse_id, location_id,
-             lot_no, project_code, serial_no, remark)
+             lot_no, project_code, cabinet_no, remark)
         SELECT sro.id, so.id, so.product_id, so.material_code, so.material_name,
                so.material_spec, so.material_unit, sro.total_quantity,
                COALESCE(sro.total_scrap,0), sro.warehouse_id, sro.location_id,
-               so.lot_no, so.project_code, so.serial_no, 'reconstructed trial line'
+               so.lot_no, so.project_code, so.cabinet_no, 'reconstructed trial line'
         FROM subcontract_receive_orders sro
         JOIN subcontract_orders so ON so.id=sro.subcontract_order_id
         WHERE sro.receive_no='OSR-GT-TRIAL-20260526-001'
@@ -277,7 +277,7 @@ def adjust_inventory(cur, product_id: int, delta, unit_cost, reference_no: str, 
         FROM inventory_balances
         WHERE product_id=%s
           AND COALESCE(lot_no,'')=''
-          AND COALESCE(serial_no,'')=''
+          AND COALESCE(cabinet_no,'')=''
           AND COALESCE(project_code,'')=''
         ORDER BY id LIMIT 1
         """,
@@ -293,7 +293,7 @@ def adjust_inventory(cur, product_id: int, delta, unit_cost, reference_no: str, 
         cur.execute(
             """
             INSERT INTO inventory_balances
-                (product_id, warehouse_id, location_id, lot_no, serial_no, project_code,
+                (product_id, warehouse_id, location_id, lot_no, cabinet_no, project_code,
                  quantity, locked_qty, unit_cost, updated_at)
             VALUES (%s,NULL,NULL,'','','',%s,0,%s,CURRENT_TIMESTAMP)
             """,
@@ -304,7 +304,7 @@ def adjust_inventory(cur, product_id: int, delta, unit_cost, reference_no: str, 
         """
         INSERT INTO stock_transactions
             (transaction_date, transaction_type, product_id, quantity, unit_cost,
-             reference_no, lot_no, serial_no, project_code, location, remark,
+             reference_no, lot_no, cabinet_no, project_code, location, remark,
              warehouse_id, location_id, source_type, source_doc_type, source_doc_no)
         VALUES (%s,%s,%s,%s,%s,%s,'','','','',%s,NULL,NULL,%s,%s,%s)
         """,
@@ -387,7 +387,7 @@ def create_trial_receive_payables(cur) -> int:
         """
         INSERT INTO supplier_payables
             (supplier_id, doc_type, doc_id, doc_no, doc_date, amount, paid_amount,
-             balance, status, finance_remark, project_code, serial_no, cost_object_id)
+             balance, status, finance_remark, project_code, cabinet_no, cost_object_id)
         SELECT COALESCE(sro.supplier_id, so.supplier_id),
                'subcontract_receive',
                sro.id,
@@ -399,7 +399,7 @@ def create_trial_receive_payables(cur) -> int:
                'unpaid',
                CONCAT('Reconstructed payable for reviewed subcontract receive ', COALESCE(so.order_no,'')),
                COALESCE(so.project_code, ''),
-               COALESCE(so.serial_no, ''),
+               COALESCE(so.cabinet_no, ''),
                so.cost_object_id
         FROM subcontract_receive_orders sro
         JOIN subcontract_orders so ON so.id=sro.subcontract_order_id

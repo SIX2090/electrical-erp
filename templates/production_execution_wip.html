@@ -18,7 +18,7 @@
                 <tr>
                     <th>工单</th>
                     <th>项目号</th>
-                    <th>机号</th>
+                    <th>柜号</th>
                     <th>工序</th>
                     <th>工作中心</th>
                     <th class="text-end">计划</th>
@@ -37,7 +37,7 @@
                 <tr>
                     <td><a href="/work-orders/{{ row.work_order_id }}">{{ row.wo_no|clean_text or row.work_order_id }}</a></td>
                     <td>{{ row.project_code|clean_text or '-' }}</td>
-                    <td>{{ row.serial_no|clean_text or '-' }}</td>
+                    <td>{{ row.cabinet_no|clean_text or '-' }}</td>
                     <td>{{ row.operation_no|clean_text }} {{ row.operation_name|clean_text }}</td>
                     <td>{{ row.work_center_code|clean_text }} {{ row.work_center_name|clean_text }}</td>
                     <td class="text-end">{{ row.planned_quantity|qty }}</td>

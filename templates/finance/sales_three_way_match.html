@@ -49,9 +49,9 @@
           </div>
 
           <div class="col-md-3 mb-2">
-            <label class="form-label">机号</label>
-            <input type="text" name="serial_no" class="form-control" placeholder="机号"
-                   value="{{ filters.serial_no or '' }}">
+            <label class="form-label">柜号</label>
+            <input type="text" name="cabinet_no" class="form-control" placeholder="柜号"
+                   value="{{ filters.cabinet_no or '' }}">
           </div>
         </div>
 
@@ -114,7 +114,7 @@
             <th rowspan="2" class="text-center align-middle">订单日期</th>
             <th rowspan="2" class="align-middle">客户</th>
             <th rowspan="2" class="align-middle">项目号</th>
-            <th rowspan="2" class="align-middle">机号</th>
+            <th rowspan="2" class="align-middle">柜号</th>
             <th rowspan="2" class="align-middle">物料编码</th>
             <th rowspan="2" class="align-middle">物料名称</th>
             <th rowspan="2" class="align-middle">规格</th>
@@ -148,7 +148,7 @@
               <td class="text-center">{{ row.order_date }}</td>
               <td>{{ row.customer_name }}</td>
               <td>{{ row.project_code or '-' }}</td>
-              <td>{{ row.serial_no or '-' }}</td>
+              <td>{{ row.cabinet_no or '-' }}</td>
               <td>{{ row.product_code }}</td>
               <td>{{ row.product_name }}</td>
               <td>{{ row.specification or '-' }}</td>

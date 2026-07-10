@@ -106,7 +106,7 @@ def fixture_warehouse_id(cur) -> int:
     return row["id"]
 
 
-def ensure_trace_master(cur, project_code: str, serial_no: str):
+def ensure_trace_master(cur, project_code: str, cabinet_no: str):
     project_id = None
     if table_exists(cur, "project_masters") and "project_code" in columns(cur, "project_masters"):
         cur.execute(
@@ -121,9 +121,9 @@ def ensure_trace_master(cur, project_code: str, serial_no: str):
         )
         row = cur.fetchone()
         project_id = row["id"] if row else None
-    if table_exists(cur, "machine_serial_masters") and "serial_no" in columns(cur, "machine_serial_masters"):
+    if table_exists(cur, "cabinet_masters") and "cabinet_no" in columns(cur, "cabinet_masters"):
         values = {
-            "serial_no": serial_no,
+            "cabinet_no": cabinet_no,
             "project_id": project_id,
             "project_code": project_code,
             "product_family": "verification",
@@ -132,14 +132,14 @@ def ensure_trace_master(cur, project_code: str, serial_no: str):
             "status": "enabled",
             "remark": "subcontract closure verification trace reference",
         }
-        insert_columns = [name for name in values if name in columns(cur, "machine_serial_masters")]
-        assignments = [f"{name}=EXCLUDED.{name}" for name in insert_columns if name != "serial_no"]
+        insert_columns = [name for name in values if name in columns(cur, "cabinet_masters")]
+        assignments = [f"{name}=EXCLUDED.{name}" for name in insert_columns if name != "cabinet_no"]
         cur.execute(
             f"""
-            INSERT INTO machine_serial_masters ({','.join(insert_columns)})
+            INSERT INTO cabinet_masters ({','.join(insert_columns)})
             VALUES ({','.join(['%s'] * len(insert_columns))})
-            ON CONFLICT (serial_no) DO UPDATE
-            SET {','.join(assignments) if assignments else 'serial_no=EXCLUDED.serial_no'}, updated_at=CURRENT_TIMESTAMP
+            ON CONFLICT (cabinet_no) DO UPDATE
+            SET {','.join(assignments) if assignments else 'cabinet_no=EXCLUDED.cabinet_no'}, updated_at=CURRENT_TIMESTAMP
             """,
             [values[name] for name in insert_columns],
         )
@@ -171,14 +171,14 @@ def add_rows(findings: list[dict], code: str, severity: str, rows, fields, sugge
 
 def cleanup_fixture(cur):
     like = f"{PREFIX}%"
-    delete_if_table(cur, "supplier_payables", "doc_no LIKE %s OR project_code LIKE %s OR serial_no LIKE %s", (like, like, like))
-    delete_if_table(cur, "stock_transactions", "reference_no LIKE %s OR project_code LIKE %s OR serial_no LIKE %s", (like, like, like))
+    delete_if_table(cur, "supplier_payables", "doc_no LIKE %s OR project_code LIKE %s OR cabinet_no LIKE %s", (like, like, like))
+    delete_if_table(cur, "stock_transactions", "reference_no LIKE %s OR project_code LIKE %s OR cabinet_no LIKE %s", (like, like, like))
     delete_product_dependents(cur, like)
-    delete_if_table(cur, "subcontract_receive_lines", "project_code LIKE %s OR serial_no LIKE %s", (like, like))
-    delete_if_table(cur, "subcontract_receive_orders", "receive_no LIKE %s OR subcontract_order_id IN (SELECT id FROM subcontract_orders WHERE project_code LIKE %s OR serial_no LIKE %s)", (like, like, like))
-    delete_if_table(cur, "subcontract_issue_lines", "project_code LIKE %s OR serial_no LIKE %s", (like, like))
-    delete_if_table(cur, "subcontract_issue_orders", "issue_no LIKE %s OR subcontract_order_id IN (SELECT id FROM subcontract_orders WHERE project_code LIKE %s OR serial_no LIKE %s)", (like, like, like))
-    delete_if_table(cur, "subcontract_orders", "order_no LIKE %s OR project_code LIKE %s OR serial_no LIKE %s", (like, like, like))
+    delete_if_table(cur, "subcontract_receive_lines", "project_code LIKE %s OR cabinet_no LIKE %s", (like, like))
+    delete_if_table(cur, "subcontract_receive_orders", "receive_no LIKE %s OR subcontract_order_id IN (SELECT id FROM subcontract_orders WHERE project_code LIKE %s OR cabinet_no LIKE %s)", (like, like, like))
+    delete_if_table(cur, "subcontract_issue_lines", "project_code LIKE %s OR cabinet_no LIKE %s", (like, like))
+    delete_if_table(cur, "subcontract_issue_orders", "issue_no LIKE %s OR subcontract_order_id IN (SELECT id FROM subcontract_orders WHERE project_code LIKE %s OR cabinet_no LIKE %s)", (like, like, like))
+    delete_if_table(cur, "subcontract_orders", "order_no LIKE %s OR project_code LIKE %s OR cabinet_no LIKE %s", (like, like, like))
     delete_if_table(cur, "products", "code LIKE %s", (like,))
     if "code" in columns(cur, "suppliers"):
         delete_if_table(cur, "suppliers", "name LIKE %s OR code LIKE %s", (like, like))
@@ -188,40 +188,40 @@ def cleanup_fixture(cur):
     delete_if_table(
         cur,
         "supplier_payables",
-        "doc_type IN ('subcontract_order','subcontract_receive','subcontract_receipt') AND (project_code LIKE %s OR serial_no LIKE %s)",
+        "doc_type IN ('subcontract_order','subcontract_receive','subcontract_receipt') AND (project_code LIKE %s OR cabinet_no LIKE %s)",
         (phase5_like, phase5_like),
     )
     delete_if_table(
         cur,
         "stock_transactions",
-        "COALESCE(transaction_type, source_type, source_doc_type, '') IN ('subcontract_issue','subcontract_receive','outsourcing_issue','outsourcing_receive') AND (project_code LIKE %s OR serial_no LIKE %s)",
+        "COALESCE(transaction_type, source_type, source_doc_type, '') IN ('subcontract_issue','subcontract_receive','outsourcing_issue','outsourcing_receive') AND (project_code LIKE %s OR cabinet_no LIKE %s)",
         (phase5_like, phase5_like),
     )
     delete_if_table(
         cur,
         "subcontract_receive_lines",
-        "project_code LIKE %s OR serial_no LIKE %s OR receive_id IN (SELECT id FROM subcontract_receive_orders WHERE subcontract_order_id IN (SELECT id FROM subcontract_orders WHERE project_code LIKE %s OR serial_no LIKE %s))",
+        "project_code LIKE %s OR cabinet_no LIKE %s OR receive_id IN (SELECT id FROM subcontract_receive_orders WHERE subcontract_order_id IN (SELECT id FROM subcontract_orders WHERE project_code LIKE %s OR cabinet_no LIKE %s))",
         (phase5_like, phase5_like, phase5_like, phase5_like),
     )
     delete_if_table(
         cur,
         "subcontract_receive_orders",
-        "subcontract_order_id IN (SELECT id FROM subcontract_orders WHERE project_code LIKE %s OR serial_no LIKE %s)",
+        "subcontract_order_id IN (SELECT id FROM subcontract_orders WHERE project_code LIKE %s OR cabinet_no LIKE %s)",
         (phase5_like, phase5_like),
     )
     delete_if_table(
         cur,
         "subcontract_issue_lines",
-        "project_code LIKE %s OR serial_no LIKE %s OR issue_id IN (SELECT id FROM subcontract_issue_orders WHERE subcontract_order_id IN (SELECT id FROM subcontract_orders WHERE project_code LIKE %s OR serial_no LIKE %s))",
+        "project_code LIKE %s OR cabinet_no LIKE %s OR issue_id IN (SELECT id FROM subcontract_issue_orders WHERE subcontract_order_id IN (SELECT id FROM subcontract_orders WHERE project_code LIKE %s OR cabinet_no LIKE %s))",
         (phase5_like, phase5_like, phase5_like, phase5_like),
     )
     delete_if_table(
         cur,
         "subcontract_issue_orders",
-        "subcontract_order_id IN (SELECT id FROM subcontract_orders WHERE project_code LIKE %s OR serial_no LIKE %s)",
+        "subcontract_order_id IN (SELECT id FROM subcontract_orders WHERE project_code LIKE %s OR cabinet_no LIKE %s)",
         (phase5_like, phase5_like),
     )
-    delete_if_table(cur, "subcontract_orders", "project_code LIKE %s OR serial_no LIKE %s", (phase5_like, phase5_like))
+    delete_if_table(cur, "subcontract_orders", "project_code LIKE %s OR cabinet_no LIKE %s", (phase5_like, phase5_like))
 
 
 def ensure_fixture(cur):
@@ -251,12 +251,12 @@ def ensure_fixture(cur):
 
     def create_chain(tag: str, ordered: Decimal, issued: Decimal, received: Decimal, scrap: Decimal, short: Decimal):
         project_code = f"{PREFIX}-PRJ-{tag}-{suffix}"
-        serial_no = f"{PREFIX}-SN-{tag}-{suffix}"
+        cabinet_no = f"{PREFIX}-SN-{tag}-{suffix}"
         order_no = f"{PREFIX}-OS-{tag}-{suffix}"
         issue_no = f"{PREFIX}-OSI-{tag}-{suffix}"
         receive_no = f"{PREFIX}-OSR-{tag}-{suffix}"
         open_qty = max(ordered - received - scrap - short, Decimal("0"))
-        ensure_trace_master(cur, project_code, serial_no)
+        ensure_trace_master(cur, project_code, cabinet_no)
         order_id = insert_dynamic(
             cur,
             "subcontract_orders",
@@ -269,7 +269,7 @@ def ensure_fixture(cur):
                 "unit_price": Decimal("80"),
                 "total_amount": ordered * Decimal("80"),
                 "project_code": project_code,
-                "serial_no": serial_no,
+                "cabinet_no": cabinet_no,
                 "status": "partial_received" if open_qty else "completed",
                 "arrival_status": "partial_received" if open_qty else "completed",
                 "received_qty": received,
@@ -312,7 +312,7 @@ def ensure_fixture(cur):
                 "unit": "pcs",
                 "quantity": issued,
                 "project_code": project_code,
-                "serial_no": serial_no,
+                "cabinet_no": cabinet_no,
                 "remark": f"{PREFIX} {tag} issue line",
             },
         )
@@ -350,7 +350,7 @@ def ensure_fixture(cur):
                 "quantity": received,
                 "scrap_quantity": scrap,
                 "project_code": project_code,
-                "serial_no": serial_no,
+                "cabinet_no": cabinet_no,
                 "remark": f"{PREFIX} {tag} receive line",
             },
         )
@@ -371,7 +371,7 @@ def ensure_fixture(cur):
                     "unit_cost": Decimal("50"),
                     "amount": qty * Decimal("50"),
                     "project_code": project_code,
-                    "serial_no": serial_no,
+                    "cabinet_no": cabinet_no,
                     "remark": f"{PREFIX} {tag}",
                 },
             )
@@ -393,7 +393,7 @@ def ensure_fixture(cur):
                     "unit_cost": Decimal("0"),
                     "amount": Decimal("0"),
                     "project_code": project_code,
-                    "serial_no": serial_no,
+                    "cabinet_no": cabinet_no,
                     "remark": f"{PREFIX} fixture balance reconciliation",
                 },
             )
@@ -411,7 +411,7 @@ def ensure_fixture(cur):
                 "balance": received * Decimal("80"),
                 "status": "unpaid",
                 "project_code": project_code,
-                "serial_no": serial_no,
+                "cabinet_no": cabinet_no,
                 "finance_remark": f"{PREFIX} payable from receive",
             },
         )

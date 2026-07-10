@@ -38,12 +38,12 @@ def main() -> int:
             WITH ordered AS (
                 SELECT poi.product_id,
                        COALESCE(NULLIF(po.project_code, ''), '-') AS project_code,
-                       COALESCE(NULLIF(po.serial_no, ''), '-') AS serial_no,
+                       COALESCE(NULLIF(po.cabinet_no, ''), '-') AS cabinet_no,
                        SUM(COALESCE(poi.quantity, 0)) AS ordered_qty
                 FROM purchase_order_items poi
                 LEFT JOIN purchase_orders po ON po.id=poi.order_id
                 WHERE COALESCE(po.status, '') NOT IN ('已作废', '作废', 'cancelled', '已关闭')
-                GROUP BY poi.product_id, COALESCE(NULLIF(po.project_code, ''), '-'), COALESCE(NULLIF(po.serial_no, ''), '-')
+                GROUP BY poi.product_id, COALESCE(NULLIF(po.project_code, ''), '-'), COALESCE(NULLIF(po.cabinet_no, ''), '-')
             ),
             line_state AS (
                 SELECT pr.id AS req_id,
@@ -63,7 +63,7 @@ def main() -> int:
                 LEFT JOIN suppliers s ON s.id=pri.suggested_supplier_id
                 LEFT JOIN ordered ON ordered.product_id=pri.product_id
                     AND ordered.project_code=COALESCE(NULLIF(pri.project_code, ''), '-')
-                    AND ordered.serial_no=COALESCE(NULLIF(pri.serial_no, ''), '-')
+                    AND ordered.cabinet_no=COALESCE(NULLIF(pri.cabinet_no, ''), '-')
                 WHERE COALESCE(pr.status, '') IN ('已审核', 'approved')
             )
             SELECT req_id,

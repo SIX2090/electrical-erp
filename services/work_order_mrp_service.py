@@ -68,9 +68,9 @@ def build_work_order_mrp_preview(query_one, work_order_id) -> Dict[str, Any]:
         if not product_id or gross_qty <= 0:
             continue
         # Reuse mrp_engine helpers so net-requirement logic stays in one place.
-        inventory = _inventory_quantities(query_one, product_id, order.get("project_code"), order.get("serial_no"))
-        requisition_qty = _purchase_requisition_qty(query_one, product_id, order.get("project_code"), order.get("serial_no"))
-        purchase_on_order_qty = _purchase_on_order_qty(query_one, product_id, order.get("project_code"), order.get("serial_no"))
+        inventory = _inventory_quantities(query_one, product_id, order.get("project_code"), order.get("cabinet_no"))
+        requisition_qty = _purchase_requisition_qty(query_one, product_id, order.get("project_code"), order.get("cabinet_no"))
+        purchase_on_order_qty = _purchase_on_order_qty(query_one, product_id, order.get("project_code"), order.get("cabinet_no"))
         issued_qty, returned_qty = _issued_returned_quantities(query_one, work_order_id, source_line_no)
         # Safety stock: subtract from available inventory (B-1 enhancement).
         safety_stock = _product_safety_stock(query_one, product_id)

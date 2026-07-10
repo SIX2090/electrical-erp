@@ -317,7 +317,7 @@ def service_order_next_step(status):
 def service_order_data_source(row):
     text = " ".join(
         str(row.get(key) or "")
-        for key in ("order_no", "issue_summary", "remark", "project_code", "serial_no")
+        for key in ("order_no", "issue_summary", "remark", "project_code", "cabinet_no")
     )
     return "\u6d4b\u8bd5/\u5ba1\u8ba1\u6570\u636e" if any(marker in text for marker in ("pytest", "PYTEST", "SVC-", "GT-TRIAL")) else "\u4e1a\u52a1\u6570\u636e"
 
@@ -340,7 +340,7 @@ def service_rma_next_step(status):
 def service_rma_data_source(row):
     text = " ".join(
         str(row.get(key) or "")
-        for key in ("rma_no", "fault_summary", "remark", "project_code", "serial_no")
+        for key in ("rma_no", "fault_summary", "remark", "project_code", "cabinet_no")
     )
     return "\u6d4b\u8bd5/\u5ba1\u8ba1\u6570\u636e" if any(marker in text for marker in ("pytest", "PYTEST", "RMA-PRJ", "RMA-SO-PRJ")) else "\u4e1a\u52a1\u6570\u636e"
 
@@ -513,7 +513,7 @@ def mrp_requirement_next_step(status):
 
 def enhance_mrp_requirement_row(row):
     project_code = (row.get("project_code") or "").strip()
-    serial_no = (row.get("serial_no") or "").strip()
+    cabinet_no = (row.get("cabinet_no") or "").strip()
     supply_mode = (row.get("supply_mode") or "").strip().lower()
     status = (row.get("status") or "").strip()
     try:
@@ -522,7 +522,7 @@ def enhance_mrp_requirement_row(row):
         shortage_qty = 0
 
     row["source_work_order"] = row.get("work_order_no") or row.get("source_work_order") or row.get("source_no") or "待关联工单"
-    row["trace_axis"] = " / ".join(part for part in (project_code, serial_no) if part) or "未指定"
+    row["trace_axis"] = " / ".join(part for part in (project_code, cabinet_no) if part) or "未指定"
     row["material_shortage"] = row.get("shortage_quantity") or row.get("shortage_qty") or 0
     row["purchase_request_link"] = "/procurement/suggestions"
     if status in {"fulfilled", "已满足", "已关闭", "已采购", "已处理"} or shortage_qty <= 0:
@@ -568,7 +568,7 @@ def enhance_production_schedule_row(row):
     actual_start = row.get("actual_start_date") or row.get("actual_start") or "-"
     actual_end = row.get("actual_end_date") or row.get("actual_end") or "-"
     work_center_parts = [row.get("work_center_code"), row.get("work_center_name") or row.get("work_center_id")]
-    source_parts = [row.get("wo_no") or row.get("work_order_id"), row.get("project_code"), row.get("serial_no")]
+    source_parts = [row.get("wo_no") or row.get("work_order_id"), row.get("project_code"), row.get("cabinet_no")]
     row["planned_date_range"] = f"{planned_start} 至 {planned_end}"
     row["schedule_compare"] = f"计划 {planned_start} 至 {planned_end} / 实际 {actual_start} 至 {actual_end}"
     row["work_center_display"] = " / ".join(str(part) for part in work_center_parts if part) or "-"
@@ -636,7 +636,7 @@ def inventory_posting_next_step(row, posted_text):
 DOCUMENT_LIST_CONFIG = {
     "/work-orders": {
         "subtitle": "\u751f\u4ea7\u5de5\u5355\u5217\u8868\uff0c\u4ec5\u5c55\u793a\u548c\u8ddf\u8fdb\u5df2\u6709\u5de5\u5355\uff1b\u65b0\u589e\u5de5\u5355\u8bf7\u4ece\u751f\u4ea7\u5355\u636e\u5165\u53e3\u8fdb\u5165\u3002",
-        "columns": [("wo_no", "\u5de5\u5355"), ("wo_date", "\u65e5\u671f"), ("product_id", "\u7269\u6599"), ("project_code", "\u9879\u76ee\u53f7"), ("serial_no", "\u673a\u53f7"), ("quantity", "\u6570\u91cf"), ("status", "\u5355\u636e\u72b6\u6001")],
+        "columns": [("wo_no", "\u5de5\u5355"), ("wo_date", "\u65e5\u671f"), ("product_id", "\u7269\u6599"), ("project_code", "\u9879\u76ee\u53f7"), ("cabinet_no", "\u673a\u53f7"), ("quantity", "\u6570\u91cf"), ("status", "\u5355\u636e\u72b6\u6001")],
         "next_step": work_order_list_next_step,
     },
     "/transfers": {
@@ -671,7 +671,7 @@ DOCUMENT_LIST_CONFIG = {
     "/assembly-orders": {
         "subtitle": "\u7ec4\u88c5\u5355\u5217\u8868\uff0c\u6309\u5355\u53f7\u3001\u9879\u76ee\u53f7\u3001\u673a\u53f7\u548c\u72b6\u6001\u8ddf\u8fdb\u5b50\u4ef6\u51fa\u5e93\u4e0e\u4e3b\u4ef6\u5165\u5e93\u3002",
         "add_url": "/assembly-orders/new",
-        "columns": [("assembly_no", "\u7ec4\u88c5\u5355"), ("doc_date", "\u65e5\u671f"), ("project_code", "\u9879\u76ee\u53f7"), ("serial_no", "\u673a\u53f7"), ("status", "\u72b6\u6001"), ("remark", "\u5907\u6ce8")],
+        "columns": [("assembly_no", "\u7ec4\u88c5\u5355"), ("doc_date", "\u65e5\u671f"), ("project_code", "\u9879\u76ee\u53f7"), ("cabinet_no", "\u673a\u53f7"), ("status", "\u72b6\u6001"), ("remark", "\u5907\u6ce8")],
         "detail_base": "/assembly-orders",
         "next_step": lambda row: inventory_posting_next_step(row, "\u67e5\u770b\u7ec4\u88c5\u660e\u7ec6\u3001\u5e93\u5b58\u6d41\u6c34\u548c\u5173\u95ed\u72b6\u6001"),
         "bulk_doc_type": "assembly",
@@ -679,7 +679,7 @@ DOCUMENT_LIST_CONFIG = {
     "/disassembly-orders": {
         "subtitle": "\u62c6\u5378\u5355\u5217\u8868\uff0c\u6309\u5355\u53f7\u3001\u9879\u76ee\u53f7\u3001\u673a\u53f7\u548c\u72b6\u6001\u8ddf\u8fdb\u4e3b\u4ef6\u51fa\u5e93\u4e0e\u5b50\u4ef6\u5165\u5e93\u3002",
         "add_url": "/disassembly-orders/new",
-        "columns": [("assembly_no", "\u62c6\u5378\u5355"), ("doc_date", "\u65e5\u671f"), ("project_code", "\u9879\u76ee\u53f7"), ("serial_no", "\u673a\u53f7"), ("status", "\u72b6\u6001"), ("remark", "\u5907\u6ce8")],
+        "columns": [("assembly_no", "\u62c6\u5378\u5355"), ("doc_date", "\u65e5\u671f"), ("project_code", "\u9879\u76ee\u53f7"), ("cabinet_no", "\u673a\u53f7"), ("status", "\u72b6\u6001"), ("remark", "\u5907\u6ce8")],
         "detail_base": "/disassembly-orders",
         "next_step": lambda row: inventory_posting_next_step(row, "\u67e5\u770b\u62c6\u5378\u660e\u7ec6\u3001\u5e93\u5b58\u6d41\u6c34\u548c\u5173\u95ed\u72b6\u6001"),
         "bulk_doc_type": "disassembly",
@@ -699,7 +699,7 @@ DOCUMENT_LIST_CONFIG = {
     "/service-orders": {
         "subtitle": "\u670d\u52a1\u5355\u5217\u8868\uff0c\u6309\u6d3e\u5de5\u3001\u5904\u7406\u3001\u9a8c\u6536\u3001\u56de\u8bbf\u3001\u6536\u8d39\u548c\u5173\u95ed\u63a8\u8fdb\u3002",
         "add_url": "/service-orders/new",
-        "columns": [("order_no", "\u670d\u52a1\u5355"), ("service_date", "\u65e5\u671f"), ("service_type", "\u7c7b\u578b"), ("project_code", "\u9879\u76ee\u53f7"), ("serial_no", "\u673a\u53f7"), ("status", "\u72b6\u6001")],
+        "columns": [("order_no", "\u670d\u52a1\u5355"), ("service_date", "\u65e5\u671f"), ("service_type", "\u7c7b\u578b"), ("project_code", "\u9879\u76ee\u53f7"), ("cabinet_no", "\u673a\u53f7"), ("status", "\u72b6\u6001")],
         "next_step": lambda row: service_order_next_step(row.get("status")),
         "data_source": service_order_data_source,
     },
@@ -712,33 +712,33 @@ DOCUMENT_LIST_CONFIG = {
     },
     "/service-cards": {
         "subtitle": "\u8bbe\u5907\u670d\u52a1\u6863\u6848\u5217\u8868\uff0c\u6309\u9879\u76ee\u53f7\u3001\u673a\u53f7\u3001\u5ba2\u6237\u548c\u8d28\u4fdd\u72b6\u6001\u8ffd\u8e2a\u552e\u540e\u95ed\u73af\u3002",
-        "columns": [("card_no", "服务档案号"), ("serial_no", "\u673a\u53f7"), ("project_code", "\u9879\u76ee\u53f7"), ("customer_id", "\u5ba2\u6237"), ("machine_model", "\u673a\u578b"), ("install_date", "\u5b89\u88c5\u65e5\u671f"), ("warranty_end_date", "\u8d28\u4fdd\u5230\u671f"), ("status", "\u72b6\u6001")],
+        "columns": [("card_no", "服务档案号"), ("cabinet_no", "\u673a\u53f7"), ("project_code", "\u9879\u76ee\u53f7"), ("customer_id", "\u5ba2\u6237"), ("machine_model", "\u673a\u578b"), ("install_date", "\u5b89\u88c5\u65e5\u671f"), ("warranty_end_date", "\u8d28\u4fdd\u5230\u671f"), ("status", "\u72b6\u6001")],
         "next_step": lambda row: "\u8ddf\u8fdb\u5b89\u88c5\u9a8c\u6536\u3001\u670d\u52a1\u5355\u548cRMA\u95ed\u73af",
     },
     "/shipments": {
         "subtitle": "\u9500\u552e\u53d1\u8d27\u5355\u5217\u8868\uff0c\u6309\u53d1\u8d27\u5355\u3001\u9500\u552e\u5355\u3001\u9879\u76ee\u53f7\u3001\u673a\u53f7\u3001\u670d\u52a1\u6863\u6848\u548c\u72b6\u6001\u8ffd\u8e2a\u4ea4\u4ed8\u5230\u552e\u540e\u3002",
         "add_url": "/shipments/new",
-        "columns": [("shipment_no", "\u53d1\u8d27\u5355"), ("order_no", "\u9500\u552e\u5355"), ("project_code", "\u9879\u76ee\u53f7"), ("serial_no", "\u673a\u53f7"), ("shipment_date", "\u53d1\u8d27\u65e5\u671f"), ("service_card_status", "\u670d\u52a1\u6863\u6848"), ("status", "\u72b6\u6001")],
+        "columns": [("shipment_no", "\u53d1\u8d27\u5355"), ("order_no", "\u9500\u552e\u5355"), ("project_code", "\u9879\u76ee\u53f7"), ("cabinet_no", "\u673a\u53f7"), ("shipment_date", "\u53d1\u8d27\u65e5\u671f"), ("service_card_status", "\u670d\u52a1\u6863\u6848"), ("status", "\u72b6\u6001")],
         "next_step": lambda row: "\u751f\u6210\u6216\u8865\u9f50\u670d\u52a1\u6863\u6848" if not row.get("service_card_id") else shipment_next_step(row.get("status")),
     },
     "/quotations": {
         "subtitle": "\u62a5\u4ef7\u5355\u5217\u8868\uff0c\u6309\u5ba2\u6237\u3001\u6765\u6e90\u5355\u3001\u9879\u76ee\u53f7\u3001\u673a\u53f7\u3001\u673a\u578b\u3001\u91d1\u989d\u548c\u72b6\u6001\u8ddf\u8fdb\u8f6c\u8ba2\u5355\u3002",
         "add_url": "/quotations/new",
-        "columns": [("quote_no", "\u62a5\u4ef7\u5355"), ("customer_id", "\u5ba2\u6237"), ("source_no", "\u6765\u6e90\u5355"), ("project_code", "\u9879\u76ee\u53f7"), ("serial_no", "\u673a\u53f7"), ("machine_type", "\u673a\u578b"), ("quote_date", "\u62a5\u4ef7\u65e5\u671f"), ("valid_until", "\u6709\u6548\u671f"), ("amount_with_tax", "\u542b\u7a0e\u91d1\u989d"), ("status", "\u72b6\u6001")],
+        "columns": [("quote_no", "\u62a5\u4ef7\u5355"), ("customer_id", "\u5ba2\u6237"), ("source_no", "\u6765\u6e90\u5355"), ("project_code", "\u9879\u76ee\u53f7"), ("cabinet_no", "\u673a\u53f7"), ("machine_type", "\u673a\u578b"), ("quote_date", "\u62a5\u4ef7\u65e5\u671f"), ("valid_until", "\u6709\u6548\u671f"), ("amount_with_tax", "\u542b\u7a0e\u91d1\u989d"), ("status", "\u72b6\u6001")],
         "next_step": lambda row: quote_next_step(row.get("status")),
     },
     "/sales-forecasts": {
-        "subtitle": "销售预测单入口，用于记录客户需求、预计项目/机号和预计金额；当前复用报价前置数据，不写库存、应收或生产需求。",
+        "subtitle": "销售预测单入口，用于记录客户需求、预计项目/柜号和预计金额；当前复用报价前置数据，不写库存、应收或生产需求。",
         "add_url": "/quotations/new",
         "detail_base": "/quotations",
-        "columns": [("quote_no", "预测单"), ("customer_id", "客户"), ("source_no", "来源线索"), ("project_code", "项目号"), ("serial_no", "机号"), ("machine_type", "机型"), ("quote_date", "预测日期"), ("amount_with_tax", "预计含税金额"), ("status", "状态")],
+        "columns": [("quote_no", "预测单"), ("customer_id", "客户"), ("source_no", "来源线索"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("machine_type", "机型"), ("quote_date", "预测日期"), ("amount_with_tax", "预计含税金额"), ("status", "状态")],
         "next_step": lambda row: quote_next_step(row.get("status")),
     },
     "/sales-inquiries": {
         "subtitle": "询价单入口，用于承接客户询价并转报价；当前复用报价单据头和明细，不写库存、应收或财务数据。",
         "add_url": "/quotations/new",
         "detail_base": "/quotations",
-        "columns": [("quote_no", "询价/报价单"), ("customer_id", "客户"), ("source_no", "询价来源"), ("project_code", "项目号"), ("serial_no", "机号"), ("machine_type", "机型"), ("quote_date", "单据日期"), ("valid_until", "有效期"), ("status", "状态")],
+        "columns": [("quote_no", "询价/报价单"), ("customer_id", "客户"), ("source_no", "询价来源"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("machine_type", "机型"), ("quote_date", "单据日期"), ("valid_until", "有效期"), ("status", "状态")],
         "next_step": lambda row: quote_next_step(row.get("status")),
     },
     "/supplier-quotes": {
@@ -749,15 +749,15 @@ DOCUMENT_LIST_CONFIG = {
     "/sales-returns": {
         "subtitle": "\u9500\u552e\u9000\u8d27\u5355\u5217\u8868\uff0c\u6309\u9000\u8d27\u5355\u3001\u6765\u6e90\u9500\u552e\u5355\u3001\u9879\u76ee\u53f7\u3001\u673a\u53f7\u3001\u5ba2\u6237\u3001\u91d1\u989d\u548c\u72b6\u6001\u8ffd\u8e2a\u9000\u8d27\u5165\u5e93\u4e0e\u5bf9\u8d26\u3002",
         "add_url": "/sales-returns/new",
-        "columns": [("return_no", "\u9000\u8d27\u5355"), ("source_order_no", "\u6765\u6e90\u9500\u552e\u5355"), ("source_no", "\u6765\u6e90\u5355"), ("project_code", "\u9879\u76ee\u53f7"), ("serial_no", "\u673a\u53f7"), ("customer_id", "\u5ba2\u6237"), ("return_date", "\u9000\u8d27\u65e5\u671f"), ("amount_with_tax", "\u542b\u7a0e\u91d1\u989d"), ("status", "\u72b6\u6001")],
+        "columns": [("return_no", "\u9000\u8d27\u5355"), ("source_order_no", "\u6765\u6e90\u9500\u552e\u5355"), ("source_no", "\u6765\u6e90\u5355"), ("project_code", "\u9879\u76ee\u53f7"), ("cabinet_no", "\u673a\u53f7"), ("customer_id", "\u5ba2\u6237"), ("return_date", "\u9000\u8d27\u65e5\u671f"), ("amount_with_tax", "\u542b\u7a0e\u91d1\u989d"), ("status", "\u72b6\u6001")],
         "next_step": lambda row: return_next_step(row.get("status")),
         "bulk_doc_type": "sales_return",
     },
     "/sales-return-requests": {
-        "subtitle": "销售退货申请列表，跟踪客户退货申请、来源单据、项目号/机号和处理状态；实际入库仍在销售退货单详情中过账。",
+        "subtitle": "销售退货申请列表，跟踪客户退货申请、来源单据、项目号/柜号和处理状态；实际入库仍在销售退货单详情中过账。",
         "add_url": "/sales-returns/new",
         "detail_base": "/sales-returns",
-        "columns": [("return_no", "退货申请"), ("source_order_no", "来源销售订单"), ("source_no", "来源单据"), ("project_code", "项目号"), ("serial_no", "机号"), ("customer_id", "客户"), ("return_date", "申请日期"), ("amount_with_tax", "含税金额"), ("status", "状态")],
+        "columns": [("return_no", "退货申请"), ("source_order_no", "来源销售订单"), ("source_no", "来源单据"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("customer_id", "客户"), ("return_date", "申请日期"), ("amount_with_tax", "含税金额"), ("status", "状态")],
         "next_step": lambda row: return_next_step(row.get("status")),
         "bulk_doc_type": "sales_return",
     },
@@ -765,13 +765,13 @@ DOCUMENT_LIST_CONFIG = {
         "subtitle": "销售换货申请列表，先记录退入侧申请和原因；换出侧必须另走销售发货单，不在本页自动出库或核销。",
         "add_url": "/sales-returns/new",
         "detail_base": "/sales-returns",
-        "columns": [("return_no", "换货申请"), ("source_order_no", "来源销售订单"), ("source_no", "来源单据"), ("project_code", "项目号"), ("serial_no", "机号"), ("customer_id", "客户"), ("return_date", "申请日期"), ("amount_with_tax", "退入含税金额"), ("status", "状态")],
+        "columns": [("return_no", "换货申请"), ("source_order_no", "来源销售订单"), ("source_no", "来源单据"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("customer_id", "客户"), ("return_date", "申请日期"), ("amount_with_tax", "退入含税金额"), ("status", "状态")],
         "next_step": lambda row: return_next_step(row.get("status")),
         "bulk_doc_type": "sales_return",
     },
     "/returns": {
         "subtitle": "\u9500\u552e\u9000\u8d27\u5355\u5217\u8868\uff0c\u6309\u9000\u8d27\u5355\u3001\u6765\u6e90\u9500\u552e\u5355\u3001\u9879\u76ee\u53f7\u3001\u673a\u53f7\u3001\u5ba2\u6237\u3001\u91d1\u989d\u548c\u72b6\u6001\u8ffd\u8e2a\u9000\u8d27\u5165\u5e93\u4e0e\u5bf9\u8d26\u3002",
-        "columns": [("return_no", "\u9000\u8d27\u5355"), ("source_order_no", "\u6765\u6e90\u9500\u552e\u5355"), ("source_no", "\u6765\u6e90\u5355"), ("project_code", "\u9879\u76ee\u53f7"), ("serial_no", "\u673a\u53f7"), ("customer_id", "\u5ba2\u6237"), ("return_date", "\u9000\u8d27\u65e5\u671f"), ("amount_with_tax", "\u542b\u7a0e\u91d1\u989d"), ("status", "\u72b6\u6001")],
+        "columns": [("return_no", "\u9000\u8d27\u5355"), ("source_order_no", "\u6765\u6e90\u9500\u552e\u5355"), ("source_no", "\u6765\u6e90\u5355"), ("project_code", "\u9879\u76ee\u53f7"), ("cabinet_no", "\u673a\u53f7"), ("customer_id", "\u5ba2\u6237"), ("return_date", "\u9000\u8d27\u65e5\u671f"), ("amount_with_tax", "\u542b\u7a0e\u91d1\u989d"), ("status", "\u72b6\u6001")],
         "detail_base": "/sales-returns",
         "next_step": lambda row: return_next_step(row.get("status")),
         "bulk_doc_type": "sales_return",
@@ -784,7 +784,7 @@ DOCUMENT_LIST_CONFIG = {
     },
     "/customer-receipts": {
         "subtitle": "\u5ba2\u6237\u56de\u6b3e\u5355\u5217\u8868\uff0c\u6309\u5ba2\u6237\u3001\u6765\u6e90\u5355\u3001\u91d1\u989d\u548c\u72b6\u6001\u8ffd\u8e2a\u5e94\u6536\u6838\u9500\u3002",
-        "columns": [("receipt_no", "\u6536\u6b3e/\u6536\u8d27\u5355\u53f7"), ("customer_id", "\u5ba2\u6237"), ("source_no", "\u6765\u6e90\u5355"), ("project_code", "\u9879\u76ee\u53f7"), ("serial_no", "\u673a\u53f7"), ("receipt_date", "\u56de\u6b3e\u65e5\u671f"), ("amount", "\u91d1\u989d"), ("status", "\u72b6\u6001")],
+        "columns": [("receipt_no", "\u6536\u6b3e/\u6536\u8d27\u5355\u53f7"), ("customer_id", "\u5ba2\u6237"), ("source_no", "\u6765\u6e90\u5355"), ("project_code", "\u9879\u76ee\u53f7"), ("cabinet_no", "\u673a\u53f7"), ("receipt_date", "\u56de\u6b3e\u65e5\u671f"), ("amount", "\u91d1\u989d"), ("status", "\u72b6\u6001")],
         "next_step": lambda row: settlement_next_step(row.get("status"), "\u5df2\u786e\u8ba4\uff0c\u8ddf\u8fdb\u5e94\u6536\u6838\u9500"),
     },
     "/payments": {
@@ -795,25 +795,25 @@ DOCUMENT_LIST_CONFIG = {
     "/sales-invoices": {
         "subtitle": "\u9500\u552e\u53d1\u7968\u767b\u8bb0\u5217\u8868\uff0c\u6309\u5ba2\u6237\u3001\u6765\u6e90\u9500\u552e\u5355\u3001\u9879\u76ee\u53f7\u3001\u673a\u53f7\u3001\u542b\u7a0e\u91d1\u989d\u548c\u72b6\u6001\u8ddf\u8fdb\u5f00\u7968\u4e0e\u5e94\u6536\u6838\u9500\uff1b\u4ec5\u9650\u8d22\u52a1\u4e00\u671f\u767b\u8bb0\u95ed\u73af\uff0c\u4e0d\u505a\u7a0e\u63a7\u3001\u7533\u62a5\u6216\u81ea\u52a8\u51ed\u8bc1\u3002",
         "add_url": "/sales-invoices/new",
-        "columns": [("invoice_no", "\u53d1\u7968\u53f7"), ("customer_id", "\u5ba2\u6237"), ("source_no", "\u6765\u6e90\u5355"), ("project_code", "\u9879\u76ee\u53f7"), ("serial_no", "\u673a\u53f7"), ("invoice_date", "\u5f00\u7968\u65e5\u671f"), ("amount_with_tax", "\u542b\u7a0e\u91d1\u989d"), ("tax_amount", "\u7a0e\u989d"), ("status", "\u72b6\u6001")],
+        "columns": [("invoice_no", "\u53d1\u7968\u53f7"), ("customer_id", "\u5ba2\u6237"), ("source_no", "\u6765\u6e90\u5355"), ("project_code", "\u9879\u76ee\u53f7"), ("cabinet_no", "\u673a\u53f7"), ("invoice_date", "\u5f00\u7968\u65e5\u671f"), ("amount_with_tax", "\u542b\u7a0e\u91d1\u989d"), ("tax_amount", "\u7a0e\u989d"), ("status", "\u72b6\u6001")],
         "next_step": lambda row: invoice_next_step(row.get("status")),
     },
     "/sales-tax-registrations": {
         "subtitle": "销售税票登记列表，等同销售发票登记；仅做发票和应收核对，不做税控、纳税申报或自动凭证。",
         "add_url": "/sales-invoices/new",
         "detail_base": "/sales-invoices",
-        "columns": [("invoice_no", "税票号"), ("customer_id", "客户"), ("source_no", "来源单"), ("project_code", "项目号"), ("serial_no", "机号"), ("invoice_date", "开票日期"), ("amount_with_tax", "含税金额"), ("tax_amount", "税额"), ("status", "状态")],
+        "columns": [("invoice_no", "税票号"), ("customer_id", "客户"), ("source_no", "来源单"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("invoice_date", "开票日期"), ("amount_with_tax", "含税金额"), ("tax_amount", "税额"), ("status", "状态")],
         "next_step": lambda row: invoice_next_step(row.get("status")),
     },
     "/sales-reconciliations": {
         "subtitle": "销售对等核销列表，按应收来源、已收、余额和状态做只读核对；实际收款和核销在客户收款单完成。",
         "detail_base": "/receivables",
-        "columns": [("source_no", "来源单据"), ("project_code", "项目号"), ("serial_no", "机号"), ("customer_id", "客户"), ("total_amount", "应收金额"), ("received_amount", "已收金额"), ("balance", "未收余额"), ("status", "状态")],
+        "columns": [("source_no", "来源单据"), ("project_code", "项目号"), ("cabinet_no", "柜号"), ("customer_id", "客户"), ("total_amount", "应收金额"), ("received_amount", "已收金额"), ("balance", "未收余额"), ("status", "状态")],
         "next_step": lambda row: settlement_next_step(row.get("status"), "已核销，核对应收余额"),
     },
     "/purchase-invoices": {
         "subtitle": "\u91c7\u8d2d\u53d1\u7968\u767b\u8bb0\u5217\u8868\uff0c\u6309\u4f9b\u5e94\u5546\u3001\u6765\u6e90\u91c7\u8d2d/\u59d4\u5916\u5355\u3001\u9879\u76ee\u53f7\u3001\u673a\u53f7\u3001\u542b\u7a0e\u91d1\u989d\u548c\u72b6\u6001\u8ddf\u8fdb\u5230\u7968\u4e0e\u5e94\u4ed8\u6838\u9500\uff1b\u4ec5\u9650\u8d22\u52a1\u4e00\u671f\u767b\u8bb0\u95ed\u73af\uff0c\u4e0d\u505a\u7a0e\u63a7\u3001\u7533\u62a5\u6216\u81ea\u52a8\u51ed\u8bc1\u3002",
-        "columns": [("invoice_no", "\u53d1\u7968\u53f7"), ("supplier_id", "\u4f9b\u5e94\u5546"), ("source_no", "\u6765\u6e90\u5355"), ("project_code", "\u9879\u76ee\u53f7"), ("serial_no", "\u673a\u53f7"), ("invoice_date", "\u5f00\u7968\u65e5\u671f"), ("amount_with_tax", "\u542b\u7a0e\u91d1\u989d"), ("tax_amount", "\u7a0e\u989d"), ("status", "\u72b6\u6001")],
+        "columns": [("invoice_no", "\u53d1\u7968\u53f7"), ("supplier_id", "\u4f9b\u5e94\u5546"), ("source_no", "\u6765\u6e90\u5355"), ("project_code", "\u9879\u76ee\u53f7"), ("cabinet_no", "\u673a\u53f7"), ("invoice_date", "\u5f00\u7968\u65e5\u671f"), ("amount_with_tax", "\u542b\u7a0e\u91d1\u989d"), ("tax_amount", "\u7a0e\u989d"), ("status", "\u72b6\u6001")],
         "next_step": lambda row: invoice_next_step(row.get("status")),
     },
     "/finance/vouchers": {
@@ -823,13 +823,13 @@ DOCUMENT_LIST_CONFIG = {
     },
     "/subcontract": {
         "subtitle": "\u59d4\u5916\u8ba2\u5355\u5217\u8868\uff0c\u6309\u59d4\u5916\u5355\u3001\u4f9b\u5e94\u5546\u3001\u9879\u76ee\u53f7\u3001\u673a\u53f7\u548c\u72b6\u6001\u8ffd\u8e2a\u53d1\u6599\u4e0e\u6536\u8d27\u3002",
-        "columns": [("order_no", "\u59d4\u5916\u5355"), ("supplier_id", "\u52a0\u5de5\u5382\u5546"), ("project_code", "\u9879\u76ee\u53f7"), ("serial_no", "\u673a\u53f7"), ("status", "\u72b6\u6001")],
+        "columns": [("order_no", "\u59d4\u5916\u5355"), ("supplier_id", "\u52a0\u5de5\u5382\u5546"), ("project_code", "\u9879\u76ee\u53f7"), ("cabinet_no", "\u673a\u53f7"), ("status", "\u72b6\u6001")],
         "add_url": "/subcontract/new",
         "next_step": lambda row: subcontract_next_step(row.get("status")),
     },
     "/subcontract-orders": {
         "subtitle": "\u59d4\u5916\u8ba2\u5355\u5217\u8868\uff0c\u6309\u59d4\u5916\u5355\u3001\u4f9b\u5e94\u5546\u3001\u9879\u76ee\u53f7\u3001\u673a\u53f7\u548c\u72b6\u6001\u8ffd\u8e2a\u53d1\u6599\u4e0e\u6536\u8d27\u3002",
-        "columns": [("order_no", "\u59d4\u5916\u5355"), ("supplier_id", "\u52a0\u5de5\u5382\u5546"), ("project_code", "\u9879\u76ee\u53f7"), ("serial_no", "\u673a\u53f7"), ("status", "\u72b6\u6001")],
+        "columns": [("order_no", "\u59d4\u5916\u5355"), ("supplier_id", "\u52a0\u5de5\u5382\u5546"), ("project_code", "\u9879\u76ee\u53f7"), ("cabinet_no", "\u673a\u53f7"), ("status", "\u72b6\u6001")],
         "detail_base": "/subcontract",
         "add_url": "/subcontract/new",
         "next_step": lambda row: subcontract_next_step(row.get("status")),
@@ -843,17 +843,17 @@ DOCUMENT_LIST_CONFIG = {
     "/service-acceptance": {
         "subtitle": "\u5b89\u88c5\u9a8c\u6536\u5217\u8868\uff0c\u6309\u9a8c\u6536\u65e5\u671f\u3001\u9879\u76ee\u3001\u68c0\u67e5\u9879\u548c\u7ed3\u679c\u8ffd\u8e2a\u5ba2\u6237\u786e\u8ba4\u3002",
         "add_url": "/service-acceptance/new",
-        "columns": [("acceptance_no", "\u9a8c\u6536\u5355\u53f7"), ("check_date", "\u9a8c\u6536\u65e5\u671f"), ("project_code", "\u9879\u76ee\u53f7"), ("serial_no", "\u673a\u53f7"), ("checklist_type", "\u7c7b\u578b"), ("item_name", "\u68c0\u67e5\u9879"), ("result", "\u7ed3\u679c")],
+        "columns": [("acceptance_no", "\u9a8c\u6536\u5355\u53f7"), ("check_date", "\u9a8c\u6536\u65e5\u671f"), ("project_code", "\u9879\u76ee\u53f7"), ("cabinet_no", "\u673a\u53f7"), ("checklist_type", "\u7c7b\u578b"), ("item_name", "\u68c0\u67e5\u9879"), ("result", "\u7ed3\u679c")],
         "next_step": lambda row: service_acceptance_next_step(row.get("result")),
     },
     "/service-return-visits": {
         "subtitle": "\u552e\u540e\u56de\u8bbf\u5217\u8868\uff0c\u6309\u56de\u8bbf\u65e5\u671f\u3001\u6ee1\u610f\u5ea6\u3001\u7ed3\u679c\u548c\u4e0b\u4e00\u6b65\u8ffd\u8e2a\u5ba2\u6237\u95ed\u73af\u3002",
-        "columns": [("visit_no", "回访单号"), ("visit_date", "\u56de\u8bbf\u65e5\u671f"), ("project_code", "\u9879\u76ee\u53f7"), ("serial_no", "\u673a\u53f7"), ("satisfaction", "\u6ee1\u610f\u5ea6"), ("satisfaction_score", "\u6ee1\u610f\u5ea6\u8bc4\u5206"), ("result", "\u7ed3\u679c")],
+        "columns": [("visit_no", "回访单号"), ("visit_date", "\u56de\u8bbf\u65e5\u671f"), ("project_code", "\u9879\u76ee\u53f7"), ("cabinet_no", "\u673a\u53f7"), ("satisfaction", "\u6ee1\u610f\u5ea6"), ("satisfaction_score", "\u6ee1\u610f\u5ea6\u8bc4\u5206"), ("result", "\u7ed3\u679c")],
         "next_step": lambda row: row.get("next_action") or service_visit_next_step(row.get("result")),
     },
     "/inventory/detail": {
         "subtitle": "\u5e93\u5b58\u660e\u7ec6\u67e5\u8be2\uff0c\u6309\u7269\u6599\u3001\u4ed3\u5e93\u3001\u5e93\u4f4d\u3001\u6279\u6b21\u548c\u673a\u53f7\u67e5\u770b\u53ef\u7528\u5e93\u5b58\u3002",
-        "columns": [("product_id", "\u7269\u6599"), ("warehouse_id", "\u4ed3\u5e93"), ("location_id", "\u5e93\u4f4d"), ("lot_no", "\u6279\u53f7"), ("serial_no", "\u673a\u53f7"), ("quantity", "\u6570\u91cf")],
+        "columns": [("product_id", "\u7269\u6599"), ("warehouse_id", "\u4ed3\u5e93"), ("location_id", "\u5e93\u4f4d"), ("lot_no", "\u6279\u53f7"), ("cabinet_no", "\u673a\u53f7"), ("quantity", "\u6570\u91cf")],
         "next_step": lambda row: inventory_balance_next_step(row.get("quantity")),
     },
     "/inventory/summary": {
@@ -870,7 +870,7 @@ DOCUMENT_LIST_CONFIG = {
     },
     "/transactions": {
         "subtitle": "\u5e93\u5b58\u6d41\u6c34\u67e5\u8be2\uff0c\u6309\u7269\u6599\u3001\u6765\u6e90\u5355\u3001\u6279\u6b21\u548c\u673a\u53f7\u8ffd\u8e2a\u5e93\u5b58\u53d8\u52a8\u3002",
-        "columns": [("product_id", "\u7269\u6599"), ("transaction_type", "\u7c7b\u578b"), ("quantity", "\u6570\u91cf"), ("reference_no", "\u6765\u6e90\u5355"), ("lot_no", "\u6279\u53f7"), ("serial_no", "\u673a\u53f7"), ("created_at", "\u65f6\u95f4")],
+        "columns": [("product_id", "\u7269\u6599"), ("transaction_type", "\u7c7b\u578b"), ("quantity", "\u6570\u91cf"), ("reference_no", "\u6765\u6e90\u5355"), ("lot_no", "\u6279\u53f7"), ("cabinet_no", "\u673a\u53f7"), ("created_at", "\u65f6\u95f4")],
         "next_step": lambda row: stock_transaction_next_step(row.get("transaction_type")),
     },
     "/inventory_alerts": {
@@ -886,12 +886,12 @@ DOCUMENT_LIST_CONFIG = {
     },
     "/batch/tracking": {
         "subtitle": "\u6279\u6b21\u8ffd\u8e2a\u67e5\u8be2\uff0c\u6309\u6279\u53f7\u3001\u673a\u53f7\u3001\u7269\u6599\u548c\u6570\u91cf\u8ffd\u6eaf\u6d41\u5411\u3002",
-        "columns": [("product_id", "\u7269\u6599"), ("project_code", "\u9879\u76ee\u53f7"), ("lot_no", "\u6279\u53f7"), ("serial_no", "\u673a\u53f7"), ("quantity_available", "\u53ef\u7528\u6570\u91cf"), ("warehouse_id", "\u4ed3\u5e93"), ("location_id", "\u5e93\u4f4d")],
+        "columns": [("product_id", "\u7269\u6599"), ("project_code", "\u9879\u76ee\u53f7"), ("lot_no", "\u6279\u53f7"), ("cabinet_no", "\u673a\u53f7"), ("quantity_available", "\u53ef\u7528\u6570\u91cf"), ("warehouse_id", "\u4ed3\u5e93"), ("location_id", "\u5e93\u4f4d")],
         "next_step": lambda row: batch_next_step(row.get("quantity_available")),
     },
     "/batch_trace": {
         "subtitle": "\u6279\u6b21\u8ffd\u8e2a\u67e5\u8be2\uff0c\u6309\u6279\u53f7\u3001\u673a\u53f7\u3001\u7269\u6599\u548c\u6570\u91cf\u8ffd\u6eaf\u6d41\u5411\u3002",
-        "columns": [("product_id", "\u7269\u6599"), ("project_code", "\u9879\u76ee\u53f7"), ("lot_no", "\u6279\u53f7"), ("serial_no", "\u673a\u53f7"), ("quantity_available", "\u53ef\u7528\u6570\u91cf"), ("warehouse_id", "\u4ed3\u5e93"), ("location_id", "\u5e93\u4f4d")],
+        "columns": [("product_id", "\u7269\u6599"), ("project_code", "\u9879\u76ee\u53f7"), ("lot_no", "\u6279\u53f7"), ("cabinet_no", "\u673a\u53f7"), ("quantity_available", "\u53ef\u7528\u6570\u91cf"), ("warehouse_id", "\u4ed3\u5e93"), ("location_id", "\u5e93\u4f4d")],
         "detail_base": "/batch/tracking",
         "next_step": lambda row: batch_next_step(row.get("quantity_available")),
     },
@@ -903,7 +903,7 @@ DOCUMENT_LIST_CONFIG = {
     },
     "/production-enhance/mrp-requirements": {
         "subtitle": "MRP\u7f3a\u6599\u9700\u6c42\u67e5\u8be2\uff0c\u6309\u6765\u6e90\u5de5\u5355\u3001\u9879\u76ee\u53f7\u3001\u673a\u53f7\u548c\u7f3a\u6599\u6570\u91cf\u8ddf\u8fdb\u3002\u672c\u9875\u4ec5\u67e5\u8be2\u548c\u8df3\u8f6c\uff1b\u8bf7\u8d2d\u6216\u91c7\u8d2d\u5efa\u8bae\u7edf\u4e00\u8fdb\u5165\u53d7\u63a7\u7684\u7f3a\u6599\u8f6c\u91c7\u8d2d\u9875\uff0c\u5904\u7406\u540e\u518d\u56de\u5230\u9f50\u5957\u590d\u6838\u3002",
-        "columns": [("source_work_order", "\u6765\u6e90\u5de5\u5355"), ("product_id", "\u7269\u6599"), ("project_code", "\u9879\u76ee\u53f7"), ("serial_no", "\u673a\u53f7"), ("shortage_quantity", "\u7f3a\u6599\u6570\u91cf"), ("controlled_entry", "\u53d7\u63a7\u5165\u53e3"), ("recheck_entry", "\u590d\u6838"), ("status", "\u72b6\u6001")],
+        "columns": [("source_work_order", "\u6765\u6e90\u5de5\u5355"), ("product_id", "\u7269\u6599"), ("project_code", "\u9879\u76ee\u53f7"), ("cabinet_no", "\u673a\u53f7"), ("shortage_quantity", "\u7f3a\u6599\u6570\u91cf"), ("controlled_entry", "\u53d7\u63a7\u5165\u53e3"), ("recheck_entry", "\u590d\u6838"), ("status", "\u72b6\u6001")],
         "next_step": lambda row: mrp_requirement_next_step(row.get("status")),
         "enhance": enhance_mrp_requirement_row,
         "extra_columns": [("owner_role", "\u8d23\u4efb"), ("blocked_reason", "\u5835\u70b9/\u6761\u4ef6"), ("downstream_impact", "\u4e0b\u6e38\u5f71\u54cd")],

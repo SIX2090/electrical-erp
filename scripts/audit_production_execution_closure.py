@@ -85,7 +85,7 @@ def create_fixture(cur):
     cur.execute(
         """
         INSERT INTO work_orders
-            (wo_no, wo_date, product_id, quantity, status, project_code, serial_no, planned_start_date, planned_end_date, remark)
+            (wo_no, wo_date, product_id, quantity, status, project_code, cabinet_no, planned_start_date, planned_end_date, remark)
         VALUES (%s, CURRENT_DATE, %s, %s, %s, %s, %s, CURRENT_DATE, CURRENT_DATE + INTERVAL '2 day', %s)
         RETURNING id
         """,

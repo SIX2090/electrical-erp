@@ -19,7 +19,7 @@ def build_kit_summary(rows, no_bom_items=None, *, as_decimal, qty_metric):
     }
 
 
-def project_kit_rows(order_id, project_code=None, serial_no=None, cost_object_id=None, *, safe_rows):
+def project_kit_rows(order_id, project_code=None, cabinet_no=None, cost_object_id=None, *, safe_rows):
     return safe_rows(
         """
         WITH sales_items AS (
@@ -76,7 +76,7 @@ def project_kit_rows(order_id, project_code=None, serial_no=None, cost_object_id
                     (%s IS NULL AND %s IS NULL AND %s IS NULL)
                     OR (%s IS NOT NULL AND po.cost_object_id=%s)
                     OR (%s IS NOT NULL AND po.project_code=%s)
-                    OR (%s IS NOT NULL AND po.serial_no=%s)
+                    OR (%s IS NOT NULL AND po.cabinet_no=%s)
               )
             GROUP BY poi.product_id
         )
@@ -114,13 +114,13 @@ def project_kit_rows(order_id, project_code=None, serial_no=None, cost_object_id
             order_id,
             cost_object_id,
             project_code,
-            serial_no,
+            cabinet_no,
             cost_object_id,
             cost_object_id,
             project_code,
             project_code,
-            serial_no,
-            serial_no,
+            cabinet_no,
+            cabinet_no,
         ),
     )
 
@@ -146,7 +146,7 @@ def project_items_without_bom(order_id, *, safe_rows):
     )
 
 
-def project_finance_summary(order, project_code=None, serial_no=None, cost_object_id=None, *, safe_one, as_decimal):
+def project_finance_summary(order, project_code=None, cabinet_no=None, cost_object_id=None, *, safe_one, as_decimal):
     if not order:
         return {}
     order_id = order.get("id")
@@ -158,9 +158,9 @@ def project_finance_summary(order, project_code=None, serial_no=None, cost_objec
         WHERE id=%s
            OR (%s IS NOT NULL AND cost_object_id=%s)
            OR (%s IS NOT NULL AND project_code=%s)
-           OR (%s IS NOT NULL AND serial_no=%s)
+           OR (%s IS NOT NULL AND cabinet_no=%s)
         """,
-        (order_id, cost_object_id, cost_object_id, project_code, project_code, serial_no, serial_no),
+        (order_id, cost_object_id, cost_object_id, project_code, project_code, cabinet_no, cabinet_no),
     ) or {}
     receivable = safe_one(
         """
@@ -171,9 +171,9 @@ def project_finance_summary(order, project_code=None, serial_no=None, cost_objec
         WHERE source_id=%s
            OR (%s IS NOT NULL AND cost_object_id=%s)
            OR (%s IS NOT NULL AND project_code=%s)
-           OR (%s IS NOT NULL AND serial_no=%s)
+           OR (%s IS NOT NULL AND cabinet_no=%s)
         """,
-        (order_id, cost_object_id, cost_object_id, project_code, project_code, serial_no, serial_no),
+        (order_id, cost_object_id, cost_object_id, project_code, project_code, cabinet_no, cabinet_no),
     ) or {}
     purchase = safe_one(
         """
@@ -183,9 +183,9 @@ def project_finance_summary(order, project_code=None, serial_no=None, cost_objec
         WHERE COALESCE(doc_type, source_type, '') IN ('purchase_receipt','purchase_invoice')
           AND ((%s IS NOT NULL AND cost_object_id=%s)
            OR (%s IS NOT NULL AND project_code=%s)
-           OR (%s IS NOT NULL AND serial_no=%s))
+           OR (%s IS NOT NULL AND cabinet_no=%s))
         """,
-        (cost_object_id, cost_object_id, project_code, project_code, serial_no, serial_no),
+        (cost_object_id, cost_object_id, project_code, project_code, cabinet_no, cabinet_no),
     ) or {}
     subcontract = safe_one(
         """
@@ -194,9 +194,9 @@ def project_finance_summary(order, project_code=None, serial_no=None, cost_objec
         WHERE COALESCE(doc_type, source_type, '') IN ('subcontract_receive','subcontract_receive_order')
           AND ((%s IS NOT NULL AND cost_object_id=%s)
            OR (%s IS NOT NULL AND project_code=%s)
-           OR (%s IS NOT NULL AND serial_no=%s))
+           OR (%s IS NOT NULL AND cabinet_no=%s))
         """,
-        (cost_object_id, cost_object_id, project_code, project_code, serial_no, serial_no),
+        (cost_object_id, cost_object_id, project_code, project_code, cabinet_no, cabinet_no),
     ) or {}
     work_order_cost = safe_one(
         """
@@ -205,9 +205,9 @@ def project_finance_summary(order, project_code=None, serial_no=None, cost_objec
         LEFT JOIN work_orders wo ON wo.id=woc.work_order_id
         WHERE (%s IS NOT NULL AND woc.cost_object_id=%s)
            OR (%s IS NOT NULL AND wo.project_code=%s)
-           OR (%s IS NOT NULL AND wo.serial_no=%s)
+           OR (%s IS NOT NULL AND wo.cabinet_no=%s)
         """,
-        (cost_object_id, cost_object_id, project_code, project_code, serial_no, serial_no),
+        (cost_object_id, cost_object_id, project_code, project_code, cabinet_no, cabinet_no),
     ) or {}
     purchase_payables = safe_one(
         """
@@ -218,9 +218,9 @@ def project_finance_summary(order, project_code=None, serial_no=None, cost_objec
         WHERE COALESCE(sp.doc_type, sp.source_type, '') IN ('purchase_receipt','purchase_invoice')
           AND ((%s IS NOT NULL AND sp.cost_object_id=%s)
            OR (%s IS NOT NULL AND sp.project_code=%s)
-           OR (%s IS NOT NULL AND sp.serial_no=%s))
+           OR (%s IS NOT NULL AND sp.cabinet_no=%s))
         """,
-        (cost_object_id, cost_object_id, project_code, project_code, serial_no, serial_no),
+        (cost_object_id, cost_object_id, project_code, project_code, cabinet_no, cabinet_no),
     ) or {}
     service = safe_one(
         """
@@ -228,9 +228,9 @@ def project_finance_summary(order, project_code=None, serial_no=None, cost_objec
         FROM machine_service_orders
         WHERE (%s IS NOT NULL AND cost_object_id=%s)
            OR (%s IS NOT NULL AND project_code=%s)
-           OR (%s IS NOT NULL AND serial_no=%s)
+           OR (%s IS NOT NULL AND cabinet_no=%s)
         """,
-        (cost_object_id, cost_object_id, project_code, project_code, serial_no, serial_no),
+        (cost_object_id, cost_object_id, project_code, project_code, cabinet_no, cabinet_no),
     ) or {}
     subcontract_payables = safe_one(
         """
@@ -241,9 +241,9 @@ def project_finance_summary(order, project_code=None, serial_no=None, cost_objec
         WHERE COALESCE(sp.doc_type, sp.source_type, '') IN ('subcontract_receive','subcontract_receive_order')
           AND ((%s IS NOT NULL AND sp.cost_object_id=%s)
            OR (%s IS NOT NULL AND sp.project_code=%s)
-           OR (%s IS NOT NULL AND sp.serial_no=%s))
+           OR (%s IS NOT NULL AND sp.cabinet_no=%s))
         """,
-        (cost_object_id, cost_object_id, project_code, project_code, serial_no, serial_no),
+        (cost_object_id, cost_object_id, project_code, project_code, cabinet_no, cabinet_no),
     ) or {}
     sales_amount = as_decimal(sales.get("sales_amount"))
     purchase_amount = as_decimal(purchase.get("purchase_amount"))

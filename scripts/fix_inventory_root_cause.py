@@ -80,14 +80,14 @@ def list_garbage_summary(cur):
                COALESCE(warehouse_id, 0) AS warehouse_id,
                COALESCE(location_id, 0) AS location_id,
                COALESCE(lot_no, '') AS lot_no,
-               COALESCE(serial_no, '') AS serial_no,
+               COALESCE(cabinet_no, '') AS cabinet_no,
                COALESCE(project_code, '') AS project_code,
                SUM(quantity) AS sum_qty,
                COUNT(*) AS row_cnt
         FROM stock_transactions
         WHERE transaction_type=%s
         GROUP BY product_id, COALESCE(warehouse_id, 0), COALESCE(location_id, 0),
-                 COALESCE(lot_no, ''), COALESCE(serial_no, ''), COALESCE(project_code, '')
+                 COALESCE(lot_no, ''), COALESCE(cabinet_no, ''), COALESCE(project_code, '')
         ORDER BY product_id, warehouse_id
         """,
         (GARBAGE_TYPE,),
@@ -108,7 +108,7 @@ def compute_legitimate_tx_sum(cur):
             COALESCE(warehouse_id, 0) AS warehouse_id,
             COALESCE(location_id, 0) AS location_id,
             COALESCE(lot_no, '') AS lot_no,
-            COALESCE(serial_no, '') AS serial_no,
+            COALESCE(cabinet_no, '') AS cabinet_no,
             COALESCE(project_code, '') AS project_code,
             SUM(
                 CASE
@@ -124,12 +124,12 @@ def compute_legitimate_tx_sum(cur):
         FROM stock_transactions
         WHERE transaction_type <> %s
         GROUP BY product_id, COALESCE(warehouse_id, 0), COALESCE(location_id, 0),
-                 COALESCE(lot_no, ''), COALESCE(serial_no, ''), COALESCE(project_code, '')
+                 COALESCE(lot_no, ''), COALESCE(cabinet_no, ''), COALESCE(project_code, '')
         """,
         (GARBAGE_TYPE,),
     )
     return {tuple(r[k] for k in
-                  ("product_id", "warehouse_id", "location_id", "lot_no", "serial_no", "project_code")): r["tx_qty"]
+                  ("product_id", "warehouse_id", "location_id", "lot_no", "cabinet_no", "project_code")): r["tx_qty"]
             for r in cur.fetchall()}
 
 
@@ -141,16 +141,16 @@ def compute_current_balance(cur):
             COALESCE(warehouse_id, 0) AS warehouse_id,
             COALESCE(location_id, 0) AS location_id,
             COALESCE(lot_no, '') AS lot_no,
-            COALESCE(serial_no, '') AS serial_no,
+            COALESCE(cabinet_no, '') AS cabinet_no,
             COALESCE(project_code, '') AS project_code,
             SUM(COALESCE(quantity, 0)) AS balance_qty
         FROM inventory_balances
         GROUP BY product_id, COALESCE(warehouse_id, 0), COALESCE(location_id, 0),
-                 COALESCE(lot_no, ''), COALESCE(serial_no, ''), COALESCE(project_code, '')
+                 COALESCE(lot_no, ''), COALESCE(cabinet_no, ''), COALESCE(project_code, '')
         """
     )
     return {tuple(r[k] for k in
-                  ("product_id", "warehouse_id", "location_id", "lot_no", "serial_no", "project_code")): r["balance_qty"]
+                  ("product_id", "warehouse_id", "location_id", "lot_no", "cabinet_no", "project_code")): r["balance_qty"]
             for r in cur.fetchall()}
 
 
@@ -170,7 +170,7 @@ def preview_diff_after_cleanup(cur):
         if abs(tx_qty - bal_qty) > QTY_TOLERANCE:
             diffs.append({
                 "product_id": k[0], "warehouse_id": k[1], "location_id": k[2],
-                "lot_no": k[3], "serial_no": k[4], "project_code": k[5],
+                "lot_no": k[3], "cabinet_no": k[4], "project_code": k[5],
                 "tx_qty_after_cleanup": tx_qty,
                 "balance_qty": bal_qty,
                 "diff": tx_qty - bal_qty,
@@ -197,7 +197,7 @@ def resync_inventory_balances(cur):
             COALESCE(warehouse_id, 0) AS warehouse_id,
             COALESCE(location_id, 0) AS location_id,
             COALESCE(lot_no, '') AS lot_no,
-            COALESCE(serial_no, '') AS serial_no,
+            COALESCE(cabinet_no, '') AS cabinet_no,
             COALESCE(project_code, '') AS project_code,
             SUM(
                 CASE
@@ -214,7 +214,7 @@ def resync_inventory_balances(cur):
         FROM stock_transactions
         WHERE transaction_type <> %s
         GROUP BY product_id, COALESCE(warehouse_id, 0), COALESCE(location_id, 0),
-                 COALESCE(lot_no, ''), COALESCE(serial_no, ''), COALESCE(project_code, '')
+                 COALESCE(lot_no, ''), COALESCE(cabinet_no, ''), COALESCE(project_code, '')
         """,
         (GARBAGE_TYPE,),
     )
@@ -226,12 +226,12 @@ def resync_inventory_balances(cur):
 
     for r in correct_rows:
         key = (r["product_id"], r["warehouse_id"], r["location_id"],
-               r["lot_no"], r["serial_no"], r["project_code"])
+               r["lot_no"], r["cabinet_no"], r["project_code"])
         # Normalize NULL warehouse_id/location_id for the match.
         wh_id = None if r["warehouse_id"] == 0 else r["warehouse_id"]
         loc_id = None if r["location_id"] == 0 else r["location_id"]
         lot_no = None if r["lot_no"] == "" else r["lot_no"]
-        serial_no = None if r["serial_no"] == "" else r["serial_no"]
+        cabinet_no = None if r["cabinet_no"] == "" else r["cabinet_no"]
         project_code = None if r["project_code"] == "" else r["project_code"]
 
         cur.execute(
@@ -241,11 +241,11 @@ def resync_inventory_balances(cur):
               AND COALESCE(warehouse_id, 0)=%s
               AND COALESCE(location_id, 0)=%s
               AND COALESCE(lot_no, '')=%s
-              AND COALESCE(serial_no, '')=%s
+              AND COALESCE(cabinet_no, '')=%s
               AND COALESCE(project_code, '')=%s
             """,
             (r["product_id"], r["warehouse_id"], r["location_id"],
-             r["lot_no"], r["serial_no"], r["project_code"]),
+             r["lot_no"], r["cabinet_no"], r["project_code"]),
         )
         existing = cur.fetchone()
         correct_qty = r["correct_qty"] or Decimal("0")
@@ -267,11 +267,11 @@ def resync_inventory_balances(cur):
             cur.execute(
                 """
                 INSERT INTO inventory_balances
-                    (product_id, warehouse_id, location_id, lot_no, serial_no,
+                    (product_id, warehouse_id, location_id, lot_no, cabinet_no,
                      project_code, quantity, locked_qty, unit_cost, updated_at)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, 0, %s, NOW())
                 """,
-                (r["product_id"], wh_id, loc_id, lot_no, serial_no,
+                (r["product_id"], wh_id, loc_id, lot_no, cabinet_no,
                  project_code, correct_qty, avg_cost),
             )
             inserted += 1
@@ -290,7 +290,7 @@ def resync_inventory_balances(cur):
                 AND COALESCE(st.warehouse_id, 0)=COALESCE(ib.warehouse_id, 0)
                 AND COALESCE(st.location_id, 0)=COALESCE(ib.location_id, 0)
                 AND COALESCE(st.lot_no, '')=COALESCE(ib.lot_no, '')
-                AND COALESCE(st.serial_no, '')=COALESCE(ib.serial_no, '')
+                AND COALESCE(st.cabinet_no, '')=COALESCE(ib.cabinet_no, '')
                 AND COALESCE(st.project_code, '')=COALESCE(ib.project_code, '')
           )
         """,
@@ -309,7 +309,7 @@ def fetch_negative_balance_dims(cur):
                COALESCE(warehouse_id, 0) AS warehouse_id,
                COALESCE(location_id, 0) AS location_id,
                COALESCE(lot_no, '') AS lot_no,
-               COALESCE(serial_no, '') AS serial_no,
+               COALESCE(cabinet_no, '') AS cabinet_no,
                COALESCE(project_code, '') AS project_code,
                quantity
         FROM inventory_balances
@@ -349,11 +349,11 @@ def fix_negative_balances(cur):
               AND COALESCE(warehouse_id, 0)=%s
               AND COALESCE(location_id, 0)=%s
               AND COALESCE(lot_no, '')=%s
-              AND COALESCE(serial_no, '')=%s
+              AND COALESCE(cabinet_no, '')=%s
               AND COALESCE(project_code, '')=%s
             """,
             (d["product_id"], d["warehouse_id"], d["location_id"],
-             d["lot_no"], d["serial_no"], d["project_code"]),
+             d["lot_no"], d["cabinet_no"], d["project_code"]),
         )
         tx_deleted += cur.rowcount
 
@@ -365,11 +365,11 @@ def fix_negative_balances(cur):
               AND COALESCE(warehouse_id, 0)=%s
               AND COALESCE(location_id, 0)=%s
               AND COALESCE(lot_no, '')=%s
-              AND COALESCE(serial_no, '')=%s
+              AND COALESCE(cabinet_no, '')=%s
               AND COALESCE(project_code, '')=%s
             """,
             (d["product_id"], d["warehouse_id"], d["location_id"],
-             d["lot_no"], d["serial_no"], d["project_code"]),
+             d["lot_no"], d["cabinet_no"], d["project_code"]),
         )
         bal_zeroed += cur.rowcount
 
@@ -384,7 +384,7 @@ def sync_legacy_inventory(cur):
     so it mirrors the corrected balances exactly.
 
     The legacy table has columns: id, product_id, quantity, unit_cost, location,
-    reorder_level. It has NO warehouse/location/serial/project dimensions — it
+    reorder_level. It has NO warehouse/location/cabinet/project dimensions — it
     is a flat per-product aggregate.
     """
     # Compute correct per-product aggregates from inventory_balances.
@@ -445,7 +445,7 @@ def sync_batch_tracking(cur):
                   AND COALESCE(ib.warehouse_id, 0) = COALESCE(bt.warehouse_id, 0)
                   AND COALESCE(ib.location_id, 0) = COALESCE(bt.location_id, 0)
                   AND COALESCE(ib.lot_no, '') = COALESCE(bt.lot_no, '')
-                  AND COALESCE(ib.serial_no, '') = COALESCE(bt.serial_no, '')
+                  AND COALESCE(ib.cabinet_no, '') = COALESCE(bt.cabinet_no, '')
                   AND COALESCE(ib.project_code, '') = COALESCE(bt.project_code, '')
             ), 0),
             updated_at = NOW()
@@ -466,7 +466,7 @@ def sync_batch_tracking(cur):
                 AND COALESCE(ib.warehouse_id, 0) = COALESCE(bt.warehouse_id, 0)
                 AND COALESCE(ib.location_id, 0) = COALESCE(bt.location_id, 0)
                 AND COALESCE(ib.lot_no, '') = COALESCE(bt.lot_no, '')
-                AND COALESCE(ib.serial_no, '') = COALESCE(bt.serial_no, '')
+                AND COALESCE(ib.cabinet_no, '') = COALESCE(bt.cabinet_no, '')
                 AND COALESCE(ib.project_code, '') = COALESCE(bt.project_code, '')
                 AND COALESCE(ib.quantity, 0) <> 0
           )
@@ -482,7 +482,7 @@ def sync_batch_tracking(cur):
         INSERT INTO batch_tracking
             (lot_no, product_id, warehouse_id, location, quantity_in,
              quantity_out, quantity_available, unit_cost, status, created_at,
-             serial_no, project_code, location_id, updated_at)
+             cabinet_no, project_code, location_id, updated_at)
         SELECT
             COALESCE(NULLIF(ib.lot_no, ''), ''),
             ib.product_id,
@@ -494,7 +494,7 @@ def sync_batch_tracking(cur):
             COALESCE(ib.unit_cost, 0),
             'active',
             NOW(),
-            ib.serial_no,
+            ib.cabinet_no,
             ib.project_code,
             ib.location_id,
             NOW()
@@ -506,7 +506,7 @@ def sync_batch_tracking(cur):
                 AND COALESCE(bt.warehouse_id, 0) = COALESCE(ib.warehouse_id, 0)
                 AND COALESCE(bt.location_id, 0) = COALESCE(ib.location_id, 0)
                 AND COALESCE(bt.lot_no, '') = COALESCE(ib.lot_no, '')
-                AND COALESCE(bt.serial_no, '') = COALESCE(ib.serial_no, '')
+                AND COALESCE(bt.cabinet_no, '') = COALESCE(ib.cabinet_no, '')
                 AND COALESCE(bt.project_code, '') = COALESCE(ib.project_code, '')
           )
         """
@@ -535,10 +535,10 @@ def run_dry_run():
         if garbage_summary:
             print()
             print("垃圾行维度明细 (前 20 组):")
-            print(f"  {'product_id':>10} {'wh':>4} {'loc':>4} {'sum_qty':>12} {'rows':>5}  serial/project")
+            print(f"  {'product_id':>10} {'wh':>4} {'loc':>4} {'sum_qty':>12} {'rows':>5}  cabinet/project")
             for r in garbage_summary[:20]:
                 print(f"  {r['product_id']:>10} {r['warehouse_id']:>4} {r['location_id']:>4} "
-                      f"{r['sum_qty']:>12} {r['row_cnt']:>5}  {r['serial_no']}/{r['project_code']}")
+                      f"{r['sum_qty']:>12} {r['row_cnt']:>5}  {r['cabinet_no']}/{r['project_code']}")
         print()
         print(f"stock_transactions 差异维度 (清理垃圾行后): {diff_count}")
         if diff_count:
@@ -556,10 +556,10 @@ def run_dry_run():
         if neg_dims:
             print()
             print("负库存维度明细 (将清理对应试用数据事务):")
-            print(f"  {'product_id':>10} {'wh':>4} {'loc':>4} {'quantity':>12}  serial/project")
+            print(f"  {'product_id':>10} {'wh':>4} {'loc':>4} {'quantity':>12}  cabinet/project")
             for d in neg_dims:
                 print(f"  {d['product_id']:>10} {d['warehouse_id']:>4} {d['location_id']:>4} "
-                      f"{d['quantity']:>12}  {d['serial_no']}/{d['project_code']}")
+                      f"{d['quantity']:>12}  {d['cabinet_no']}/{d['project_code']}")
         print()
         print("Apply 将执行以下步骤:")
         print("  Step 1: 删除 inventory_balance_reconciliation 垃圾行")

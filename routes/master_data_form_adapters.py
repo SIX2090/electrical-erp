@@ -5,7 +5,7 @@ from routes.master_data_form_routes import (
     render_department_form,
     render_employee_form,
     render_location_form,
-    render_machine_serial_master_form,
+    render_cabinet_master_form,
     render_project_master_form,
     render_supplier_form,
     render_unit_form,
@@ -45,8 +45,8 @@ def render_project_master_form_adapter(query_one, query_rows, project_id=None):
     return render_project_master_form(query_one, query_rows, project_id)
 
 
-def render_machine_serial_master_form_adapter(query_one, query_rows, machine_id=None):
-    return render_machine_serial_master_form(query_one, query_rows, machine_id)
+def render_cabinet_master_form_adapter(query_one, query_rows, machine_id=None):
+    return render_cabinet_master_form(query_one, query_rows, machine_id)
 
 
 def render_category_form_adapter(query_one, query_rows, kind, category_id=None):

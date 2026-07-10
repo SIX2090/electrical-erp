@@ -250,10 +250,10 @@ def register_api_routes(app, deps):
                 "inventory_balances.locked_qty",
                 "inventory_balances.unit_cost",
                 "inventory_balances.lot_no",
-                "inventory_balances.serial_no",
+                "inventory_balances.cabinet_no",
                 "inventory_balances.updated_at",
             ],
-            ("p.code", "p.name", "p.specification", "w.name", "l.code", "inventory_balances.lot_no", "inventory_balances.serial_no"),
+            ("p.code", "p.name", "p.specification", "w.name", "l.code", "inventory_balances.lot_no", "inventory_balances.cabinet_no"),
             "inventory_balances.updated_at DESC NULLS LAST, inventory_balances.id DESC",
             "LEFT JOIN products p ON p.id=inventory_balances.product_id LEFT JOIN warehouses w ON w.id=inventory_balances.warehouse_id LEFT JOIN locations l ON l.id=inventory_balances.location_id",
         )
@@ -268,16 +268,16 @@ def register_api_routes(app, deps):
                 "sales_orders.order_date",
                 "c.name AS customer_name",
                 "sales_orders.project_code",
-                "sales_orders.serial_no",
+                "sales_orders.cabinet_no",
                 "sales_orders.status",
                 "sales_orders.total_amount",
                 "sales_orders.amount_with_tax",
                 "sales_orders.shipped_amount",
             ],
-            ("sales_orders.order_no", "c.name", "sales_orders.project_code", "sales_orders.serial_no"),
+            ("sales_orders.order_no", "c.name", "sales_orders.project_code", "sales_orders.cabinet_no"),
             "sales_orders.id DESC",
             "LEFT JOIN customers c ON c.id=sales_orders.customer_id",
-            scope_field_map={"project": "sales_orders.project_code", "serial": "sales_orders.serial_no", "customer": "sales_orders.customer_id"},
+            scope_field_map={"project": "sales_orders.project_code", "cabinet": "sales_orders.cabinet_no", "customer": "sales_orders.customer_id"},
         )
 
     @api_bp.get("/v1/sales-orders/<int:record_id>")
@@ -290,14 +290,14 @@ def register_api_routes(app, deps):
                 "sales_orders.order_date",
                 "sales_orders.customer_id",
                 "sales_orders.project_code",
-                "sales_orders.serial_no",
+                "sales_orders.cabinet_no",
                 "sales_orders.status",
                 "sales_orders.total_amount",
                 "sales_orders.amount_with_tax",
                 "sales_orders.shipped_amount",
             ],
             record_id,
-            scope_field_map={"project": "project_code", "serial": "serial_no", "customer": "customer_id"},
+            scope_field_map={"project": "project_code", "cabinet": "cabinet_no", "customer": "customer_id"},
         )
 
     @api_bp.get("/v1/purchase-orders")
@@ -310,7 +310,7 @@ def register_api_routes(app, deps):
                 "purchase_orders.order_date",
                 "s.name AS supplier_name",
                 "purchase_orders.project_code",
-                "purchase_orders.serial_no",
+                "purchase_orders.cabinet_no",
                 "purchase_orders.status",
                 "purchase_orders.total_amount",
                 "purchase_orders.amount_with_tax",
@@ -319,7 +319,7 @@ def register_api_routes(app, deps):
                 "COALESCE(items.pending_receive_qty, 0) AS pending_receive_qty",
                 "COALESCE(ap.payable_balance, 0) AS payable_balance",
             ],
-            ("purchase_orders.order_no", "s.name", "purchase_orders.project_code", "purchase_orders.serial_no"),
+            ("purchase_orders.order_no", "s.name", "purchase_orders.project_code", "purchase_orders.cabinet_no"),
             "purchase_orders.id DESC",
             """
             LEFT JOIN suppliers s ON s.id=purchase_orders.supplier_id
@@ -335,7 +335,7 @@ def register_api_routes(app, deps):
                 WHERE sp.doc_id=purchase_orders.id OR sp.doc_no=purchase_orders.order_no
             ) ap ON TRUE
             """,
-            scope_field_map={"project": "purchase_orders.project_code", "serial": "purchase_orders.serial_no", "supplier": "purchase_orders.supplier_id"},
+            scope_field_map={"project": "purchase_orders.project_code", "cabinet": "purchase_orders.cabinet_no", "supplier": "purchase_orders.supplier_id"},
         )
 
     @api_bp.get("/v1/purchase-orders/<int:record_id>")
@@ -348,14 +348,14 @@ def register_api_routes(app, deps):
                 "purchase_orders.order_date",
                 "purchase_orders.supplier_id",
                 "purchase_orders.project_code",
-                "purchase_orders.serial_no",
+                "purchase_orders.cabinet_no",
                 "purchase_orders.status",
                 "purchase_orders.total_amount",
                 "purchase_orders.amount_with_tax",
                 "purchase_orders.received_amount",
             ],
             record_id,
-            scope_field_map={"project": "project_code", "serial": "serial_no", "supplier": "supplier_id"},
+            scope_field_map={"project": "project_code", "cabinet": "cabinet_no", "supplier": "supplier_id"},
         )
 
     @api_bp.get("/v1/receivables")
@@ -372,12 +372,12 @@ def register_api_routes(app, deps):
                 "customer_receivables.balance",
                 "customer_receivables.status",
                 "customer_receivables.project_code",
-                "customer_receivables.serial_no",
+                "customer_receivables.cabinet_no",
             ],
-            ("customer_receivables.source_no", "c.name", "customer_receivables.project_code", "customer_receivables.serial_no"),
+            ("customer_receivables.source_no", "c.name", "customer_receivables.project_code", "customer_receivables.cabinet_no"),
             "customer_receivables.id DESC",
             "LEFT JOIN customers c ON c.id=customer_receivables.customer_id",
-            scope_field_map={"project": "customer_receivables.project_code", "serial": "customer_receivables.serial_no", "customer": "customer_receivables.customer_id"},
+            scope_field_map={"project": "customer_receivables.project_code", "cabinet": "customer_receivables.cabinet_no", "customer": "customer_receivables.customer_id"},
         )
 
     @api_bp.get("/v1/receivables/<int:record_id>")
@@ -394,10 +394,10 @@ def register_api_routes(app, deps):
                 "customer_receivables.balance",
                 "customer_receivables.status",
                 "customer_receivables.project_code",
-                "customer_receivables.serial_no",
+                "customer_receivables.cabinet_no",
             ],
             record_id,
-            scope_field_map={"project": "project_code", "serial": "serial_no", "customer": "customer_id"},
+            scope_field_map={"project": "project_code", "cabinet": "cabinet_no", "customer": "customer_id"},
         )
 
     @api_bp.get("/v1/payables")

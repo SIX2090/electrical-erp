@@ -283,7 +283,7 @@ def generate_voucher_from_source(query_db, execute_db, source_type, source_id, c
             'debit_amount': debit_amount,
             'credit_amount': credit_amount,
             'project_code': source_data.get('project_code'),
-            'serial_no': source_data.get('serial_no'),
+            'cabinet_no': source_data.get('cabinet_no'),
             'partner_type': source_data.get('partner_type'),
             'partner_id': source_data.get('partner_id')
         })
@@ -323,12 +323,12 @@ def generate_voucher_from_source(query_db, execute_db, source_type, source_id, c
             """
             INSERT INTO voucher_lines
                 (voucher_id, line_no, account_id, summary, debit_amount, credit_amount,
-                 project_code, serial_no, partner_type, partner_id, created_at)
+                 project_code, cabinet_no, partner_type, partner_id, created_at)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (voucher_id, line['line_no'], line['account_id'], line['summary'],
              line['debit_amount'], line['credit_amount'], line['project_code'],
-             line['serial_no'], line['partner_type'], line['partner_id'], datetime.now())
+             line['cabinet_no'], line['partner_type'], line['partner_id'], datetime.now())
         )
 
     create_trace_link(
@@ -343,7 +343,7 @@ def generate_voucher_from_source(query_db, execute_db, source_type, source_id, c
         link_type='posts_to',
         link_strength='hard',
         project_code=source_data.get('project_code'),
-        serial_no=source_data.get('serial_no'),
+        cabinet_no=source_data.get('cabinet_no'),
         created_by=current_user_id,
         created_event='generate_voucher',
     )
@@ -356,7 +356,7 @@ def generate_voucher_from_source(query_db, execute_db, source_type, source_id, c
         snapshot_event='generate',
         snapshot_by=current_user_id,
         project_code=source_data.get('project_code'),
-        serial_no=source_data.get('serial_no'),
+        cabinet_no=source_data.get('cabinet_no'),
         header_payload={
             'voucher_id': voucher_id,
             'voucher_no': voucher_no,
@@ -400,7 +400,7 @@ def _get_source_document(query_db, source_type, source_id):
                 si.tax_amount,
                 si.amount_with_tax,
                 si.project_code,
-                si.serial_no,
+                si.cabinet_no,
                 c.name AS customer_name,
                 'customer' AS partner_type,
                 si.customer_id AS partner_id
@@ -424,7 +424,7 @@ def _get_source_document(query_db, source_type, source_id):
                 pi.tax_amount,
                 pi.amount_with_tax,
                 pi.project_code,
-                pi.serial_no,
+                pi.cabinet_no,
                 s.name AS supplier_name,
                 'supplier' AS partner_type,
                 pi.supplier_id AS partner_id
@@ -446,7 +446,7 @@ def _get_source_document(query_db, source_type, source_id):
                 cr.receipt_date AS voucher_date,
                 cr.amount,
                 cr.project_code,
-                cr.serial_no,
+                cr.cabinet_no,
                 c.name AS customer_name,
                 'customer' AS partner_type,
                 cr.customer_id AS partner_id
@@ -468,7 +468,7 @@ def _get_source_document(query_db, source_type, source_id):
                 sp.payment_date AS voucher_date,
                 sp.amount,
                 sp.project_code,
-                sp.serial_no,
+                sp.cabinet_no,
                 s.name AS supplier_name,
                 'supplier' AS partner_type,
                 sp.supplier_id AS partner_id
@@ -564,7 +564,7 @@ def create_voucher_with_lines(
         summary: 凭证摘要
         source_type: 来源单据类型
         source_no: 来源单据号
-        lines: 凭证分录列表，每项包含 account_code, summary, debit_amount, credit_amount, project_code, serial_no
+        lines: 凭证分录列表，每项包含 account_code, summary, debit_amount, credit_amount, project_code, cabinet_no
         prepared_by: 制单人ID
 
     Returns:
@@ -628,7 +628,7 @@ def create_voucher_with_lines(
             """
             INSERT INTO voucher_lines
                 (voucher_id, line_no, account_id, summary, debit_amount, credit_amount,
-                 project_code, serial_no, created_at)
+                 project_code, cabinet_no, created_at)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
@@ -639,7 +639,7 @@ def create_voucher_with_lines(
                 Decimal(str(line.get('debit_amount') or 0)),
                 Decimal(str(line.get('credit_amount') or 0)),
                 line.get('project_code'),
-                line.get('serial_no'),
+                line.get('cabinet_no'),
                 datetime.now(),
             ),
         )
@@ -730,19 +730,19 @@ def post_voucher(query_db, execute_db, voucher_id, current_user_id):
             INSERT INTO general_ledger
                 (voucher_id, account_id, account_code, account_name, entry_date,
                  period_year, period_month, debit_amount, credit_amount, summary,
-                 project_code, serial_no, voucher_no, created_at)
+                 project_code, cabinet_no, voucher_no, created_at)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (voucher_id, line['account_id'], line['account_code'], line['account_name'],
              voucher['voucher_date'], voucher['period_year'], voucher['period_month'],
              line['debit_amount'], line['credit_amount'], line['summary'],
-             line['project_code'], line['serial_no'], voucher['voucher_no'], datetime.now())
+             line['project_code'], line['cabinet_no'], voucher['voucher_no'], datetime.now())
         )
 
     ledger_rows = query_db(
         """
         SELECT id, voucher_id, account_id, account_code, account_name, debit_amount, credit_amount,
-               summary, project_code, serial_no, voucher_no
+               summary, project_code, cabinet_no, voucher_no
         FROM general_ledger
         WHERE voucher_id = %s
           AND COALESCE(status, 'active') = 'active'
@@ -779,7 +779,7 @@ def post_voucher(query_db, execute_db, voucher_id, current_user_id):
             link_type='posts_to',
             link_strength='hard',
             project_code=ledger.get('project_code'),
-            serial_no=ledger.get('serial_no'),
+            cabinet_no=ledger.get('cabinet_no'),
             created_by=current_user_id,
             created_event='post_voucher',
         )
@@ -792,7 +792,7 @@ def post_voucher(query_db, execute_db, voucher_id, current_user_id):
         snapshot_event='post',
         snapshot_by=current_user_id,
         project_code=None,
-        serial_no=None,
+        cabinet_no=None,
         header_payload=dict(voucher),
         lines_payload=[dict(line) for line in lines],
         trace_context_payload={

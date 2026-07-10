@@ -162,11 +162,11 @@ def audit_data_quality(cur):
             SELECT COUNT(*)
             FROM machine_service_orders
             WHERE COALESCE(status,'') NOT IN ('已关闭','已完成','已作废','closed','completed','cancelled')
-              AND (COALESCE(project_code,'')='' OR COALESCE(serial_no,'')='')
+              AND (COALESCE(project_code,'')='' OR COALESCE(cabinet_no,'')='')
             """,
         )
         if open_without_axis:
-            findings.append(("warning", "SVC-TRACE-MISSING", f"open service orders missing project/serial: {open_without_axis}"))
+            findings.append(("warning", "SVC-TRACE-MISSING", f"open service orders missing project/cabinet: {open_without_axis}"))
         open_without_next_action = scalar(
             cur,
             """

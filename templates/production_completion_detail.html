@@ -19,8 +19,8 @@
     {'label': '工具', 'type': 'dropdown', 'items': [
         {'label': '来源工单', 'type': 'link', 'href': '/work-orders/' ~ doc.work_order_id if doc.work_order_id else '#', 'disabled': not doc.work_order_id},
         {'label': '库存流水', 'type': 'link', 'href': '/transactions?keyword=' ~ (doc.completion_no|urlencode)},
-        {'label': '库存余额', 'type': 'link', 'href': '/inventory/detail?keyword=' ~ ((doc.product_code or doc.product_name or doc.serial_no or doc.project_code or doc.completion_no)|urlencode)},
-        {'label': '工单成本核对', 'type': 'link', 'href': '/finance/reports/project-cost?keyword=' ~ ((doc.project_code or doc.serial_no or doc.wo_no or doc.completion_no)|urlencode)}
+        {'label': '库存余额', 'type': 'link', 'href': '/inventory/detail?keyword=' ~ ((doc.product_code or doc.product_name or doc.cabinet_no or doc.project_code or doc.completion_no)|urlencode)},
+        {'label': '工单成本核对', 'type': 'link', 'href': '/finance/reports/project-cost?keyword=' ~ ((doc.project_code or doc.cabinet_no or doc.wo_no or doc.completion_no)|urlencode)}
     ]},
     {'type': 'nav', 'items': [
         {'label': '首张', 'event': 'doc-nav-first', 'icon': 'bi-chevron-double-left'},
@@ -47,7 +47,7 @@
         <div class="col-md-3"><strong>日期：</strong>{{ doc.completion_date or '-' }}</div>
         <div class="col-md-3"><strong>产品：</strong>{{ doc.product_code|clean_text or doc.product_id }} / {{ doc.product_name|clean_text or '-' }}</div>
         <div class="col-md-3"><strong>项目号：</strong>{{ doc.project_code|clean_text or '-' }}</div>
-        <div class="col-md-3"><strong>机号：</strong>{{ doc.serial_no|clean_text or '-' }}</div>
+        <div class="col-md-3"><strong>柜号：</strong>{{ doc.cabinet_no|clean_text or '-' }}</div>
         <div class="col-md-3"><strong>合格数量：</strong>{{ doc.quantity|qty }}</div>
         <div class="col-md-3"><strong>不合格数量：</strong>{{ doc.failed_quantity|qty }}</div>
         <div class="col-md-3"><strong>单位成本：</strong>{{ doc.unit_cost|money }}</div>
@@ -107,8 +107,8 @@
     </div>
     <div class="d-flex flex-wrap gap-2">
         <a class="btn btn-outline-secondary btn-sm" href="/transactions?keyword={{ doc.completion_no|urlencode }}">库存流水</a>
-        <a class="btn btn-outline-secondary btn-sm" href="/inventory/detail?keyword={{ (doc.product_code or doc.product_name or doc.serial_no or doc.project_code or doc.completion_no)|urlencode }}">库存余额</a>
-        <a class="btn btn-outline-secondary btn-sm" href="/finance/reports/project-cost?keyword={{ (doc.project_code or doc.serial_no or doc.wo_no or doc.completion_no)|urlencode }}">工单成本核对</a>
+        <a class="btn btn-outline-secondary btn-sm" href="/inventory/detail?keyword={{ (doc.product_code or doc.product_name or doc.cabinet_no or doc.project_code or doc.completion_no)|urlencode }}">库存余额</a>
+        <a class="btn btn-outline-secondary btn-sm" href="/finance/reports/project-cost?keyword={{ (doc.project_code or doc.cabinet_no or doc.wo_no or doc.completion_no)|urlencode }}">工单成本核对</a>
     </div>
 </div>
 
@@ -116,7 +116,7 @@
     <h2 class="h6 mb-2">库存流水</h2>
     <div class="table-responsive">
         <table class="table table-sm align-middle mb-0">
-            <thead><tr><th>日期</th><th>类型</th><th class="text-end">数量</th><th class="text-end">单位成本</th><th>单号</th><th>项目号</th><th>机号</th><th>备注</th></tr></thead>
+            <thead><tr><th>日期</th><th>类型</th><th class="text-end">数量</th><th class="text-end">单位成本</th><th>单号</th><th>项目号</th><th>柜号</th><th>备注</th></tr></thead>
             <tbody>
             {% for row in stock_rows %}
             <tr>
@@ -126,7 +126,7 @@
                 <td class="text-end">{{ row.unit_cost|money }}</td>
                 <td>{{ row.reference_no|clean_text or '-' }}</td>
                 <td>{{ row.project_code|clean_text or '-' }}</td>
-                <td>{{ row.serial_no|clean_text or '-' }}</td>
+                <td>{{ row.cabinet_no|clean_text or '-' }}</td>
                 <td>{{ row.remark|clean_text or '-' }}</td>
             </tr>
             {% else %}

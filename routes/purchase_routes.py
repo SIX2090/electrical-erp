@@ -34,7 +34,7 @@ def render_purchase_dashboard(
     params = []
     if keyword:
         where_parts.append(
-            "(po.order_no ILIKE %s OR po.project_code ILIKE %s OR po.serial_no ILIKE %s OR s.name ILIKE %s)"
+            "(po.order_no ILIKE %s OR po.project_code ILIKE %s OR po.cabinet_no ILIKE %s OR s.name ILIKE %s)"
         )
         params.extend([f"%{keyword}%"] * 4)
     if status:
@@ -113,7 +113,7 @@ def render_purchase_dashboard(
     suppliers = filter_clean_rows(suppliers, "name")
     orders = query_rows(
         f"""
-        SELECT po.id, po.order_no, po.order_date, po.expected_date, po.project_code, po.serial_no,
+        SELECT po.id, po.order_no, po.order_date, po.expected_date, po.project_code, po.cabinet_no,
                po.status, po.total_amount, po.received_amount, s.name AS supplier_name,
                COALESCE(items.item_count, 0) AS item_count,
                COALESCE(items.ordered_qty, 0) AS ordered_qty,
@@ -160,19 +160,19 @@ def render_purchase_dashboard(
         """,
         tuple(params),
     )
-    orders = filter_clean_rows(orders, "order_no", "supplier_name", "project_code", "serial_no", "status")
+    orders = filter_clean_rows(orders, "order_no", "supplier_name", "project_code", "cabinet_no", "status")
     today = datetime.now().date()
     filtered_orders = []
     for row in orders:
         row["display_status"] = status_label(row.get("status"))
-        for key in ("order_no", "supplier_name", "project_code", "serial_no"):
+        for key in ("order_no", "supplier_name", "project_code", "cabinet_no"):
             row[key] = row.get(key)
         pending_qty = as_decimal(row.get("pending_receive_qty"))
         payable_balance = as_decimal(row.get("payable_balance"))
         is_overdue = bool(row.get("expected_date") and row.get("expected_date") < today and pending_qty > 0)
         is_receive_status_ready = row.get("status") in RECEIVE_READY_STATUSES
-        has_project_serial = bool(row.get("project_code") and row.get("serial_no"))
-        row["can_receive"] = bool(pending_qty > 0 and is_receive_status_ready and has_project_serial)
+        has_project_cabinet = bool(row.get("project_code") and row.get("cabinet_no"))
+        row["can_receive"] = bool(pending_qty > 0 and is_receive_status_ready and has_project_cabinet)
         row["risk_label"] = "正常"
         row["arrival_alert"] = "按期跟进"
         row["next_action"] = "跟进采购"
@@ -189,12 +189,12 @@ def render_purchase_dashboard(
             if not is_receive_status_ready:
                 row["blocked_reason"] = "采购订单未审核，不能收货入库"
                 row["condition_label"] = "需采购主管审核"
-            elif not has_project_serial:
-                row["blocked_reason"] = "缺少项目号或机号，不能收货入库"
-                row["condition_label"] = "需补齐项目号和机号"
+            elif not has_project_cabinet:
+                row["blocked_reason"] = "缺少项目号或柜号，不能收货入库"
+                row["condition_label"] = "需补齐项目号和柜号"
             else:
                 row["blocked_reason"] = "可直接生成采购入库单"
-                row["condition_label"] = "订单已审核，项目/机号齐套"
+                row["condition_label"] = "订单已审核，项目/柜号齐套"
         elif payable_balance > 0:
             row["risk_label"] = "待付款"
             row["arrival_alert"] = "已形成应付，跟进账期/付款"
@@ -264,7 +264,7 @@ def render_purchase_dashboard(
     pending_items = query_rows(
         """
         SELECT poi.id, po.id AS order_id, po.order_no, po.expected_date, s.name AS supplier_name,
-               po.project_code, po.serial_no, p.code AS product_code, p.name AS product_name,
+               po.project_code, po.cabinet_no, p.code AS product_code, p.name AS product_name,
                p.specification, p.unit,
                poi.quantity, poi.received_qty,
                GREATEST(COALESCE(poi.quantity,0)-COALESCE(poi.received_qty,0),0) AS pending_receive_qty
@@ -278,10 +278,10 @@ def render_purchase_dashboard(
         LIMIT 60
         """
     )
-    pending_items = filter_clean_rows(pending_items, "order_no", "supplier_name", "product_code", "product_name", "project_code", "serial_no")
+    pending_items = filter_clean_rows(pending_items, "order_no", "supplier_name", "product_code", "product_name", "project_code", "cabinet_no")
     requisitions = query_rows(
         """
-        SELECT pr.id, pr.req_no, pr.req_date, pr.project_code, pr.serial_no, pr.status,
+        SELECT pr.id, pr.req_no, pr.req_date, pr.project_code, pr.cabinet_no, pr.status,
                COUNT(pri.id) AS item_count,
                COALESCE(SUM(GREATEST(COALESCE(pri.quantity,0)-COALESCE(ordered.ordered_qty,0),0)), 0) AS remaining_qty
         FROM purchase_requisitions pr
@@ -312,7 +312,7 @@ def render_purchase_dashboard(
     return render_template(
         "purchase_order_list.html" if document_list else "purchase_dashboard.html",
         title="采购订单列表" if document_list else "采购工作台",
-        subtitle="采购订单单据列表：新建、查看、提交、审核、收货、关闭、作废。" if document_list else "按项目号和机号推进缺料、采购、到货、入库和应付闭环。",
+        subtitle="采购订单单据列表：新建、查看、提交、审核、收货、关闭、作废。" if document_list else "按项目号和柜号推进缺料、采购、到货、入库和应付闭环。",
         document_list=document_list,
         back_url=back_url,
         metrics=metrics,

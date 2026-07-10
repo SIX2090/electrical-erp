@@ -42,7 +42,7 @@ def db_checks(values):
             conn.commit()
             cur.execute(
                 """
-                SELECT so.id, so.order_no, c.name AS customer_name, so.project_code, so.serial_no,
+                SELECT so.id, so.order_no, c.name AS customer_name, so.project_code, so.cabinet_no,
                        so.status, so.total_amount, COUNT(soi.id) AS item_lines
                 FROM sales_orders so
                 LEFT JOIN customers c ON c.id=so.customer_id
@@ -56,7 +56,7 @@ def db_checks(values):
             checks.append(("sales_order_exists", bool(order), order.get("order_no") if order else "missing"))
             if order:
                 checks.append(("project_code_matches", order.get("project_code") == values["项目号"], order.get("project_code")))
-                checks.append(("serial_no_matches", order.get("serial_no") == values["机号"], order.get("serial_no")))
+                checks.append(("cabinet_no_matches", order.get("cabinet_no") == values["柜号"], order.get("cabinet_no")))
                 checks.append(("customer_matches", order.get("customer_name") == values["客户名称"], order.get("customer_name")))
                 checks.append(("sales_item_lines", int(order.get("item_lines") or 0) > 0, order.get("item_lines")))
                 order_id = order["id"]
@@ -118,7 +118,7 @@ def page_checks(values):
     passwords = load_passwords()
     app = create_app({"TESTING": True, "LOGIN_RATE_LIMIT": 1000})
     cases = {
-        "pilot_sales": [f"/projects?keyword={values['项目号']}", f"/projects?keyword={values['机号']}", "/sales-orders"],
+        "pilot_sales": [f"/projects?keyword={values['项目号']}", f"/projects?keyword={values['柜号']}", "/sales-orders"],
         "pilot_purchase": ["/purchase_request", "/purchase-orders"],
         "pilot_warehouse": ["/inventory", "/transactions"],
         "pilot_production": ["/engineering/kitting", "/production-enhance/mrp-requirements", "/procurement/suggestions", "/work-orders", "/requisition"],
@@ -143,7 +143,7 @@ def page_checks(values):
         if username == "pilot_sales":
             response = client.get(f"/projects?keyword={values['项目号']}")
             body = response.get_data(as_text=True)
-            checks.append(("pilot_sales_project_visible", values["项目号"] in body and values["机号"] in body, "project ledger"))
+            checks.append(("pilot_sales_project_visible", values["项目号"] in body and values["柜号"] in body, "project ledger"))
     return checks
 
 
@@ -157,7 +157,7 @@ def main():
     print(f"checked_items={len(checks)}")
     print(f"sales_order={values.get('sales_order_no')}")
     print(f"project_code={values.get('项目号')}")
-    print(f"serial_no={values.get('机号')}")
+    print(f"cabinet_no={values.get('柜号')}")
     for name, ok, detail in checks:
         print(f"{'ok' if ok else 'failed'} | {name} | {detail}")
     return 1 if failures else 0

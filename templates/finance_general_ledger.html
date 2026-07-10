@@ -86,7 +86,7 @@
                 <th class="text-end">借方金额</th>
                 <th class="text-end">贷方金额</th>
                 <th>项目号</th>
-                <th>机号</th>
+                <th>柜号</th>
             </tr>
         </thead>
         <tbody>
@@ -100,7 +100,7 @@
                 <td class="text-end">{{ row.debit_amount | money_fmt }}</td>
                 <td class="text-end">{{ row.credit_amount | money_fmt }}</td>
                 <td>{{ row.project_code or '-' }}</td>
-                <td>{{ row.serial_no or '-' }}</td>
+                <td>{{ row.cabinet_no or '-' }}</td>
             </tr>
             {% else %}
             <tr><td colspan="9" class="text-center text-muted py-4">该期间无已过账凭证；当前财务一期仅开放凭证来源查询，不开放手工录入和过账。</td></tr>

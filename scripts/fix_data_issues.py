@@ -178,7 +178,7 @@ def fix_project_master():
 
         # 查找该项目的销售订单信息
         cur.execute("""
-            SELECT so.customer_id, so.project_code, so.serial_no, c.name AS customer_name
+            SELECT so.customer_id, so.project_code, so.cabinet_no, c.name AS customer_name
             FROM sales_orders so
             LEFT JOIN customers c ON c.id = so.customer_id
             WHERE so.project_code = %s

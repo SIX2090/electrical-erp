@@ -13,7 +13,7 @@
         </form>
         <form method="post" action="/trace/integrity/backfill" class="d-inline">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" class="btn btn-success btn-sm" onclick="return confirm('立即回填缺失的追溯链接与项目号/机号字段？')">
+            <button type="submit" class="btn btn-success btn-sm" onclick="return confirm('立即回填缺失的追溯链接与项目号/柜号字段？')">
                 <i class="bi bi-magic"></i> P4-B2 追溯回填
             </button>
         </form>
@@ -67,7 +67,7 @@
                         <th>单据类型</th>
                         <th>单据编号</th>
                         <th>项目号</th>
-                        <th>机号</th>
+                        <th>柜号</th>
                         <th>说明</th>
                         <th>级别</th>
                         <th>状态</th>
@@ -83,7 +83,7 @@
                         <td>{{ label(item.doc_type) if label is defined else item.doc_type }}</td>
                         <td>{{ item.doc_no or '-' }}</td>
                         <td>{{ item.project_code or '-' }}</td>
-                        <td>{{ item.serial_no or '-' }}</td>
+                        <td>{{ item.cabinet_no or '-' }}</td>
                         <td>{{ item.description or '-' }}</td>
                         <td>
                             {% if item.severity == 'error' %}

@@ -67,7 +67,7 @@ def main():
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT so.id, so.order_no, so.project_code, so.serial_no, so.status,
+                SELECT so.id, so.order_no, so.project_code, so.cabinet_no, so.status,
                        so.delivery_date, so.total_amount, c.name AS customer_name,
                        COUNT(DISTINCT soi.id) AS item_lines,
                        COUNT(DISTINCT soi.product_id) AS product_count,
@@ -82,9 +82,9 @@ def main():
                 LEFT JOIN mrp_requirements mr
                   ON (mr.source_document_type='sales_order' AND mr.source_document_id=so.id)
                   OR (NULLIF(so.project_code, '') IS NOT NULL AND mr.project_code=so.project_code)
-                  OR (NULLIF(so.serial_no, '') IS NOT NULL AND mr.serial_no=so.serial_no)
+                  OR (NULLIF(so.cabinet_no, '') IS NOT NULL AND mr.cabinet_no=so.cabinet_no)
                 WHERE so.id IS NOT NULL
-                GROUP BY so.id, so.order_no, so.project_code, so.serial_no, so.status,
+                GROUP BY so.id, so.order_no, so.project_code, so.cabinet_no, so.status,
                          so.delivery_date, so.total_amount, c.name
                 ORDER BY so.id DESC
                 LIMIT 500
@@ -102,8 +102,8 @@ def main():
             reasons.append("missing customer")
         if not row.get("project_code"):
             reasons.append("missing project number")
-        if not row.get("serial_no"):
-            reasons.append("missing serial number")
+        if not row.get("cabinet_no"):
+            reasons.append("missing cabinet number")
         if not clean_status(row.get("status")):
             reasons.append("dirty or unknown status")
         if int(row.get("item_lines") or 0) <= 0:
@@ -126,7 +126,7 @@ def main():
         "order_no",
         "customer",
         "project_code",
-        "serial_no",
+        "cabinet_no",
         "status",
         "delivery_date",
         "total_amount",
@@ -162,7 +162,7 @@ def main():
     ]
     for row in candidates[:20]:
         lines.append(
-            f"| `{clean_for_report(row.get('order_no'), '')}` | {row.get('customer_report') or '-'} | `{clean_for_report(row.get('project_code'), '')}` | `{clean_for_report(row.get('serial_no'), '')}` | {row.get('status_report') or '-'} | {row.get('item_lines') or 0} | {row.get('bom_count') or 0} | {row.get('bom_item_count') or 0} | {row.get('mrp_count') or 0} |"
+            f"| `{clean_for_report(row.get('order_no'), '')}` | {row.get('customer_report') or '-'} | `{clean_for_report(row.get('project_code'), '')}` | `{clean_for_report(row.get('cabinet_no'), '')}` | {row.get('status_report') or '-'} | {row.get('item_lines') or 0} | {row.get('bom_count') or 0} | {row.get('bom_item_count') or 0} | {row.get('mrp_count') or 0} |"
         )
     if not candidates:
         lines.append("| - | - | - | - | - | 0 | 0 | 0 | 0 |")
@@ -177,7 +177,7 @@ def main():
     )
     for row in rejected[:30]:
         lines.append(
-            f"| `{clean_for_report(row.get('order_no'), '')}` | {row.get('customer_report') or '-'} | `{clean_for_report(row.get('project_code'), '')}` | `{clean_for_report(row.get('serial_no'), '')}` | {row.get('status_report') or '-'} | {row.get('trial_gaps') or ''} |"
+            f"| `{clean_for_report(row.get('order_no'), '')}` | {row.get('customer_report') or '-'} | `{clean_for_report(row.get('project_code'), '')}` | `{clean_for_report(row.get('cabinet_no'), '')}` | {row.get('status_report') or '-'} | {row.get('trial_gaps') or ''} |"
         )
     md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"trial_candidates={len(candidates)}")

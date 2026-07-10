@@ -32,7 +32,7 @@ def _sum_quantity(query_one, sql: str, params) -> Decimal:
     return _as_decimal(row.get("qty"))
 
 
-def _inventory_quantities(query_one, product_id, project_code=None, serial_no=None) -> Dict[str, Decimal]:
+def _inventory_quantities(query_one, product_id, project_code=None, cabinet_no=None) -> Dict[str, Decimal]:
     row = query_one(
         """
         SELECT COALESCE(SUM(quantity), 0) AS stock_qty,
@@ -40,9 +40,9 @@ def _inventory_quantities(query_one, product_id, project_code=None, serial_no=No
         FROM inventory_balances
         WHERE product_id=%s
           AND (COALESCE(%s, '')='' OR COALESCE(project_code, '')='' OR COALESCE(project_code, '')=COALESCE(%s, ''))
-          AND (COALESCE(%s, '')='' OR COALESCE(serial_no, '')='' OR COALESCE(serial_no, '')=COALESCE(%s, ''))
+          AND (COALESCE(%s, '')='' OR COALESCE(cabinet_no, '')='' OR COALESCE(cabinet_no, '')=COALESCE(%s, ''))
         """,
-        (product_id, project_code, project_code, serial_no, serial_no),
+        (product_id, project_code, project_code, cabinet_no, cabinet_no),
     ) or {}
     stock_qty = _as_decimal(row.get("stock_qty"))
     locked_qty = _as_decimal(row.get("locked_qty"))
@@ -54,22 +54,22 @@ def _inventory_quantities(query_one, product_id, project_code=None, serial_no=No
     }
 
 
-def _inventory_available_other_projects(query_one, product_id, project_code=None, serial_no=None) -> Decimal:
-    """Available stock in other project/serial buckets (for transfer suggestions)."""
+def _inventory_available_other_projects(query_one, product_id, project_code=None, cabinet_no=None) -> Decimal:
+    """Available stock in other project/cabinet buckets (for transfer suggestions)."""
     row = query_one(
         """
         SELECT COALESCE(SUM(GREATEST(COALESCE(quantity, 0) - COALESCE(locked_qty, 0), 0)), 0) AS qty
         FROM inventory_balances
         WHERE product_id=%s
           AND (COALESCE(%s, '')='' OR COALESCE(project_code, '')<>COALESCE(%s, ''))
-          AND (COALESCE(%s, '')='' OR COALESCE(serial_no, '')<>COALESCE(%s, ''))
+          AND (COALESCE(%s, '')='' OR COALESCE(cabinet_no, '')<>COALESCE(%s, ''))
         """,
-        (product_id, project_code, project_code, serial_no, serial_no),
+        (product_id, project_code, project_code, cabinet_no, cabinet_no),
     ) or {}
     return _positive(row.get("qty"))
 
 
-def _purchase_requisition_qty(query_one, product_id, project_code=None, serial_no=None) -> Decimal:
+def _purchase_requisition_qty(query_one, product_id, project_code=None, cabinet_no=None) -> Decimal:
     return _sum_quantity(
         query_one,
         """
@@ -79,13 +79,13 @@ def _purchase_requisition_qty(query_one, product_id, project_code=None, serial_n
         WHERE pri.product_id=%s
           AND COALESCE(pr.status, '') NOT IN ('已关闭','已作废','已取消','closed','void','voided','cancelled','canceled')
           AND (COALESCE(%s, '')='' OR COALESCE(pri.project_code, pr.project_code, '')=COALESCE(%s, ''))
-          AND (COALESCE(%s, '')='' OR COALESCE(pri.serial_no, pr.serial_no, '')=COALESCE(%s, ''))
+          AND (COALESCE(%s, '')='' OR COALESCE(pri.cabinet_no, pr.cabinet_no, '')=COALESCE(%s, ''))
         """,
-        (product_id, project_code, project_code, serial_no, serial_no),
+        (product_id, project_code, project_code, cabinet_no, cabinet_no),
     )
 
 
-def _purchase_on_order_qty(query_one, product_id, project_code=None, serial_no=None) -> Decimal:
+def _purchase_on_order_qty(query_one, product_id, project_code=None, cabinet_no=None) -> Decimal:
     return _sum_quantity(
         query_one,
         """
@@ -95,13 +95,13 @@ def _purchase_on_order_qty(query_one, product_id, project_code=None, serial_no=N
         WHERE poi.product_id=%s
           AND COALESCE(po.status, '') NOT IN ('已关闭','已作废','已取消','closed','completed','void','voided','cancelled','canceled')
           AND (COALESCE(%s, '')='' OR COALESCE(poi.line_project_code, po.project_code, '')=COALESCE(%s, ''))
-          AND (COALESCE(%s, '')='' OR COALESCE(poi.line_serial_no, po.serial_no, '')=COALESCE(%s, ''))
+          AND (COALESCE(%s, '')='' OR COALESCE(poi.line_cabinet_no, po.cabinet_no, '')=COALESCE(%s, ''))
         """,
-        (product_id, project_code, project_code, serial_no, serial_no),
+        (product_id, project_code, project_code, cabinet_no, cabinet_no),
     )
 
 
-def _outsource_on_order_qty(query_one, product_id, project_code=None, serial_no=None) -> Decimal:
+def _outsource_on_order_qty(query_one, product_id, project_code=None, cabinet_no=None) -> Decimal:
     """Open subcontract orders for this product (not yet received)."""
     return _sum_quantity(
         query_one,
@@ -111,13 +111,13 @@ def _outsource_on_order_qty(query_one, product_id, project_code=None, serial_no=
         WHERE so.product_id=%s
           AND COALESCE(so.status, '') NOT IN ('已关闭','已作废','已取消','closed','completed','void','voided','cancelled','canceled')
           AND (COALESCE(%s, '')='' OR COALESCE(so.project_code, '')=COALESCE(%s, ''))
-          AND (COALESCE(%s, '')='' OR COALESCE(so.serial_no, '')=COALESCE(%s, ''))
+          AND (COALESCE(%s, '')='' OR COALESCE(so.cabinet_no, '')=COALESCE(%s, ''))
         """,
-        (product_id, project_code, project_code, serial_no, serial_no),
+        (product_id, project_code, project_code, cabinet_no, cabinet_no),
     )
 
 
-def _production_on_order_qty(query_one, product_id, project_code=None, serial_no=None) -> Decimal:
+def _production_on_order_qty(query_one, product_id, project_code=None, cabinet_no=None) -> Decimal:
     """Open work orders producing this product (not yet completed)."""
     return _sum_quantity(
         query_one,
@@ -127,13 +127,13 @@ def _production_on_order_qty(query_one, product_id, project_code=None, serial_no
         WHERE wo.product_id=%s
           AND COALESCE(wo.status, '') NOT IN ('已完工','已关闭','已完成','closed','completed','cancelled','canceled')
           AND (COALESCE(%s, '')='' OR COALESCE(wo.project_code, '')=COALESCE(%s, ''))
-          AND (COALESCE(%s, '')='' OR COALESCE(wo.serial_no, '')=COALESCE(%s, ''))
+          AND (COALESCE(%s, '')='' OR COALESCE(wo.cabinet_no, '')=COALESCE(%s, ''))
         """,
-        (product_id, project_code, project_code, serial_no, serial_no),
+        (product_id, project_code, project_code, cabinet_no, cabinet_no),
     )
 
 
-def _supply_commitment_dates(query_one, product_id, project_code=None, serial_no=None) -> Dict[str, Any]:
+def _supply_commitment_dates(query_one, product_id, project_code=None, cabinet_no=None) -> Dict[str, Any]:
     """Read existing supply commitment dates for kitting readiness calculation."""
     purchase_request = query_one(
         """
@@ -144,9 +144,9 @@ def _supply_commitment_dates(query_one, product_id, project_code=None, serial_no
           AND COALESCE(pr.status, '') NOT IN ('closed','void','voided','cancelled','canceled')
           AND COALESCE(pri.quantity, 0) > 0
           AND (COALESCE(%s, '')='' OR COALESCE(pri.project_code, pr.project_code, '')=COALESCE(%s, ''))
-          AND (COALESCE(%s, '')='' OR COALESCE(pri.serial_no, pr.serial_no, '')=COALESCE(%s, ''))
+          AND (COALESCE(%s, '')='' OR COALESCE(pri.cabinet_no, pr.cabinet_no, '')=COALESCE(%s, ''))
         """,
-        (product_id, project_code, project_code, serial_no, serial_no),
+        (product_id, project_code, project_code, cabinet_no, cabinet_no),
     ) or {}
     purchase_order = query_one(
         """
@@ -157,9 +157,9 @@ def _supply_commitment_dates(query_one, product_id, project_code=None, serial_no
           AND COALESCE(po.status, '') NOT IN ('closed','completed','void','voided','cancelled','canceled')
           AND GREATEST(COALESCE(poi.quantity, 0)-COALESCE(poi.received_qty, 0), 0) > 0
           AND (COALESCE(%s, '')='' OR COALESCE(poi.line_project_code, po.project_code, '')=COALESCE(%s, ''))
-          AND (COALESCE(%s, '')='' OR COALESCE(poi.line_serial_no, po.serial_no, '')=COALESCE(%s, ''))
+          AND (COALESCE(%s, '')='' OR COALESCE(poi.line_cabinet_no, po.cabinet_no, '')=COALESCE(%s, ''))
         """,
-        (product_id, project_code, project_code, serial_no, serial_no),
+        (product_id, project_code, project_code, cabinet_no, cabinet_no),
     ) or {}
     outsource_order = query_one(
         """
@@ -169,9 +169,9 @@ def _supply_commitment_dates(query_one, product_id, project_code=None, serial_no
           AND COALESCE(so.status, '') NOT IN ('closed','completed','void','voided','cancelled','canceled')
           AND GREATEST(COALESCE(so.quantity, 0)-COALESCE(so.received_qty, 0), 0) > 0
           AND (COALESCE(%s, '')='' OR COALESCE(so.project_code, so.line_project_code, '')=COALESCE(%s, ''))
-          AND (COALESCE(%s, '')='' OR COALESCE(so.serial_no, so.line_serial_no, '')=COALESCE(%s, ''))
+          AND (COALESCE(%s, '')='' OR COALESCE(so.cabinet_no, so.line_cabinet_no, '')=COALESCE(%s, ''))
         """,
-        (product_id, project_code, project_code, serial_no, serial_no),
+        (product_id, project_code, project_code, cabinet_no, cabinet_no),
     ) or {}
     production_order = query_one(
         """
@@ -181,9 +181,9 @@ def _supply_commitment_dates(query_one, product_id, project_code=None, serial_no
           AND COALESCE(wo.status, '') NOT IN ('closed','completed','cancelled','canceled')
           AND COALESCE(wo.quantity, 0) > 0
           AND (COALESCE(%s, '')='' OR COALESCE(wo.project_code, wo.line_project_code, '')=COALESCE(%s, ''))
-          AND (COALESCE(%s, '')='' OR COALESCE(wo.serial_no, wo.line_serial_no, '')=COALESCE(%s, ''))
+          AND (COALESCE(%s, '')='' OR COALESCE(wo.cabinet_no, wo.line_cabinet_no, '')=COALESCE(%s, ''))
         """,
-        (product_id, project_code, project_code, serial_no, serial_no),
+        (product_id, project_code, project_code, cabinet_no, cabinet_no),
     ) or {}
     return {
         "purchase_request_date": purchase_request.get("ready_date"),
@@ -264,7 +264,7 @@ def _kitting_action_fields(row: Dict[str, Any], net_qty: Decimal, suggestion_typ
             "kitting_state_label": "已齐套",
             "blocked_reason": "库存、在途、在制或替代料可覆盖需求。",
             "owner_role": "生产计划",
-            "next_action": "按工单领料节奏复核批次、库位和项目机号后投产。",
+            "next_action": "按工单领料节奏复核批次、库位和项目柜号后投产。",
             "downstream_impact": "支持工单领料、投产、完工入库和项目交付。",
             "action_url": "/requisition",
             "estimated_ready_date": estimated_ready_date,
@@ -273,9 +273,9 @@ def _kitting_action_fields(row: Dict[str, Any], net_qty: Decimal, suggestion_typ
         return {
             "kitting_state": "shortage",
             "kitting_state_label": "需调拨",
-            "blocked_reason": f"{material} 当前项目/机号缺 {net_qty}，其他项目或公共库存可覆盖。",
+            "blocked_reason": f"{material} 当前项目/柜号缺 {net_qty}，其他项目或公共库存可覆盖。",
             "owner_role": "仓库/计划",
-            "next_action": "发起库存调拨或释放可用库存，确认项目机号归属后再领料。",
+            "next_action": "发起库存调拨或释放可用库存，确认项目柜号归属后再领料。",
             "downstream_impact": "未调拨会阻塞工单领料和投产。",
             "action_url": "/transfers/new",
             "estimated_ready_date": estimated_ready_date,
@@ -344,7 +344,7 @@ def expand_bom_multi_level(
     level: int = 0,
     parent_material_id: Optional[int] = None,
     project_code: Optional[str] = None,
-    serial_no: Optional[str] = None,
+    cabinet_no: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """Recursively expand BOM. Returns flat list of BOM rows across all levels."""
     rows: List[Dict[str, Any]] = []
@@ -404,7 +404,7 @@ def expand_bom_multi_level(
                 level=level + 1,
                 parent_material_id=child_product_id,
                 project_code=project_code,
-                serial_no=serial_no,
+                cabinet_no=cabinet_no,
             )
             rows.extend(child_rows)
     return rows
@@ -416,7 +416,7 @@ def calculate_net_requirements(
     bom_rows: List[Dict[str, Any]],
     quantity,
     project_code: Optional[str] = None,
-    serial_no: Optional[str] = None,
+    cabinet_no: Optional[str] = None,
     required_date: Optional[date] = None,
 ) -> List[Dict[str, Any]]:
     """For each BOM row, compute gross / available / net qty and suggestion type.
@@ -445,15 +445,15 @@ def calculate_net_requirements(
         gross_qty = base_qty * parent_qty * (Decimal("1") + loss_rate / Decimal("100"))
         if not product_id or gross_qty <= 0:
             continue
-        inventory = _inventory_quantities(query_one, product_id, project_code, serial_no)
+        inventory = _inventory_quantities(query_one, product_id, project_code, cabinet_no)
         available_qty = inventory["available_qty"]
         locked_qty = inventory["locked_qty"]
-        purchase_on_order_qty = _purchase_on_order_qty(query_one, product_id, project_code, serial_no)
-        purchase_requisition_qty = _purchase_requisition_qty(query_one, product_id, project_code, serial_no)
-        outsource_on_order_qty = _outsource_on_order_qty(query_one, product_id, project_code, serial_no)
-        production_on_order_qty = _production_on_order_qty(query_one, product_id, project_code, serial_no)
-        other_project_available = _inventory_available_other_projects(query_one, product_id, project_code, serial_no)
-        supply_dates = _supply_commitment_dates(query_one, product_id, project_code, serial_no)
+        purchase_on_order_qty = _purchase_on_order_qty(query_one, product_id, project_code, cabinet_no)
+        purchase_requisition_qty = _purchase_requisition_qty(query_one, product_id, project_code, cabinet_no)
+        outsource_on_order_qty = _outsource_on_order_qty(query_one, product_id, project_code, cabinet_no)
+        production_on_order_qty = _production_on_order_qty(query_one, product_id, project_code, cabinet_no)
+        other_project_available = _inventory_available_other_projects(query_one, product_id, project_code, cabinet_no)
+        supply_dates = _supply_commitment_dates(query_one, product_id, project_code, cabinet_no)
 
         # Safety stock: subtract from available inventory so MRP suggests
         # replenishment to preserve the safety buffer.
@@ -499,7 +499,7 @@ def calculate_net_requirements(
                 sub_ratio = _as_decimal(sub.get("ratio")) or Decimal("1")
                 sub_needed_qty = net_qty * sub_ratio
                 sub_inventory = _inventory_quantities(
-                    query_one, sub_product_id, project_code, serial_no
+                    query_one, sub_product_id, project_code, cabinet_no
                 )
                 sub_available = sub_inventory["available_qty"]
                 if sub_available >= sub_needed_qty:
@@ -552,7 +552,7 @@ def calculate_net_requirements(
             "parent_material_id": row.get("parent_material_id"),
             "is_manufactured": bool(row.get("is_manufactured")),
             "project_code": project_code,
-            "serial_no": serial_no,
+            "cabinet_no": cabinet_no,
             "substitute_used": substitute_used,
             "supply_dates": supply_dates,
         }
@@ -601,7 +601,7 @@ def run_mrp(
     source_id: Optional[int] = None,
     source_no: Optional[str] = None,
     project_code: Optional[str] = None,
-    serial_no: Optional[str] = None,
+    cabinet_no: Optional[str] = None,
     bom_id: Optional[int] = None,
     bom_version_id: Optional[int] = None,
     quantity=1,
@@ -621,7 +621,7 @@ def run_mrp(
         return {"status": "error", "message": "数量必须大于 0"}
     if source_type == "work_order" and source_id:
         wo = query_one(
-            "SELECT id, wo_no, product_id, bom_id, quantity, project_code, serial_no, status, planned_completion_date FROM work_orders WHERE id=%s",
+            "SELECT id, wo_no, product_id, bom_id, quantity, project_code, cabinet_no, status, planned_completion_date FROM work_orders WHERE id=%s",
             (source_id,),
         ) or {}
         if not wo:
@@ -631,8 +631,8 @@ def run_mrp(
             bom_id = wo.get("bom_id")
         if not project_code:
             project_code = wo.get("project_code")
-        if not serial_no:
-            serial_no = wo.get("serial_no")
+        if not cabinet_no:
+            cabinet_no = wo.get("cabinet_no")
         if not source_no:
             source_no = wo.get("wo_no")
         if parent_qty <= 0:
@@ -644,7 +644,7 @@ def run_mrp(
         product_id = source_id
     elif source_type == "sales_order" and source_id:
         so = query_one(
-            "SELECT id, order_no, project_code, serial_no, delivery_date FROM sales_orders WHERE id=%s",
+            "SELECT id, order_no, project_code, cabinet_no, delivery_date FROM sales_orders WHERE id=%s",
             (source_id,),
         ) or {}
         if not so:
@@ -661,8 +661,8 @@ def run_mrp(
             source_no = so.get("order_no")
         if not project_code:
             project_code = so.get("project_code")
-        if not serial_no:
-            serial_no = so.get("serial_no")
+        if not cabinet_no:
+            cabinet_no = so.get("cabinet_no")
         if parent_qty <= 0:
             parent_qty = _as_decimal(so_item.get("quantity"))
         # Derive required date from sales order delivery date.
@@ -706,7 +706,7 @@ def run_mrp(
     run_row = execute_and_return(
         """
         INSERT INTO mrp_runs
-            (run_no, source_type, source_id, source_no, project_code, serial_no,
+            (run_no, source_type, source_id, source_no, project_code, cabinet_no,
              bom_version_id, bom_snapshot_id, status, kitting_rate, total_gross_qty, total_net_qty,
              shortage_line_count, created_by, created_at)
         VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,CURRENT_TIMESTAMP)
@@ -718,7 +718,7 @@ def run_mrp(
             source_id,
             source_no,
             project_code,
-            serial_no,
+            cabinet_no,
             bom_version_id,
             bom_snapshot_id,
             "running",
@@ -740,7 +740,7 @@ def run_mrp(
         level=0,
         parent_material_id=None,
         project_code=project_code,
-        serial_no=serial_no,
+        cabinet_no=cabinet_no,
     )
     net_rows = calculate_net_requirements(
         query_one,
@@ -748,7 +748,7 @@ def run_mrp(
         bom_rows,
         parent_qty,
         project_code=project_code,
-        serial_no=serial_no,
+        cabinet_no=cabinet_no,
         required_date=required_date,
     )
 
@@ -765,7 +765,7 @@ def run_mrp(
                 (run_id, material_id, material_code, material_name, material_spec, material_unit,
                  bom_level, gross_qty, available_qty, locked_qty, reserved_qty,
                  purchase_on_order_qty, production_on_order_qty, outsource_on_order_qty,
-                 net_qty, suggestion_type, required_date, project_code, serial_no,
+                 net_qty, suggestion_type, required_date, project_code, cabinet_no,
                  source_bom_item_id, parent_material_id, loss_rate, substitute_for, created_at)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,CURRENT_TIMESTAMP)
             """,
@@ -788,7 +788,7 @@ def run_mrp(
                 row.get("suggestion_type"),
                 row.get("required_date"),
                 row.get("project_code"),
-                row.get("serial_no"),
+                row.get("cabinet_no"),
                 row.get("source_bom_item_id"),
                 row.get("parent_material_id"),
                 row.get("loss_rate"),
@@ -806,7 +806,7 @@ def run_mrp(
                 """
                 INSERT INTO mrp_suggestions
                     (run_id, suggestion_type, material_id, material_code, material_name,
-                     qty, required_date, project_code, serial_no, status, created_at)
+                     qty, required_date, project_code, cabinet_no, status, created_at)
                 VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,CURRENT_TIMESTAMP)
                 """,
                 (
@@ -818,7 +818,7 @@ def run_mrp(
                     net_qty,
                     row.get("required_date"),
                     row.get("project_code"),
-                    row.get("serial_no"),
+                    row.get("cabinet_no"),
                     "open",
                 ),
             )
@@ -933,7 +933,7 @@ def get_mrp_run_detail(query_one, query_rows, run_id: int) -> Dict[str, Any]:
 
 
 def list_mrp_runs(query_rows, filters: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
-    """List MRP runs with optional filters (status, source_type, project_code, serial_no, keyword)."""
+    """List MRP runs with optional filters (status, source_type, project_code, cabinet_no, keyword)."""
     filters = filters or {}
     where = []
     params: List[Any] = []
@@ -946,18 +946,18 @@ def list_mrp_runs(query_rows, filters: Optional[Dict[str, Any]] = None) -> List[
     if filters.get("project_code"):
         where.append("mr.project_code=%s")
         params.append(filters["project_code"])
-    if filters.get("serial_no"):
-        where.append("mr.serial_no=%s")
-        params.append(filters["serial_no"])
+    if filters.get("cabinet_no"):
+        where.append("mr.cabinet_no=%s")
+        params.append(filters["cabinet_no"])
     if filters.get("keyword"):
-        where.append("(mr.run_no ILIKE %s OR mr.source_no ILIKE %s OR mr.project_code ILIKE %s OR mr.serial_no ILIKE %s)")
+        where.append("(mr.run_no ILIKE %s OR mr.source_no ILIKE %s OR mr.project_code ILIKE %s OR mr.cabinet_no ILIKE %s)")
         kw = f"%{filters['keyword']}%"
         params.extend([kw, kw, kw, kw])
     where_sql = "WHERE " + " AND ".join(where) if where else ""
     rows = query_rows(
         f"""
         SELECT mr.id, mr.run_no, mr.source_type, mr.source_id, mr.source_no,
-               mr.project_code, mr.serial_no, mr.status, mr.kitting_rate,
+               mr.project_code, mr.cabinet_no, mr.status, mr.kitting_rate,
                mr.total_gross_qty, mr.total_net_qty, mr.shortage_line_count,
                mr.created_by, mr.created_at,
                u.username AS created_by_name
@@ -986,7 +986,7 @@ def get_mrp_suggestions(query_rows, run_id: Optional[int] = None, status: Option
     rows = query_rows(
         f"""
         SELECT ms.id, ms.run_id, ms.suggestion_type, ms.material_id, ms.material_code,
-               ms.material_name, ms.qty, ms.required_date, ms.project_code, ms.serial_no,
+               ms.material_name, ms.qty, ms.required_date, ms.project_code, ms.cabinet_no,
                ms.status, ms.converted_doc_type, ms.converted_doc_id, ms.converted_doc_no,
                ms.converted_at, ms.created_at,
                mr.run_no, mr.source_type, mr.source_no,
@@ -1032,7 +1032,7 @@ def build_kitting_analysis(query_one, query_rows, work_order_id: int) -> Dict[st
     """Build a kitting analysis for a work order: BOM coverage, shortage lines, kitting rate."""
     wo = query_one(
         """
-        SELECT wo.id, wo.wo_no, wo.product_id, wo.bom_id, wo.quantity, wo.project_code, wo.serial_no,
+        SELECT wo.id, wo.wo_no, wo.product_id, wo.bom_id, wo.quantity, wo.project_code, wo.cabinet_no,
                wo.status, p.code AS product_code, p.name AS product_name
         FROM work_orders wo
         LEFT JOIN products p ON p.id=wo.product_id
@@ -1048,7 +1048,7 @@ def build_kitting_analysis(query_one, query_rows, work_order_id: int) -> Dict[st
         wo.get("product_id"),
         bom_id=wo.get("bom_id"),
         project_code=wo.get("project_code"),
-        serial_no=wo.get("serial_no"),
+        cabinet_no=wo.get("cabinet_no"),
     )
     net_rows = calculate_net_requirements(
         query_one,
@@ -1056,7 +1056,7 @@ def build_kitting_analysis(query_one, query_rows, work_order_id: int) -> Dict[st
         bom_rows,
         wo.get("quantity"),
         project_code=wo.get("project_code"),
-        serial_no=wo.get("serial_no"),
+        cabinet_no=wo.get("cabinet_no"),
     )
     line_count = len(net_rows)
     shortage_count = sum(1 for r in net_rows if _as_decimal(r.get("net_qty")) > 0)
@@ -1085,7 +1085,7 @@ def build_kitting_analysis(query_one, query_rows, work_order_id: int) -> Dict[st
         gate_status = "can_start"
         gate_label = "齐套可投产"
         gate_reason = "BOM物料已被库存、在途、在制或替代料覆盖。"
-        gate_next_action = "进入工单领料，核对项目号、机号、批次、库位后投产。"
+        gate_next_action = "进入工单领料，核对项目号、柜号、批次、库位后投产。"
     for r in net_rows:
         r["suggestion_label"] = suggestion_label(r.get("suggestion_type"))
     return {
