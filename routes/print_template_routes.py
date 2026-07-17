@@ -196,7 +196,7 @@ def _sanitize_layout(layout):
     return layout
 
 
-def _default_grid_layout(document_label: str) -> dict:
+def _legacy_default_grid_layout(document_label: str) -> dict:
     cells = {
         "1-1": document_label,
         "3-1": "单据编号",
@@ -285,7 +285,7 @@ def _normalize_layout(layout_json, document_type: str) -> dict:
     return _sanitize_layout(layout)
 
 
-def _initial_html(document_label: str) -> str:
+def _legacy_initial_html(document_label: str) -> str:
     return f"""<div class="print-sheet-title">{document_label}</div>
 <div class="print-sheet-meta">
     <span>单据编号：{{{{ 单据编号 }}}}</span>
@@ -354,7 +354,7 @@ FIELD_GROUPS = [
 ]
 
 
-def _default_grid_layout(document_label: str) -> dict:
+def _legacy_v2_default_grid_layout(document_label: str) -> dict:
     cells = {
         "1-1": document_label,
         "3-1": "单据编号",
@@ -455,14 +455,14 @@ DOCUMENT_TYPES = [
 ]
 
 
-def _document_label(document_type: str) -> str:
+def _legacy_document_label(document_type: str) -> str:
     for value, label, _category in DOCUMENT_TYPES:
         if value == document_type:
             return label
     return document_type or "-"
 
 
-def _initial_html(document_label: str) -> str:
+def _legacy_v2_initial_html(document_label: str) -> str:
     return f"""<div class="print-sheet-title">{document_label}</div>
 <div class="print-sheet-meta">
     <span>单据编号：{{{{ 单据编号 }}}}</span>
@@ -519,7 +519,7 @@ FIELD_GROUPS = [
 ]
 
 
-def _document_label(document_type: str) -> str:
+def _legacy_v2_document_label(document_type: str) -> str:
     for value, label, _category in DOCUMENT_TYPES:
         if value == document_type:
             return label

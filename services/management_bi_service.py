@@ -70,7 +70,7 @@ def _safe_query_one(query_fn, sql, params=None):
         return {}
 
 
-def get_sales_kpis(query_fn):
+def _legacy_get_sales_kpis(query_fn):
     """Sales module KPIs."""
     today = date.today()
     month_start = today.replace(day=1)
@@ -133,7 +133,7 @@ def get_sales_kpis(query_fn):
     }
 
 
-def get_production_kpis(query_fn):
+def _legacy_get_production_kpis(query_fn):
     """Production module KPIs."""
     # WIP work orders
     wip = _safe_query_one(
@@ -195,7 +195,7 @@ def get_production_kpis(query_fn):
     }
 
 
-def get_inventory_kpis(query_fn):
+def _legacy_get_inventory_kpis(query_fn):
     """Inventory module KPIs."""
     # Total inventory valuation
     valuation = _safe_query_one(
@@ -244,7 +244,7 @@ def get_inventory_kpis(query_fn):
     }
 
 
-def get_finance_kpis(query_fn):
+def _legacy_get_finance_kpis(query_fn):
     """Finance module KPIs."""
     # Cash and bank balances
     cash = _safe_query_one(
@@ -303,7 +303,7 @@ def get_finance_kpis(query_fn):
     }
 
 
-def get_procurement_kpis(query_fn):
+def _legacy_get_procurement_kpis(query_fn):
     """Procurement module KPIs."""
     # Open purchase orders
     open_pos = _safe_query_one(
@@ -364,7 +364,7 @@ def get_sales_kpis(query_fn):
         SELECT COUNT(*) AS order_count,
                COALESCE(SUM(COALESCE(total_amount, 0)), 0) AS total_amount
         FROM sales_orders
-        WHERE COALESCE(status, '') NOT IN ('cancelled', 'closed', 'voided')
+        WHERE COALESCE(status, '') NOT IN ('已取消','已关闭','已作废','cancelled','canceled','closed','voided','void')
         """,
     )
 
@@ -375,13 +375,13 @@ def get_sales_kpis(query_fn):
                COALESCE(SUM(COALESCE(shipped_amount, 0)), 0) AS total_amount
         FROM sales_shipments
         WHERE shipment_date >= %s
-          AND COALESCE(status, '') NOT IN ('cancelled', 'voided')
+          AND COALESCE(status, '') NOT IN ('已取消','已作废','cancelled','canceled','voided','void')
         """,
         (month_start,),
     )
 
     ar_aging = []
-    if _table_exists(query_fn, "receivables"):
+    if _table_exists(query_fn, "customer_receivables"):
         ar_aging = _safe_query(
             query_fn,
             """
@@ -396,8 +396,8 @@ def get_sales_kpis(query_fn):
                 END AS bucket,
                 COUNT(*) AS count,
                 COALESCE(SUM(balance), 0) AS amount
-            FROM receivables
-            WHERE COALESCE(status, '') NOT IN ('settled', 'closed', 'voided')
+            FROM customer_receivables
+            WHERE COALESCE(status, '') NOT IN ('已结清','已关闭','已作废','settled','closed','voided','void')
             GROUP BY 1
             """,
         )
@@ -429,7 +429,7 @@ def get_production_kpis(query_fn):
         SELECT COUNT(*) AS count,
                COALESCE(SUM(COALESCE(quantity, 0) - {completed_expr}), 0) AS pending_qty
         FROM work_orders
-        WHERE COALESCE(status, '') IN ('released', 'in_progress', 'pending')
+        WHERE COALESCE(status, '') IN ('已下达','已开工','生产中','待生产','待处理','released','in_progress','pending')
         """,
     )
 
@@ -439,7 +439,7 @@ def get_production_kpis(query_fn):
         SELECT COUNT(*) AS count,
                COALESCE(SUM({completed_expr}), 0) AS completed_qty
         FROM work_orders
-        WHERE COALESCE(status, '') IN ('completed', 'closed')
+        WHERE COALESCE(status, '') IN ('已完工','已完成','已关闭','completed','closed')
           AND {work_order_date_expr} >= %s
         """,
         (month_start,),
@@ -459,7 +459,7 @@ def get_production_kpis(query_fn):
             f"""
             SELECT COUNT(*) AS count
             FROM work_orders
-            WHERE COALESCE(status, '') NOT IN ('completed', 'closed', 'cancelled', 'voided')
+            WHERE COALESCE(status, '') NOT IN ('已完工','已完成','已关闭','已取消','已作废','completed','closed','cancelled','canceled','voided','void')
               AND {overdue_date_col} IS NOT NULL
               AND {overdue_date_col} < %s
             """,
@@ -532,36 +532,36 @@ def get_inventory_kpis(query_fn):
 def get_finance_kpis(query_fn):
     """Finance module KPIs with optional-table guards."""
     cash = {}
-    if _table_exists(query_fn, "fund_accounts"):
+    if _table_exists(query_fn, "cash_bank_accounts"):
         cash = _safe_query_one(
             query_fn,
             """
-            SELECT COALESCE(SUM(COALESCE(balance, 0)), 0) AS total_balance,
+            SELECT COALESCE(SUM(COALESCE(current_balance, 0)), 0) AS total_balance,
                    COUNT(*) AS account_count
-            FROM fund_accounts
-            WHERE COALESCE(status, '') != 'disabled'
+            FROM cash_bank_accounts
+            WHERE COALESCE(status, '') NOT IN ('停用','禁用','disabled','inactive')
             """,
         )
 
     ar_total = {}
-    if _table_exists(query_fn, "receivables"):
+    if _table_exists(query_fn, "customer_receivables"):
         ar_total = _safe_query_one(
             query_fn,
             """
             SELECT COALESCE(SUM(COALESCE(balance, 0)), 0) AS total
-            FROM receivables
-            WHERE COALESCE(status, '') NOT IN ('settled', 'closed', 'voided')
+            FROM customer_receivables
+            WHERE COALESCE(status, '') NOT IN ('已结清','已关闭','已作废','settled','closed','voided','void')
             """,
         )
 
     ap_total = {}
-    if _table_exists(query_fn, "payables"):
+    if _table_exists(query_fn, "supplier_payables"):
         ap_total = _safe_query_one(
             query_fn,
             """
             SELECT COALESCE(SUM(COALESCE(balance, 0)), 0) AS total
-            FROM payables
-            WHERE COALESCE(status, '') NOT IN ('settled', 'closed', 'voided')
+            FROM supplier_payables
+            WHERE COALESCE(status, '') NOT IN ('已结清','已关闭','已作废','settled','closed','voided','void')
             """,
         )
 
@@ -574,7 +574,7 @@ def get_finance_kpis(query_fn):
                COALESCE(SUM(COALESCE(total_debit, 0)), 0) AS total_amount
         FROM vouchers
         WHERE voucher_date >= %s
-          AND COALESCE(status, '') NOT IN ('voided')
+          AND COALESCE(status, '') NOT IN ('已作废','作废','voided','void')
         """,
         (month_start,),
     )
@@ -598,7 +598,7 @@ def get_procurement_kpis(query_fn):
         SELECT COUNT(*) AS count,
                COALESCE(SUM(COALESCE(total_amount, 0)), 0) AS total_amount
         FROM purchase_orders
-        WHERE COALESCE(status, '') NOT IN ('cancelled', 'closed', 'completed', 'voided')
+        WHERE COALESCE(status, '') NOT IN ('已取消','已关闭','已完成','已收货','已作废','cancelled','canceled','closed','completed','voided','void')
         """,
     )
 
@@ -609,11 +609,11 @@ def get_procurement_kpis(query_fn):
             """
             SELECT COUNT(*) AS count
             FROM purchase_orders po
-            WHERE COALESCE(po.status, '') NOT IN ('cancelled', 'closed', 'completed', 'voided')
+            WHERE COALESCE(po.status, '') NOT IN ('已取消','已关闭','已完成','已收货','已作废','cancelled','canceled','closed','completed','voided','void')
               AND NOT EXISTS (
                   SELECT 1 FROM purchase_receipts pr
                   WHERE pr.purchase_order_id = po.id
-                    AND COALESCE(pr.status, '') NOT IN ('cancelled', 'voided')
+                    AND COALESCE(pr.status, '') NOT IN ('已取消','已作废','cancelled','canceled','voided','void')
               )
             """,
         )
@@ -626,7 +626,7 @@ def get_procurement_kpis(query_fn):
         SELECT COUNT(*) AS count
         FROM purchase_receipts
         WHERE receipt_date >= %s
-          AND COALESCE(status, '') NOT IN ('cancelled', 'voided')
+          AND COALESCE(status, '') NOT IN ('已取消','已作废','cancelled','canceled','voided','void')
         """,
         (month_start,),
     )

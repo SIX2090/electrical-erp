@@ -85,7 +85,7 @@ def register_production_operation_routes(app, deps):
             REPORT_TYPE_SCRAP: "报废",
         }.get(value or REPORT_TYPE_COMPLETE, value or "完工")
 
-    def process_status_label(value):
+    def legacy_process_status_label(value):
         return {
             "not_started": "待报工",
             "ready": "待报工",
@@ -152,7 +152,7 @@ def register_production_operation_routes(app, deps):
     def report_row(report_id):
         return safe_one("SELECT * FROM operation_reports WHERE id=%s", (report_id,))
 
-    def process_status_from_summary(row):
+    def legacy_process_status_from_summary(row):
         report_count = int(row.get("report_count") or 0)
         start_count = int(row.get("start_count") or 0)
         pause_count = int(row.get("pause_count") or 0)
@@ -174,7 +174,7 @@ def register_production_operation_routes(app, deps):
             return "in_progress"
         return row.get("old_status") or ("not_started" if report_count == 0 else "in_progress")
 
-    def process_next_action(status, good_qty, planned_qty, rework_qty, scrap_qty):
+    def legacy_process_next_action(status, good_qty, planned_qty, rework_qty, scrap_qty):
         if status == "completed":
             return "核对后续质检、完工入库门禁和项目追溯"
         if rework_qty > 0:

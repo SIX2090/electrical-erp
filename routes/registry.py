@@ -1791,7 +1791,7 @@ def _render_category_detail(kind, category_id, back_url=None):
     return render_category_detail_adapter(kind, category_id, _safe_one, _safe_rows, _columns, back_url)
 
 
-def _render_production_routing_detail(routing_id, back_url="/production-routings"):
+def _legacy_render_production_routing_detail(routing_id, back_url="/production-routings"):
     routing = _safe_one(
         """
         SELECT pr.*, p.code AS product_code, p.name AS product_name, p.specification AS product_specification
@@ -1848,7 +1848,7 @@ def _render_production_routing_detail(routing_id, back_url="/production-routings
     )
 
 
-def _render_production_routing_list():
+def _legacy_render_production_routing_list():
     keyword = (request.args.get("keyword") or request.args.get("q") or request.args.get("search") or "").strip()
     status = (request.args.get("status") or "").strip()
     where_parts = [
@@ -1929,7 +1929,7 @@ def _render_production_routing_list():
     )
 
 
-def _render_work_center_list():
+def _legacy_render_work_center_list():
     keyword = (request.args.get("keyword") or request.args.get("q") or request.args.get("search") or "").strip()
     status = (request.args.get("status") or "").strip()
     where_parts = ["TRUE"]
@@ -1978,7 +1978,7 @@ def _render_work_center_list():
     )
 
 
-def _render_work_center_detail(work_center_id, back_url="/work-centers"):
+def _legacy_render_work_center_detail(work_center_id, back_url="/work-centers"):
     row = _safe_one(
         """
         SELECT id, code, name, description, location, responsible_person, is_active, created_at
@@ -4568,7 +4568,7 @@ def _service_card_source_options():
     )
 
 
-def _service_order_source_options():
+def _legacy_service_order_source_options():
     return _safe_rows(
         """
         SELECT so.id, so.order_no, so.service_date, so.service_type, so.status,
@@ -4585,7 +4585,7 @@ def _service_order_source_options():
     )
 
 
-def _render_service_order_form(order=None, action_url="/service-orders/new", mode="new"):
+def _legacy_render_service_order_form(order=None, action_url="/service-orders/new", mode="new"):
     order = order or {}
     selected_card_id = _form_int("service_card_id") or _as_int(request.args.get("service_card_id")) or _as_int(order.get("service_card_id"))
     return render_template(
@@ -4601,7 +4601,7 @@ def _render_service_order_form(order=None, action_url="/service-orders/new", mod
     )
 
 
-def _create_service_order_from_form():
+def _legacy_create_service_order_from_form():
     service_card_id = _form_int("service_card_id")
     if not service_card_id:
         flash("请选择设备服务档案。", "warning")
@@ -4731,7 +4731,7 @@ def _edit_service_order_from_form(order_id):
     return redirect(f"/service-orders/{order_id}")
 
 
-def _render_service_acceptance_form(acceptance=None, action_url="/service-acceptance/new", mode="new"):
+def _legacy_render_service_acceptance_form(acceptance=None, action_url="/service-acceptance/new", mode="new"):
     acceptance = acceptance or {}
     selected_card_id = _form_int("service_card_id") or _as_int(request.args.get("service_card_id")) or _as_int(acceptance.get("service_card_id"))
     return render_template(
@@ -4745,7 +4745,7 @@ def _render_service_acceptance_form(acceptance=None, action_url="/service-accept
     )
 
 
-def _create_service_acceptance_from_form():
+def _legacy_create_service_acceptance_from_form():
     service_card_id = _form_int("service_card_id")
     if not service_card_id:
         flash("请选择设备服务档案。", "warning")
@@ -4883,7 +4883,7 @@ def _render_service_acceptance_detail(acceptance_id, back_url="/service-acceptan
     )
 
 
-def _render_service_rma_form(rma=None, action_url="/service-rmas/new", mode="new"):
+def _legacy_render_service_rma_form(rma=None, action_url="/service-rmas/new", mode="new"):
     rma = rma or {}
     selected_order_id = _form_int("order_id") or _as_int(request.args.get("order_id")) or _as_int(rma.get("order_id"))
     return render_template(
@@ -4900,7 +4900,7 @@ def _render_service_rma_form(rma=None, action_url="/service-rmas/new", mode="new
     )
 
 
-def _create_service_rma_from_form():
+def _legacy_create_service_rma_from_form():
     order_id = _form_int("order_id")
     if not order_id:
         flash("请选择来源服务单。", "warning")
@@ -6691,7 +6691,7 @@ def _ensure_production_schedule_schema():
     )
 
 
-def _render_production_schedule_list(back_url="/production-schedules"):
+def _legacy_render_production_schedule_list(back_url="/production-schedules"):
     _ensure_production_schedule_schema()
     keyword = request.args.get("keyword", "").strip()
     keyword_sql = ""
@@ -6747,7 +6747,7 @@ def _render_production_schedule_list(back_url="/production-schedules"):
     )
 
 
-def _render_production_schedule_detail(schedule_id, back_url="/production-schedules"):
+def _legacy_render_production_schedule_detail(schedule_id, back_url="/production-schedules"):
     _ensure_production_schedule_schema()
     row = _safe_one(
         """
@@ -7589,7 +7589,7 @@ INVENTORY_STATUS_CANCELLED = "已取消"
 INVENTORY_PENDING_STATUSES = {INVENTORY_STATUS_PENDING, "待审核", "草稿", ""}
 
 
-def _inventory_initial_status():
+def _legacy_inventory_initial_status():
     return INVENTORY_STATUS_PENDING
 
 
@@ -12274,7 +12274,7 @@ def _render_inventory_adjustment_form(order=None, items=None, action_url="/adjus
         mode,
     )
 
-def _create_inventory_adjustment():
+def _legacy_create_inventory_adjustment():
     project_code = _form_text("project_code")
     project_header_error = _require_project_cabinet_values_or_redirect(project_code, "pending-line-check", "/adjustments/new")
     if project_header_error:
@@ -12393,7 +12393,7 @@ def _create_inventory_adjustment():
     return redirect("/adjustments")
 
 
-def _ensure_transfer_item_table():
+def _legacy_ensure_transfer_item_table():
     _execute_db(
         """
         CREATE TABLE IF NOT EXISTS transfer_order_items (
@@ -13616,7 +13616,7 @@ def _transfer_form_items():
     return items
 
 
-def _create_inventory_transfer():
+def _legacy_create_inventory_transfer():
     from_warehouse_id = _form_int("from_warehouse_id")
     to_warehouse_id = _form_int("to_warehouse_id")
     project_code = _form_text("project_code")
@@ -13794,7 +13794,7 @@ def _inventory_check_form_items():
 
 
 
-def _create_inventory_check():
+def _legacy_create_inventory_check():
     project_code = _form_text("project_code")
     project_header_error = _require_project_cabinet_values_or_redirect(project_code, "pending-line-check", "/inventory_checks/new")
     if project_header_error:
@@ -13878,7 +13878,7 @@ def _create_inventory_check():
     return redirect(f"/inventory_checks/{check_id}")
 
 
-def _create_inventory_movement(direction):
+def _legacy_create_inventory_movement(direction):
     tx_type = "其他入库" if direction == "in" else "其他出库"
     document_type = "other_inbound" if direction == "in" else "other_outbound"
     back_url = "/inventory/inbound" if direction == "in" else "/inventory/outbound"
@@ -21206,7 +21206,7 @@ def _render_service_rma_form(rma=None, action_url="/service-rmas/new", mode="new
     )
 
 
-def _create_service_order_from_form():
+def _legacy_v2_create_service_order_from_form():
     service_card_id = _form_int("service_card_id")
     if not service_card_id:
         flash("请选择设备服务档案。服务单必须从已发货柜号的服务卡创建。", "warning")
@@ -21274,7 +21274,7 @@ def _create_service_order_from_form():
     return redirect(f"/service-orders/{order_id}")
 
 
-def _create_service_acceptance_from_form():
+def _legacy_v2_create_service_acceptance_from_form():
     service_card_id = _form_int("service_card_id")
     if not service_card_id:
         flash("请选择设备服务档案。安装验收必须从已发货柜号的服务卡创建。", "warning")
@@ -22874,6 +22874,107 @@ def register_blueprints(app):
         if not receipt_no:
             flash("Purchase receipt has no document number; audit stopped.", "warning")
             return redirect(f"/purchase_receipts/{receipt_id}")
+
+        def operation(cursor):
+            query_one, query_rows, execute_db, _ = _registry_transaction_callables(cursor)
+            fresh = query_one("SELECT * FROM purchase_receipts WHERE id=%s FOR UPDATE", (receipt_id,))
+            if not fresh:
+                raise ValueError("采购入库单不存在。")
+            current_status = (fresh.get("status") or "").strip()
+            if current_status == INVENTORY_STATUS_POSTED:
+                return {"already_posted": True, "line_count": 0}
+            if current_status not in INVENTORY_PENDING_STATUSES:
+                raise ValueError("采购入库单当前状态不允许审核。")
+            existing_rows = query_rows(
+                "SELECT id FROM stock_transactions WHERE reference_no=%s ORDER BY id FOR UPDATE",
+                (receipt_no,),
+            )
+            if existing_rows:
+                raise ValueError("采购入库单存在部分或异常库存流水，请先核对并修复，禁止重复审核。")
+            lines = query_rows(
+                """
+                SELECT pri.*, p.current_cost, p.standard_price
+                FROM purchase_receipt_items pri
+                LEFT JOIN products p ON p.id=pri.product_id
+                WHERE pri.receipt_id=%s
+                ORDER BY pri.id
+                FOR UPDATE OF pri
+                """,
+                (receipt_id,),
+            )
+            if not lines:
+                raise ValueError("采购入库单没有明细。")
+            receipt_amount = Decimal("0")
+            posted_lines = 0
+            for line in lines:
+                qty = _as_decimal(line.get("quantity"))
+                if qty <= 0:
+                    continue
+                product_id = line.get("product_id")
+                if not product_id:
+                    raise ValueError("采购入库明细缺少物料，不能审核。")
+                receipt_amount += _as_decimal(line.get("amount_with_tax"))
+                unit_cost = _as_decimal(line.get("unit_cost") or line.get("current_cost") or line.get("standard_price"))
+                _apply_inventory_movement(
+                    product_id=product_id,
+                    quantity=qty,
+                    unit_cost=unit_cost,
+                    tx_type="采购入库",
+                    reference_no=receipt_no,
+                    remark=fresh.get("remark") or "采购入库",
+                    warehouse_id=line.get("warehouse_id") or fresh.get("warehouse_id"),
+                    location_id=line.get("location_id"),
+                    lot_no=line.get("lot_no") or "",
+                    cabinet_no=fresh.get("cabinet_no") or "",
+                    project_code=fresh.get("project_code") or "",
+                    tx_date=fresh.get("receipt_date"),
+                    query_one=query_one,
+                    execute_db_fn=execute_db,
+                )
+                if line.get("order_item_id"):
+                    execute_db(
+                        "UPDATE purchase_order_items SET received_qty=COALESCE(received_qty,0)+%s WHERE id=%s",
+                        (qty, line.get("order_item_id")),
+                    )
+                posted_lines += 1
+            if posted_lines <= 0:
+                raise ValueError("采购入库单没有可过账的正数量明细。")
+            if fresh.get("order_id"):
+                remaining = query_one(
+                    """
+                    SELECT COALESCE(SUM(GREATEST(COALESCE(quantity,0)-COALESCE(received_qty,0),0)),0) AS pending_qty
+                    FROM purchase_order_items
+                    WHERE order_id=%s
+                    """,
+                    (fresh.get("order_id"),),
+                ) or {}
+                new_status = "已收货" if _as_decimal(remaining.get("pending_qty")) <= 0 else "部分收货"
+                execute_db(
+                    """
+                    UPDATE purchase_orders
+                    SET received_amount=COALESCE(received_amount,0)+%s, status=%s
+                    WHERE id=%s
+                    """,
+                    (receipt_amount, new_status, fresh.get("order_id")),
+                )
+            execute_db(
+                "UPDATE purchase_receipts SET status=%s WHERE id=%s",
+                (INVENTORY_STATUS_POSTED, receipt_id),
+            )
+            return {"already_posted": False, "line_count": posted_lines}
+
+        try:
+            result = _run_registry_transaction(operation)
+        except ValueError as exc:
+            flash(str(exc), "warning")
+            return redirect(f"/purchase_receipts/{receipt_id}")
+        if result.get("already_posted"):
+            flash("采购入库单已经审核。", "info")
+            return redirect(f"/purchase_receipts/{receipt_id}")
+        _log_action("purchase_receipt_audit", receipt_no, f"lines={result.get('line_count')}")
+        flash("采购入库单已审核。", "success")
+        return redirect(f"/purchase_receipts/{receipt_id}")
+
         existing = _safe_one(
             "SELECT id FROM stock_transactions WHERE reference_no=%s LIMIT 1",
             (receipt_no,),

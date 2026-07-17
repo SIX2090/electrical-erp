@@ -231,3 +231,83 @@ set INVENTORY_NAV_MODE=gt_pilot && set PG_PASSWORD=<controlled-password> && pyth
 ```
 
 Then execute and reconcile the sales, procurement, production, subcontracting, inventory, service, finance, trace, and cost workflows with their normal pilot roles. HTTP success alone is not acceptance.
+
+## Second-Pass Findings — 2026-07-17
+
+This pass was diagnostic only. It used additional Ruff structural/security rules, duplicate-definition analysis, schema-to-query comparison, and transaction-call-chain review. Database and browser execution remain unavailable.
+
+### BUG-011 — Management cockpit AR/AP/cash KPIs query nonexistent tables
+
+- Severity: High
+- Evidence: `services/management_bi_service.py:356-590`
+- Runtime path: `routes/app_shell_routes.py:996-999` imports and calls `get_cockpit_kpis`, which resolves the last definitions in `management_bi_service.py`.
+- Defect:
+  - sales aging checks and queries `receivables`, while the application schema owns `customer_receivables`;
+  - finance AR checks and queries `receivables`;
+  - finance AP checks and queries `payables`, while the application schema owns `supplier_payables`;
+  - cash checks and queries `fund_accounts`, while the application schema owns `cash_bank_accounts`.
+- Result: optional-table guards suppress the queries and return zero/empty AR, AP, cash, and aging metrics even when operational finance data exists. Net cash position is therefore materially misleading.
+- Additional status defect: final KPI definitions largely exclude only English statuses. Chinese statuses such as closed, voided, completed, and cancelled values can be counted as open backlog/WIP/PO records.
+- Acceptance: reconcile cockpit totals to AR/AP detail ledgers, cash-bank journal/balances, sales backlog, work-order WIP, and purchase open-order reports using Chinese and legacy English statuses.
+
+### BUG-012 — Purchase receipt audit is not atomic across lines, stock, order counters, and document status
+
+- Severity: Critical
+- Evidence: `routes/registry.py:22867-22948`
+- Trigger: audit a purchase receipt with multiple lines, then cause a later line or post-line order/status update to fail.
+- Defect:
+  - each `_apply_inventory_movement` call opens and commits its own registry transaction;
+  - `purchase_order_items.received_qty` is updated separately after each committed stock movement;
+  - purchase-order received amount/status and receipt status are updated after all lines, outside one enclosing transaction;
+  - the `existing stock transaction` shortcut treats any matching row as proof that the whole receipt was audited.
+- Result: a partial failure can leave some stock balances and transactions committed while the receipt remains pending, later order lines remain unchanged, or order/header status is stale. Retrying can be blocked by the first existing stock transaction even though other lines were never posted.
+- Required fix direction: lock the receipt/header/lines/order rows and post every line, order counter, order status, receipt status, trace link, and finance effect inside one transaction. Idempotency must be receipt-and-line based, not `reference_no` existence alone.
+- Acceptance: force failure on line 2 of a multi-line receipt and after all stock lines but before status update; both cases must roll back all stock, counters, statuses, trace links, and payable/cost effects.
+
+### BUG-013 — Duplicate function definitions silently replace business implementations
+
+- Severity: Medium (systemic maintainability and regression risk)
+- Confirmed duplicate groups:
+  - `services/management_bi_service.py`: five KPI functions are each defined twice; the second set caused BUG-011 by replacing schema-correct queries.
+  - `routes/registry.py`: production routing/work-center/schedule renderers, inventory create handlers, transfer schema helper, service forms and create handlers, source options, and initial inventory status are defined two or three times.
+  - `routes/print_template_routes.py`: grid layout, initial HTML, and document-label helpers are each defined multiple times.
+  - `routes/system_health_helpers.py`: `_recent_error_rows` is defined twice.
+  - `routes/production_operation_routes.py`: three nested process status/next-action helpers are redefined in the same registration function.
+- Result: earlier code is dead even though it appears valid and may contain different validation, fields, statuses, document numbering, or reconciliation behavior. Changes made to the first definition have no runtime effect. The management KPI overwrite already demonstrates a user-visible failure from this pattern.
+- Required fix direction: compare each duplicate pair against route/page acceptance, retain one canonical implementation, and delete the shadowed implementation in a scoped module-specific repair. Do not bulk-delete without targeted regression because later service/acceptance definitions contain additional business fields.
+- Acceptance: Ruff `F811` has no functional redefinitions, top-level duplicate scan is empty for application modules, and targeted production/service/inventory/print/health workflows pass.
+
+### Candidate Findings Rejected or Deferred
+
+- The `continue` after purchase-receipt line insertion in `routes/registry.py:9416` intentionally separates draft creation from audit-time stock posting. The dead code below it is cleanup debt, but the `continue` itself is not the posting defect; BUG-012 is the active audit-path defect.
+- Ruff produced hundreds of `S608` string-SQL candidates. Many use repository-controlled table, column, report, or sort identifiers and parameterize values. They are not classified as confirmed injection defects without a user-input-to-identifier path.
+- Exception-swallowing findings require per-call review. Optional-schema/read-only fallbacks are not automatically business defects, while posting/voucher fallbacks may be; those remain for the next pass.
+
+## Second-Pass Repair Status — 2026-07-17
+
+The user authorized repairs for BUG-011 through BUG-013. The implementation boundary is recorded in `docs/cockpit_purchase_receipt_bugfix_boundary_20260717.md`.
+
+### BUG-011 — Source fix complete; runtime reconciliation pending
+
+- Canonical cockpit KPI functions now query `customer_receivables`, `supplier_payables`, and `cash_bank_accounts.current_balance`.
+- AR/AP/cash optional-table guards now use the actual schema names.
+- Sales, production, finance, and procurement filters recognize established Chinese and legacy English closed/completed/cancelled/void statuses.
+- The earlier KPI implementations were renamed to explicit `legacy_*` functions, so they no longer shadow or masquerade as active definitions.
+
+### BUG-012 — Source fix complete; database failure-injection pending
+
+- Purchase receipt audit now locks the receipt and receipt lines inside one registry transaction.
+- Stock posting uses the same transaction cursor for every line.
+- Purchase-order line received quantities, purchase-order amount/status, and receipt posted status are updated in the same transaction.
+- A fully posted receipt returns idempotently without reposting.
+- A pending receipt with any pre-existing stock transaction is treated as partial/inconsistent state and blocked instead of being reported as successfully audited.
+- Missing material, non-positive-only lines, invalid status, or any later-line failure raises before commit and rolls back the complete operation.
+
+### BUG-013 — Duplicate definition cleanup complete for application modules
+
+- Shadowed registry, print-template, system-health, management-KPI, and production-operation definitions were renamed to explicit `legacy_*` / `legacy_v2_*` names.
+- Runtime canonical function names and route call sites were not changed.
+- Static top-level duplicate scan across `routes/` and `services/`: zero duplicate names.
+- Ruff critical and redefinition rules (`E9`, `F63`, `F7`, `F82`, `F811`): no findings.
+
+Dynamic acceptance remains blocked by the absent Python/PostgreSQL audit environment. BUG-011 requires ledger-to-cockpit reconciliation; BUG-012 requires a multi-line receipt failure-injection test and inventory consistency audit before production release.

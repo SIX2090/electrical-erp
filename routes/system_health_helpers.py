@@ -79,7 +79,7 @@ def _route_health_rows(route_checks):
     ]
 
 
-def _recent_error_rows(limit=20):
+def _legacy_recent_error_rows(limit=20):
     log_files = []
     for path in [ROOT_DIR / "flask_stderr.log", ROOT_DIR / "flask_stdout.log"]:
         if path.exists():
