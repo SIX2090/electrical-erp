@@ -505,6 +505,65 @@ def inventory_outbound(query_db, execute_db, product_id, quantity, location="", 
     return {"tx_id": tx_id}
 
 
+def reverse_inventory_change(query_db, execute_db, *, product_id, signed_quantity, unit_cost=0, warehouse_id=None, location_id=None, lot_no="", cabinet_no="", project_code="", reference_no="", transaction_id=None):
+    """Reverse one posted stock transaction while preserving balance/cost mirrors."""
+    signed_qty = _to_decimal(signed_quantity)
+    cost = _to_decimal(unit_cost)
+    if not product_id or signed_qty == 0:
+        return False
+    balance = _fetch_one(
+        query_db,
+        """
+        SELECT id, quantity, unit_cost
+        FROM inventory_balances
+        WHERE product_id=%s
+          AND warehouse_id IS NOT DISTINCT FROM %s
+          AND location_id IS NOT DISTINCT FROM %s
+          AND COALESCE(lot_no,'')=%s
+          AND COALESCE(cabinet_no,'')=%s
+          AND COALESCE(project_code,'')=%s
+        ORDER BY id LIMIT 1
+        FOR UPDATE
+        """,
+        (product_id, warehouse_id, location_id, lot_no or "", cabinet_no or "", project_code or ""),
+    )
+    if not balance:
+        raise ValueError("无法反审：找不到对应的库存余额记录。")
+    old_qty = _to_decimal(balance.get("quantity"))
+    new_qty = old_qty - signed_qty
+    if new_qty < 0:
+        raise ValueError(f"无法反审：反审后库存将变为 {new_qty}（小于 0），可能已有下游单据消耗了这批库存。")
+    if signed_qty > 0:
+        old_cost = _to_decimal(balance.get("unit_cost"))
+        new_cost = ((old_qty * old_cost) - (signed_qty * cost)) / new_qty if new_qty > 0 else cost
+        execute_db(
+            "UPDATE inventory_balances SET quantity=%s, unit_cost=%s, updated_at=NOW() WHERE id=%s",
+            (new_qty, new_cost, balance.get("id")),
+        )
+    else:
+        execute_db(
+            "UPDATE inventory_balances SET quantity=%s, updated_at=NOW() WHERE id=%s",
+            (new_qty, balance.get("id")),
+        )
+    _sync_legacy_inventory_from_balances(query_db, execute_db, product_id)
+    _sync_batch_tracking_from_balance(
+        query_db,
+        execute_db,
+        product_id,
+        warehouse_id,
+        location_id,
+        lot_no,
+        cabinet_no,
+        project_code,
+        reference_no,
+        movement_qty=-signed_qty,
+    )
+    _assert_inventory_balance_consistent(query_db, product_id)
+    if transaction_id is not None:
+        execute_db("DELETE FROM stock_transactions WHERE id=%s", (transaction_id,))
+    return True
+
+
 def ensure_document_sequence_schema(execute_db) -> None:
     """Create the document_sequences table if it does not yet exist."""
     execute_db(

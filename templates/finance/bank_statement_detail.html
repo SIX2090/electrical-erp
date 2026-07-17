@@ -171,6 +171,12 @@
 </div>
 
 <script>
+function escapeBankMatchHtml(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, function(char) {
+        return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[char];
+    });
+}
+
 function openMatchModal(lineId) {
     var modal = new bootstrap.Modal(document.getElementById('matchModal'));
     var body = document.getElementById('matchModalBody');
@@ -184,12 +190,13 @@ function openMatchModal(lineId) {
             }
             var html = '<div class="table-responsive"><table class="table table-sm table-hover"><thead><tr><th>日期</th><th>方向</th><th>金额</th><th>对方</th><th>摘要</th><th>操作</th></tr></thead><tbody>';
             data.journals.forEach(function(j) {
-                html += '<tr><td>' + (j.entry_date || '') + '</td>';
+                var journalId = Number.isInteger(Number(j.id)) ? Number(j.id) : 0;
+                html += '<tr><td>' + escapeBankMatchHtml(j.entry_date || '') + '</td>';
                 html += '<td>' + (j.direction === 'in' ? '<span class="badge text-bg-success">收入</span>' : '<span class="badge text-bg-danger">支出</span>') + '</td>';
                 html += '<td class="text-end">' + parseFloat(j.amount || 0).toFixed(2) + '</td>';
-                html += '<td>' + (j.partner_name || '-') + '</td>';
-                html += '<td>' + (j.summary || '-') + '</td>';
-                html += '<td><form method="post" action="/finance/bank-statements/lines/' + lineId + '/match" class="d-inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="journal_id" value="' + j.id + '"><button type="submit" class="btn btn-primary btn-sm py-0 px-2">匹配</button></form></td></tr>';
+                html += '<td>' + escapeBankMatchHtml(j.partner_name || '-') + '</td>';
+                html += '<td>' + escapeBankMatchHtml(j.summary || '-') + '</td>';
+                html += '<td><form method="post" action="/finance/bank-statements/lines/' + Number(lineId) + '/match" class="d-inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="journal_id" value="' + journalId + '"><button type="submit" class="btn btn-primary btn-sm py-0 px-2">匹配</button></form></td></tr>';
             });
             html += '</tbody></table></div>';
             body.innerHTML = html;

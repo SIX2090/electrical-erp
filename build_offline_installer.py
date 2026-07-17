@@ -740,7 +740,7 @@ def main():
         print("\n")
 
     except Exception as e:
-        log_error(f"生成安装包失败: {e}")
+        print(f"生成安装包失败: {e}", file=sys.stderr)
         import traceback
         traceback.print_exc()
         sys.exit(1)

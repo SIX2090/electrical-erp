@@ -2,7 +2,7 @@
 from datetime import datetime
 from decimal import Decimal
 
-from flask import render_template
+from flask import current_app, render_template
 
 from .document_print_routes import build_template_grid_for_document
 
@@ -1008,7 +1008,7 @@ def _load_work_order_change_control(work_order_id, order, query_one, query_rows)
         try:
             return query_one(sql, params) or {}
         except Exception:
-            logger.warning("work order change control sub-query failed", exc_info=True)
+            current_app.logger.warning("work order change control sub-query failed", exc_info=True)
             return {}
 
     issued = one(
@@ -1056,7 +1056,7 @@ def _load_work_order_change_control(work_order_id, order, query_one, query_rows)
             (work_order_id,),
         )
     except Exception:
-        logger.warning("_load_work_order_change_control records query failed for wo_id=%s", work_order_id, exc_info=True)
+        current_app.logger.warning("_load_work_order_change_control records query failed for wo_id=%s", work_order_id, exc_info=True)
         records = []
     return {
         "blocked": bool(blockers),

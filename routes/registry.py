@@ -11,7 +11,12 @@ import traceback
 
 from flask import abort, current_app, flash, g, jsonify, redirect, render_template, request, session, url_for
 from werkzeug.utils import secure_filename
-from services.inventory_service import inventory_inbound_weighted_avg, inventory_outbound
+from services.inventory_service import (
+    inventory_inbound_weighted_avg,
+    inventory_outbound,
+    post_inventory_change,
+    reverse_inventory_change,
+)
 from services.transaction_utils import cursor_db_helpers
 from services.work_order_cost_service import sync_work_order_costs
 from services.work_order_snapshot_service import (
@@ -554,6 +559,10 @@ def _current_user_id():
 
 def _current_role():
     return session.get("role", "staff")
+
+
+def _current_role_allowed(*roles):
+    return bool(deps["has_any_role"](*roles))
 
 
 def _current_data_scope(permission="view"):
@@ -2686,6 +2695,7 @@ def _import_material_csv():
     if blocked:
         _log_action("\u7269\u6599\u5bfc\u5165\u6821\u9a8c\u5931\u8d25", file.filename, "\uff1b".join(validation_errors[:5]))
         return blocked
+    rows = list(reader)
     if request.form.get("action") == "precheck":
         report = _build_material_import_precheck_report(rows, validation_errors)
         _log_action("物料导入预检", file.filename, f"errors={report['error_count']}")
@@ -2693,7 +2703,6 @@ def _import_material_csv():
     if not _safe_one("SELECT id FROM product_categories LIMIT 1"):
         flash("\u5bfc\u5165\u7269\u6599\u524d\u5fc5\u987b\u5148\u7ef4\u62a4\u7269\u6599\u5206\u7c7b\u6863\u6848\u3002", "danger")
         return redirect("/material/import")
-    rows = list(reader)
     category_cache = {}
     for line_no, row in enumerate(rows, start=2):
         category_name = _material_import_category_name(row)
@@ -7696,9 +7705,74 @@ def _apply_inventory_movement(product_id, quantity, unit_cost, tx_type, referenc
     tx_date = tx_date or datetime.now().date().isoformat()
     location_label = ""
     if location_id:
-        loc = _safe_one("SELECT code, name FROM locations WHERE id=%s", (location_id,))
+        loc = query_one("SELECT code, name FROM locations WHERE id=%s", (location_id,))
         if loc:
             location_label = loc.get("code") or loc.get("name") or ""
+
+    direction = "in" if qty > 0 else "out"
+    posting_qty = qty if qty > 0 else -qty
+    if direction == "out" and (cabinet_no or project_code):
+        exact = query_one(
+            """
+            SELECT COALESCE(quantity,0) AS quantity
+            FROM inventory_balances
+            WHERE product_id=%s
+              AND warehouse_id IS NOT DISTINCT FROM %s
+              AND location_id IS NOT DISTINCT FROM %s
+              AND COALESCE(lot_no,'')=%s
+              AND COALESCE(cabinet_no,'')=%s
+              AND COALESCE(project_code,'')=%s
+            ORDER BY id LIMIT 1
+            FOR UPDATE
+            """,
+            (product_id, warehouse_id, location_id, lot_no or "", cabinet_no or "", project_code or ""),
+        )
+        if _as_decimal((exact or {}).get("quantity")) < posting_qty:
+            common = query_one(
+                """
+                SELECT COALESCE(quantity,0) AS quantity
+                FROM inventory_balances
+                WHERE product_id=%s
+                  AND warehouse_id IS NOT DISTINCT FROM %s
+                  AND location_id IS NOT DISTINCT FROM %s
+                  AND COALESCE(lot_no,'')=%s
+                  AND COALESCE(cabinet_no,'')=''
+                  AND COALESCE(project_code,'')=''
+                ORDER BY id LIMIT 1
+                FOR UPDATE
+                """,
+                (product_id, warehouse_id, location_id, lot_no or ""),
+            )
+            if _as_decimal((common or {}).get("quantity")) >= posting_qty:
+                cabinet_no = ""
+                project_code = ""
+
+    def posting_query(sql, params=None, one=False):
+        return query_one(sql, params)
+
+    try:
+        return post_inventory_change(
+            posting_query,
+            execute_db_fn,
+            product_id=product_id,
+            quantity=posting_qty,
+            unit_cost=cost,
+            direction=direction,
+            location=location_label,
+            reference_no=reference_no,
+            remark=remark,
+            tx_date=tx_date,
+            tx_type=tx_type,
+            lot_no=lot_no,
+            cabinet_no=cabinet_no,
+            warehouse_id=warehouse_id,
+            location_id=location_id,
+            project_code=project_code,
+            source_type=tx_type,
+            source_doc_no=reference_no,
+        )
+    except RuntimeError as exc:
+        raise ValueError(str(exc)) from exc
 
     balance = query_one(
         """
@@ -14131,8 +14205,8 @@ def _unaudit_inventory_return(table, record_id, kind):
                 project_code=tx.get("project_code") or "",
                 query_one=query_one,
                 execute_db_fn=execute_db,
+                transaction_id=tx.get("id"),
             )
-            execute_db("DELETE FROM stock_transactions WHERE id=%s", (tx.get("id"),))
         execute_db(
             f"""
             UPDATE {table}
@@ -18712,8 +18786,8 @@ def _unaudit_inventory_movement(doc_no):
                 project_code=tx.get("project_code") or "",
                 query_one=query_one,
                 execute_db_fn=execute_db,
+                transaction_id=tx.get("id"),
             )
-            execute_db("DELETE FROM stock_transactions WHERE id=%s", (tx.get("id"),))
         execute_db(
             """
             UPDATE inventory_movement_documents
@@ -19184,7 +19258,7 @@ def _copy_subcontract_document(kind, doc_id):
 
 
 
-def _reverse_inventory_movement_balance(product_id, signed_qty, unit_cost, warehouse_id, location_id, lot_no, cabinet_no, project_code, query_one=None, execute_db_fn=None):
+def _reverse_inventory_movement_balance(product_id, signed_qty, unit_cost, warehouse_id, location_id, lot_no, cabinet_no, project_code, query_one=None, execute_db_fn=None, transaction_id=None):
     """Reverse the inventory_balances effect of a previously-posted stock_transactions
     row. signed_qty is the original signed quantity (positive for inbound, negative
     for outbound). Reversal subtracts that signed qty from the balance (i.e. inbound
@@ -19194,6 +19268,19 @@ def _reverse_inventory_movement_balance(product_id, signed_qty, unit_cost, wareh
     execute_db_fn = execute_db_fn or _execute_db
     if not product_id or signed_qty == 0:
         return
+    return reverse_inventory_change(
+        lambda sql, params=None, one=False: query_one(sql, params),
+        execute_db_fn,
+        product_id=product_id,
+        signed_quantity=signed_qty,
+        unit_cost=unit_cost,
+        warehouse_id=warehouse_id,
+        location_id=location_id,
+        lot_no=lot_no,
+        cabinet_no=cabinet_no,
+        project_code=project_code,
+        transaction_id=transaction_id,
+    )
     balance = query_one(
         """
         SELECT id, quantity, unit_cost
@@ -19397,8 +19484,8 @@ def _reverse_stock_transactions_for_reference(reference_no, tx_types=None, query
             project_code=tx.get("project_code") or "",
             query_one=query_one,
             execute_db_fn=execute_db_fn,
+            transaction_id=tx.get("id"),
         )
-        execute_db_fn("DELETE FROM stock_transactions WHERE id=%s", (tx.get("id"),))
     return len(tx_rows)
 
 
@@ -24576,5 +24663,3 @@ def register_blueprints(app):
             return jsonify({"ok": True})
         except Exception as e:
             return jsonify({"ok": False, "error": str(e)})
-
-

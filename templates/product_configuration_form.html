@@ -396,9 +396,10 @@
                 });
             }
         });
+        const escapeIssueHtml = (value) => String(value == null ? '' : value).replace(/[&<>"']/g, (char) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[char]));
         if (issues.length) {
             warning.classList.remove('d-none');
-            warning.innerHTML = `<div class="fw-semibold mb-1">选配明细需要处理：</div><ul class="mb-0">${issues.slice(0, 6).map((item) => `<li>${item}</li>`).join('')}</ul>`;
+            warning.innerHTML = `<div class="fw-semibold mb-1">选配明细需要处理：</div><ul class="mb-0">${issues.slice(0, 6).map((item) => `<li>${escapeIssueHtml(item)}</li>`).join('')}</ul>`;
         } else {
             warning.classList.add('d-none');
             warning.innerHTML = '';

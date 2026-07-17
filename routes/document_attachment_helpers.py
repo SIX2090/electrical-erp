@@ -1,22 +1,8 @@
-"""Document attachment helpers: table creation and attachment CRUD utilities."""
+"""Document attachment helpers: attachment query utilities."""
 def ensure_document_attachment_table(execute_db):
-    execute_db(
-        """
-        CREATE TABLE IF NOT EXISTS document_attachments (
-            id SERIAL PRIMARY KEY,
-            subject_type VARCHAR(64) NOT NULL,
-            subject_id INTEGER NOT NULL,
-            file_name VARCHAR(255) NOT NULL,
-            stored_path VARCHAR(500) NOT NULL,
-            content_type VARCHAR(120),
-            file_size INTEGER,
-            attachment_type VARCHAR(40),
-            remark TEXT,
-            uploaded_by INTEGER,
-            uploaded_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
-        )
-        """
-    )
+    # Schema ownership belongs to services/schema_migrations.py. This helper is
+    # retained for call-site compatibility and must never execute request-time DDL.
+    return None
 
 
 def fetch_material_attachments(product_id, ensure_attachment_table, query_rows):
